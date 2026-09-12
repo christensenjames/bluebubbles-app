@@ -233,20 +233,25 @@ class _MessagePopupState extends State<MessagePopup> with SingleTickerProviderSt
           mainAxisSize: MainAxisSize.min,
           children: [
             if (selfReaction == ReactionTypes.EMOJI && selfReactionEmoji != null)
-              Material(
-                color: Colors.transparent,
-                child: InkWell(
-                  onTap: () => sendEmojiReaction(selfReactionEmoji!),
-                  child: Padding(
-                    padding: const EdgeInsets.all(12),
-                    child: Row(children: [
-                      Icon(iOS ? cupertino.CupertinoIcons.clear_circled : Icons.remove_circle_outline,
-                          color: context.theme.colorScheme.outline),
-                      const SizedBox(width: 8),
-                      Text("Remove ${selfReactionEmoji!}",
-                          style: context.theme.textTheme.bodyLarge!
-                              .copyWith(color: context.theme.colorScheme.outline)),
-                    ]),
+              Padding(
+                padding: const EdgeInsets.only(bottom: 8),
+                child: Material(
+                  color: context.theme.colorScheme.error.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(12),
+                  child: InkWell(
+                    borderRadius: BorderRadius.circular(12),
+                    onTap: () => sendEmojiReaction(selfReactionEmoji!),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                      child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+                        Icon(iOS ? cupertino.CupertinoIcons.clear_circled : Icons.remove_circle_outline,
+                            color: context.theme.colorScheme.error),
+                        const SizedBox(width: 8),
+                        Text("Remove ${selfReactionEmoji!}",
+                            style: context.theme.textTheme.bodyLarge!
+                                .copyWith(color: context.theme.colorScheme.error, fontWeight: FontWeight.w600)),
+                      ]),
+                    ),
                   ),
                 ),
               ),
