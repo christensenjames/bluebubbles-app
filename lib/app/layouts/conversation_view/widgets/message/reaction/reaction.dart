@@ -64,6 +64,7 @@ class ReactionWidgetState extends State<ReactionWidget> with ThemeHelpers {
       final found = parentController.associatedMessages.firstWhereOrNull((m) =>
           m.guid == widget.reaction.guid ||
           (m.associatedMessageType == widget.reaction.associatedMessageType &&
+              m.associatedMessageEmoji == widget.reaction.associatedMessageEmoji &&
               m.associatedMessagePart == widget.reaction.associatedMessagePart &&
               m.isFromMe == widget.reaction.isFromMe));
       if (found != null) return found;
