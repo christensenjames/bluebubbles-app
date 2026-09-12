@@ -22,8 +22,8 @@ class TextFieldRecordingOverlay extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Obx(() => AnimatedSize(
-          duration: const Duration(milliseconds: 500),
-          curve: controller.showRecording.value ? Curves.easeOutBack : Curves.easeOut,
+          duration: const Duration(milliseconds: 300),
+          curve: const Cubic(0.23, 1.0, 0.32, 1.0),
           child: !controller.showRecording.value
               ? const SizedBox.shrink()
               : Builder(builder: (context) {

@@ -548,7 +548,7 @@ class _MessageHolderState extends State<MessageHolder> with AutomaticKeepAliveCl
                                                                                       duration: const Duration(
                                                                                           milliseconds: 250),
                                                                                       alignment: Alignment.centerRight,
-                                                                                      curve: Curves.easeOutBack,
+                                                                                      curve: const Cubic(0.23, 1.0, 0.32, 1.0),
                                                                                       child: editStuff == null
                                                                                           ? const SizedBox.shrink()
                                                                                           : MessageEditField(

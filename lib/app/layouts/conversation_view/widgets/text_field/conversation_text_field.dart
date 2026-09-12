@@ -515,7 +515,7 @@ class ConversationTextFieldState extends CustomState<ConversationTextField, void
                 final pickerWidth = MediaQuery.sizeOf(context).width;
                 return Obx(() => AnimatedSize(
                       duration: const Duration(milliseconds: 250),
-                      curve: Curves.easeIn,
+                      curve: const Cubic(0.23, 1.0, 0.32, 1.0),
                       alignment: Alignment.bottomCenter,
                       child: !showAttachmentPicker
                           ? SizedBox(width: pickerWidth)

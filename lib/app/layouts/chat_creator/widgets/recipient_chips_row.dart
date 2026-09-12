@@ -51,7 +51,7 @@ class _RecipientChipsRowState extends State<RecipientChipsRow> {
                     children: [
                       AnimatedSize(
                         duration: const Duration(milliseconds: 250),
-                        curve: Curves.easeIn,
+                        curve: const Cubic(0.23, 1.0, 0.32, 1.0),
                         alignment: Alignment.centerLeft,
                         child: ConstrainedBox(
                           constraints: BoxConstraints(

@@ -643,7 +643,7 @@ class MessagesViewState extends State<MessagesView> with MessagesServiceMixin, T
                       ? 0
                       : (dropZoneManager.dragging.value ? 0.3 : 1),
                   duration: const Duration(milliseconds: 150),
-                  curve: Curves.easeIn,
+                  curve: const Cubic(0.23, 1.0, 0.32, 1.0),
                   child: DeferredPointerHandler(
                     child: ScrollbarWrapper(
                       reverse: true,

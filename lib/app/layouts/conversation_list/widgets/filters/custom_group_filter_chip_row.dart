@@ -113,7 +113,9 @@ class CustomGroupFilterChipRow extends StatelessWidget {
               child: AnimatedSwitcher(
                 duration: !showUngroupedChip ? const Duration(milliseconds: 500) : const Duration(milliseconds: 300),
                 transitionBuilder: (child, animation) => ScaleTransition(
-                  scale: CurvedAnimation(parent: animation, curve: Curves.easeOutBack, reverseCurve: Curves.easeIn),
+                  scale: Tween<double>(begin: 0.92, end: 1.0).animate(
+                    CurvedAnimation(parent: animation, curve: const Cubic(0.23, 1.0, 0.32, 1.0), reverseCurve: Curves.easeIn),
+                  ),
                   child: child,
                 ),
                 child: !showUngroupedChip

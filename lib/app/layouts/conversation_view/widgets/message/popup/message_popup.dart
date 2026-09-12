@@ -390,13 +390,13 @@ class _MessagePopupState extends State<MessagePopup> with SingleTickerProviderSt
                   if (iOS)
                     AnimatedPositioned(
                       duration: const Duration(milliseconds: 250),
-                      curve: Curves.easeOutBack,
+                      curve: const Cubic(0.23, 1.0, 0.32, 1.0),
                       left: widget.childPosition.dx,
                       bottom: messageOffset,
                       child: TweenAnimationBuilder<double>(
                         tween: Tween<double>(begin: 0.8, end: 1),
                         curve: Curves.easeOutBack,
-                        duration: const Duration(milliseconds: 500),
+                        duration: const Duration(milliseconds: 300),
                         child: NotificationListener<SizeChangedLayoutNotification>(
                           onNotification: (_) {
                             _remeasureChild();
@@ -566,8 +566,8 @@ class _MessagePopupState extends State<MessagePopup> with SingleTickerProviderSt
                       bottom: 30,
                       child: TweenAnimationBuilder<double>(
                         tween: Tween<double>(begin: 0.8, end: 1),
-                        curve: Curves.easeOutBack,
-                        duration: const Duration(milliseconds: 400),
+                        curve: const Cubic(0.23, 1.0, 0.32, 1.0),
+                        duration: const Duration(milliseconds: 300),
                         child: FadeTransition(
                           opacity: CurvedAnimation(
                             parent: controller,
