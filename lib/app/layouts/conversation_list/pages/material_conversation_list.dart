@@ -61,10 +61,11 @@ class _MaterialConversationListState extends State<MaterialConversationList> {
       },
       child: Container(
         color: backgroundColor,
-        padding: EdgeInsets.only(top: kIsDesktop ? 30 : 0),
         child: Scaffold(
           appBar: PreferredSize(
-            preferredSize: const Size.fromHeight(60),
+            // Desktop draws its own title bar over the top of the window, so the
+            // header grows to sit under it rather than being pushed down past it.
+            preferredSize: Size.fromHeight(kIsDesktop ? 80 : 60),
             child: MaterialHeader(parentController: controller),
           ),
           backgroundColor: SettingsSvc.settings.windowEffect.value == WindowEffect.disabled

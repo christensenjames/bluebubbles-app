@@ -1,3 +1,4 @@
+import 'package:bluebubbles/helpers/helpers.dart';
 import 'package:bluebubbles/app/layouts/conversation_list/pages/conversation_list.dart';
 import 'package:bluebubbles/app/layouts/conversation_list/widgets/header/header_widgets.dart';
 import 'package:bluebubbles/app/layouts/conversation_list/pages/search/search_view.dart';
@@ -46,7 +47,7 @@ class _MaterialHeaderState extends CustomState<MaterialHeader, void, Conversatio
                             : Colors.transparent,
                       ),
                       child: Padding(
-                        padding: const EdgeInsets.only(left: 5.0, top: 6.0, bottom: 6.0),
+                        padding: EdgeInsets.only(left: 5.0, top: kIsDesktop ? 30.0 : 6.0, bottom: 6.0),
                         child: Row(
                           mainAxisAlignment: MainAxisAlignment.start,
                           children: [
@@ -123,10 +124,10 @@ class _MaterialHeaderState extends CustomState<MaterialHeader, void, Conversatio
                 )
               : SafeArea(
                   child: Padding(
-                    padding: const EdgeInsets.only(
+                    padding: EdgeInsets.only(
                       right: 20.0,
                       left: 20.0,
-                      top: 10,
+                      top: kIsDesktop ? 34.0 : 10,
                     ),
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
