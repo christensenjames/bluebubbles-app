@@ -8,6 +8,7 @@ import android.os.Bundle
 import android.view.WindowInsets
 import android.view.WindowInsetsAnimation
 import androidx.activity.ComponentActivity
+import androidx.annotation.RequiresApi
 import com.bluebubbles.messaging.services.backend_ui_interop.MethodCallHandler
 import com.bluebubbles.messaging.services.foreground.ForegroundServiceBroadcastReceiver
 import com.bluebubbles.messaging.Constants
@@ -62,6 +63,27 @@ class MainActivity : FlutterFragmentActivity() {
                 _dartReady = ready
             }
         }
+    }
+
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) refeedImeInsetsAfterAnimation()
+    }
+
+    // Flutter replays stale IME insets after resuming mid-animation; re-feed the real ones past its listener.
+    @RequiresApi(Build.VERSION_CODES.R)
+    private fun refeedImeInsetsAfterAnimation() {
+        val decor = window.decorView
+        decor.setWindowInsetsAnimationCallback(object : WindowInsetsAnimation.Callback(DISPATCH_MODE_CONTINUE_ON_SUBTREE) {
+            override fun onProgress(insets: WindowInsets, running: MutableList<WindowInsetsAnimation>) = insets
+            override fun onEnd(animation: WindowInsetsAnimation) {
+                if (animation.typeMask and WindowInsets.Type.ime() == 0) return
+                decor.post {
+                    val flutterView = findViewById<FlutterView>(FlutterFragment.FLUTTER_VIEW_ID) ?: return@post
+                    flutterView.rootWindowInsets?.let { flutterView.onApplyWindowInsets(it) }
+                }
+            }
+        })
     }
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
@@ -139,23 +161,6 @@ class MainActivity : FlutterFragmentActivity() {
         } catch (e: Exception) {
             PersistentLog.e(this, Constants.logTag, "Caught unhandled Exception when destroying MainActivity", e)
         }
-    }
-
-    // Flutter replays stale IME insets after resuming mid-animation; re-feed the real ones past its listener.
-    override fun onCreate(savedInstanceState: Bundle?) {
-        super.onCreate(savedInstanceState)
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.R) return
-        val decor = window.decorView
-        decor.setWindowInsetsAnimationCallback(object : WindowInsetsAnimation.Callback(DISPATCH_MODE_CONTINUE_ON_SUBTREE) {
-            override fun onProgress(insets: WindowInsets, running: MutableList<WindowInsetsAnimation>) = insets
-            override fun onEnd(animation: WindowInsetsAnimation) {
-                if (animation.typeMask and WindowInsets.Type.ime() == 0) return
-                decor.post {
-                    val flutterView = findViewById<FlutterView>(FlutterFragment.FLUTTER_VIEW_ID) ?: return@post
-                    flutterView.rootWindowInsets?.let { flutterView.onApplyWindowInsets(it) }
-                }
-            }
-        })
     }
 
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {

@@ -25,6 +25,7 @@ class ManualMark extends StatefulWidget {
 class ManualMarkState extends State<ManualMark> with ThemeHelpers {
   bool marking = false;
   Message? _latestIncoming;
+  StreamSubscription<Query<Message>>? _sub;
 
   Chat get chat => widget.controller.chat;
 
@@ -33,25 +34,37 @@ class ManualMarkState extends State<ManualMark> with ThemeHelpers {
   @override
   void initState() {
     super.initState();
-    _loadLatestIncoming();
+    _watchLatestIncoming();
   }
 
   @override
   void didUpdateWidget(covariant ManualMark oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.controller.chat.guid != widget.controller.chat.guid) {
-      _loadLatestIncoming();
+    if (oldWidget.controller.chat.id != widget.controller.chat.id) {
+      _watchLatestIncoming();
     }
   }
 
-  void _loadLatestIncoming() {
-    final query = (Database.messages.query(Message_.dateCreated.notNull().and(Message_.isFromMe.equals(false)))
-          ..link(Message_.chat, Chat_.id.equals(chat.id!))
-          ..order(Message_.dateCreated, flags: Order.descending))
-        .build();
-    query.limit = 1;
-    _latestIncoming = query.findFirst();
-    query.close();
+  @override
+  void dispose() {
+    _sub?.cancel();
+    super.dispose();
+  }
+
+  void _watchLatestIncoming() {
+    _sub?.cancel();
+    final query = Database.messages.query(Message_.dateDeleted
+        .isNull()
+        .and(Message_.dateCreated.notNull())
+        .and(Message_.isFromMe.equals(false))
+        .and(Message_.associatedMessageGuid.isNull()))
+      ..link(Message_.chat, Chat_.id.equals(chat.id!))
+      ..order(Message_.dateCreated, flags: Order.descending);
+    _sub = query.watch(triggerImmediately: true).listen((q) {
+      q.limit = 1;
+      final latest = q.findFirst();
+      if (mounted) setState(() => _latestIncoming = latest);
+    });
   }
 
   @override
@@ -101,15 +114,10 @@ class ManualMarkState extends State<ManualMark> with ThemeHelpers {
               });
               final wasRead = _isRead;
               try {
-                if (!wasRead) {
-                  await HttpSvc.chat.markRead(chat.guid);
-                  _latestIncoming?..dateRead = DateTime.now()
-                    ..save();
-                } else {
-                  await HttpSvc.chat.markUnread(chat.guid);
-                  _latestIncoming?..dateRead = null
-                    ..save();
-                }
+                await (wasRead ? HttpSvc.chat.markUnread(chat.guid) : HttpSvc.chat.markRead(chat.guid));
+                _latestIncoming
+                  ?..dateRead = wasRead ? null : DateTime.now()
+                  ..save();
                 await ChatsSvc.setChatHasUnread(chat, wasRead, force: true, privateMark: false);
               } catch (e) {
                 final detail = e is Response ? e.data?["error"]?["message"]?.toString() : null;
