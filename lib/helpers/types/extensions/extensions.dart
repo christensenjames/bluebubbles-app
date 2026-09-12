@@ -400,8 +400,7 @@ extension MessageNotificationExtension on Message {
         // fetch the associated message object
         Message? associatedMessage = Message.findOne(guid: associatedMessageGuid);
         if (associatedMessage != null) {
-          // grab the verb we'll use from the reactionToVerb map
-          String? verb = ReactionTypes.reactionToVerb[associatedMessageType];
+          final String verb = ReactionTypes.verbFor(associatedMessageType, associatedMessageEmoji);
           // we need to check balloonBundleId first because for some reason
           // game pigeon messages have the text "�"
           if (associatedMessage.isInteractive) {

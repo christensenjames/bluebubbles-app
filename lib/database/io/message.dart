@@ -47,6 +47,7 @@ class Message {
   String? associatedMessageGuid;
   int? associatedMessagePart;
   String? associatedMessageType;
+  String? associatedMessageEmoji;
   String? expressiveSendStyleId;
   Handle? handle;
   bool hasAttachments;
@@ -172,6 +173,7 @@ class Message {
     this.associatedMessageGuid,
     this.associatedMessagePart,
     this.associatedMessageType,
+    this.associatedMessageEmoji,
     this.expressiveSendStyleId,
     this.handle,
     this.hasAttachments = false,
@@ -267,6 +269,7 @@ class Message {
       associatedMessagePart: json["associatedMessagePart"] ??
           int.tryParse(json["associatedMessageGuid"].toString().replaceAll("p:", "").split("/").first),
       associatedMessageType: json["associatedMessageType"],
+      associatedMessageEmoji: json["associatedMessageEmoji"],
       expressiveSendStyleId: json["expressiveSendStyleId"],
       handle: json['handle'] != null ? Handle.fromMap(json['handle']!.cast<String, Object>()) : null,
       hasAttachments: (json['attachments'] as List? ?? []).isNotEmpty || json['hasAttachments'] == true,
@@ -622,7 +625,7 @@ class Message {
   List<Attachment> get previewAttachments => dbAttachments.where((e) => e.mimeType == null).toList();
 
   List<Message> get reactions => associatedMessages
-      .where((item) => ReactionTypes.toList().contains(item.associatedMessageType?.replaceAll("-", "")))
+      .where((item) => ReactionTypes.isReaction(item.associatedMessageType))
       .toList();
 
   MessageStatusIndicator get indicatorToShow {
@@ -1012,6 +1015,7 @@ class Message {
       "associatedMessageGuid": associatedMessageGuid,
       "associatedMessagePart": associatedMessagePart,
       "associatedMessageType": associatedMessageType,
+      "associatedMessageEmoji": associatedMessageEmoji,
       "expressiveSendStyleId": expressiveSendStyleId,
       "handle": getHandle()?.toMap(),
       "hasAttachments": hasAttachments,

@@ -421,7 +421,7 @@
     },
     {
       "id": "13:4148278195232901830",
-      "lastPropertyId": "54:3645372489156688543",
+      "lastPropertyId": "55:9052722812174188999",
       "name": "Message",
       "properties": [
         {
@@ -654,6 +654,11 @@
           "id": "54:3645372489156688543",
           "name": "metadata",
           "type": 13
+        },
+        {
+          "id": "55:9052722812174188999",
+          "name": "associatedMessageEmoji",
+          "type": 9
         }
       ],
       "relations": []
