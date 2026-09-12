@@ -31,9 +31,11 @@ None of the four depend on each other. They touch disjoint files:
 
 One soft overlap: 001 introduces `MessageListAnimationConfig.strongEaseOut` with the value
 `Cubic(0.23, 1.0, 0.32, 1.0)`, and 002-004 write that same literal inline. Consolidating
-the four into a shared motion-token file is a deliberate follow-up, not part of any plan
-here — the repo has no token convention today, and inventing one mid-fix would put the
-executor in the position of making a design decision.
+the four into a shared motion-token file was left as a deliberate follow-up. It has since
+been surveyed: the repo's `lib/app/components/m3e/` layer already defines
+`M3EMotion.spatialFast` as 200ms + `emphasizedDecelerate`, which is the same value chosen
+by ear here, so the consolidation target is that token rather than a new file. Shapes and
+spacing are deliberately NOT migrated — see the decision recorded in `CHANGELOG.md`.
 
 ## Not planned
 
@@ -42,9 +44,21 @@ Vetted and rejected: the in-app `reduceMotion` setting is *not* an under-applied
 until you hover over them", so its single render-path usage at `image_viewer.dart:158` is
 the documented scope, not a gap.
 
-Still unvetted, carried forward from the audit for a later pass: an ease-in cluster in the
-chat-creator chip rows, the cupertino URL preview, fullscreen arrow-key navigation and two
-scroll-driven header titles; the 500ms-vs-400ms split inside the message popup; two further
-scale-from-zero surfaces (`animated_dropdown_menu.dart`, `reaction_holder.dart`); three
-interruptibility cases where `Future.delayed` blocks a re-tap; and `Obx` wrapping
-`AnimatedSize` inside message-list rows.
+## Carried-forward findings — swept 2026-09-11
+
+The audit's unvetted remainder was swept and resolved without further plans; the fixes
+landed directly in `3412641ac` and `5a29e8a8d`.
+
+- Fixed: the ease-in cluster (chat-creator chip rows, cupertino URL preview, fullscreen
+  arrow-key navigation, attachment picker, message-list fade), the 500ms-vs-400ms split
+  inside the message popup, and the `animated_dropdown_menu.dart` scale-from-zero.
+- Rejected as by-design: the two scroll-driven header titles (scroll-linked, not
+  time-based — the late fade stops the collapsed title colliding with the expanded one);
+  the `bubble_effects.dart` slam/loud wind-up (acceleration is the physics of an impact).
+- Rejected as mis-attributed: `Obx` wrapping `AnimatedSize` in message-list rows. Flutter
+  preserves `State` across a rebuild of the same widget type at the same position, so
+  `AnimatedSize` retargets mid-flight rather than restarting. None of the three sites
+  carries a `key`.
+- Left alone on purpose: `reaction_holder.dart:37-40` still scales from zero with
+  `easeOutBack`. A 25px tapback badge landing on a message is an object, not a surface,
+  and the pop is the product's signature.
