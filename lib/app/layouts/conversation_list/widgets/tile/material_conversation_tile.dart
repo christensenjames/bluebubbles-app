@@ -33,19 +33,13 @@ class _MaterialConversationTileState extends CustomState<MaterialConversationTil
     final leading = ChatLeading(controller: controller);
     final child = Material(
       color: Colors.transparent,
-      borderRadius: const BorderRadius.only(
-        topLeft: Radius.circular(25),
-        bottomLeft: Radius.circular(25),
-      ),
+      borderRadius: BorderRadius.circular(20),
       child: InkWell(
         mouseCursor: MouseCursor.defer,
         onTap: () => controller.onTap(context),
         onSecondaryTapUp: (details) => controller.onSecondaryTap(Get.context!, details),
         onLongPress: controller.onLongPress,
-        borderRadius: const BorderRadius.only(
-          topLeft: Radius.circular(20),
-          bottomLeft: Radius.circular(20),
-        ),
+        borderRadius: BorderRadius.circular(20),
         child: ListTile(
           mouseCursor: MouseCursor.defer,
           dense: SettingsSvc.settings.denseChatTiles.value,
@@ -100,10 +94,7 @@ class _MaterialConversationTileState extends CustomState<MaterialConversationTil
           padding: const EdgeInsets.only(left: 10),
           clipBehavior: Clip.antiAlias,
           decoration: BoxDecoration(
-            borderRadius: const BorderRadius.only(
-              topLeft: Radius.circular(20),
-              bottomLeft: Radius.circular(20),
-            ),
+            borderRadius: BorderRadius.circular(20),
             color: controller.isSelected
                 ? context.theme.colorScheme.primaryContainer.withValues(alpha: 0.5)
                 : shouldPartialHighlight
@@ -121,10 +112,7 @@ class _MaterialConversationTileState extends CustomState<MaterialConversationTil
                   onTap: () => controller.onTap(context),
                   onSecondaryTapUp: (details) => controller.onSecondaryTap(Get.context!, details),
                   onLongPress: controller.onLongPress,
-                  borderRadius: const BorderRadius.only(
-                    topLeft: Radius.circular(20),
-                    bottomLeft: Radius.circular(20),
-                  ),
+                  borderRadius: BorderRadius.circular(20),
                   child: Padding(
                     padding: const EdgeInsets.symmetric(vertical: 10.0, horizontal: 15.0),
                     child: Center(child: leading),
