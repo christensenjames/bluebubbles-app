@@ -132,7 +132,7 @@ class _MaterialConversationListState extends State<MaterialConversationList> {
                       child: Obx(() => ListView.builder(
                             controller: controller.materialScrollController,
                             physics: ThemeSwitcher.getScrollPhysics(),
-                            padding: const EdgeInsets.only(top: 8),
+                            padding: EdgeInsets.zero,
                             findChildIndexCallback: (key) => findChildIndexByKey(_chats, key, (item) => item.guid),
                             itemBuilder: (context, index) {
                               final chat = _chats[index];
