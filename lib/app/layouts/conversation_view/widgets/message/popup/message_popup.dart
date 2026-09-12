@@ -23,6 +23,7 @@ import 'package:bluebubbles/app/layouts/conversation_view/widgets/message/shared
 import 'package:bluebubbles/app/state/message_state_scope.dart';
 import 'package:bluebubbles/services/services.dart';
 import 'package:collection/collection.dart';
+import 'package:emoji_picker_flutter/emoji_picker_flutter.dart' hide Emoji;
 import 'package:flutter/cupertino.dart' as cupertino;
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart' hide BackButton;
@@ -45,7 +46,7 @@ class MessagePopup extends StatefulWidget {
   final MessageState controller;
   final ConversationViewController cvController;
   final MessagePopupServerDetails serverDetails;
-  final Function([String? type, int? part]) sendTapback;
+  final Function([String? type, int? part, String? reactionEmoji]) sendTapback;
   final BuildContext? Function() widthContext;
 
   const MessagePopup({
@@ -85,6 +86,7 @@ class _MessagePopupState extends State<MessagePopup> with SingleTickerProviderSt
       !chat.isGroup &&
       chat.handles.firstWhereOrNull((handle) => handle.address == message.handleRelation.target?.address) != null);
   String? selfReaction;
+  String? selfReactionEmoji;
   String? currentlySelectedReaction = "init";
   final GlobalKey _childKey = GlobalKey();
   double? _measuredChildHeight;
@@ -149,9 +151,10 @@ class _MessagePopupState extends State<MessagePopup> with SingleTickerProviderSt
               ReactionTypes.isReaction(e.associatedMessageType) &&
               (e.associatedMessagePart ?? 0) == part.part)
           .toList());
-      final self = reactions.firstWhereOrNull((e) => e.isFromMe!)?.associatedMessageType;
-      if (!(self?.contains("-") ?? true)) {
-        selfReaction = self;
+      final self = reactions.firstWhereOrNull((e) => e.isFromMe!);
+      if (!(self?.associatedMessageType?.contains("-") ?? true)) {
+        selfReaction = self!.associatedMessageType;
+        selfReactionEmoji = self.associatedMessageEmoji;
         currentlySelectedReaction = selfReaction;
       }
       setState(() {
@@ -182,6 +185,116 @@ class _MessagePopupState extends State<MessagePopup> with SingleTickerProviderSt
     Navigator.of(context).pop(returnVal);
   }
 
+  Padding buildEmojiReactionPicker() {
+    final selected = currentlySelectedReaction == ReactionTypes.EMOJI;
+    return Padding(
+      padding: iOS ? const EdgeInsets.all(5.0) : const EdgeInsets.symmetric(horizontal: 5),
+      child: Material(
+        color: selected ? context.theme.colorScheme.primary : Colors.transparent,
+        borderRadius: BorderRadius.circular(20),
+        child: SizedBox(
+          width: iOS ? 35 : null,
+          height: iOS ? 35 : null,
+          child: InkWell(
+            borderRadius: BorderRadius.circular(20),
+            onTap: () {
+              HapticFeedback.lightImpact();
+              showEmojiReactionPicker();
+            },
+            child: Padding(
+              padding: const EdgeInsets.all(6.5),
+              child: Center(
+                child: selfReactionEmoji != null
+                    ? Text(
+                        selfReactionEmoji!,
+                        style: const TextStyle(fontSize: 18, fontFamily: 'Apple Color Emoji'),
+                        textAlign: TextAlign.center,
+                      )
+                    : Icon(
+                        iOS ? cupertino.CupertinoIcons.smiley : Icons.add_reaction_outlined,
+                        size: iOS ? 22 : 18,
+                        color: selected ? context.theme.colorScheme.onPrimary : context.theme.colorScheme.outline,
+                      ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  void showEmojiReactionPicker() {
+    showBBDialog(
+      useRootNavigator: false,
+      context: context,
+      content: SizedBox(
+        width: 300,
+        child: Theme(
+          data: context.theme.copyWith(canvasColor: Colors.transparent),
+          child: EmojiPicker(
+            onEmojiSelected: (_, emoji) => sendEmojiReaction(emoji.emoji),
+            config: Config(
+              height: 300,
+              emojiSet: (_) => emojiSetEnglish,
+              checkPlatformCompatibility: true,
+              emojiViewConfig: EmojiViewConfig(
+                emojiSizeMax: 28,
+                backgroundColor: Colors.transparent,
+                columns: 7,
+                noRecents: Text("No Recents",
+                    style: context.textTheme.headlineMedium!.copyWith(color: context.theme.colorScheme.outline)),
+              ),
+              viewOrderConfig: const ViewOrderConfig(
+                top: EmojiPickerItem.categoryBar,
+                middle: EmojiPickerItem.emojiView,
+                bottom: EmojiPickerItem.searchBar,
+              ),
+              skinToneConfig: const SkinToneConfig(enabled: false),
+              categoryViewConfig: const CategoryViewConfig(
+                backgroundColor: Colors.transparent,
+                dividerColor: Colors.transparent,
+              ),
+              bottomActionBarConfig: BottomActionBarConfig(
+                customBottomActionBar: (config, state, showSearchView) => Material(
+                  color: Colors.transparent,
+                  child: InkWell(
+                    onTap: showSearchView,
+                    child: Padding(
+                      padding: const EdgeInsets.all(12),
+                      child: Row(children: [
+                        Icon(iOS ? cupertino.CupertinoIcons.search : Icons.search,
+                            color: context.theme.colorScheme.outline),
+                        const SizedBox(width: 8),
+                        Text("Search...",
+                            style: context.theme.textTheme.bodyLarge!
+                                .copyWith(color: context.theme.colorScheme.outline)),
+                      ]),
+                    ),
+                  ),
+                ),
+              ),
+              searchViewConfig: SearchViewConfig(
+                backgroundColor: Colors.transparent,
+                buttonIconColor: context.theme.colorScheme.outline,
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  void sendEmojiReaction(String emoji) {
+    final removing = selfReaction == ReactionTypes.EMOJI && selfReactionEmoji == emoji;
+    setState(() {
+      currentlySelectedReaction = removing ? null : ReactionTypes.EMOJI;
+      selfReactionEmoji = removing ? null : emoji;
+    });
+    HapticFeedback.lightImpact();
+    widget.sendTapback(removing ? "-${ReactionTypes.EMOJI}" : ReactionTypes.EMOJI, part.part, emoji);
+    popDetails();
+  }
+
   @override
   Widget build(BuildContext context) {
     // Decide whether the tapback row needs to wrap to a second line by comparing its actual
@@ -196,7 +309,7 @@ class _MessagePopupState extends State<MessagePopup> with SingleTickerProviderSt
         : screenWidth - (widget.childPosition.dx + 10) - reactionPickerEdgeMargin;
     final double reactionItemWidth = iOS ? 47.0 : 44.0; // icon/emoji + its fixed padding, see item build below
     // + container padding
-    final double reactionRowContentWidth = reactionItemWidth * ReactionTypes.toList().length + 10;
+    final double reactionRowContentWidth = reactionItemWidth * (ReactionTypes.toList().length + 1) + 10;
     bool narrowScreen = reactionRowContentWidth > reactionPickerAvailableWidth;
 
     return Theme(
@@ -431,7 +544,10 @@ class _MessagePopupState extends State<MessagePopup> with SingleTickerProviderSt
                                                   ),
                                                 ),
                                               );
-                                            }).toList(),
+                                            }).toList()
+                                              ..addAll([
+                                                if (index == (narrowScreen ? 1 : 0)) buildEmojiReactionPicker(),
+                                              ]),
                                           );
                                         })),
                                   ),

@@ -766,6 +766,7 @@ class OutgoingMessageHandler {
               selectedMessageGuid: selected.guid!,
               reaction: r,
               partIndex: m.associatedMessagePart,
+              reactionEmoji: m.associatedMessageEmoji,
             ),
       onSuccess: (data) => _finalizeOutgoingSuccess(
         c, tempGuid, data,

@@ -178,7 +178,7 @@ class _MessagePopupHolderState extends State<MessagePopupHolder> with ThemeHelpe
     }
   }
 
-  void sendTapback([String? type, int? part]) {
+  void sendTapback([String? type, int? part, String? reactionEmoji]) {
     HapticFeedback.lightImpact();
     final reaction = type ?? SettingsSvc.settings.quickTapbackType.value;
     Logger.info("Sending reaction type: $reaction");
@@ -186,6 +186,7 @@ class _MessagePopupHolderState extends State<MessagePopupHolder> with ThemeHelpe
     final tempMessage = Message(
       associatedMessageGuid: message.guid,
       associatedMessageType: reaction,
+      associatedMessageEmoji: reactionEmoji,
       associatedMessagePart: part,
       dateCreated: DateTime.now(),
       hasAttachments: false,
