@@ -3,13 +3,19 @@ package com.bluebubbles.messaging
 import android.app.Activity
 import android.content.Context
 import android.content.Intent
+import android.os.Build
+import android.os.Bundle
+import android.view.WindowInsets
+import android.view.WindowInsetsAnimation
 import androidx.activity.ComponentActivity
 import com.bluebubbles.messaging.services.backend_ui_interop.MethodCallHandler
 import com.bluebubbles.messaging.services.foreground.ForegroundServiceBroadcastReceiver
 import com.bluebubbles.messaging.Constants
 import com.bluebubbles.messaging.utils.PersistentLog
 import com.google.firebase.firestore.FirebaseFirestoreException
+import io.flutter.embedding.android.FlutterFragment
 import io.flutter.embedding.android.FlutterFragmentActivity
+import io.flutter.embedding.android.FlutterView
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
 
@@ -133,6 +139,23 @@ class MainActivity : FlutterFragmentActivity() {
         } catch (e: Exception) {
             PersistentLog.e(this, Constants.logTag, "Caught unhandled Exception when destroying MainActivity", e)
         }
+    }
+
+    // Flutter replays stale IME insets after resuming mid-animation; re-feed the real ones past its listener.
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.R) return
+        val decor = window.decorView
+        decor.setWindowInsetsAnimationCallback(object : WindowInsetsAnimation.Callback(DISPATCH_MODE_CONTINUE_ON_SUBTREE) {
+            override fun onProgress(insets: WindowInsets, running: MutableList<WindowInsetsAnimation>) = insets
+            override fun onEnd(animation: WindowInsetsAnimation) {
+                if (animation.typeMask and WindowInsets.Type.ime() == 0) return
+                decor.post {
+                    val flutterView = findViewById<FlutterView>(FlutterFragment.FLUTTER_VIEW_ID) ?: return@post
+                    flutterView.rootWindowInsets?.let { flutterView.onApplyWindowInsets(it) }
+                }
+            }
+        })
     }
 
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
