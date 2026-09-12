@@ -198,8 +198,12 @@ class _MessagePopupState extends State<MessagePopup> with SingleTickerProviderSt
           child: InkWell(
             borderRadius: BorderRadius.circular(20),
             onTap: () {
-              HapticFeedback.lightImpact();
-              showEmojiReactionPicker();
+              if (selfReactionEmoji != null) {
+                sendEmojiReaction(selfReactionEmoji!);
+              } else {
+                HapticFeedback.lightImpact();
+                showEmojiReactionPicker();
+              }
             },
             child: Padding(
               padding: const EdgeInsets.all(6.5),
@@ -229,84 +233,56 @@ class _MessagePopupState extends State<MessagePopup> with SingleTickerProviderSt
       context: context,
       content: SizedBox(
         width: 300,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            if (selfReaction == ReactionTypes.EMOJI && selfReactionEmoji != null)
-              Padding(
-                padding: const EdgeInsets.only(bottom: 8),
-                child: Material(
-                  color: context.theme.colorScheme.error.withValues(alpha: 0.12),
-                  borderRadius: BorderRadius.circular(12),
+        child: Theme(
+          data: context.theme.copyWith(canvasColor: Colors.transparent),
+          child: EmojiPicker(
+            onEmojiSelected: (_, emoji) => sendEmojiReaction(emoji.emoji),
+            config: Config(
+              height: 300,
+              emojiSet: (_) => emojiSetEnglish,
+              checkPlatformCompatibility: true,
+              emojiViewConfig: EmojiViewConfig(
+                emojiSizeMax: 28,
+                backgroundColor: Colors.transparent,
+                columns: 7,
+                noRecents: Text("No Recents",
+                    style: context.textTheme.headlineMedium!.copyWith(color: context.theme.colorScheme.outline)),
+              ),
+              viewOrderConfig: const ViewOrderConfig(
+                top: EmojiPickerItem.categoryBar,
+                middle: EmojiPickerItem.emojiView,
+                bottom: EmojiPickerItem.searchBar,
+              ),
+              skinToneConfig: const SkinToneConfig(enabled: false),
+              categoryViewConfig: const CategoryViewConfig(
+                backgroundColor: Colors.transparent,
+                dividerColor: Colors.transparent,
+              ),
+              bottomActionBarConfig: BottomActionBarConfig(
+                customBottomActionBar: (config, state, showSearchView) => Material(
+                  color: Colors.transparent,
                   child: InkWell(
-                    borderRadius: BorderRadius.circular(12),
-                    onTap: () => sendEmojiReaction(selfReactionEmoji!),
+                    onTap: showSearchView,
                     child: Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                      child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-                        Icon(iOS ? cupertino.CupertinoIcons.clear_circled : Icons.remove_circle_outline,
-                            color: context.theme.colorScheme.error),
+                      padding: const EdgeInsets.all(12),
+                      child: Row(children: [
+                        Icon(iOS ? cupertino.CupertinoIcons.search : Icons.search,
+                            color: context.theme.colorScheme.outline),
                         const SizedBox(width: 8),
-                        Text("Remove ${selfReactionEmoji!}",
+                        Text("Search...",
                             style: context.theme.textTheme.bodyLarge!
-                                .copyWith(color: context.theme.colorScheme.error, fontWeight: FontWeight.w600)),
+                                .copyWith(color: context.theme.colorScheme.outline)),
                       ]),
                     ),
                   ),
                 ),
               ),
-            Theme(
-              data: context.theme.copyWith(canvasColor: Colors.transparent),
-              child: EmojiPicker(
-                onEmojiSelected: (_, emoji) => sendEmojiReaction(emoji.emoji),
-                config: Config(
-                  height: 300,
-                  emojiSet: (_) => emojiSetEnglish,
-                  checkPlatformCompatibility: true,
-                  emojiViewConfig: EmojiViewConfig(
-                    emojiSizeMax: 28,
-                    backgroundColor: Colors.transparent,
-                    columns: 7,
-                    noRecents: Text("No Recents",
-                        style: context.textTheme.headlineMedium!.copyWith(color: context.theme.colorScheme.outline)),
-                  ),
-                  viewOrderConfig: const ViewOrderConfig(
-                    top: EmojiPickerItem.categoryBar,
-                    middle: EmojiPickerItem.emojiView,
-                    bottom: EmojiPickerItem.searchBar,
-                  ),
-                  skinToneConfig: const SkinToneConfig(enabled: false),
-                  categoryViewConfig: const CategoryViewConfig(
-                    backgroundColor: Colors.transparent,
-                    dividerColor: Colors.transparent,
-                  ),
-                  bottomActionBarConfig: BottomActionBarConfig(
-                    customBottomActionBar: (config, state, showSearchView) => Material(
-                      color: Colors.transparent,
-                      child: InkWell(
-                        onTap: showSearchView,
-                        child: Padding(
-                          padding: const EdgeInsets.all(12),
-                          child: Row(children: [
-                            Icon(iOS ? cupertino.CupertinoIcons.search : Icons.search,
-                                color: context.theme.colorScheme.outline),
-                            const SizedBox(width: 8),
-                            Text("Search...",
-                                style: context.theme.textTheme.bodyLarge!
-                                    .copyWith(color: context.theme.colorScheme.outline)),
-                          ]),
-                        ),
-                      ),
-                    ),
-                  ),
-                  searchViewConfig: SearchViewConfig(
-                    backgroundColor: Colors.transparent,
-                    buttonIconColor: context.theme.colorScheme.outline,
-                  ),
-                ),
+              searchViewConfig: SearchViewConfig(
+                backgroundColor: Colors.transparent,
+                buttonIconColor: context.theme.colorScheme.outline,
               ),
             ),
-          ],
+          ),
         ),
       ),
     );
