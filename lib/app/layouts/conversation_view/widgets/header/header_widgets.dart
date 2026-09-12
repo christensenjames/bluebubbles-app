@@ -4,11 +4,13 @@ import 'dart:typed_data';
 import 'package:bluebubbles/app/layouts/chat_creator/new_chat_creator.dart';
 import 'package:bluebubbles/app/state/chat_state_scope.dart';
 import 'package:bluebubbles/helpers/helpers.dart';
+import 'package:bluebubbles/database/database.dart';
 import 'package:bluebubbles/database/models.dart';
 import 'package:bluebubbles/services/services.dart';
+import 'package:dio/dio.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
-import 'package:get/get.dart';
+import 'package:get/get.dart' hide Response;
 import 'package:universal_io/io.dart';
 
 class ManualMark extends StatefulWidget {
@@ -21,10 +23,36 @@ class ManualMark extends StatefulWidget {
 }
 
 class ManualMarkState extends State<ManualMark> with ThemeHelpers {
-  bool marked = false;
   bool marking = false;
+  Message? _latestIncoming;
 
   Chat get chat => widget.controller.chat;
+
+  bool get _isRead => _latestIncoming == null || _latestIncoming!.dateRead != null;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadLatestIncoming();
+  }
+
+  @override
+  void didUpdateWidget(covariant ManualMark oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.controller.chat.guid != widget.controller.chat.guid) {
+      _loadLatestIncoming();
+    }
+  }
+
+  void _loadLatestIncoming() {
+    final query = (Database.messages.query(Message_.dateCreated.notNull().and(Message_.isFromMe.equals(false)))
+          ..link(Message_.chat, Chat_.id.equals(chat.id!))
+          ..order(Message_.dateCreated, flags: Order.descending))
+        .build();
+    query.limit = 1;
+    _latestIncoming = query.findFirst();
+    query.close();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -42,12 +70,12 @@ class ManualMarkState extends State<ManualMark> with ThemeHelpers {
                   ? (iOS ? CupertinoIcons.trash : Icons.delete_outlined)
                   : marking
                       ? (iOS ? CupertinoIcons.arrow_2_circlepath : Icons.sync)
-                      : marked
+                      : _isRead
                           ? (iOS ? CupertinoIcons.app : Icons.mark_chat_read_outlined)
                           : (iOS ? CupertinoIcons.app_badge : Icons.mark_chat_unread_outlined),
               color: !iOS
                   ? context.theme.colorScheme.onSurface
-                  : (!marked && !marking || widget.controller.inSelectMode.value)
+                  : (!_isRead && !marking || widget.controller.inSelectMode.value)
                       ? context.theme.colorScheme.primary
                       : context.theme.colorScheme.outline,
             ),
@@ -55,7 +83,7 @@ class ManualMarkState extends State<ManualMark> with ThemeHelpers {
                 ? "Delete"
                 : marking
                     ? null
-                    : marked
+                    : _isRead
                         ? "Mark Unread"
                         : "Mark Read",
             onPressed: () async {
@@ -71,15 +99,24 @@ class ManualMarkState extends State<ManualMark> with ThemeHelpers {
               setState(() {
                 marking = true;
               });
-              if (!marked) {
-                await HttpSvc.chat.markRead(chat.guid);
-              } else {
-                await HttpSvc.chat.markUnread(chat.guid);
+              final wasRead = _isRead;
+              try {
+                if (!wasRead) {
+                  await HttpSvc.chat.markRead(chat.guid);
+                  _latestIncoming?..dateRead = DateTime.now()
+                    ..save();
+                } else {
+                  await HttpSvc.chat.markUnread(chat.guid);
+                  _latestIncoming?..dateRead = null
+                    ..save();
+                }
+                await ChatsSvc.setChatHasUnread(chat, wasRead, force: true, privateMark: false);
+              } catch (e) {
+                final detail = e is Response ? e.data?["error"]?["message"]?.toString() : null;
+                showSnackbar("Error", "Failed to mark ${wasRead ? "unread" : "read"}: ${detail ?? e}");
+              } finally {
+                if (mounted) setState(() => marking = false);
               }
-              setState(() {
-                marking = false;
-                marked = !marked;
-              });
             },
           ),
           if (widget.controller.inSelectMode.value)
