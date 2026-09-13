@@ -61,7 +61,6 @@ class ManualMarkState extends State<ManualMark> with ThemeHelpers {
       ..link(Message_.chat, Chat_.id.equals(chat.id!))
       ..order(Message_.dateCreated, flags: Order.descending);
     _sub = query.watch(triggerImmediately: true).listen((q) {
-      q.limit = 1;
       final latest = q.findFirst();
       if (mounted) setState(() => _latestIncoming = latest);
     });
