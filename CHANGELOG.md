@@ -1,5 +1,85 @@
 # Changelog
 
+## 2026-09-12 — Helper crash loop, mark-read state, typing stop, M3 motion tokens, upstream PRs
+
+### "iMessage Helper is not connected" (helper crash loop)
+
+Every typing or mark-read request killed Messages.app: 37 crash reports in 18 hours until
+the server's dylib plugin gave up reinjecting ("Failed to start Messages Helper DYLIB 3
+times in a row").
+
+- Root cause: the server sends `start-typing`/`stop-typing`/`mark-chat-read`/`mark-chat-unread`
+  with no `transactionId`; `NetworkController.m` unwrapped that to `nil`, and the handlers
+  build their reply as `@{@"transactionId": transaction}`, which throws
+  `NSInvalidArgumentException` on a nil value. Upstream's May "Initial rewrite" dropped 13 of
+  the release's 41 `transaction != nil` guards. Release 0.0.21 (what 1.9.9 ships) is fine;
+  our fork branched from the rewrite. Upstream issue #72 describes the same crash.
+- Fix: keep `[NSNull null]` at the single decode site (`NetworkController.m:120`,
+  `?: (NSString *)[NSNull null]`); the server discards replies whose id is null. Same
+  treatment for `data: null` (`handleServerEvent:` normalises a non-dictionary to `@{}`).
+- Also cherry-picked into the fork: upstream PR #59 (macOS 26 `IMTypingChatItem` in the
+  reply-part walk aborts Messages) and #55 (`delete-message` used `deleteChatItems:` with
+  message parts, which leaves the row in `chat.db` while returning 200). Both verified live:
+  threaded reply to Kaely carries `thread_originator_guid`; deleted rows leave both `message`
+  and `chat_message_join`. Self-chat replies never thread, so don't test threading there.
+- Diff audit of the rewrite vs 0.0.21 found nothing else that crashes except `share-nickname`,
+  whose both selectors are gone from IMCore on 26 (`allowHandlesForNicknameSharing:forChat:`
+  now takes `fromHandle:forceSend:`). Participant add/remove and leave-chat lost their
+  capability guards (silent misbehaviour, not crashes). Not fixed.
+
+### Mark Read / Mark Unread button (`header_widgets.dart`)
+
+- Upstream bug since 2022 (`0fb434c06`): state was `bool marked = false` on the widget State,
+  so every re-entry showed "Mark Read"; a failed request threw past the `setState` and stuck
+  the icon on the spinner.
+- Now derived from `dateRead` of the latest incoming message via a watched ObjectBox query
+  (excluding soft-deleted rows and reactions), stamped locally on success because the server
+  only pushes `dateRead` for outgoing messages. First attempt keyed off
+  `ChatState.hasUnreadMessage`, which opening a chat clears regardless — rejected on device.
+- Verified on the Pixel: mark → leave → reopen persists both ways; an incoming message from
+  Kaely flipped the icon without leaving the view.
+
+### Stuck typing indicator (server)
+
+- `chatRouter.ts:332` `stopTyping` called `ChatInterface.startTyping`, so every stop from a
+  client re-asserted typing; the only real stop was the send path — hence "nothing while
+  typing, stuck after send". Regression from `560b1e51` (2023); already fixed on upstream
+  `development` (`2825335f`, Jan 2026) but never released. Fork commit `301db55f`, rebuilt and
+  deployed. Verified by the helper's os_log: `DELETE /typing` now arrives as `stop-typing`.
+- Diagnostic that finally worked: `/usr/bin/log show --predicate 'process == "Messages" AND
+  eventMessage CONTAINS "typing"'` on the Mini (bare `log` is a zsh builtin over SSH).
+
+### Keyboard gap after backgrounding mid IME animation (`MainActivity.kt`)
+
+- Flutter's deferring insets listener replays stale insets at the end of the next IME
+  animation. After every IME animation settles, feed the decor view's real insets to the
+  `FlutterView` directly, behind `@RequiresApi(R)`.
+
+### Material 3 Expressive motion tokens
+
+- The two animation passes had left an inline `Cubic(0.23, 1.0, 0.32, 1.0)` and ms literals
+  at ~20 sites. Replaced with `Easing.emphasizedDecelerate` (entrances),
+  `emphasizedAccelerate` (paired exits), `Easing.standard` (fades) and `Durations.*`, matching
+  the existing `M3EMotion` layer. `cupertino_url_preview.dart` keeps its own curve.
+
+### Upstream
+
+- Opened bluebubbles-helper #76 (against `development`, fixes #72) and bluebubbles-app #3273
+  (against `master`). Server needs no PR. Both went through `gh api` because the local
+  code-review gate can't parse a fork-qualified `--head`.
+- Upstream helper `development` does not load on macOS 26.6
+  (`symbol not found: _OBJC_CLASS_$_CKChatController`, PRs #69/#70); noted on #76.
+
+### Incident: compile-only check took down the helper
+
+- The helper Xcode project's build phases copy the dylib into
+  `/Applications/BlueBubbles.app/…/macos11` and `killall Messages` (`project.pbxproj:29,455`).
+  Compiling upstream `development` on the Mini deployed a dylib that can't load, and the
+  plugin stopped retrying. Restored from `~/bb-helper-build/build/Build/Products/Release/`.
+  Never build a non-deploy branch there without restoring afterwards.
+- Also: a `find -name BlueBubblesHelper.dylib` deploy grabbed the dSYM DWARF. Use the
+  explicit `build/Build/Products/Release/` path. Server `restart/*` routes are GET.
+
 ## 2026-09-11 — Emoji tapbacks end-to-end, animation audit, desktop layout fixes
 
 ### Arbitrary emoji tapbacks (iOS 18+ reactions)

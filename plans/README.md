@@ -3,6 +3,8 @@
 Produced by the `improve-animations` skill against commit `831f70d89`. Each plan is
 self-contained: exact file, exact current code, exact target values, and a feel check.
 Findings were vetted at their `file:line` before a plan was written for them.
+The `Cubic(0.23, 1.0, 0.32, 1.0)` these plans prescribe was later replaced by the M3 tokens
+(`Easing.emphasizedDecelerate`, `Durations.*`) in `d97642b38`; the plans are kept as written.
 
 | # | Title | Severity | Category | Status |
 | --- | --- | --- | --- | --- |
