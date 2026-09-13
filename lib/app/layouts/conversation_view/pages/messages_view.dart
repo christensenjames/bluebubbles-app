@@ -642,8 +642,8 @@ class MessagesViewState extends State<MessagesView> with MessagesServiceMixin, T
                   opacity: _messages.isEmpty && widget.customService == null
                       ? 0
                       : (dropZoneManager.dragging.value ? 0.3 : 1),
-                  duration: const Duration(milliseconds: 150),
-                  curve: const Cubic(0.23, 1.0, 0.32, 1.0),
+                  duration: Durations.short3,
+                  curve: Easing.emphasizedDecelerate,
                   child: DeferredPointerHandler(
                     child: ScrollbarWrapper(
                       reverse: true,

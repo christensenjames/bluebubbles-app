@@ -4,6 +4,7 @@ import 'package:bluebubbles/app/wrappers/theme_switcher.dart';
 import 'package:bluebubbles/helpers/helpers.dart';
 import 'package:bluebubbles/services/services.dart';
 import 'package:flutter/cupertino.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:get/get.dart';
 
@@ -50,8 +51,8 @@ class _RecipientChipsRowState extends State<RecipientChipsRow> {
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       AnimatedSize(
-                        duration: const Duration(milliseconds: 250),
-                        curve: const Cubic(0.23, 1.0, 0.32, 1.0),
+                        duration: Durations.medium1,
+                        curve: Easing.emphasizedDecelerate,
                         alignment: Alignment.centerLeft,
                         child: ConstrainedBox(
                           constraints: BoxConstraints(

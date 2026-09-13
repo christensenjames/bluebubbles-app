@@ -44,18 +44,18 @@ class _TypingIndicatorState extends State<TypingIndicator> with SingleTickerProv
     super.initState();
     _scaleController = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 200),
+      duration: Durations.short4,
     );
     _scaleAnimation = Tween<double>(begin: 0.92, end: 1.0).animate(
       CurvedAnimation(
         parent: _scaleController,
-        curve: const Cubic(0.23, 1.0, 0.32, 1.0),
-        reverseCurve: const Cubic(0.23, 1.0, 0.32, 1.0),
+        curve: Easing.emphasizedDecelerate,
+        reverseCurve: Easing.emphasizedAccelerate,
       ),
     );
     _fadeAnimation = CurvedAnimation(
       parent: _scaleController,
-      curve: const Cubic(0.23, 1.0, 0.32, 1.0),
+      curve: Easing.emphasizedDecelerate,
     );
 
     // After the hide animation finishes, remove the content from the tree so
@@ -146,8 +146,8 @@ class _TypingIndicatorState extends State<TypingIndicator> with SingleTickerProv
   @override
   Widget build(BuildContext context) {
     return AnimatedSize(
-      duration: const Duration(milliseconds: 200),
-      curve: Curves.easeOut,
+      duration: Durations.short4,
+      curve: Easing.emphasizedDecelerate,
       child: _isShowing
           ? FadeTransition(
               opacity: _fadeAnimation,

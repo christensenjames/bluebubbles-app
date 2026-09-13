@@ -111,10 +111,10 @@ class CustomGroupFilterChipRow extends StatelessWidget {
             Padding(
               padding: EdgeInsets.only(left: 8, right: padding.right, top: padding.top + 8),
               child: AnimatedSwitcher(
-                duration: !showUngroupedChip ? const Duration(milliseconds: 500) : const Duration(milliseconds: 300),
+                duration: !showUngroupedChip ? Durations.long2 : Durations.medium2,
                 transitionBuilder: (child, animation) => ScaleTransition(
                   scale: Tween<double>(begin: 0.92, end: 1.0).animate(
-                    CurvedAnimation(parent: animation, curve: const Cubic(0.23, 1.0, 0.32, 1.0), reverseCurve: Curves.easeIn),
+                    CurvedAnimation(parent: animation, curve: Easing.emphasizedDecelerate, reverseCurve: Easing.emphasizedAccelerate),
                   ),
                   child: child,
                 ),

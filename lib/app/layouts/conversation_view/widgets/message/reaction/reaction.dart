@@ -139,13 +139,13 @@ class ReactionWidgetState extends State<ReactionWidget> with ThemeHelpers {
                 Navigator.push(
                   context,
                   PageRouteBuilder(
-                    transitionDuration: const Duration(milliseconds: 300),
+                    transitionDuration: Durations.medium2,
                     pageBuilder: (routeCtx, animation, secondaryAnimation) {
                       return SlideTransition(
                         position: Tween<Offset>(
                           begin: const Offset(0.0, 1.0),
                           end: Offset.zero,
-                        ).animate(CurvedAnimation(parent: animation, curve: const Cubic(0.23, 1.0, 0.32, 1.0))),
+                        ).animate(CurvedAnimation(parent: animation, curve: Easing.emphasizedDecelerate)),
                         child: Theme(
                           data: capturedTheme.copyWith(
                             // in case some components still use legacy theming

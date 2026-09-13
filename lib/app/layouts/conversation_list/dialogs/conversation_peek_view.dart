@@ -158,13 +158,13 @@ class _ConversationPeekViewState extends State<ConversationPeekView>
                     top: min(widget.position.dy, maxTop),
                     child: TweenAnimationBuilder<double>(
                       tween: Tween<double>(begin: 0.8, end: 1),
-                      curve: const Cubic(0.23, 1.0, 0.32, 1.0),
-                      duration: const Duration(milliseconds: 300),
+                      curve: Easing.emphasizedDecelerate,
+                      duration: Durations.medium2,
                       child: FadeTransition(
                         opacity: CurvedAnimation(
                           parent: controller,
                           curve: const Interval(0.0, .9, curve: Curves.ease),
-                          reverseCurve: Curves.easeInCubic,
+                          reverseCurve: Easing.emphasizedAccelerate,
                         ),
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,

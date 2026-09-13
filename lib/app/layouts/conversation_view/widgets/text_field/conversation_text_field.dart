@@ -514,8 +514,8 @@ class ConversationTextFieldState extends CustomState<ConversationTextField, void
                 // sizeOf only notifies on actual display-size changes (rotation / resize).
                 final pickerWidth = MediaQuery.sizeOf(context).width;
                 return Obx(() => AnimatedSize(
-                      duration: const Duration(milliseconds: 250),
-                      curve: const Cubic(0.23, 1.0, 0.32, 1.0),
+                      duration: Durations.medium1,
+                      curve: Easing.emphasizedDecelerate,
                       alignment: Alignment.bottomCenter,
                       child: !showAttachmentPicker
                           ? SizedBox(width: pickerWidth)

@@ -29,8 +29,8 @@ class TextFieldEmojiPickerSection extends StatelessWidget {
   Widget build(BuildContext context) {
     final bool iOS = SettingsSvc.settings.skin.value == Skins.iOS;
     return AnimatedSize(
-      duration: const Duration(milliseconds: 250),
-      curve: const Cubic(0.23, 1.0, 0.32, 1.0),
+      duration: Durations.medium1,
+      curve: Easing.emphasizedDecelerate,
       alignment: Alignment.bottomCenter,
       child: Obx(() {
         return controller.showEmojiPicker.value

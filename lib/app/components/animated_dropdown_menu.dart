@@ -65,14 +65,13 @@ class _AnimatedDropdownMenuState extends State<AnimatedDropdownMenu> with Single
     super.initState();
     _animationController = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 200),
-      reverseDuration: const Duration(milliseconds: 150),
+      duration: Durations.short4,
+      reverseDuration: Durations.short3,
     );
-    // Enter at 92% rather than from nothing, and without easeOutBack's overshoot:
-    // a menu is a surface arriving, not an object springing into place.
-    _scaleCurve = CurvedAnimation(parent: _animationController, curve: const Cubic(0.23, 1.0, 0.32, 1.0));
+    // Enter at 92% rather than from nothing: a menu is a surface arriving, not an object springing into place.
+    _scaleCurve = CurvedAnimation(parent: _animationController, curve: Easing.emphasizedDecelerate);
     _scaleAnimation = Tween<double>(begin: 0.92, end: 1.0).animate(_scaleCurve);
-    _fadeAnimation = CurvedAnimation(parent: _animationController, curve: const Cubic(0.23, 1.0, 0.32, 1.0));
+    _fadeAnimation = CurvedAnimation(parent: _animationController, curve: Easing.standard);
   }
 
   @override

@@ -307,8 +307,8 @@ class ChatCreatorState extends State<ChatCreator> with ThemeHelpers {
                         mainAxisSize: MainAxisSize.min,
                         children: [
                           AnimatedSize(
-                            duration: const Duration(milliseconds: 250),
-                            curve: const Cubic(0.23, 1.0, 0.32, 1.0),
+                            duration: Durations.medium1,
+                            curve: Easing.emphasizedDecelerate,
                             alignment: Alignment.centerLeft,
                             child: ConstrainedBox(
                               constraints:
