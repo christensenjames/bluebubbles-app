@@ -329,7 +329,7 @@ class _BackupRestorePanelState extends State<BackupRestorePanel> with ThemeHelpe
         json["pinnedChats"] = PinnedChatsBackup.exportList();
         json["customGroups"] = await CustomGroupsBackup.exportList();
         Response response = await HttpSvc.backup.setSettings(item["name"], json);
-        if (!context.mounted) return;
+        if (!mounted) return;
         Navigator.of(context, rootNavigator: true).pop();
         if (response.statusCode != 200) {
           showSnackbar("Error", "Somthing went wrong");
@@ -366,26 +366,29 @@ class _BackupRestorePanelState extends State<BackupRestorePanel> with ThemeHelpe
           Settings.updateFromMap(item);
           showSnackbar("Success", "Settings restored successfully");
           final pinnedChats = item["pinnedChats"] as List<dynamic>?;
-          if (pinnedChats != null) {
-            final result = await PinnedChatsBackup.restore(pinnedChats);
-            if (result.skipped.isNotEmpty && context.mounted) {
-              BackupRestoreDialogs.showRestoreSummary(
-                context: context,
-                title: "Some Pinned Chats Couldn't Be Restored",
-                skipped: result.skipped,
-              );
-            }
-          }
+          final pinnedSkipped = pinnedChats == null
+              ? const <String>[]
+              : (await PinnedChatsBackup.restore(pinnedChats)).skipped;
+
           final customGroups = item["customGroups"] as List<dynamic>?;
-          if (customGroups != null) {
-            final result = await CustomGroupsBackup.restore(customGroups);
-            if (result.skipped.isNotEmpty && context.mounted) {
-              BackupRestoreDialogs.showRestoreSummary(
-                context: context,
-                title: "Some Custom Group Chats Couldn't Be Restored",
-                skipped: result.skipped,
-              );
-            }
+          final groupsSkipped = customGroups == null
+              ? const <String>[]
+              : (await CustomGroupsBackup.restore(customGroups)).skipped;
+
+          if (!mounted) return;
+          if (pinnedSkipped.isNotEmpty) {
+            BackupRestoreDialogs.showRestoreSummary(
+              context: context,
+              title: "Some Pinned Chats Couldn't Be Restored",
+              skipped: pinnedSkipped,
+            );
+          }
+          if (groupsSkipped.isNotEmpty) {
+            BackupRestoreDialogs.showRestoreSummary(
+              context: context,
+              title: "Some Custom Group Chats Couldn't Be Restored",
+              skipped: groupsSkipped,
+            );
           }
         } catch (e, s) {
           Logger.error("Failed to restore settings backup!", error: e, trace: s);
@@ -397,12 +400,14 @@ class _BackupRestorePanelState extends State<BackupRestorePanel> with ThemeHelpe
 
   Future<void> _createSettingsBackup() async {
     final destination = await showMethodDialog();
-    if (destination == null || !context.mounted) return;
+    if (destination == null || !mounted) return;
     final deviceName = await defaultName();
     final TextEditingController nameController = TextEditingController(text: deviceName);
     final TextEditingController descController = TextEditingController();
 
     void onDone(BuildContext _context) async {
+      final onSecondary = context.theme.colorScheme.onSecondary;
+      final rootNav = Navigator.of(_context, rootNavigator: true);
       String name = nameController.text;
       final desc = descController.text;
       if (name.isEmpty) {
@@ -418,7 +423,7 @@ class _BackupRestorePanelState extends State<BackupRestorePanel> with ThemeHelpe
           onYes: () {
             // Confirmation dialog is on the root navigator (showBBDialog uses
             // useRootNavigator: true), so it must be popped from there.
-            Navigator.of(_context, rootNavigator: true).pop();
+            rootNav.pop();
             yes = true;
           },
         );
@@ -427,7 +432,7 @@ class _BackupRestorePanelState extends State<BackupRestorePanel> with ThemeHelpe
       // Dismiss the name-entry dialog (also on the root navigator) before
       // performing the backup. Using the non-root navigator here would pop
       // the settings page instead, leaving the dialog stuck open.
-      Navigator.of(_context, rootNavigator: true).pop();
+      rootNav.pop();
       Map<String, dynamic> json = SettingsSvc.settings.toMap(includeAll: false);
       if (desc.isNotEmpty) {
         json["description"] = desc;
@@ -484,7 +489,7 @@ class _BackupRestorePanelState extends State<BackupRestorePanel> with ThemeHelpe
               Share.files([filePath]);
             },
             child: Text(kIsDesktop ? "OPEN FOLDER" : "SHARE",
-                style: TextStyle(color: context.theme.colorScheme.onSecondary)),
+                style: TextStyle(color: onSecondary)),
           ),
         );
       }
@@ -492,7 +497,7 @@ class _BackupRestorePanelState extends State<BackupRestorePanel> with ThemeHelpe
       if (destination.isCloud) refresh();
     }
 
-    if (!context.mounted) return;
+    if (!mounted) return;
     showBBDialog(
       context: context,
       title: "Settings Backup Creation",
@@ -574,7 +579,7 @@ class _BackupRestorePanelState extends State<BackupRestorePanel> with ThemeHelpe
 
   Future<void> _restoreSettingsFromFile() async {
     final res = await FilePicker.pickFiles(withData: true, type: FileType.custom, allowedExtensions: ["json"]);
-    if (res == null || res.files.isEmpty || res.files.first.bytes == null || !context.mounted) return;
+    if (res == null || res.files.isEmpty || res.files.first.bytes == null || !mounted) return;
     BackupRestoreDialogs.showConfirmation(
       context: context,
       title: "Restore Settings?",
@@ -589,26 +594,29 @@ class _BackupRestorePanelState extends State<BackupRestorePanel> with ThemeHelpe
           Settings.updateFromMap(json);
           showSnackbar("Success", "Settings restored successfully");
           final pinnedChats = json["pinnedChats"] as List<dynamic>?;
-          if (pinnedChats != null) {
-            final result = await PinnedChatsBackup.restore(pinnedChats);
-            if (result.skipped.isNotEmpty && context.mounted) {
-              BackupRestoreDialogs.showRestoreSummary(
-                context: context,
-                title: "Some Pinned Chats Couldn't Be Restored",
-                skipped: result.skipped,
-              );
-            }
-          }
+          final pinnedSkipped = pinnedChats == null
+              ? const <String>[]
+              : (await PinnedChatsBackup.restore(pinnedChats)).skipped;
+
           final customGroups = json["customGroups"] as List<dynamic>?;
-          if (customGroups != null) {
-            final result = await CustomGroupsBackup.restore(customGroups);
-            if (result.skipped.isNotEmpty && context.mounted) {
-              BackupRestoreDialogs.showRestoreSummary(
-                context: context,
-                title: "Some Custom Group Chats Couldn't Be Restored",
-                skipped: result.skipped,
-              );
-            }
+          final groupsSkipped = customGroups == null
+              ? const <String>[]
+              : (await CustomGroupsBackup.restore(customGroups)).skipped;
+
+          if (!mounted) return;
+          if (pinnedSkipped.isNotEmpty) {
+            BackupRestoreDialogs.showRestoreSummary(
+              context: context,
+              title: "Some Pinned Chats Couldn't Be Restored",
+              skipped: pinnedSkipped,
+            );
+          }
+          if (groupsSkipped.isNotEmpty) {
+            BackupRestoreDialogs.showRestoreSummary(
+              context: context,
+              title: "Some Custom Group Chats Couldn't Be Restored",
+              skipped: groupsSkipped,
+            );
           }
         } catch (e, s) {
           Logger.error("Failed to restore settings backup!", error: e, trace: s);
@@ -662,7 +670,8 @@ class _BackupRestorePanelState extends State<BackupRestorePanel> with ThemeHelpe
 
   Future<void> _createThemeBackup() async {
     final destination = await showMethodDialog();
-    if (destination == null || !context.mounted) return;
+    if (destination == null || !mounted) return;
+    final onSecondary = context.theme.colorScheme.onSecondary;
     List<ThemeStruct> allThemes = ThemeStruct.getThemes().where((element) => !element.isPreset).toList();
     if (allThemes.isEmpty) {
       return showSnackbar("Notice", "No custom themes found!");
@@ -730,7 +739,7 @@ class _BackupRestorePanelState extends State<BackupRestorePanel> with ThemeHelpe
             Share.files([filePath]);
           },
           child: Text(kIsDesktop ? "OPEN FOLDER" : "SHARE",
-              style: TextStyle(color: context.theme.colorScheme.onSecondary)),
+              style: TextStyle(color: onSecondary)),
         ),
       );
     }
@@ -739,7 +748,7 @@ class _BackupRestorePanelState extends State<BackupRestorePanel> with ThemeHelpe
 
   Future<void> _restoreThemesFromFile() async {
     final res = await FilePicker.pickFiles(withData: true, type: FileType.custom, allowedExtensions: ["json"]);
-    if (res == null || res.files.isEmpty || res.files.first.bytes == null || !context.mounted) return;
+    if (res == null || res.files.isEmpty || res.files.first.bytes == null || !mounted) return;
 
     BackupRestoreDialogs.showConfirmation(
       context: context,
