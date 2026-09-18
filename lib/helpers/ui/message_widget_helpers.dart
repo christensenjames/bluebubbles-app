@@ -36,7 +36,22 @@ List<InlineSpan> buildMessageSpans(BuildContext context, MessagePart part, Messa
       textStyle.apply(fontWeightDelta: 2),
     ));
   }
-  if (part.mentions.isNotEmpty) {
+  // Mention ranges are computed against part.text, but redacted mode makes displayText a fake
+  // string of unrelated length, so they must be checked against the string actually being sliced.
+  bool mentionRangesFit() {
+    final text = part.displayText;
+    if (text == null) return false;
+    int cursor = 0;
+    for (final mention in part.mentions) {
+      if (mention.range.length != 2) return false;
+      if (mention.range.first < cursor || mention.range.last < mention.range.first) return false;
+      if (mention.range.last > text.length) return false;
+      cursor = mention.range.last;
+    }
+    return true;
+  }
+
+  if (part.mentions.isNotEmpty && mentionRangesFit()) {
     part.mentions.forEachIndexed((i, e) {
       final range = part.mentions[i].range;
       textSpans.addAll(MessageHelper.buildEmojiText(
