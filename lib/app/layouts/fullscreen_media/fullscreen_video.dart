@@ -48,6 +48,8 @@ class _FullscreenVideoState extends State<FullscreenVideo> with AutomaticKeepAli
   bool hasListener = false;
   bool hasDisposed = false;
   Offset? _pointerDownPosition;
+  StreamSubscription? _completedSub;
+  StreamSubscription? _playingSub;
   final RxBool muted = SettingsSvc.settings.startVideosMutedFullscreen.value.obs;
   final RxBool showPlayPauseOverlay = true.obs;
   final RxDouble aspectRatio = 1.0.obs;
@@ -141,7 +143,8 @@ class _FullscreenVideoState extends State<FullscreenVideo> with AutomaticKeepAli
       aspectRatio.value = controller.aspectRatio;
     });
 
-    controller.player.stream.completed.listen((completed) async {
+    _completedSub?.cancel();
+    _completedSub = controller.player.stream.completed.listen((completed) async {
       // If the status is ended, restart
       if (completed && !hasDisposed) {
         await controller.player.pause();
@@ -154,7 +157,8 @@ class _FullscreenVideoState extends State<FullscreenVideo> with AutomaticKeepAli
       }
     });
 
-    controller.player.stream.playing.listen((playing) {
+    _playingSub?.cancel();
+    _playingSub = controller.player.stream.playing.listen((playing) {
       if (hasDisposed || kIsDesktop || kIsWeb) return;
       if (playing) {
         // Only start the hide timer if the overlays are currently visible
@@ -206,6 +210,8 @@ class _FullscreenVideoState extends State<FullscreenVideo> with AutomaticKeepAli
   void dispose() {
     hasDisposed = true;
     _cancelHideTimer();
+    _completedSub?.cancel();
+    _playingSub?.cancel();
     _setFullscreen(false);
 
     // Sync mute state back to parent — deferred to avoid mutating an Rx value

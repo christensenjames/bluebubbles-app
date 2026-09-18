@@ -33,6 +33,7 @@ class _AdvancedThemingContentState extends State<AdvancedThemingContent> with Th
   final RxDouble master = 1.0.obs;
   final Rxn<ThemeData> oldData = Rxn<ThemeData>();
   final _controller = ScrollController();
+  StreamSubscription? _themeSub;
 
   @override
   void initState() {
@@ -45,7 +46,7 @@ class _AdvancedThemingContentState extends State<AdvancedThemingContent> with Th
     allThemes = ThemeStruct.getThemes();
     editable.value = !currentTheme.isPreset;
 
-    widget.controller.stream.listen((event) {
+    _themeSub = widget.controller.stream.listen((event) {
       BuildContext _context = context;
       showDialog(
           context: context,
@@ -63,6 +64,7 @@ class _AdvancedThemingContentState extends State<AdvancedThemingContent> with Th
 
   @override
   void dispose() {
+    _themeSub?.cancel();
     _controller.dispose();
     super.dispose();
   }
