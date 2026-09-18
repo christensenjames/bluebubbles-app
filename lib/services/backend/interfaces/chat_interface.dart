@@ -26,7 +26,7 @@ class ChatInterface {
     }
   }
 
-  static Future<void> markAllChatsRead({
+  static Future<List<String>> markAllChatsRead({
     required List<int> chatIds,
     required bool shouldMarkOnServer,
   }) async {
@@ -37,7 +37,7 @@ class ChatInterface {
     if (isIsolate) {
       return await ChatActions.markAllChatsRead(data);
     } else {
-      return await GetIt.I<GlobalIsolate>().send<void>(IsolateRequestType.markAllChatsRead, input: data);
+      return await GetIt.I<GlobalIsolate>().send<List<String>>(IsolateRequestType.markAllChatsRead, input: data);
     }
   }
 

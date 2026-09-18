@@ -15,7 +15,7 @@ class ChatActions {
     await MethodChannelSvc.actions.deleteNotification(notificationId: chatId, tag: 'new_message');
   }
 
-  static Future<void> markAllChatsRead(dynamic data) async {
+  static Future<List<String>> markAllChatsRead(dynamic data) async {
     final chatIds = (data['chatIds'] as List).cast<int>();
     final shouldMarkOnServer = data['shouldMarkOnServer'] as bool;
 
@@ -27,13 +27,19 @@ class ChatActions {
       Database.chats.putMany(chats);
     });
 
+    final failedGuids = <String>[];
     if (shouldMarkOnServer &&
         SettingsSvc.settings.enablePrivateAPI.value &&
         SettingsSvc.settings.privateMarkChatAsRead.value) {
       for (final c in chats) {
-        await HttpSvc.chat.markRead(c.guid);
+        try {
+          await HttpSvc.chat.markRead(c.guid);
+        } catch (e, stack) {
+          Logger.error("Failed to mark chat ${c.guid} read on server", error: e, trace: stack, tag: "ChatActions");
+        }
       }
     }
+    return failedGuids;
   }
 
   static Future<void> markChatReadUnread(dynamic data) async {

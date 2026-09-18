@@ -800,36 +800,49 @@ class ChatsService {
   /// that set are affected (e.g. the currently filtered/visible subset) —
   /// otherwise every unread chat is marked, regardless of any active filter.
   Future<void> markAllAsRead({Set<String>? chatGuids}) async {
-    try {
-      // Phase 1: instant UI update from in-memory state — no DB query needed
-      final unreadStates = chatStates.values
-          .where((s) => s.hasUnreadMessage.value && (chatGuids == null || chatGuids.contains(s.chat.guid)))
-          .toList();
-      final chatIds = <int>[];
+    // Phase 1: instant UI update from in-memory state — no DB query needed
+    final unreadStates = chatStates.values
+        .where((s) => s.hasUnreadMessage.value && (chatGuids == null || chatGuids.contains(s.chat.guid)))
+        .toList();
+    final chatIds = <int>[];
 
-      for (final state in unreadStates) {
-        state.hasUnreadMessage.value = false;
-        final id = state.chat.id;
-        if (id != null) {
-          chatIds.add(id);
-          if (!kIsDesktop && !kIsWeb) {
-            MethodChannelSvc.actions.deleteNotification(
-              notificationId: id,
-              tag: NotificationsService.NEW_MESSAGE_TAG,
-            );
-          }
+    for (final state in unreadStates) {
+      state.hasUnreadMessage.value = false;
+      final id = state.chat.id;
+      if (id != null) {
+        chatIds.add(id);
+        if (!kIsDesktop && !kIsWeb) {
+          // Nothing in this codebase can re-post a deleted notification, so this is not revertible.
+          MethodChannelSvc.actions.deleteNotification(
+            notificationId: id,
+            tag: NotificationsService.NEW_MESSAGE_TAG,
+          );
         }
       }
+    }
 
-      if (chatIds.isEmpty) return;
+    if (chatIds.isEmpty) return;
 
-      // Phase 2: DB write + HTTP calls dispatched to background isolate
-      final shouldMark =
-          SettingsSvc.settings.enablePrivateAPI.value && SettingsSvc.settings.privateMarkChatAsRead.value;
-      await ChatInterface.markAllChatsRead(chatIds: chatIds, shouldMarkOnServer: shouldMark);
+    // Phase 2: DB write + HTTP calls dispatched to background isolate
+    final shouldMark =
+        SettingsSvc.settings.enablePrivateAPI.value && SettingsSvc.settings.privateMarkChatAsRead.value;
+    final List<String> failedGuids;
+    try {
+      failedGuids = await ChatInterface.markAllChatsRead(chatIds: chatIds, shouldMarkOnServer: shouldMark);
     } catch (e, stack) {
       Logger.error("Error marking all chats as read", error: e, trace: stack, tag: "ChatsService");
+      // The local write failed, so restore the badges Phase 1 optimistically cleared.
+      for (final state in unreadStates) {
+        state.hasUnreadMessage.value = true;
+      }
       showToast("Failed to mark all chats as read!");
+      return;
+    }
+
+    if (failedGuids.isNotEmpty) {
+      Logger.warn("Failed to sync ${failedGuids.length} chat(s) as read to the server: ${failedGuids.join(", ")}",
+          tag: "ChatsService");
+      showToast("Marked as read, but ${failedGuids.length} chat(s) failed to sync to your Mac");
     }
   }
 
