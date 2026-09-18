@@ -310,7 +310,7 @@ class _ExportDialog extends StatelessWidget {
             Container(
               constraints: const BoxConstraints(maxHeight: 200),
               decoration: BoxDecoration(
-                color: context.theme.colorScheme.surfaceVariant.withValues(alpha: 0.5),
+                color: context.theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
                 borderRadius: BorderRadius.circular(8),
                 border: Border.all(color: context.theme.colorScheme.outline.withValues(alpha: 0.3)),
               ),

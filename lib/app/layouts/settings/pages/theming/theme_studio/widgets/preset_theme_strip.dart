@@ -663,7 +663,7 @@ class _ThemeCardState extends State<_ThemeCard> {
         duration: const Duration(milliseconds: 200),
         width: 76,
         decoration: BoxDecoration(
-          color: context.theme.colorScheme.surfaceVariant.withValues(alpha: 0.4),
+          color: context.theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.4),
           borderRadius: BorderRadius.circular(12),
           border: Border.all(color: borderColor, width: borderWidth),
         ),

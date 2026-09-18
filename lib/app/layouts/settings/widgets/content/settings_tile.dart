@@ -47,7 +47,7 @@ class SettingsTile extends StatelessWidget {
       child: InkWell(
         onTap: onTap as void Function()?,
         onLongPress: onLongPress as void Function()?,
-        splashColor: context.theme.colorScheme.surfaceVariant,
+        splashColor: context.theme.colorScheme.surfaceContainerHighest,
         splashFactory: context.theme.splashFactory,
         child: GestureDetector(
           onSecondaryTapUp: (details) async {
