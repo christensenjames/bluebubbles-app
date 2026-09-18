@@ -102,8 +102,8 @@ Step-by-step recipes for the most frequent changes in this codebase. Each recipe
 
 4. **Widget subscription** (if needed) — In `initState`:
    ```dart
-   _sub = EventDispatcherSvc.stream.listen((e) {
-     if (e.item1 == "my-new-event") setState(() { ... });
+   _sub = EventDispatcherSvc.stream.listen((event) {
+     if (event.type == "my-new-event") setState(() { ... });
    });
    ```
    Cancel in `dispose`.

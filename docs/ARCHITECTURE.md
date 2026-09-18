@@ -205,4 +205,4 @@ If adding a new service, place it at the correct position in `startup_tasks.dart
 
 ## Event Bus
 
-`lib/services/backend_ui_interop/event_dispatcher.dart` is a broadcast `StreamController<Tuple2<String, dynamic>>`. Backend services emit named events; UI widgets subscribe in `initState()` and cancel in `dispose()`. This decouples the backend from the UI without needing shared observable state for one-off cross-cutting events (e.g., "chat-updated"). Use sparingly, only when absolutely necessary.
+`lib/services/backend_ui_interop/event_dispatcher.dart` is a broadcast `StreamController<DispatchedEvent>`. Each event has `.type` and `.data` fields (`lib/models/dispatched_event.dart`). Backend services emit named events; UI widgets subscribe in `initState()` and cancel in `dispose()`. This decouples the backend from the UI without needing shared observable state for one-off cross-cutting events (e.g., "chat-updated"). Use sparingly, only when absolutely necessary.
