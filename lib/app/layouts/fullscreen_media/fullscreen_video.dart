@@ -261,7 +261,7 @@ class _FullscreenVideoState extends State<FullscreenVideo> with AutomaticKeepAli
           child: Theme(
             data: context.theme.copyWith(
                 platform: iOS ? TargetPlatform.iOS : TargetPlatform.android,
-                dialogBackgroundColor: context.theme.colorScheme.surfaceContainerHighest,
+                dialogTheme: context.theme.dialogTheme.copyWith(backgroundColor: context.theme.colorScheme.surfaceContainerHighest),
                 iconTheme: context.theme.iconTheme.copyWith(color: context.theme.textTheme.bodyMedium?.color)),
             child: Stack(
               alignment: Alignment.center,

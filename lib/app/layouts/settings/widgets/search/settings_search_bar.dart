@@ -71,7 +71,7 @@ class _SettingsSearchBarState extends State<SettingsSearchBar> {
               focusNode: _focusNode,
               backgroundColor: widget.tileColor != null ? WidgetStatePropertyAll(widget.tileColor) : null,
               hintText: 'Search Settings',
-              hintStyle: MaterialStateProperty.all(
+              hintStyle: WidgetStateProperty.all(
                 TextStyle(
                   color: Theme.of(context).brightness == Brightness.dark
                       ? Colors.white.withValues(alpha: 0.5)
@@ -81,7 +81,7 @@ class _SettingsSearchBarState extends State<SettingsSearchBar> {
               padding: const WidgetStatePropertyAll<EdgeInsets>(
                 EdgeInsets.symmetric(horizontal: 16.0),
               ),
-              elevation: const MaterialStatePropertyAll(1),
+              elevation: const WidgetStatePropertyAll(1),
               onChanged: _onSearchChanged,
               leading: const Icon(Icons.search),
               trailing: <Widget>[
