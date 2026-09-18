@@ -520,28 +520,33 @@ class _ChatOptionsState extends State<ChatOptions> with ThemeHelpers {
             containerColor: Colors.brown,
           ),
           onTap: () async {
+            final nav = Navigator.of(context, rootNavigator: true);
             final date = await showTimeframePicker("Select Timeframe", context, additionalTimeframes: {"6 Hours": 6});
             if (date == null) return;
-            showDialog(
-              context: context,
-              builder: (context) => AlertDialog(
-                title: Text("Generating document...", style: context.theme.textTheme.titleLarge),
-                content: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  mainAxisSize: MainAxisSize.min,
-                  children: <Widget>[const SizedBox(height: 15.0), buildProgressIndicator(context)],
+            bool dialogShown = false;
+            if (context.mounted) {
+              dialogShown = true;
+              showDialog(
+                context: context,
+                builder: (context) => AlertDialog(
+                  title: Text("Generating document...", style: context.theme.textTheme.titleLarge),
+                  content: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    mainAxisSize: MainAxisSize.min,
+                    children: <Widget>[const SizedBox(height: 15.0), buildProgressIndicator(context)],
+                  ),
+                  backgroundColor: context.theme.colorScheme.surfaceContainerHighest,
                 ),
-                backgroundColor: context.theme.colorScheme.surfaceContainerHighest,
-              ),
-              barrierDismissible: false,
-            );
+                barrierDismissible: false,
+              );
+            }
             final messages = (await Chat.getMessagesAsync(
               chat,
               limit: 0,
               includeDeleted: true,
             )).reversed.where((e) => e.dateCreated!.isAfter(date));
             if (messages.isEmpty) {
-              Navigator.of(context, rootNavigator: true).pop();
+              if (dialogShown) nav.pop();
               showSnackbar("Error", "No messages found!");
               return;
             }
@@ -562,32 +567,37 @@ class _ChatOptionsState extends State<ChatOptions> with ThemeHelpers {
             File file = File(filePath);
             await file.create(recursive: true);
             await file.writeAsString(lines.join('\n'));
-            Navigator.of(context, rootNavigator: true).pop();
+            if (dialogShown) nav.pop();
             showSnackbar("Success", "Saved transcript to the downloads folder");
           },
           onLongPress: () async {
+            final nav = Navigator.of(context, rootNavigator: true);
             final date = await showTimeframePicker("Select Timeframe", context, additionalTimeframes: {"6 Hours": 6});
             if (date == null) return;
-            showDialog(
-              context: context,
-              builder: (context) => AlertDialog(
-                title: Text("Generating PDF...", style: context.theme.textTheme.titleLarge),
-                content: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  mainAxisSize: MainAxisSize.min,
-                  children: <Widget>[const SizedBox(height: 15.0), buildProgressIndicator(context)],
+            bool dialogShown = false;
+            if (context.mounted) {
+              dialogShown = true;
+              showDialog(
+                context: context,
+                builder: (context) => AlertDialog(
+                  title: Text("Generating PDF...", style: context.theme.textTheme.titleLarge),
+                  content: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    mainAxisSize: MainAxisSize.min,
+                    children: <Widget>[const SizedBox(height: 15.0), buildProgressIndicator(context)],
+                  ),
+                  backgroundColor: context.theme.colorScheme.surfaceContainerHighest,
                 ),
-                backgroundColor: context.theme.colorScheme.surfaceContainerHighest,
-              ),
-              barrierDismissible: false,
-            );
+                barrierDismissible: false,
+              );
+            }
             final messages = (await Chat.getMessagesAsync(
               chat,
               limit: 0,
               includeDeleted: true,
             )).reversed.where((e) => e.dateCreated!.isAfter(date));
             if (messages.isEmpty) {
-              Navigator.of(context, rootNavigator: true).pop();
+              if (dialogShown) nav.pop();
               showSnackbar("Error", "No messages found!");
               return;
             }
@@ -682,7 +692,7 @@ class _ChatOptionsState extends State<ChatOptions> with ThemeHelpers {
             File file = File(filePath);
             await file.create(recursive: true);
             await file.writeAsBytes(await doc.save());
-            Navigator.of(context, rootNavigator: true).pop();
+            if (dialogShown) nav.pop();
             showSnackbar("Success", "Saved transcript to the downloads folder");
           },
         ),

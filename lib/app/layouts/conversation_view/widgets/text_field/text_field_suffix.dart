@@ -295,6 +295,7 @@ class _RecordingButton extends StatelessWidget {
               );
             }
 
+            if (!context.mounted) return;
             await showBBDialog(
               context: context,
               barrierDismissible: false,
@@ -330,6 +331,7 @@ class _RecordingButton extends StatelessWidget {
                   text: "Send",
                   isDefault: true,
                   onPressed: () async {
+                    final nav = Navigator.of(context, rootNavigator: true);
                     await controller!.send(SendData(
                       attachments: [file],
                       text: "",
@@ -337,7 +339,7 @@ class _RecordingButton extends StatelessWidget {
                       isAudioMessage: true,
                     ));
                     onDeleteRecording(file.path!);
-                    Navigator.of(context, rootNavigator: true).pop();
+                    nav.pop();
                   },
                 ),
               ],
