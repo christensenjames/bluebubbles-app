@@ -292,7 +292,6 @@ The following interfaces are currently available:
 - **ContactInterface** - **DEPRECATED** - Use ContactV2Interface instead
 - **AttachmentInterface** - Attachment CRUD operations
 - **SyncInterface** - Incremental sync operations
-- **TestInterface** - Testing isolate functionality
 
 #### Custom Isolates (Extending GlobalIsolate)
 
