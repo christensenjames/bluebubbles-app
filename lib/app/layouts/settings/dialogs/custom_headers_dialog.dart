@@ -125,11 +125,12 @@ Future<bool> showCustomHeadersDialog(BuildContext context) async {
                     }
                   });
 
+                  final nav = Navigator.of(context);
                   SettingsSvc.settings.customHeaders.value = map;
                   await SettingsSvc.settings.saveOneAsync('customHeaders');
                   await PrefsSvc.network.setCustomHeadersJson(jsonEncode(HttpSvc.headers));
                   HttpSvc.updateHeaders();
-                  Navigator.of(context).pop(true);
+                  nav.pop(true);
                 }),
           ],
         ),

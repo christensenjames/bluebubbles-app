@@ -101,9 +101,10 @@ class _AboutPanelState extends State<AboutPanel> with ThemeHelpers {
                     SettingsTile(
                       title: "Changelog",
                       onTap: () async {
+                        final nav = Navigator.of(context);
                         String changelog =
                             await DefaultAssetBundle.of(context).loadString('assets/changelog/changelog.md');
-                        Navigator.of(context).push(
+                        nav.push(
                           ThemeSwitcher.buildPageRoute(
                             builder: (context) => Scaffold(
                               body: Markdown(

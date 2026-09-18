@@ -44,7 +44,6 @@ class _AdvancedThemingTileState extends State<AdvancedThemingTile> {
                     : null,
                 child: InkWell(
                   onTap: () async {
-                    BuildContext _context = context;
                     if (widget.editable) {
                       final result = await showThemeDialog(widget.colorEntry.primary.value);
                       if (result != null) {
@@ -52,10 +51,11 @@ class _AdvancedThemingTileState extends State<AdvancedThemingTile> {
                         map["data"]["colorScheme"][widget.colorEntry.primary.key] = result.toARGB32();
                         widget.currentTheme.data = ThemeStruct.fromMap(map).data;
                         widget.currentTheme.save();
+                        if (!context.mounted) return;
                         if (widget.currentTheme.name == PrefsSvc.theme.getSelectedDarkTheme()) {
-                          await ThemeSvc.changeTheme(_context, dark: widget.currentTheme);
+                          await ThemeSvc.changeTheme(context, dark: widget.currentTheme);
                         } else if (widget.currentTheme.name == PrefsSvc.theme.getSelectedLightTheme()) {
-                          await ThemeSvc.changeTheme(_context, light: widget.currentTheme);
+                          await ThemeSvc.changeTheme(context, light: widget.currentTheme);
                         }
                       }
                     } else {
@@ -68,7 +68,6 @@ class _AdvancedThemingTileState extends State<AdvancedThemingTile> {
                   },
                   onLongPress: widget.colorEntry.textColor != null
                       ? () async {
-                          BuildContext _context = context;
                           if (widget.editable) {
                             final result = await showThemeDialog(widget.colorEntry.textColor!.value);
                             if (result != null) {
@@ -76,10 +75,11 @@ class _AdvancedThemingTileState extends State<AdvancedThemingTile> {
                               map["data"]["colorScheme"][widget.colorEntry.textColor!.key] = result.toARGB32();
                               widget.currentTheme.data = ThemeStruct.fromMap(map).data;
                               widget.currentTheme.save();
+                              if (!context.mounted) return;
                               if (widget.currentTheme.name == PrefsSvc.theme.getSelectedDarkTheme()) {
-                                await ThemeSvc.changeTheme(_context, dark: widget.currentTheme);
+                                await ThemeSvc.changeTheme(context, dark: widget.currentTheme);
                               } else if (widget.currentTheme.name == PrefsSvc.theme.getSelectedLightTheme()) {
-                                await ThemeSvc.changeTheme(_context, light: widget.currentTheme);
+                                await ThemeSvc.changeTheme(context, light: widget.currentTheme);
                               }
                             }
                           } else {
