@@ -278,7 +278,7 @@ class AttachmentsService extends GetxService {
         'Saved attachment to $savePath!',
         durationMs: 3000,
         button: TextButton(
-          style: TextButton.styleFrom(backgroundColor: Get.theme.colorScheme.surfaceVariant),
+          style: TextButton.styleFrom(backgroundColor: Get.theme.colorScheme.surfaceContainerHighest),
           onPressed: () {
             launchUrl(Uri.file(savePath));
           },
