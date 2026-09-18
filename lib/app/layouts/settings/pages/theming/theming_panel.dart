@@ -219,8 +219,9 @@ class _ThemingPanelState extends CustomState<ThemingPanel, void, ThemingPanelCon
                             SettingsSvc.settings.windowEffectCustomOpacityDark.value =
                                 WindowEffects.defaultOpacity(dark: true);
                           }
+                          final surfaceColor = context.theme.colorScheme.surface;
                           await PrefsSvc.desktop.setWindowEffect(effect.toString());
-                          await WindowEffects.setEffect(color: context.theme.colorScheme.surface);
+                          await WindowEffects.setEffect(color: surfaceColor);
                           await SettingsSvc.settings.saveManyAsync(
                               ['windowEffect', 'windowEffectCustomOpacityLight', 'windowEffectCustomOpacityDark']);
                         },
@@ -328,6 +329,7 @@ class _ThemingPanelState extends CustomState<ThemingPanel, void, ThemingPanelCon
                             onChanged: (value) async {
                               SettingsSvc.settings.useDesktopAccent.value = value;
                               await SettingsSvc.settings.saveOneAsync('useDesktopAccent');
+                              if (!context.mounted) return;
                               await ThemeSvc.refreshDesktopAccent(context);
                             },
                           )),
@@ -363,6 +365,7 @@ class _ThemingPanelState extends CustomState<ThemingPanel, void, ThemingPanelCon
                                     darkTheme: "OLED Dark",
                                   );
                                 }
+                                if (!context.mounted) return;
                                 await ThemeSvc.refreshMonet(context);
                               },
                             )),

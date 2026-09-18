@@ -171,8 +171,7 @@ class ThemeStudioController extends StatefulController {
     if (config?.onApply != null) {
       await config!.onApply!(lightTheme, darkTheme);
     } else {
-      await ThemeSvc.changeTheme(context, light: lightTheme);
-      await ThemeSvc.changeTheme(context, dark: darkTheme);
+      await ThemeSvc.changeTheme(context, light: lightTheme, dark: darkTheme);
       EventDispatcherSvc.emit('theme-update', null);
     }
     pendingChanges.value = false;

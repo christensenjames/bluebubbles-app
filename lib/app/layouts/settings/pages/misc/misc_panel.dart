@@ -40,6 +40,7 @@ class _MiscPanelState extends State<MiscPanel> with ThemeHelpers {
                     if (SettingsSvc.canAuthenticate)
                       Obx(() => SettingsSwitch(
                             onChanged: (bool val) async {
+                              final secureController = SecureApplicationProvider.of(context, listen: false);
                               var localAuth = LocalAuthentication();
                               bool didAuthenticate = await localAuth.authenticate(
                                 localizedReason:
@@ -49,10 +50,10 @@ class _MiscPanelState extends State<MiscPanel> with ThemeHelpers {
                               if (didAuthenticate) {
                                 SettingsSvc.settings.shouldSecure.value = val;
                                 if (val == false) {
-                                  SecureApplicationProvider.of(context, listen: false)!.open();
+                                  secureController!.open();
                                 } else if (SettingsSvc.settings.securityLevel.value ==
                                     SecurityLevel.locked_and_secured) {
-                                  SecureApplicationProvider.of(context, listen: false)!.secure();
+                                  secureController!.secure();
                                 }
                                 await SettingsSvc.settings.saveOneAsync('shouldSecure');
                               }
@@ -117,6 +118,7 @@ class _MiscPanelState extends State<MiscPanel> with ThemeHelpers {
                           return SettingsOptions<SecurityLevel>(
                             initial: SettingsSvc.settings.securityLevel.value,
                             onChanged: (val) async {
+                              final secureController = SecureApplicationProvider.of(context, listen: false);
                               var localAuth = LocalAuthentication();
                               bool didAuthenticate = await localAuth.authenticate(
                                 localizedReason: 'Please authenticate to change your security level',
@@ -126,9 +128,9 @@ class _MiscPanelState extends State<MiscPanel> with ThemeHelpers {
                                 if (val != null) {
                                   SettingsSvc.settings.securityLevel.value = val;
                                   if (val == SecurityLevel.locked_and_secured) {
-                                    SecureApplicationProvider.of(context, listen: false)!.secure();
+                                    secureController!.secure();
                                   } else {
-                                    SecureApplicationProvider.of(context, listen: false)!.open();
+                                    secureController!.open();
                                   }
                                 }
                                 await SettingsSvc.settings.saveOneAsync('securityLevel');
