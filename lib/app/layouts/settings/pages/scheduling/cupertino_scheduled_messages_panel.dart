@@ -172,7 +172,7 @@ class _CupertinoScheduledMessagesPanelState extends State<CupertinoScheduledMess
           if (!isCompleted) ...[
             CupertinoButton(
               padding: const EdgeInsets.symmetric(horizontal: 8),
-              minSize: 0,
+              minimumSize: Size.zero,
               onPressed: () async {
                 final result = await NavigationSvc.pushSettings(
                   context,
@@ -188,7 +188,7 @@ class _CupertinoScheduledMessagesPanelState extends State<CupertinoScheduledMess
           ],
           CupertinoButton(
             padding: const EdgeInsets.only(left: 4),
-            minSize: 0,
+            minimumSize: Size.zero,
             onPressed: () => deleteMessage(item),
             child: Icon(CupertinoIcons.trash, size: 20, color: context.theme.colorScheme.error),
           ),
@@ -213,7 +213,7 @@ class _CupertinoScheduledMessagesPanelState extends State<CupertinoScheduledMess
             padding: EdgeInsets.zero,
             physics: const NeverScrollableScrollPhysics(),
             shrinkWrap: true,
-            findChildIndexCallback: (key) => findChildIndexByKey(items, key, (item) => item.id.toString()),
+            findItemIndexCallback: (key) => findChildIndexByKey(items, key, (item) => item.id.toString()),
             itemCount: items.length,
             separatorBuilder: (context, _) => const Divider(height: 1, indent: 60),
             itemBuilder: (context, index) {
