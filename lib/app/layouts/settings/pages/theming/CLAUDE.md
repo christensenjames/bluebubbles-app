@@ -7,17 +7,9 @@ Settings panels for all visual customization: color schemes, gradients, fonts, a
 | Path | Purpose |
 |------|---------|
 | `theming_panel.dart` | Entry point — top-level theme settings (skin selector, preset themes, dark mode) |
-| `advanced/` | Font picker, gradient editor, custom color tokens → `CLAUDE.md` below |
 | `avatar/` | Custom avatar color + image settings → `CLAUDE.md` below |
 | `background/` | Chat background image crop and selection |
 | `theme_studio/` | Full WYSIWYG theme editor → `CLAUDE.md` below |
-
-### `advanced/`
-
-| File | Purpose |
-|------|---------|
-| `advanced_theming_panel.dart` | Entry panel for font, color token, and gradient overrides |
-| `advanced_theming_content.dart` | Content widget shared between panel variants |
 
 ### `avatar/`
 
