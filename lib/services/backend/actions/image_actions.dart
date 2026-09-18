@@ -74,7 +74,7 @@ class ImageActions {
 
   /// Reads EXIF data from an image file
   /// Input: Map with 'path' key containing file path
-  /// Output: Map<String, String> with EXIF tag names and their printable values
+  /// Output: `Map<String, String>` with EXIF tag names and their printable values
   static Future<Map<String, String>?> readExifData(dynamic input) async {
     try {
       final path = input['path'] as String?;

@@ -14,10 +14,10 @@ class SyncActions {
   /// atomic write transaction.
   ///
   /// [data] keys:
-  ///   - `chatData`               Map<String,dynamic>?  — top-level chat (optional)
-  ///   - `messagesData`           List<Map<String,dynamic>> — raw server message maps
+  ///   - `chatData`               `Map<String,dynamic>?`  — top-level chat (optional)
+  ///   - `messagesData`           `List<Map<String,dynamic>>` — raw server message maps
   ///
-  /// Returns a map with `messageIds` (List<int>) and `chatIds` (List<int>) of updated chats.
+  /// Returns a map with `messageIds` (`List<int>`) and `chatIds` (`List<int>`) of updated chats.
   static Future<Map<String, dynamic>> bulkSyncData(dynamic data) async {
     if (kIsWeb) return {'messageIds': <int>[], 'chatIds': <int>[]};
 

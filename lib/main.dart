@@ -224,7 +224,6 @@ Future<Null> initApp(bool bubble, List<String> arguments) async {
       /* ----- EMOJI FONT INITIALIZATION ----- */
       Future.microtask(() => FilesystemSvc.checkFont());
     } catch (e, s) {
-      print(s.toString());
       Logger.error("Failure during app initialization!", error: e, trace: s);
       exception = e;
       stacktrace = s;
