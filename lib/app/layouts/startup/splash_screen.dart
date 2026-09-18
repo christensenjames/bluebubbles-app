@@ -18,8 +18,9 @@ class _SplashScreenState extends State<SplashScreen> {
   void navigate() async {
     if (widget.shouldNavigate && !didNavigate) {
       didNavigate = true;
+      final nav = Navigator.of(context);
       await Future.delayed(const Duration(milliseconds: 100));
-      Navigator.of(context).pushAndRemoveUntil(
+      nav.pushAndRemoveUntil(
           PageRouteBuilder(
               transitionDuration: const Duration(seconds: 1),
               pageBuilder: (_, _, _) => const TitleBarWrapper(child: SetupView())),

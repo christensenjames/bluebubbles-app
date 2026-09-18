@@ -414,21 +414,28 @@ mixin ConnectionPanelHelpersMixin {
                         builder: (context) => SyncDialog(manager: mgr),
                       );
                     } else {
+                      final nav = Navigator.of(context, rootNavigator: true);
                       final date = await showTimeframePicker("How Far Back?", context, showHourPicker: false);
                       if (date == null) return;
+                      bool dialogShown = false;
                       try {
                         SyncSvc.isIncrementalSyncing.value = true;
                         final newMgr = IncrementalSyncManager(startTimestamp: date.millisecondsSinceEpoch);
                         setManager(newMgr);
-                        showDialog(
-                          context: context,
-                          builder: (context) => SyncDialog(manager: newMgr),
-                        );
+                        if (context.mounted) {
+                          dialogShown = true;
+                          showDialog(
+                            context: context,
+                            builder: (context) => SyncDialog(manager: newMgr),
+                          );
+                        }
                         await newMgr.start();
                       } catch (e, s) {
                         Logger.warn("Incremental sync failed", error: e, trace: s, tag: 'ConnectionPanel');
                       }
-                      Navigator.of(context, rootNavigator: true).pop();
+                      if (dialogShown) {
+                        nav.pop();
+                      }
                       setManager(null);
                       SyncSvc.isIncrementalSyncing.value = false;
                     }

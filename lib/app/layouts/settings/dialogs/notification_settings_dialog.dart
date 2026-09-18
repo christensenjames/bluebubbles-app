@@ -125,6 +125,7 @@ class NotificationSettingsDialog extends StatelessWidget {
             style: context.theme.textTheme.bodySmall!.copyWith(color: context.theme.colorScheme.onSurfaceVariant),
           ),
           onTap: () async {
+            final nav = Navigator.of(context, rootNavigator: true);
             if (shouldMuteDateTime(chat.muteArgs)) {
               chat.muteType = null;
               chat.muteArgs = null;
@@ -136,6 +137,7 @@ class NotificationSettingsDialog extends StatelessWidget {
                   firstDate: DateTime.now().toLocal(),
                   lastDate: DateTime.now().toLocal().add(const Duration(days: 365)));
               if (messageDate != null) {
+                if (!context.mounted) return;
                 final messageTime = await showTimePicker(context: context, initialTime: TimeOfDay.now());
                 if (messageTime != null) {
                   final finalDate = DateTime(
@@ -149,7 +151,7 @@ class NotificationSettingsDialog extends StatelessWidget {
                 }
               }
             }
-            Navigator.of(context, rootNavigator: true).pop();
+            nav.pop();
           },
         ),
         ListTile(
@@ -160,6 +162,7 @@ class NotificationSettingsDialog extends StatelessWidget {
             style: context.theme.textTheme.bodySmall!.copyWith(color: context.theme.colorScheme.onSurfaceVariant),
           ),
           onTap: () async {
+            final nav = Navigator.of(context, rootNavigator: true);
             final TextEditingController controller = TextEditingController();
             if (chat.muteType == "text_detection") {
               controller.text = chat.muteArgs!;
@@ -171,7 +174,7 @@ class NotificationSettingsDialog extends StatelessWidget {
             chat.saveAsync(updateMuteType: true, updateMuteArgs: true);
             updateParent.call();
             EventDispatcherSvc.emit("refresh", null);
-            Navigator.of(context, rootNavigator: true).pop();
+            nav.pop();
           },
         ),
         ListTile(

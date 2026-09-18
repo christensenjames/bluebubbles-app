@@ -241,10 +241,11 @@ class _OauthPanelState extends State<OauthPanel> with ThemeHelpers {
                                                   "${usableProjects[index]['projectId']}\n${usableProjects[index]['serverUrl']}",
                                                 ),
                                                 onTap: () async {
+                                                  final nav = Navigator.of(context);
                                                   await requestPassword(
                                                       context, usableProjects[index]['serverUrl'], connect);
                                                   if (error.value == "") {
-                                                    Navigator.of(context).pop();
+                                                    nav.pop();
                                                   }
                                                 },
                                                 isThreeLine: true,
