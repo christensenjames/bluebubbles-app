@@ -504,6 +504,8 @@ class ChatCreatorController extends StatefulController {
         return;
       }
 
+      if (!context.mounted) return;
+
       if (!(_createCompleter?.isCompleted ?? true)) return;
       _createCompleter = Completer();
       isSending.value = true;
@@ -529,6 +531,8 @@ class ChatCreatorController extends StatefulController {
           ),
         ),
       );
+
+      final rootNav = Navigator.of(context, rootNavigator: true);
 
       try {
         // For single-contact chats, try to find an existing chat on the server via a
@@ -580,12 +584,14 @@ class ChatCreatorController extends StatefulController {
 
         _createCompleter?.complete();
         isSending.value = false;
-        Navigator.of(context, rootNavigator: true).pop(); // dismiss loading dialog
+        rootNav.pop(); // dismiss loading dialog
       } catch (error) {
-        Navigator.of(context, rootNavigator: true).pop(); // dismiss loading dialog
+        rootNav.pop(); // dismiss loading dialog
 
         _createCompleter?.completeError(error);
         isSending.value = false;
+
+        if (!context.mounted) return;
 
         showBBDialog(
           barrierDismissible: false,
