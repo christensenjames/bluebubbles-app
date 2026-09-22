@@ -126,4 +126,4 @@ Use `EventDispatcherSvc` (see `services.md`) to signal UI after backend operatio
 - Always `await` async calls — never fire-and-forget unless intentional background work.
 - For intentional fire-and-forget, use `unawaited()` from `dart:async` to make intent explicit.
 - Use `Completer<void>` to coordinate between HTTP response and socket event (send progress tracking pattern).
-- Run DB queries off the main thread: `await runAsync(() => query.find())`.
+- `runAsync` schedules a synchronous callback on the main isolate through `SchedulerBinding` at animation priority; it defers work but does not move it off-thread. Use an isolate interface for heavy DB work.

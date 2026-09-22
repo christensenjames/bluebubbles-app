@@ -62,7 +62,7 @@ query.close();                  // always close
 
 - Use `.watch()` for reactive queries that need live updates; subscribe in `initState()`, cancel in `dispose()`.
 - Run synchronous queries inside `Database.runInTransaction(TxMode.read, () { ... })`.
-- Run from background: `await runAsync(() => query.find())` — never block the UI thread with large queries.
+- `runAsync` defers a synchronous query on the main isolate through `SchedulerBinding`; it is not background execution. Use the isolate interfaces for heavy queries so they do not block the UI.
 
 ## Transactions
 

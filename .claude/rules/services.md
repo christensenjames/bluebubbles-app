@@ -2,36 +2,25 @@
 
 ## Service Registration & Access
 
-All services are GetX singletons. Shortcuts are defined in `lib/services/services.dart`.
+Services use two service locators. Services registered in `lib/helpers/backend/startup_tasks.dart` use GetIt; classes extending `GetxService` use GetX. Service shortcuts are top-level getters in their individual service files; `lib/services/services.dart` only re-exports those files.
 
-**Access pattern:**
+**Registration and access pattern:**
 ```dart
-// Via shorthand getter (preferred — defined in services.dart)
-ChatsSvc.activeChat
-SettingsSvc.settings.someField.value
-EventDispatcherSvc.emit('type', data)
+// Registered in startup_tasks.dart
+GetIt.I.registerSingleton<ChatsService>(ChatsService());
 
-// Via GetIt for network/utility services
-GetIt.I<HttpService>()
-GetIt.I<GlobalIsolate>()
+// Shortcut declared in chats_service.dart
+ChatsSvc.init();
 
-// Via Get.find for GetX-registered services
-Get.find<MyService>()
+// Direct GetIt access
+final settingsService = GetIt.I<SettingsService>();
 ```
 
-**Registering a new service:**
-```dart
-// Check before registering to avoid duplicate registration
-final svc = Get.isRegistered<MyService>()
-    ? Get.find<MyService>()
-    : Get.put(MyService());
-```
-
-Add the shorthand getter to `lib/services/services.dart`.
+To choose the locator, check whether the service is registered in `startup_tasks.dart` or its class extends `GetxService`. New services should follow the GetIt registration path. Use the existing service shortcut when one exists; otherwise access GetIt services with `GetIt.I<T>()` and GetX services with their existing GetX access pattern.
 
 ## Event Dispatch (Backend → UI)
 
-`EventDispatcherSvc` is a broadcast stream of `Tuple2<String, dynamic>` (type, payload).
+`EventDispatcherSvc.stream` is a broadcast stream of `DispatchedEvent` objects with `.type` and `.data` fields.
 
 **Emitting:**
 ```dart
@@ -41,8 +30,8 @@ EventDispatcherSvc.emit('chat-updated', chat.guid);
 **Listening (in `initState`):**
 ```dart
 EventDispatcherSvc.stream.listen((event) {
-  if (event.item1 == 'chat-updated' && mounted) {
-    final guid = event.item2 as String;
+  if (event.type == 'chat-updated' && mounted) {
+    final guid = event.data as String;
     // handle update
   }
 });
@@ -54,7 +43,7 @@ EventDispatcherSvc.stream.listen((event) {
 
 ## Background Processing
 
-- Heavy/blocking operations belong off the main thread: `await runAsync(() => expensiveWork())`.
+- `runAsync` defers a synchronous callback through `SchedulerBinding` on the main isolate at animation priority; it is not off-thread work. Use `GlobalIsolate` through `IsolateRequestType` for heavy operations.
 - Cross-isolate communication goes through `GlobalIsolate` via `IsolateRequestType` — don't spawn raw `Isolate.spawn`.
 - `background_isolate.dart` (Android) handles Dart work triggered by platform background tasks.
 

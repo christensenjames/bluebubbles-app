@@ -568,7 +568,7 @@ This project uses a max line length of **120 characters**.
 
 1. Go to your forked repository on GitHub
 2. Click "Pull requests" → "New pull request"
-3. Set base repository to `BlueBubblesApp/bluebubbles-app` and base branch to `development`
+3. For a PR to upstream `BlueBubblesApp/bluebubbles-app`, set the base branch to `development`; for a PR within the `christensenjames/bluebubbles-app` fork, set the base branch to `master`.
 4. Include in your PR description:
    - **Problem**: What issue does this solve?
    - **Solution**: How did you fix it?
