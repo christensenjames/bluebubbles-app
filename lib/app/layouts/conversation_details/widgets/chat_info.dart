@@ -140,6 +140,7 @@ class _ChatInfoState extends State<ChatInfo> with ThemeHelpers {
                   papi = await photo_actions.showMethodDialog(context, chat, "Group Name Update Method");
                 }
                 if (papi == null) return;
+                if (!context.mounted) return;
                 if (!papi) {
                   showChangeName(chat, "local", context);
                 } else {

@@ -97,11 +97,13 @@ Future<DateTime?> showTimeframePicker(String title, BuildContext context,
       // Add a custom date picker to the selections list
       selections.add(InkWell(
           onTap: () async {
+            final nav = Navigator.of(dialogContext);
             DateTime? finalDate = await showDatePicker(
                 context: dialogContext,
                 initialDate: DateTime.now().toLocal(),
                 firstDate: DateTime.now().toLocal().subtract(const Duration(days: 365)),
                 lastDate: DateTime.now().toLocal().add(const Duration(days: 365)));
+            if (!dialogContext.mounted) return;
 
             // If the user selected a date and the time picker is enabled, show the time picker
             if (showHourPicker && finalDate != null) {
@@ -125,10 +127,10 @@ Future<DateTime?> showTimeframePicker(String title, BuildContext context,
               }
 
               if (finalDate != null) {
-                Navigator.of(dialogContext).pop(finalDate);
+                nav.pop(finalDate);
               }
             } else if (finalDate != null) {
-              Navigator.of(dialogContext).pop(finalDate);
+              nav.pop(finalDate);
             }
           },
           child: Container(
