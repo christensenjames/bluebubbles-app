@@ -439,6 +439,7 @@ class MessageState extends StatefulController {
       final tempIndex = associatedMessages.indexWhere((e) =>
           (e.guid?.startsWith('temp') == true || e.guid?.startsWith('error') == true) &&
           e.associatedMessageType == reaction.associatedMessageType &&
+          e.associatedMessageEmoji == reaction.associatedMessageEmoji &&
           (e.associatedMessagePart ?? 0) == (reaction.associatedMessagePart ?? 0));
 
       if (tempIndex >= 0) {
