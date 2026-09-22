@@ -78,13 +78,15 @@ class _AvatarCropState extends State<AvatarCrop> with ThemeHelpers {
   }
 
   void onCropped(CropResult croppedResult) async {
+    final rootNav = Navigator.of(context, rootNavigator: true);
+    final nav = Navigator.of(context);
     Uint8List croppedData;
     switch (croppedResult) {
       case CropSuccess(:final croppedImage):
         croppedData = croppedImage;
         break;
       case CropFailure(:final cause, :final stackTrace):
-        Navigator.of(context, rootNavigator: true).pop();
+        rootNav.pop();
         showSnackbar("Error", "Failed to crop image");
         Logger.debug("Failed to crop image");
         Logger.error(cause);
@@ -103,8 +105,8 @@ class _AvatarCropState extends State<AvatarCrop> with ThemeHelpers {
       await file.writeAsBytes(croppedData);
       SettingsSvc.settings.userAvatarPath.value = file.path;
       await SettingsSvc.settings.saveOneAsync("userAvatarPath");
-      Navigator.of(context, rootNavigator: true).pop();
-      Navigator.of(context).pop();
+      rootNav.pop();
+      nav.pop();
       showSnackbar("Notice", "User avatar saved successfully");
     } else if (widget.chat != null) {
       File file = File(p.join(FilesystemSvc.avatarsPath, FilesystemService.sanitizeGuid(widget.chat!.guid),
@@ -114,12 +116,12 @@ class _AvatarCropState extends State<AvatarCrop> with ThemeHelpers {
       }
       await file.writeAsBytes(croppedData);
 
-      Navigator.of(context, rootNavigator: true).pop();
-      Navigator.of(context).pop(file.path);
+      rootNav.pop();
+      nav.pop(file.path);
       showSnackbar("Notice", "Custom chat avatar saved successfully");
     } else {
-      Navigator.of(context, rootNavigator: true).pop();
-      Navigator.of(context).pop();
+      rootNav.pop();
+      nav.pop();
     }
   }
 
