@@ -798,8 +798,8 @@ class IncomingMessageHandler {
         tag: _tag,
       );
       unawaited(handle(oldest.payload, front: true).catchError((e, st) {
-        Logger.warn(
-          'Failed to process evicted buffered update for $oldestGuid',
+        Logger.error(
+          'Failed to process evicted buffered update for $oldestGuid — update is lost',
           error: e,
           trace: st,
           tag: _tag,
@@ -817,8 +817,8 @@ class IncomingMessageHandler {
           tag: _tag,
         );
         unawaited(handle(expired.payload, front: true).catchError((e, st) {
-          Logger.warn(
-            'Failed to process expired buffered update for $guid',
+          Logger.error(
+            'Failed to process expired buffered update for $guid — update is lost',
             error: e,
             trace: st,
             tag: _tag,
@@ -845,8 +845,8 @@ class IncomingMessageHandler {
     // chains onto the per-GUID _inflightByGuid future, preventing a race with
     // any same-GUID event already waiting in the queue behind the new-message.
     unawaited(handle(pending.payload, front: true).catchError((e, st) {
-      Logger.warn(
-        'Failed to flush buffered update for $messageGuid',
+      Logger.error(
+        'Failed to flush buffered update for $messageGuid — update is lost',
         error: e,
         trace: st,
         tag: _tag,
