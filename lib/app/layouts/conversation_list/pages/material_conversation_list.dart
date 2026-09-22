@@ -63,8 +63,7 @@ class _MaterialConversationListState extends State<MaterialConversationList> {
         color: backgroundColor,
         child: Scaffold(
           appBar: PreferredSize(
-            // Desktop draws its own title bar over the top of the window, so the
-            // header grows to sit under it rather than being pushed down past it.
+            // The header grows under the custom desktop title bar rather than being pushed below it.
             preferredSize: Size.fromHeight(kIsDesktop ? 80 : 60),
             child: MaterialHeader(parentController: controller),
           ),

@@ -3,17 +3,13 @@ import 'package:flutter/material.dart';
 /// Centralizes all animation configuration for the message list.
 /// This makes animation timing and curves easy to tune without touching the orchestrator logic.
 class MessageListAnimationConfig {
-  /// M3 emphasized-decelerate: the entrance curve for spatial motion.
   static const Curve entranceCurve = Easing.emphasizedDecelerate;
 
-  /// Duration for outgoing message insertion (slide + size + fade).
-  ///
   /// Slightly longer duration delays the outgoing fade-in handoff so the
   /// temporary send bubble and list row don't visually overlap as tightly.
   static const Duration sentInsertionDuration = Duration(milliseconds: 475);
 
-  /// Duration for incoming message insertion. Receiving is a high-frequency
-  /// event with no send-bubble handoff, so it stays inside the 300ms UI budget.
+  /// Receiving is a high-frequency event with no send-bubble handoff, so it stays inside the 300ms UI budget.
   static const Duration receivedInsertionDuration = Durations.short4;
 
   /// Curve for insertion slide animation
