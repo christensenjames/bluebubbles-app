@@ -29,7 +29,7 @@ class ManualMarkState extends State<ManualMark> with ThemeHelpers {
 
   Chat get chat => widget.controller.chat;
 
-  bool get _isRead => _latestIncoming == null || _latestIncoming!.dateRead != null;
+  bool? get _isRead => _latestIncoming == null ? null : _latestIncoming!.dateRead != null;
 
   @override
   void initState() {
@@ -62,7 +62,10 @@ class ManualMarkState extends State<ManualMark> with ThemeHelpers {
       ..order(Message_.dateCreated, flags: Order.descending);
     _sub = query.watch(triggerImmediately: true).listen((q) {
       final latest = q.findFirst();
-      if (mounted) setState(() => _latestIncoming = latest);
+      // Always adopt the fresh row - onPressed saves it - but only rebuild when what we render moved.
+      final rendered = latest?.guid == _latestIncoming?.guid && latest?.dateRead == _latestIncoming?.dateRead;
+      _latestIncoming = latest;
+      if (!rendered && mounted) setState(() {});
     });
   }
 
@@ -76,56 +79,57 @@ class ManualMarkState extends State<ManualMark> with ThemeHelpers {
       return Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          IconButton(
-            icon: Icon(
-              widget.controller.inSelectMode.value
-                  ? (iOS ? CupertinoIcons.trash : Icons.delete_outlined)
+          if (widget.controller.inSelectMode.value || _isRead != null)
+            IconButton(
+              icon: Icon(
+                widget.controller.inSelectMode.value
+                    ? (iOS ? CupertinoIcons.trash : Icons.delete_outlined)
+                    : marking
+                        ? (iOS ? CupertinoIcons.arrow_2_circlepath : Icons.sync)
+                        : _isRead == true
+                            ? (iOS ? CupertinoIcons.app : Icons.mark_chat_read_outlined)
+                            : (iOS ? CupertinoIcons.app_badge : Icons.mark_chat_unread_outlined),
+                color: !iOS
+                    ? context.theme.colorScheme.onSurface
+                    : (_isRead == false && !marking || widget.controller.inSelectMode.value)
+                        ? context.theme.colorScheme.primary
+                        : context.theme.colorScheme.outline,
+              ),
+              tooltip: widget.controller.inSelectMode.value
+                  ? "Delete"
                   : marking
-                      ? (iOS ? CupertinoIcons.arrow_2_circlepath : Icons.sync)
-                      : _isRead
-                          ? (iOS ? CupertinoIcons.app : Icons.mark_chat_read_outlined)
-                          : (iOS ? CupertinoIcons.app_badge : Icons.mark_chat_unread_outlined),
-              color: !iOS
-                  ? context.theme.colorScheme.onSurface
-                  : (!_isRead && !marking || widget.controller.inSelectMode.value)
-                      ? context.theme.colorScheme.primary
-                      : context.theme.colorScheme.outline,
-            ),
-            tooltip: widget.controller.inSelectMode.value
-                ? "Delete"
-                : marking
-                    ? null
-                    : _isRead
-                        ? "Mark Unread"
-                        : "Mark Read",
-            onPressed: () async {
-              if (widget.controller.inSelectMode.value) {
-                for (Message m in widget.controller.selected) {
-                  await MessagesSvc(chat.guid).softDeleteMessage(m);
+                      ? null
+                      : _isRead == true
+                          ? "Mark Unread"
+                          : "Mark Read",
+              onPressed: () async {
+                if (widget.controller.inSelectMode.value) {
+                  for (Message m in widget.controller.selected) {
+                    await MessagesSvc(chat.guid).softDeleteMessage(m);
+                  }
+                  widget.controller.inSelectMode.value = false;
+                  widget.controller.selected.clear();
+                  return;
                 }
-                widget.controller.inSelectMode.value = false;
-                widget.controller.selected.clear();
-                return;
-              }
-              if (marking) return;
-              setState(() {
-                marking = true;
-              });
-              final wasRead = _isRead;
-              try {
-                await (wasRead ? HttpSvc.chat.markUnread(chat.guid) : HttpSvc.chat.markRead(chat.guid));
-                _latestIncoming
-                  ?..dateRead = wasRead ? null : DateTime.now()
-                  ..save();
-                await ChatsSvc.setChatHasUnread(chat, wasRead, force: true, privateMark: false);
-              } catch (e) {
-                final detail = e is Response ? e.data?["error"]?["message"]?.toString() : null;
-                showSnackbar("Error", "Failed to mark ${wasRead ? "unread" : "read"}: ${detail ?? e}");
-              } finally {
-                if (mounted) setState(() => marking = false);
-              }
-            },
-          ),
+                if (marking) return;
+                setState(() {
+                  marking = true;
+                });
+                final wasRead = _isRead == true;
+                try {
+                  await (wasRead ? HttpSvc.chat.markUnread(chat.guid) : HttpSvc.chat.markRead(chat.guid));
+                  _latestIncoming
+                    ?..dateRead = wasRead ? null : DateTime.now()
+                    ..save();
+                  await ChatsSvc.setChatHasUnread(chat, wasRead, force: true, privateMark: false);
+                } catch (e) {
+                  final detail = e is Response ? e.data?["error"]?["message"]?.toString() : null;
+                  showSnackbar("Error", "Failed to mark ${wasRead ? "unread" : "read"}: ${detail ?? e}");
+                } finally {
+                  if (mounted) setState(() => marking = false);
+                }
+              },
+            ),
           if (widget.controller.inSelectMode.value)
             IconButton(
               icon: Icon(
