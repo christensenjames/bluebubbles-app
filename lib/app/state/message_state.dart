@@ -156,6 +156,8 @@ class MessageState extends StatefulController {
   StreamSubscription? _sub;
   bool built = false;
   bool _partsCached = false;
+  final Set<String> _attemptedAttachmentLookups = {};
+  final Map<String, Attachment> _asyncResolvedAttachments = {};
 
   static const maxBubbleSizeFactor = 0.75;
 
@@ -771,17 +773,20 @@ class MessageState extends StatefulController {
     final mainString = body.string;
     final list = <MessagePart>[];
     body.runs.sort((a, b) => a.range.first.compareTo(b.range.first));
-    body.runs.forEachIndexed((i, e) async {
+    body.runs.forEachIndexed((i, e) {
       if (e.attributes?.messagePart == null) return;
+      // A truncated or malformed attributedBody can carry a run range that does not
+      // address its own string; slicing it would throw out of onInit, so drop the run.
+      final runText = _sliceRun(mainString, e.range);
+      if (runText == null) return;
       final existingPart = list.firstWhereOrNull((element) => element.part == e.attributes!.messagePart!);
       if (existingPart != null) {
-        final newText = mainString.substring(e.range.first, e.range.first + e.range.last);
         final currentLength = existingPart.text?.length ?? 0;
-        existingPart.text = (existingPart.text ?? "") + newText;
+        existingPart.text = (existingPart.text ?? "") + runText;
         if (e.hasMention) {
           existingPart.mentions.add(Mention(
             mentionedAddress: e.attributes?.mention,
-            range: [currentLength, currentLength + e.range.last],
+            range: [currentLength, currentLength + runText.length],
           ));
           existingPart.mentions.sort((a, b) => a.range.first.compareTo(b.range.first));
         }
@@ -790,24 +795,23 @@ class MessageState extends StatefulController {
         if (e.isAttachment && (cvController?.chat != null || ChatsSvc.activeChat != null)) {
           final attachmentGuid = e.attributes!.attachmentGuid!;
           foundAttachment = message.dbAttachments.firstWhereOrNull((a) => a.guid == attachmentGuid);
-          if (foundAttachment == null) {
-            foundAttachment = maybeFindMessagesSvc(cvController?.chat.guid ?? ChatsSvc.activeChat!.chat.guid)
-                ?.struct
-                .getAttachment(attachmentGuid);
-            foundAttachment ??= await Attachment.findOneAsync(attachmentGuid);
-          }
+          foundAttachment ??= maybeFindMessagesSvc(cvController?.chat.guid ?? ChatsSvc.activeChat!.chat.guid)
+              ?.struct
+              .getAttachment(attachmentGuid);
+          foundAttachment ??= _asyncResolvedAttachments[attachmentGuid];
+          if (foundAttachment == null) _resolveAttachmentFromDb(attachmentGuid);
         }
 
         list.add(MessagePart(
           subject: i == 0 ? message.subject : null,
-          text: e.isAttachment ? null : mainString.substring(e.range.first, e.range.first + e.range.last),
+          text: e.isAttachment ? null : runText,
           attachments: foundAttachment != null ? [foundAttachment] : [],
           mentions: !e.hasMention
               ? []
               : [
                   Mention(
                     mentionedAddress: e.attributes?.mention,
-                    range: [0, e.range.last],
+                    range: [0, runText.length],
                   )
                 ],
           part: e.attributes!.messagePart!,
@@ -815,6 +819,29 @@ class MessageState extends StatefulController {
       }
     });
     return list;
+  }
+
+  static String? _sliceRun(String source, List<int> range) {
+    if (range.length < 2) return null;
+    final start = range[0];
+    final length = range[1];
+    if (start < 0 || length < 0 || start + length > source.length) return null;
+    return source.substring(start, start + length);
+  }
+
+  // findOneAsync has no sync counterpart (GlobalIsolate hop) and onInit cannot await, so the
+  // lookup runs off to the side and re-enters through the existing refresh path. One attempt
+  // per GUID per state: a miss is never retried, so this cannot loop.
+  void _resolveAttachmentFromDb(String attachmentGuid) {
+    if (!_attemptedAttachmentLookups.add(attachmentGuid)) return;
+    // The isolate hop completes with an error on request timeout (global_isolate.dart:376),
+    // which would otherwise escape this fire-and-forget call as an unhandled zone error.
+    Attachment.findOneAsync(attachmentGuid).onError((_, _) => null).then((attachment) {
+      if (attachment == null || isClosed) return;
+      _asyncResolvedAttachments[attachmentGuid] = attachment;
+      _partsCached = false;
+      buildMessageParts(force: true);
+    });
   }
 
   /// Called by [MessagesService] during a temp → real GUID swap AFTER the
