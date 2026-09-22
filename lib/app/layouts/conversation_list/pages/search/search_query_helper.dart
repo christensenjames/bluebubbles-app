@@ -2,7 +2,7 @@ import 'package:bluebubbles/database/database.dart';
 import 'package:bluebubbles/database/models.dart';
 import 'package:bluebubbles/services/services.dart';
 import 'package:collection/collection.dart';
-import 'package:objectbox/src/native/query/query.dart' as obx;
+import 'package:objectbox/objectbox.dart' as obx;
 
 import 'search_models.dart';
 

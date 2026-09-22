@@ -274,7 +274,7 @@ class StorageActions {
   }
 
   /// data keys: 'chatGuid' (String?), 'ageFilter' (String), 'segments'
-  /// (List<String> — StorageSegmentType names to delete), 'attachmentsPath'
+  /// (`List<String>` — StorageSegmentType names to delete), 'attachmentsPath'
   /// (String), 'urlPreviewsPath' (String).
   ///
   /// Despite the name this deletes any selected segment, including the
