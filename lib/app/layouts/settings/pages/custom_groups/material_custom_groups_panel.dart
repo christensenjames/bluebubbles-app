@@ -81,7 +81,6 @@ class _MaterialCustomGroupsPanelState extends State<MaterialCustomGroupsPanel> w
   }
 
   void _onReorder(int oldIndex, int newIndex) {
-    if (oldIndex < newIndex) newIndex -= 1;
     final newOrder = controller.groups.toList();
     final group = newOrder.removeAt(oldIndex);
     newOrder.insert(newIndex, group);
@@ -212,7 +211,7 @@ class _MaterialCustomGroupsPanelState extends State<MaterialCustomGroupsPanel> w
               shrinkWrap: true,
               physics: const NeverScrollableScrollPhysics(),
               buildDefaultDragHandles: false,
-              onReorder: _onReorder,
+              onReorderItem: _onReorder,
               itemCount: controller.groups.length,
               itemBuilder: (context, index) {
                 final group = controller.groups[index];
