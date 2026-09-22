@@ -16,7 +16,6 @@ Pure helper functions and small utility classes for the UI layer. No service dep
 | `async_task.dart` | Lightweight async task wrapper for fire-and-forget UI work |
 | `dialog_helpers.dart` | Shared `AlertDialog`/`showDialog` builders reused across settings and chat UI |
 | `findmy_helpers.dart` | Find My UI helper functions |
-| `redacted_mode_helpers.dart` | Text/name redaction for privacy (Redacted Mode setting) |
 | `system_ui_overlay_style_helpers.dart` | Status bar / system UI overlay styling per skin |
 
 ## Key Usage Notes
