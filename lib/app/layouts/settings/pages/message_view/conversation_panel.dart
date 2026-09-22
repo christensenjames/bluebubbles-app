@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:audio_waveforms/audio_waveforms.dart' as aw;
 import 'package:bluebubbles/app/layouts/settings/pages/message_view/message_options_order_panel.dart';
 import 'package:bluebubbles/app/layouts/settings/pages/message_view/text_field_buttons_panel.dart';
@@ -30,6 +32,8 @@ class _ConversationPanelState extends State<ConversationPanel> with ThemeHelpers
 
   bool sendPrepared = false;
   bool receivePrepared = false;
+  StreamSubscription? _sendSub;
+  StreamSubscription? _receiveSub;
 
   @override
   void initState() {
@@ -38,15 +42,15 @@ class _ConversationPanelState extends State<ConversationPanel> with ThemeHelpers
     if (kIsDesktop) {
       sendPlayer = Player();
       receivePlayer = Player();
-      (sendPlayer as Player).stream.playing.listen((value) => playingSendSound.value = value);
-      (receivePlayer as Player).stream.playing.listen((value) => playingReceiveSound.value = value);
+      _sendSub = (sendPlayer as Player).stream.playing.listen((value) => playingSendSound.value = value);
+      _receiveSub = (receivePlayer as Player).stream.playing.listen((value) => playingReceiveSound.value = value);
     } else {
       sendPlayer = aw.PlayerController();
       receivePlayer = aw.PlayerController();
-      (sendPlayer as aw.PlayerController)
+      _sendSub = (sendPlayer as aw.PlayerController)
           .onPlayerStateChanged
           .listen((value) => playingSendSound.value = value == aw.PlayerState.playing);
-      (receivePlayer as aw.PlayerController)
+      _receiveSub = (receivePlayer as aw.PlayerController)
           .onPlayerStateChanged
           .listen((value) => playingReceiveSound.value = value == aw.PlayerState.playing);
     }
@@ -557,6 +561,8 @@ class _ConversationPanelState extends State<ConversationPanel> with ThemeHelpers
 
   @override
   void dispose() {
+    _sendSub?.cancel();
+    _receiveSub?.cancel();
     if (kIsDesktop) {
       (sendPlayer as Player).dispose();
       (receivePlayer as Player).dispose();

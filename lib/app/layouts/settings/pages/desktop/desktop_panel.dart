@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 import 'dart:math';
 
@@ -27,12 +28,13 @@ class _DesktopPanelState extends State<DesktopPanel> with ThemeHelpers {
   final RxList<bool> showButtons = RxList<bool>.filled(ReactionTypes.toList().length + 1, false);
   final RxBool playingNotificationSound = false.obs;
   final Player notificationPlayer = Player();
+  StreamSubscription? _playingSub;
 
   @override
   void initState() {
     super.initState();
 
-    notificationPlayer.stream.playing.listen((value) => playingNotificationSound.value = value);
+    _playingSub = notificationPlayer.stream.playing.listen((value) => playingNotificationSound.value = value);
   }
 
   @override
@@ -756,6 +758,7 @@ class _DesktopPanelState extends State<DesktopPanel> with ThemeHelpers {
 
   @override
   void dispose() {
+    _playingSub?.cancel();
     notificationPlayer.dispose();
 
     super.dispose();
