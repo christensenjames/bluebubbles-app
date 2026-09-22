@@ -152,8 +152,8 @@ class _MessagePopupState extends State<MessagePopup> with SingleTickerProviderSt
               (e.associatedMessagePart ?? 0) == part.part)
           .toList());
       final self = reactions.firstWhereOrNull((e) => e.isFromMe!);
-      if (!(self?.associatedMessageType?.contains("-") ?? true)) {
-        selfReaction = self!.associatedMessageType;
+      if (self != null) {
+        selfReaction = self.associatedMessageType;
         selfReactionEmoji = self.associatedMessageEmoji;
         currentlySelectedReaction = selfReaction;
       }
@@ -227,8 +227,10 @@ class _MessagePopupState extends State<MessagePopup> with SingleTickerProviderSt
     );
   }
 
-  void showEmojiReactionPicker() {
-    showBBDialog(
+  Future<void> showEmojiReactionPicker() async {
+    // useRootNavigator: false puts the dialog on Navigator.of(context), so that same
+    // navigator pops it - and popDetails() can still reach it afterwards.
+    final emoji = await showBBDialog<String>(
       useRootNavigator: false,
       context: context,
       content: SizedBox(
@@ -236,7 +238,7 @@ class _MessagePopupState extends State<MessagePopup> with SingleTickerProviderSt
         child: Theme(
           data: context.theme.copyWith(canvasColor: Colors.transparent),
           child: EmojiPicker(
-            onEmojiSelected: (_, emoji) => sendEmojiReaction(emoji.emoji),
+            onEmojiSelected: (_, emoji) => Navigator.of(context).pop(emoji.emoji),
             config: Config(
               height: 300,
               emojiSet: (_) => emojiSetEnglish,
@@ -286,11 +288,13 @@ class _MessagePopupState extends State<MessagePopup> with SingleTickerProviderSt
         ),
       ),
     );
+    if (emoji != null && mounted) sendEmojiReaction(emoji);
   }
 
   void sendEmojiReaction(String emoji) {
     final removing = selfReaction == ReactionTypes.EMOJI && selfReactionEmoji == emoji;
     setState(() {
+      selfReaction = removing ? null : ReactionTypes.EMOJI;
       currentlySelectedReaction = removing ? null : ReactionTypes.EMOJI;
       selfReactionEmoji = removing ? null : emoji;
     });
@@ -481,10 +485,11 @@ class _MessagePopupState extends State<MessagePopup> with SingleTickerProviderSt
                                           return Row(
                                             mainAxisSize: MainAxisSize.min,
                                             mainAxisAlignment: MainAxisAlignment.start,
-                                            children: ReactionTypes.toList()
-                                                .slice(narrowScreen && index == 1 ? 3 : 0,
-                                                    narrowScreen && index == 0 ? 3 : null)
-                                                .map((e) {
+                                            children: [
+                                              ...ReactionTypes.toList()
+                                                  .slice(narrowScreen && index == 1 ? 3 : 0,
+                                                      narrowScreen && index == 0 ? 3 : null)
+                                                  .map((e) {
                                               return Padding(
                                                 padding: iOS
                                                     ? const EdgeInsets.all(5.0)
@@ -548,10 +553,9 @@ class _MessagePopupState extends State<MessagePopup> with SingleTickerProviderSt
                                                   ),
                                                 ),
                                               );
-                                            }).toList()
-                                              ..addAll([
-                                                if (index == (narrowScreen ? 1 : 0)) buildEmojiReactionPicker(),
-                                              ]),
+                                            }),
+                                              if (index == (narrowScreen ? 1 : 0)) buildEmojiReactionPicker(),
+                                            ],
                                           );
                                         })),
                                   ),

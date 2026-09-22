@@ -89,7 +89,7 @@ Future<T?> showBBDialog<T>({
   return showDialog<T>(
     context: context,
     barrierDismissible: barrierDismissible,
-    useRootNavigator: true,
+    useRootNavigator: useRootNavigator,
     builder: (ctx) => AlertDialog(
       title: title != null ? Text(title, style: ctx.textTheme.titleLarge) : null,
       content: bodyWidget,
