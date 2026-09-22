@@ -199,7 +199,7 @@ If adding a new service, place it at the correct position in `startup_tasks.dart
 
 ## Sync System
 
-`lib/services/backend/sync/` (`sync/CLAUDE.md`) coordinates bringing the local DB up to date with the server: `SyncService` is the single entry point and picks between a `FullSyncManager` (bulk fetch on first setup or full resync) and `IncrementalSyncManager` (resumable delta sync since the last run), plus dedicated `ChatSyncManager` and `HandleSyncManager` for narrower syncs. All managers share a `SyncStatus` lifecycle (`IDLE → IN_PROGRESS → COMPLETED_SUCCESS`/`COMPLETED_ERROR`, with a `STOPPING` state for user cancellation) exposed as `Rx` fields for UI progress display. Incremental sync normally runs inside `IncrementalSyncIsolate` (see Background Isolate System above) rather than blocking the main thread.
+`lib/services/backend/sync/` (`sync/CLAUDE.md`) coordinates bringing the local DB up to date with the server: `SyncService` is the single entry point and picks between a `FullSyncManager` (bulk fetch on first setup or full resync) and `IncrementalSyncManager` (resumable delta sync since the last run). All managers share a `SyncStatus` lifecycle (`IDLE → IN_PROGRESS → COMPLETED_SUCCESS`/`COMPLETED_ERROR`, with a `STOPPING` state for user cancellation) exposed as `Rx` fields for UI progress display. Incremental sync normally runs inside `IncrementalSyncIsolate` (see Background Isolate System above) rather than blocking the main thread.
 
 ---
 

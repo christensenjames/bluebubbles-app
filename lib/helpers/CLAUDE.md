@@ -30,7 +30,6 @@ Import via barrel: `package:bluebubbles/helpers/helpers.dart` (re-exports most f
 - `settings_helpers.dart` — settings read/write shortcuts — **not** exported by `helpers.dart`, import directly
 - `foreground_service_helpers.dart` — Android foreground service start/stop control — **not** exported by `helpers.dart`, import directly
 - `startup_tasks.dart` — ordered app initialization task runner — **not** exported by `helpers.dart`, import directly
-- `sync/sync_helpers.dart` — sync coordination utilities
 
 ## Key Routings
 - Message effect names → Apple codes: `helpers/types/constants.dart`
