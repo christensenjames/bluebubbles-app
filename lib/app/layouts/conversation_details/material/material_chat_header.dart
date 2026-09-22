@@ -87,15 +87,22 @@ class ExpressiveChatHeader extends StatelessWidget {
                             MenuItemRow(
                               icon: Icons.photo_outlined,
                               label: "Change photo",
-                              onTap: () => hideMenu().then((_) => photo_actions.updatePhoto(overlayContext, chat)),
+                              onTap: () async {
+                                await hideMenu();
+                                if (!context.mounted) return;
+                                await photo_actions.updatePhoto(context, chat);
+                              },
                             ),
                             Obx(() => chat.customAvatarPath != null
                                 ? MenuItemRow(
                                     icon: Icons.close,
                                     label: "Remove photo",
                                     iconColor: colorScheme.primary,
-                                    onTap: () =>
-                                        hideMenu().then((_) => photo_actions.deletePhoto(overlayContext, chat)),
+                                    onTap: () async {
+                                      await hideMenu();
+                                      if (!context.mounted) return;
+                                      await photo_actions.deletePhoto(context, chat);
+                                    },
                                   )
                                 : const SizedBox.shrink()),
                             const SizedBox(height: 4),

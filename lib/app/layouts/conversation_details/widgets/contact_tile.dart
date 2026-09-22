@@ -342,19 +342,31 @@ class ContactTile extends StatelessWidget {
             MenuItemRow(
               icon: Icons.email_outlined,
               label: 'Email',
-              onTap: () => hideMenu().then((_) => showAddressPicker(contact, handle, isEmail: true, overlayContext)),
+              onTap: () async {
+                await hideMenu();
+                if (!context.mounted) return;
+                showAddressPicker(contact, handle, isEmail: true, context);
+              },
             ),
           if (showPhone)
             MenuItemRow(
               icon: Icons.call_outlined,
               label: 'Call',
-              onTap: () => hideMenu().then((_) => showAddressPicker(contact, handle, overlayContext)),
+              onTap: () async {
+                await hideMenu();
+                if (!context.mounted) return;
+                showAddressPicker(contact, handle, context);
+              },
             ),
           if (showVideo)
             MenuItemRow(
               icon: Icons.video_call_outlined,
               label: 'Video',
-              onTap: () => hideMenu().then((_) => showAddressPicker(contact, handle, overlayContext, video: true)),
+              onTap: () async {
+                await hideMenu();
+                if (!context.mounted) return;
+                showAddressPicker(contact, handle, context, video: true);
+              },
             ),
           const SizedBox(height: 4),
         ],
