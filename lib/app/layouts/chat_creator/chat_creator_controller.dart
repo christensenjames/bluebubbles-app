@@ -514,6 +514,7 @@ class ChatCreatorController extends StatefulController {
           selectedContacts.map((c) => c.address.isEmail ? c.address : cleansePhoneNumber(c.address)).toList();
       final method = selectedService.value.method;
 
+      bool dialogOpen = true;
       showDialog(
         context: context,
         barrierDismissible: false,
@@ -530,7 +531,7 @@ class ChatCreatorController extends StatefulController {
             ),
           ),
         ),
-      );
+      ).then((_) => dialogOpen = false);
 
       final rootNav = Navigator.of(context, rootNavigator: true);
 
@@ -584,9 +585,9 @@ class ChatCreatorController extends StatefulController {
 
         _createCompleter?.complete();
         isSending.value = false;
-        rootNav.pop(); // dismiss loading dialog
+        if (dialogOpen) rootNav.pop();
       } catch (error) {
-        rootNav.pop(); // dismiss loading dialog
+        if (dialogOpen) rootNav.pop();
 
         _createCompleter?.completeError(error);
         isSending.value = false;

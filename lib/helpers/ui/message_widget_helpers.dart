@@ -114,7 +114,9 @@ Future<List<InlineSpan>> buildEnrichedMessageSpans(BuildContext context, Message
       r'((https?://)|(www\.))[-a-zA-Z0-9@:%._+~#=]{1,256}\.[a-zA-Z0-9()]{1,6}([-a-zA-Z0-9/()@:%_.~#?&=*\[\]]*)\b');
   final linkIndexMatches = <TextEntityMatch>[];
   final controller = cvc(message.chat.target ?? ChatsSvc.activeChat!.chat);
-  if (!isNullOrEmpty(part.text)) {
+  // Entity offsets and mention ranges are computed against part.text but sliced out of
+  // displayText, which redacted mode replaces with a fake string of unrelated length.
+  if (!isNullOrEmpty(part.text) && !part.shouldRedact) {
     if (!kIsWeb && !kIsDesktop && SettingsSvc.settings.smartReply.value) {
       if (controller.mlKitParsedText["${message.guid!}-${part.part}"] == null) {
         try {
@@ -178,6 +180,7 @@ Future<List<InlineSpan>> buildEnrichedMessageSpans(BuildContext context, Message
         linkIndexMatches.add(TextEntityMatch("link", match.start, match.end, null));
       }
       linkIndexMatches.addAll(part.mentions
+          .where((e) => e.range.length == 2)
           .map((e) => TextEntityMatch("mention", e.range.first, e.range.last, [e.mentionedAddress ?? ""])));
     }
   }

@@ -772,21 +772,22 @@ class MessageState extends StatefulController {
   List<MessagePart> attributedBodyToMessagePart(AttributedBody body) {
     final mainString = body.string;
     final list = <MessagePart>[];
-    body.runs.sort((a, b) => a.range.first.compareTo(b.range.first));
+    body.runs.sort((a, b) => (a.range.firstOrNull ?? 0).compareTo(b.range.firstOrNull ?? 0));
     body.runs.forEachIndexed((i, e) {
       if (e.attributes?.messagePart == null) return;
-      // A truncated or malformed attributedBody can carry a run range that does not
-      // address its own string; slicing it would throw out of onInit, so drop the run.
+      // A truncated or malformed attributedBody can carry a run range that does not address
+      // its own string. Slicing it would throw out of onInit, so drop the run — except for an
+      // attachment run, which carries no text of its own and still has an attachment to show.
       final runText = _sliceRun(mainString, e.range);
-      if (runText == null) return;
+      if (runText == null && !e.isAttachment) return;
       final existingPart = list.firstWhereOrNull((element) => element.part == e.attributes!.messagePart!);
       if (existingPart != null) {
         final currentLength = existingPart.text?.length ?? 0;
-        existingPart.text = (existingPart.text ?? "") + runText;
+        existingPart.text = (existingPart.text ?? "") + (runText ?? "");
         if (e.hasMention) {
           existingPart.mentions.add(Mention(
             mentionedAddress: e.attributes?.mention,
-            range: [currentLength, currentLength + runText.length],
+            range: [currentLength, currentLength + (runText?.length ?? 0)],
           ));
           existingPart.mentions.sort((a, b) => a.range.first.compareTo(b.range.first));
         }
@@ -811,7 +812,7 @@ class MessageState extends StatefulController {
               : [
                   Mention(
                     mentionedAddress: e.attributes?.mention,
-                    range: [0, runText.length],
+                    range: [0, runText?.length ?? 0],
                   )
                 ],
           part: e.attributes!.messagePart!,

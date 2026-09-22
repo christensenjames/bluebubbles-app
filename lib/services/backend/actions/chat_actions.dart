@@ -36,6 +36,7 @@ class ChatActions {
           await HttpSvc.chat.markRead(c.guid);
         } catch (e, stack) {
           Logger.error("Failed to mark chat ${c.guid} read on server", error: e, trace: stack, tag: "ChatActions");
+          failedGuids.add(c.guid);
         }
       }
     }

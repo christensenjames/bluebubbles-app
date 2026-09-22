@@ -67,11 +67,13 @@ mixin CreateScheduledMixin<T extends StatefulWidget> on State<T> {
       return;
     }
     final nav = Navigator.of(context);
+    Route<dynamic>? dialogRoute;
 
     showDialog(
       context: context,
       barrierDismissible: false,
       builder: (BuildContext context) {
+        dialogRoute = ModalRoute.of(context);
         return AlertDialog(
           backgroundColor: context.theme.colorScheme.surfaceContainerHighest,
           title: Text(
@@ -115,8 +117,8 @@ mixin CreateScheduledMixin<T extends StatefulWidget> on State<T> {
 
     if (kIsDesktop) {
       Get.close(1);
-    } else {
-      nav.pop();
+    } else if (dialogRoute?.isActive ?? false) {
+      nav.removeRoute(dialogRoute!);
     }
 
     if (response.statusCode == 200 && response.data != null) {
@@ -127,7 +129,10 @@ mixin CreateScheduledMixin<T extends StatefulWidget> on State<T> {
         }
       }
       final message = ScheduledMessage.fromJson(data);
-      if (!mounted) return;
+      if (!mounted) {
+        showSnackbar("Notice", "Scheduled message saved");
+        return;
+      }
       nav.pop(message);
     } else {
       Logger.error("Scheduled message error: ${response.statusCode}");

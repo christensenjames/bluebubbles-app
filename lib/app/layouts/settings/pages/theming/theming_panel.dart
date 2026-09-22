@@ -329,7 +329,6 @@ class _ThemingPanelState extends CustomState<ThemingPanel, void, ThemingPanelCon
                             onChanged: (value) async {
                               SettingsSvc.settings.useDesktopAccent.value = value;
                               await SettingsSvc.settings.saveOneAsync('useDesktopAccent');
-                              if (!context.mounted) return;
                               await ThemeSvc.refreshDesktopAccent(context);
                             },
                           )),
@@ -365,7 +364,6 @@ class _ThemingPanelState extends CustomState<ThemingPanel, void, ThemingPanelCon
                                     darkTheme: "OLED Dark",
                                   );
                                 }
-                                if (!context.mounted) return;
                                 await ThemeSvc.refreshMonet(context);
                               },
                             )),

@@ -37,6 +37,7 @@ void showAddressPicker(ContactV2? contact, Handle handle, BuildContext context,
     } else if (isEmail && handle.defaultEmail != null && !isLongPressed) {
       launchIntent(video, handle.defaultEmail!);
     } else {
+      if (!context.mounted) return;
       showBBDialog(
         context: context,
         title: "Select Address",

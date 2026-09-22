@@ -102,6 +102,7 @@ Future<void> updatePhoto(BuildContext context, Chat chat) async {
 Future<void> deletePhoto(BuildContext context, Chat chat) async {
   bool? papi = false;
   if (SettingsSvc.settings.enablePrivateAPI.value && chat.isIMessage && chat.isGroup) {
+    if (!context.mounted) return;
     papi = await showMethodDialog(context, chat, "Group Icon Deletion Method");
   }
   if (papi == null) return;

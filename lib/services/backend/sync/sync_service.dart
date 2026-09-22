@@ -46,8 +46,8 @@ class SyncService {
     // Use the instant the sync began, so messages that arrive during it are still
     // covered by the next incremental pass.
     final syncStartedAt = DateTime.now().millisecondsSinceEpoch;
-    // _manager is reused across calls and nothing else ever sets IN_PROGRESS, so a
-    // completed run would otherwise leave its status standing for the next one.
+    // startFullSync reuses a non-null _manager, and nothing else sets IN_PROGRESS, so a
+    // previous run's COMPLETED_SUCCESS would otherwise satisfy the check below.
     _manager!.status.value = SyncStatus.IN_PROGRESS;
     await _manager!.start();
 
