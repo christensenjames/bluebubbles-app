@@ -26,8 +26,9 @@ class TypingIndicator extends StatefulWidget {
 
 class _TypingIndicatorState extends State<TypingIndicator> with SingleTickerProviderStateMixin, ThemeHelpers {
   late final AnimationController _scaleController;
+  late final CurvedAnimation _scaleCurve;
   late final Animation<double> _scaleAnimation;
-  late final Animation<double> _fadeAnimation;
+  late final CurvedAnimation _fadeAnimation;
 
   /// Whether the bubble content is present in the tree (false only after the
   /// hide animation has fully completed).
@@ -46,13 +47,12 @@ class _TypingIndicatorState extends State<TypingIndicator> with SingleTickerProv
       vsync: this,
       duration: Durations.short4,
     );
-    _scaleAnimation = Tween<double>(begin: 0.92, end: 1.0).animate(
-      CurvedAnimation(
-        parent: _scaleController,
-        curve: Easing.emphasizedDecelerate,
-        reverseCurve: Easing.emphasizedAccelerate,
-      ),
+    _scaleCurve = CurvedAnimation(
+      parent: _scaleController,
+      curve: Easing.emphasizedDecelerate,
+      reverseCurve: Easing.emphasizedAccelerate,
     );
+    _scaleAnimation = Tween<double>(begin: 0.92, end: 1.0).animate(_scaleCurve);
     _fadeAnimation = CurvedAnimation(
       parent: _scaleController,
       curve: Easing.emphasizedDecelerate,
@@ -93,6 +93,8 @@ class _TypingIndicatorState extends State<TypingIndicator> with SingleTickerProv
   @override
   void dispose() {
     _visibilityWorker?.dispose();
+    _scaleCurve.dispose();
+    _fadeAnimation.dispose();
     _scaleController.dispose();
     super.dispose();
   }
