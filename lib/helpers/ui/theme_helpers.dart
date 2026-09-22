@@ -227,14 +227,16 @@ extension ColorHelpers on Color {
   Color darkenPercent([double percent = 10]) {
     assert(1 <= percent && percent <= 100);
     var f = 1 - percent / 100;
-    return Color.fromARGB(alpha, (red * f).round(), (green * f).round(), (blue * f).round());
+    final a8 = (a * 255.0).round();
+    return Color.fromARGB(a8, (red * f).round(), (green * f).round(), (blue * f).round());
   }
 
   Color lightenPercent([double percent = 10]) {
     assert(1 <= percent && percent <= 100);
     var p = percent / 100;
+    final a8 = (a * 255.0).round();
     return Color.fromARGB(
-        alpha, red + ((255 - red) * p).round(), green + ((255 - green) * p).round(), blue + ((255 - blue) * p).round());
+        a8, red + ((255 - red) * p).round(), green + ((255 - green) * p).round(), blue + ((255 - blue) * p).round());
   }
 
   Color lightenOrDarken([double percent = 10]) {
