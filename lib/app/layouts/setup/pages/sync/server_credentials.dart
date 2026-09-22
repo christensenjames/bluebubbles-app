@@ -560,6 +560,7 @@ class _ServerCredentialsState extends State<ServerCredentials> with ThemeHelpers
   }
 
   Future<void> scanQRCode() async {
+    final nav = Navigator.of(context);
     // Make sure we have the correct permissions
     PermissionStatus status = await Permission.camera.status;
     if (!status.isPermanentlyDenied && !status.isGranted) {
@@ -575,7 +576,7 @@ class _ServerCredentialsState extends State<ServerCredentials> with ThemeHelpers
 
     // Open the QR Scanner and get the result
     try {
-      final response = await Navigator.of(context).push(
+      final response = await nav.push(
         CupertinoPageRoute(
           builder: (BuildContext context) {
             return const QRCodeScanner();
@@ -603,6 +604,7 @@ class _ServerCredentialsState extends State<ServerCredentials> with ThemeHelpers
         connect(serverURL, password);
       }
     } catch (e) {
+      if (!mounted) return;
       showDialog(
         context: context,
         builder: (BuildContext context) {
@@ -613,6 +615,7 @@ class _ServerCredentialsState extends State<ServerCredentials> with ThemeHelpers
   }
 
   Future<void> connect(String url, String password) async {
+    final rootNav = Navigator.of(context, rootNavigator: true);
     if (url.endsWith("/")) {
       url = url.substring(0, url.length - 1);
     }
@@ -655,26 +658,30 @@ class _ServerCredentialsState extends State<ServerCredentials> with ThemeHelpers
     await saveNewServerUrl(addr, saveAdditionalSettings: ["guidAuthKey"]);
 
     // Request data from the API
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (context) {
-        return PopScope(
-          canPop: false,
-          child: AlertDialog(
-            title: Text(
-              "Fetching server info...",
-              style: context.theme.textTheme.titleLarge,
+    bool fetchingDialogShown = false;
+    if (mounted) {
+      fetchingDialogShown = true;
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (context) {
+          return PopScope(
+            canPop: false,
+            child: AlertDialog(
+              title: Text(
+                "Fetching server info...",
+                style: context.theme.textTheme.titleLarge,
+              ),
+              backgroundColor: context.theme.colorScheme.surfaceContainerHighest,
+              content: LinearProgressIndicator(
+                backgroundColor: context.theme.colorScheme.outline,
+                valueColor: AlwaysStoppedAnimation<Color>(context.theme.colorScheme.primary),
+              ),
             ),
-            backgroundColor: context.theme.colorScheme.surfaceContainerHighest,
-            content: LinearProgressIndicator(
-              backgroundColor: context.theme.colorScheme.outline,
-              valueColor: AlwaysStoppedAnimation<Color>(context.theme.colorScheme.primary),
-            ),
-          ),
-        );
-      },
-    );
+          );
+        },
+      );
+    }
 
     dio.Response? serverResponse;
     await HttpSvc.server.info().then((response) {
@@ -693,7 +700,7 @@ class _ServerCredentialsState extends State<ServerCredentials> with ThemeHelpers
       }
     });
 
-    Navigator.of(context, rootNavigator: true).pop();
+    if (fetchingDialogShown) rootNav.pop();
     FocusManager.instance.primaryFocus?.unfocus();
 
     // Unauthorized request
