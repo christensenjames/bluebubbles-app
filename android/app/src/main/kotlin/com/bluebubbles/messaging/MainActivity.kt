@@ -75,12 +75,20 @@ class MainActivity : FlutterFragmentActivity() {
     private fun refeedImeInsetsAfterAnimation() {
         val decor = window.decorView
         decor.setWindowInsetsAnimationCallback(object : WindowInsetsAnimation.Callback(DISPATCH_MODE_CONTINUE_ON_SUBTREE) {
+            private var runningImeAnimations = 0
+            override fun onPrepare(animation: WindowInsetsAnimation) {
+                if (animation.typeMask and WindowInsets.Type.ime() == 0) return
+                runningImeAnimations++
+            }
             override fun onProgress(insets: WindowInsets, running: MutableList<WindowInsetsAnimation>) = insets
             override fun onEnd(animation: WindowInsetsAnimation) {
                 if (animation.typeMask and WindowInsets.Type.ime() == 0) return
+                // Re-feeding while another IME animation runs would snap the view to the final inset.
+                if (--runningImeAnimations > 0) return
                 decor.post {
+                    if (runningImeAnimations > 0) return@post
                     val flutterView = findViewById<FlutterView>(FlutterFragment.FLUTTER_VIEW_ID) ?: return@post
-                    flutterView.rootWindowInsets?.let { flutterView.onApplyWindowInsets(it) }
+                    flutterView.rootWindowInsets?.let { flutterView.dispatchApplyWindowInsets(it) }
                 }
             }
         })
