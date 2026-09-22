@@ -1,5 +1,70 @@
 # Changelog
 
+## 2026-09-22 — Review gate over the autonomous queue
+
+### Queue review
+
+Ten parallel reviewer legs read all 26 branches against their own PR bodies: 13 MERGE,
+13 FIX, 0 REJECT. Twenty-five branches merged into `autonomous/integration`; 12 review
+fixes landed on top. The first-parent history has 27 commits: `c6c18f593` fixed the
+setup-page route pop, `89cf00a2c` applied the review-gate corrections, and the remaining
+25 commits merge the branches. `autonomous/integration` was pushed to
+`origin/autonomous/integration`.
+
+### Held-back branch and issue drafts
+
+`autonomous/u5-surface-variant` was held back: `ColorScheme.surfaceVariant` and
+`surfaceContainerHighest` are independent fields with independent fallbacks, not aliases.
+Its migration changed rendered colour at roughly 12 sites.
+
+`autonomous/integration` is not merged into `master`. No pull request was opened. The three
+issue drafts — `queue/ISSUE-web-target-unbuildable.md`,
+`queue/ISSUE-incoming-queue-swallows-errors.md`, and
+`queue/ISSUE-crypto-passphrase-truncation.md` — were fact-checked and corrected in place,
+but were not filed.
+
+## 2026-09-18 — Review fixes and an unattended overnight run
+
+### Emoji reactions
+
+The retry path now carries `associatedMessageEmoji`; reaction re-resolution includes the
+sender, and temporary replacement includes the emoji, so arbitrary emoji reactions keep
+their identity (`message_error_helper.dart:103-111`, `reaction.dart:67`,
+`message_state.dart:467-472`). Badge glyph selection is one helper
+(`reaction.dart:242-259`, `:417-434`). `isReaction` and `isAddedReaction` use a static set
+instead of allocating a list on each call (`reaction_helpers.dart:33,38`).
+
+### Dialogs and mark read
+
+Material and Samsung dialogs now honour `useRootNavigator`, so the emoji picker is scoped
+to the nested navigator instead of being orphaned in split view
+(`dialog_helpers.dart:92`, `message_popup.dart:232`). The picker returns its selected emoji
+to the caller, and the popup carries `selfReactionEmoji` through the send path
+(`message_popup.dart:292`). The mark-read control is hidden when no incoming message
+exists, and its watched query skips unchanged data (`header_widgets.dart:32,63`).
+
+### Motion and insets
+
+`MainActivity.kt` waits for IME animations to settle and re-dispatches real insets through
+`dispatchApplyWindowInsets` (`MainActivity.kt:83`). `typing_indicator.dart` disposes its
+curves, and the message-list opacity fade uses `Easing.standard`
+(`typing_indicator.dart:49-56`, `messages_view.dart:646`). The redundant animation doc
+comments are gone (`message_animation_orchestrator.dart:100`,
+`message_list_animation_config.dart:6`).
+
+### Layout and popup cleanup
+
+The Material desktop title-bar clearance uses one offset instead of `30.0` and `34.0`
+(`material_header.dart:50,130`). The popup drops the unreachable self-reaction hyphen
+guard and the throwaway child list (`message_popup.dart:155,551`). The redundant
+platform-condition comment is gone (`material_conversation_list.dart:66`).
+
+### Overnight run
+
+Twenty-six topic branches were pushed to `origin/autonomous/*` from `master` at
+`e2eaced6e`. Each branch was checked with `flutter analyze --no-pub --no-fatal-infos` and
+`flutter build linux --debug --no-pub`; the app was never launched.
+
 ## 2026-09-12 — Helper crash loop, mark-read state, typing stop, M3 motion tokens, upstream PRs
 
 ### "iMessage Helper is not connected" (helper crash loop)
