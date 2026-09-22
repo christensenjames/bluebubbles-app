@@ -196,7 +196,11 @@ class MaterialAvatarMenu extends StatelessWidget {
                 topLeft: Radius.circular(16),
                 topRight: Radius.circular(16),
               ),
-              onTap: () => hideMenu().then((_) => goToProfile(overlayContext)),
+              onTap: () async {
+                await hideMenu();
+                if (!context.mounted) return;
+                goToProfile(context);
+              },
               child: Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                 child: Row(
@@ -256,53 +260,88 @@ class MaterialAvatarMenu extends StatelessWidget {
             MenuItemRow(
               icon: Icons.done_all_outlined,
               label: 'Mark All As Read',
-              onTap: () => hideMenu().then((_) => markAllAsReadRespectingFilter(overlayContext, controller)),
+              onTap: () async {
+                await hideMenu();
+                await markAllAsReadRespectingFilter(context, controller);
+              },
             ),
             MenuItemRow(
               icon: Icons.archive_outlined,
               label: 'Archived',
-              onTap: () => hideMenu().then((_) => goToArchived(overlayContext)),
+              onTap: () async {
+                await hideMenu();
+                if (!context.mounted) return;
+                goToArchived(context);
+              },
             ),
             MenuItemRow(
               icon: hasActiveChatFilter ? Icons.filter_list : Icons.filter_list_outlined,
               iconColor: hasActiveChatFilter ? overlayContext.theme.colorScheme.primary : null,
               label: 'Filter Chats',
-              onTap: () => hideMenu().then((_) => openChatListFilterSheet(overlayContext)),
+              onTap: () async {
+                await hideMenu();
+                if (!context.mounted) return;
+                openChatListFilterSheet(context);
+              },
             ),
             if (filterUnknownSenders)
               MenuItemRow(
                 icon: Icons.person_off_outlined,
                 label: 'Unknown Senders',
-                onTap: () => hideMenu().then((_) => goToUnknownSenders(overlayContext)),
+                onTap: () async {
+                  await hideMenu();
+                  if (!context.mounted) return;
+                  goToUnknownSenders(context);
+                },
               ),
             if (SettingsSvc.serverDetails.isMinCatalina)
               MenuItemRow(
                 icon: Icons.location_on_outlined,
                 label: 'Find My',
-                onTap: () => hideMenu().then((_) => goToFindMy(overlayContext)),
+                onTap: () async {
+                  await hideMenu();
+                  if (!context.mounted) return;
+                  goToFindMy(context);
+                },
               ),
             if (extraItems)
               MenuItemRow(
                 icon: Icons.search,
                 label: 'Search',
-                onTap: () => hideMenu().then((_) => goToSearch(overlayContext)),
+                onTap: () async {
+                  await hideMenu();
+                  if (!context.mounted) return;
+                  goToSearch(context);
+                },
               ),
             if (extraItems && moveChatCreatorToHeader)
               MenuItemRow(
                 icon: Icons.edit_outlined,
                 label: 'New Chat',
-                onTap: () => hideMenu().then((_) => controller?.openNewChatCreator(overlayContext)),
+                onTap: () async {
+                  await hideMenu();
+                  if (!context.mounted) return;
+                  controller?.openNewChatCreator(context);
+                },
               ),
             MenuItemRow(
               icon: Icons.settings_outlined,
               label: 'Settings',
-              onTap: () => hideMenu().then((_) => goToSettings(overlayContext)),
+              onTap: () async {
+                await hideMenu();
+                if (!context.mounted) return;
+                goToSettings(context);
+              },
             ),
             if (kIsWeb)
               MenuItemRow(
                 icon: Icons.logout,
                 label: 'Logout',
-                onTap: () => hideMenu().then((_) => logout(overlayContext)),
+                onTap: () async {
+                  await hideMenu();
+                  if (!context.mounted) return;
+                  logout(context);
+                },
               ),
             const SizedBox(height: 4),
           ],
@@ -470,6 +509,7 @@ Future<void> goToFindMy(BuildContext context) async {
   if (currentChat != null) {
     await ChatsSvc.setActiveChat(currentChat);
     if (SettingsSvc.settings.tabletMode.value) {
+      if (!context.mounted) return;
       NavigationSvc.pushAndRemoveUntil(
         context,
         ConversationView(
@@ -537,6 +577,7 @@ Future<void> markAllAsReadRespectingFilter(BuildContext context, ConversationLis
     await ChatsSvc.markAllAsRead();
     return;
   }
+  if (!context.mounted) return;
 
   final onlyFiltered = await showBBListSelector<bool>(
     context: context,
@@ -588,6 +629,7 @@ Future<void> goToSettings(BuildContext context) async {
   if (currentChat != null) {
     await ChatsSvc.setActiveChat(currentChat);
     if (SettingsSvc.settings.tabletMode.value) {
+      if (!context.mounted) return;
       NavigationSvc.pushAndRemoveUntil(
         context,
         ConversationView(
