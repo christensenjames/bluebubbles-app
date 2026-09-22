@@ -157,7 +157,7 @@ class _CupertinoConnectionPanelState
                         final isLoading = controller.hasCheckedStats.value == false;
                         return CupertinoButton(
                           padding: const EdgeInsets.only(right: 16.0),
-                          minSize: 28,
+                          minimumSize: const Size.square(28),
                           onPressed: isLoading ? null : () => controller.getServerStats(),
                           child: isLoading
                               ? const CupertinoActivityIndicator()

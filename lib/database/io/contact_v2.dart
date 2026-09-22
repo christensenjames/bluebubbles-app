@@ -143,8 +143,21 @@ class ContactV2 {
   @Transient()
   Widget get fakeAvatar {
     if (_fakeAvatar != null) return _fakeAvatar!;
-    Avatar _avatar = DiceBearBuilder(seed: displayName).build();
-    _fakeAvatar = _avatar.toImage();
+    _fakeAvatar = DiceBearRequest<DiceBearRawStyleOptions>(
+      style: DiceBearStyle.random,
+      format: DiceBearFormat.svg,
+      coreOptions: DiceBearCoreOptions(
+        seed: displayName,
+        // Explicit defaults: DiceBearBuilder set these, and DiceBearCoreOptions omits nulls
+        // from the query string, so dropping them changes the generated avatar URL.
+        radius: 0,
+        scale: 100,
+        flip: false,
+        rotate: 0,
+        translateX: 0,
+        translateY: 0,
+      ),
+    ).toImage();
     return _fakeAvatar!;
   }
 

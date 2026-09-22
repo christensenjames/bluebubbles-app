@@ -40,13 +40,23 @@ class Handle {
     // Pick a random background color from the hex list: randomAvatarBackgroundColors
     final backgroundColor = randomAvatarBackgroundColors.randomChoice();
 
-    Avatar _avatar = DiceBearBuilder(
-      seed: address,
-      sprite: DiceBearStyle.miniavs,
-      // Random light color scheme with a custom background color to prevent white backgrounds on light mode
-      backgroundColor: HexColor(backgroundColor),
-    ).build();
-    _fakeAvatar = _avatar.toImage();
+    _fakeAvatar = DiceBearRequest<DiceBearRawStyleOptions>(
+      style: DiceBearStyle.miniavs,
+      format: DiceBearFormat.svg,
+      coreOptions: DiceBearCoreOptions(
+        seed: address,
+        // Random light color scheme with a custom background color to prevent white backgrounds on light mode
+        backgroundColor: DiceBearCoreOptions.fromColor(HexColor(backgroundColor)),
+        // Explicit defaults: DiceBearBuilder set these, and DiceBearCoreOptions omits nulls
+        // from the query string, so dropping them changes the generated avatar URL.
+        radius: 0,
+        scale: 100,
+        flip: false,
+        rotate: 0,
+        translateX: 0,
+        translateY: 0,
+      ),
+    ).toImage();
     return _fakeAvatar!;
   }
 
