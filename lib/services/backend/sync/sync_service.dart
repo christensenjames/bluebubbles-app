@@ -43,11 +43,20 @@ class SyncService {
       initFullSync();
     }
 
-    // Set the last sync date (for incremental, even though this isn't incremental)
-    // We won't try an incremental sync until the last (full) sync date is set
-    SettingsSvc.settings.lastIncrementalSync.value = DateTime.now().millisecondsSinceEpoch;
-    await SettingsSvc.settings.saveOneAsync('lastIncrementalSync');
+    // Use the instant the sync began, so messages that arrive during it are still
+    // covered by the next incremental pass.
+    final syncStartedAt = DateTime.now().millisecondsSinceEpoch;
+    // _manager is reused across calls and nothing else ever sets IN_PROGRESS, so a
+    // completed run would otherwise leave its status standing for the next one.
+    _manager!.status.value = SyncStatus.IN_PROGRESS;
     await _manager!.start();
+
+    // Only advance the watermark on success; one written for a failed sync would
+    // permanently hide every message that sync never fetched.
+    if (_manager!.status.value == SyncStatus.COMPLETED_SUCCESS) {
+      SettingsSvc.settings.lastIncrementalSync.value = syncStartedAt;
+      await SettingsSvc.settings.saveOneAsync('lastIncrementalSync');
+    }
   }
 
   Future<void> startIncrementalSync({bool useGlobalIsolate = false}) async {
