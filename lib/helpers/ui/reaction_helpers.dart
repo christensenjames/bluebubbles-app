@@ -30,12 +30,11 @@ class ReactionTypes {
 
   static String? baseType(String? type) => type != null && type.startsWith("-") ? type.substring(1) : type;
 
-  static bool isReaction(String? type) {
-    final base = baseType(type);
-    return base != null && (base == EMOJI || toList().contains(base));
-  }
+  static const Set<String> _all = {LOVE, LIKE, DISLIKE, LAUGH, EMPHASIZE, QUESTION, EMOJI};
 
-  static bool isAddedReaction(String? type) => type == EMOJI || toList().contains(type);
+  static bool isReaction(String? type) => _all.contains(baseType(type));
+
+  static bool isAddedReaction(String? type) => _all.contains(type);
 
   static String emojiFor(String? type, String? emoji) => emoji ?? reactionToEmoji[baseType(type)] ?? "X";
 
