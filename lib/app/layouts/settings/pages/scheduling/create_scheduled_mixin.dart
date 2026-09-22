@@ -66,6 +66,7 @@ mixin CreateScheduledMixin<T extends StatefulWidget> on State<T> {
       showSnackbar("Error", "Pick a date in the future!");
       return;
     }
+    final nav = Navigator.of(context);
 
     showDialog(
       context: context,
@@ -115,7 +116,7 @@ mixin CreateScheduledMixin<T extends StatefulWidget> on State<T> {
     if (kIsDesktop) {
       Get.close(1);
     } else {
-      Navigator.of(context).pop();
+      nav.pop();
     }
 
     if (response.statusCode == 200 && response.data != null) {
@@ -126,7 +127,8 @@ mixin CreateScheduledMixin<T extends StatefulWidget> on State<T> {
         }
       }
       final message = ScheduledMessage.fromJson(data);
-      Navigator.of(context).pop(message);
+      if (!mounted) return;
+      nav.pop(message);
     } else {
       Logger.error("Scheduled message error: ${response.statusCode}");
       Logger.error(response.data);
