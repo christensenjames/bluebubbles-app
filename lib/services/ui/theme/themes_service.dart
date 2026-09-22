@@ -615,7 +615,7 @@ class ThemesService {
 
     // Build a CorePalette from the dominant seed color so we can reuse all 9
     // existing variant algorithms in materialYouTheme().
-    final corePalette = mui_utils.CorePalette.of(lightScheme.primary.value);
+    final corePalette = mui_utils.CorePalette.of(lightScheme.primary.toARGB32());
 
     final result = <MaterialYouVariant, ({ThemeData light, ThemeData dark})>{};
     for (final variant in MaterialYouVariant.values) {
@@ -721,7 +721,7 @@ class ThemesService {
       return ThemePair(light: light, dark: dark);
     }
 
-    CorePalette palette = CorePalette.of(desktopAccentColor!.value);
+    CorePalette palette = CorePalette.of(desktopAccentColor!.toARGB32());
 
     light = light.copyWith(
       colorScheme: light.colorScheme.copyWith(

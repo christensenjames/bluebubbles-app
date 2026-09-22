@@ -25,11 +25,11 @@ class HexColor extends Color {
     if (other.runtimeType != runtimeType) {
       return false;
     }
-    return other is HexColor && other.value == value;
+    return other is HexColor && other.toARGB32() == toARGB32();
   }
 
   @override
-  int get hashCode => value.hashCode;
+  int get hashCode => toARGB32().hashCode;
 }
 
 @immutable
@@ -228,15 +228,21 @@ extension ColorHelpers on Color {
     assert(1 <= percent && percent <= 100);
     var f = 1 - percent / 100;
     final a8 = (a * 255.0).round();
-    return Color.fromARGB(a8, (red * f).round(), (green * f).round(), (blue * f).round());
+    final r8 = (r * 255.0).round();
+    final g8 = (g * 255.0).round();
+    final b8 = (b * 255.0).round();
+    return Color.fromARGB(a8, (r8 * f).round(), (g8 * f).round(), (b8 * f).round());
   }
 
   Color lightenPercent([double percent = 10]) {
     assert(1 <= percent && percent <= 100);
     var p = percent / 100;
     final a8 = (a * 255.0).round();
+    final r8 = (r * 255.0).round();
+    final g8 = (g * 255.0).round();
+    final b8 = (b * 255.0).round();
     return Color.fromARGB(
-        a8, red + ((255 - red) * p).round(), green + ((255 - green) * p).round(), blue + ((255 - blue) * p).round());
+        a8, r8 + ((255 - r8) * p).round(), g8 + ((255 - g8) * p).round(), b8 + ((255 - b8) * p).round());
   }
 
   Color lightenOrDarken([double percent = 10]) {
@@ -297,12 +303,12 @@ extension ColorHelpers on Color {
 
   double computeDifference(Color? other) {
     if (other == null) return 100;
-    final r1 = red;
-    final g1 = green;
-    final b1 = blue;
-    final r2 = other.red;
-    final g2 = other.green;
-    final b2 = other.blue;
+    final r1 = (r * 255.0).round();
+    final g1 = (g * 255.0).round();
+    final b1 = (b * 255.0).round();
+    final r2 = (other.r * 255.0).round();
+    final g2 = (other.g * 255.0).round();
+    final b2 = (other.b * 255.0).round();
     final d = sqrt(pow(r2 - r1, 2) + pow(g2 - g1, 2) + pow(b2 - b1, 2));
     return d / sqrt(pow(255, 2) + pow(255, 2) + pow(255, 2)) * 100;
   }
@@ -345,7 +351,7 @@ extension SystemUiOverlayStyleHelpers on BuildContext {
 MaterialColor createMaterialColor(Color color) {
   List<double> strengths = <double>[.05];
   Map<int, Color> swatch = <int, Color>{};
-  final int r = color.red, g = color.green, b = color.blue;
+  final int r = (color.r * 255.0).round(), g = (color.g * 255.0).round(), b = (color.b * 255.0).round();
 
   for (int i = 1; i < 10; i++) {
     strengths.add(0.1 * i);
@@ -359,7 +365,7 @@ MaterialColor createMaterialColor(Color color) {
       1,
     );
   }
-  return MaterialColor(color.value, swatch);
+  return MaterialColor(color.toARGB32(), swatch);
 }
 
 List<Color> toColorGradient(String? str) {
