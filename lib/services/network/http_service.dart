@@ -197,12 +197,12 @@ class HttpService implements BaseApi {
 
   Future<void> downloadAppleEmojiFont() async {
     if (downloadingFont.value) return;
+    downloadingFont.value = true;
 
     final response = await downloadFromUrl(
         "https://github.com/BlueBubblesApp/bluebubbles-fonts/releases/latest/download/AppleColorEmoji.ttf",
         progress: (current, total) {
       if (current <= total) {
-        downloadingFont.value = true;
         fontDownloadProgress.value = current / total;
         fontDownloadTotalSize.value = total;
       }
@@ -210,6 +210,8 @@ class HttpService implements BaseApi {
       downloadingFont.value = false;
       fontDownloadProgress.value = null;
       fontDownloadTotalSize.value = null;
+      Logger.error("Failed to download font", error: error);
+      showSnackbar("Error", "Failed to download font!");
 
       return Response(requestOptions: RequestOptions(path: ''));
     });
