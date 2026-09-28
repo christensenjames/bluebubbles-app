@@ -232,10 +232,9 @@ class MessagesViewState extends State<MessagesView> with MessagesServiceMixin, T
     // addNewMessage so the pending send never appears in the list — a bug that
     // only surfaces in release/AOT mode where the dispose races the send.
     // Solution: just detach our local reference and leave the service intact.
-    disposeMessagesService(
-      force: widget.customService == null,
-      onlyDetach: widget.customService != null,
-    );
+    // A search-result view is not a hand-off: detaching would leave a loaded service with a gapped search window.
+    final transfer = widget.customService != null && widget.initialScrollToGuid == null;
+    disposeMessagesService(force: !transfer, onlyDetach: transfer);
 
     // Controllers are now disposed by MessagesService.onClose()
     _setStateDebouncer?.cancel();
