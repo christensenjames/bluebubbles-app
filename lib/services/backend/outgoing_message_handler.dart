@@ -354,36 +354,42 @@ class OutgoingMessageHandler {
     if (_isProcessing) return;
     _isProcessing = true;
 
-    while (_queue.isNotEmpty) {
-      final entry = _queue.removeFirst();
-      final item = entry.item;
+    try {
+      while (_queue.isNotEmpty) {
+        final entry = _queue.removeFirst();
+        final item = entry.item;
+        final completer = item.completer;
 
-      try {
-        await _handleSend(() => _dispatchItem(item), item.chat).catchError((err) async {
-          if (SettingsSvc.settings.cancelQueuedMessages.value) {
-            // Cancel all subsequent messages for the same chat.
-            final toCancel = _queue.where((e) => e.item.chat.guid == item.chat.guid).map((e) => e.item).toList();
-            for (final pending in toCancel) {
-              _queue.removeWhere((e) => e.item == pending);
-              final m = pending.message;
-              final tempGuid = m.guid!;
-              m.error = MessageError.BAD_REQUEST.code;
-              m.errorMessage = 'Canceled due to previous failure';
-              await _finalizeOutgoingFailure(pending.chat, m, tempGuid);
+        try {
+          await _handleSend(() => _dispatchItem(item), item.chat).catchError((err) async {
+            if (SettingsSvc.settings.cancelQueuedMessages.value) {
+              // Cancel all subsequent messages for the same chat.
+              final toCancel = _queue.where((e) => e.item.chat.guid == item.chat.guid).map((e) => e.item).toList();
+              for (final pending in toCancel) {
+                _queue.removeWhere((e) => e.item == pending);
+                final m = pending.message;
+                final tempGuid = m.guid!;
+                m.error = MessageError.BAD_REQUEST.code;
+                m.errorMessage = 'Canceled due to previous failure';
+                await _finalizeOutgoingFailure(pending.chat, m, tempGuid);
+              }
             }
+          });
+          // Split parts of one queued item share this completer.
+          if (completer != null && !completer.isCompleted && !_queue.any((e) => e.item.completer == completer)) {
+            completer.complete();
           }
-        });
-        item.completer?.complete();
-      } catch (ex, st) {
-        Logger.error('Failed to handle outgoing queue item', error: ex, trace: st, tag: _tag);
-        item.completer?.completeError(ex);
+        } catch (ex, st) {
+          Logger.error('Failed to handle outgoing queue item', error: ex, trace: st, tag: _tag);
+          if (completer != null && !completer.isCompleted) completer.completeError(ex);
+        }
+
+        // Recompute the reactive pending set after each item is fully processed.
+        pendingChatGuids.assignAll(_queue.map((e) => e.item.chat.guid).toSet());
       }
-
-      // Recompute the reactive pending set after each item is fully processed.
-      pendingChatGuids.assignAll(_queue.map((e) => e.item.chat.guid).toSet());
+    } finally {
+      _isProcessing = false;
     }
-
-    _isProcessing = false;
   }
 
   /// Returns `true` if the message with [tempGuid] is currently waiting in the
@@ -1187,10 +1193,10 @@ class OutgoingMessageHandler {
     _sendProgressTrackers.clear();
 
     while (_queue.isNotEmpty) {
-      final entry = _queue.removeFirst();
-      entry.item.completer?.completeError(
-        StateError('OutgoingMessageHandler disposed before item was processed'),
-      );
+      final completer = _queue.removeFirst().item.completer;
+      if (completer != null && !completer.isCompleted) {
+        completer.completeError(StateError('OutgoingMessageHandler disposed before item was processed'));
+      }
     }
 
     _isProcessing = false;
