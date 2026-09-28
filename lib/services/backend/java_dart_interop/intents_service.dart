@@ -224,6 +224,8 @@ class IntentsService {
         return;
       }
 
+      // Must precede the first await: onAppResume can run while we're suspended and reads this.
+      pendingOpenChatGuid = guid;
       await StartupTasks.waitForUI();
 
       // On the initial-intent path the widget tree is starting fresh (see the
@@ -243,12 +245,12 @@ class IntentsService {
         }
       }
 
+      // A newer openChat may have replaced the guid while this one was suspended.
+      clearPendingOpenChat() {
+        if (pendingOpenChatGuid == guid) pendingOpenChatGuid = null;
+      }
+
       if (!chatIsOpen) {
-        // Mark the navigation as pending BEFORE any await so that onAppResume,
-        // which fires while we are suspended at waitForUI / Future.delayed, can
-        // see that we are about to switch chats and must not mark the current
-        // active chat as read prematurely.
-        pendingOpenChatGuid = guid;
         Logger.debug("Navigating to conversation view...", tag: "IntentsService");
 
         // Rather than waiting for paging to eventually reach this chat,
@@ -260,14 +262,16 @@ class IntentsService {
         // Pre-populate text/attachments on the controller before navigating so
         // the ConversationView text field is pre-filled on first build.
         setPickedAttachments();
-        pendingOpenChatGuid = null;
 
+        // Clear once ConversationView makes this chat active; clearing on route pop would skip chats pushed on top.
+        WidgetsBinding.instance.addPostFrameCallback((_) => clearPendingOpenChat());
         await NavigationSvc.pushAndRemoveUntil(
           Get.context!,
           ConversationView(chat: chat),
           (route) => route.isFirst,
         );
       } else {
+        clearPendingOpenChat();
         Logger.debug("Chat is already open, not navigating", tag: "IntentsService");
         setPickedAttachments();
       }
