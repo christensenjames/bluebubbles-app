@@ -350,8 +350,7 @@ class _ThemingPanelState extends CustomState<ThemingPanel, void, ThemingPanelCon
                                   await SettingsSvc.settings.saveOneAsync('colorsFromMedia');
                                   ThemeStruct previousDark = await ThemeSvc.revertToPreviousDarkTheme();
                                   ThemeStruct previousLight = await ThemeSvc.revertToPreviousLightTheme();
-                                  if (!context.mounted) return;
-                                  await ThemeSvc.changeTheme(context, light: previousLight, dark: previousDark);
+                                  await ThemeSvc.changeTheme(Get.context!, light: previousLight, dark: previousDark);
                                 }
                                 if (enabled) {
                                   await PrefsSvc.theme.setSelectedThemes(
