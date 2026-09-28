@@ -605,6 +605,10 @@ class ContactV2Actions {
     return await syncContactsToHandles(data);
   }
 
+  // IDs aren't ours (macOS `<uuid>:ABPerson`, display-name fallback); raw reserved chars break URI parsing later.
+  static File _avatarFile(String contactId) =>
+      File(p.join(FilesystemSvc.contactAvatarsPath, '${sanitizeFileName(contactId)}.jpg'));
+
   /// Save a contact avatar to disk and return the file path
   ///
   /// Optimizations:
@@ -620,11 +624,7 @@ class ContactV2Actions {
         await avatarsDir.create(recursive: true);
       }
 
-      // Save the avatar with the contact ID as filename. The ID is sanitized because
-      // it isn't ours: macOS record IDs look like `<uuid>:ABPerson`, and the fallback
-      // when the server sends no ID is the display name. A reserved character there
-      // yields a path that later breaks anything parsing it as a URI (Windows toasts).
-      final avatarFile = File(p.join(avatarsDir.path, '${sanitizeFileName(contactId)}.jpg'));
+      final avatarFile = _avatarFile(contactId);
 
       // Check if avatar already exists and compare it to avoid unnecessary writes
       if (await avatarFile.exists()) {
@@ -697,8 +697,7 @@ class ContactV2Actions {
 
     try {
       // First try to get from disk (if we've already saved it)
-      final avatarsDir = Directory(FilesystemSvc.contactAvatarsPath);
-      final avatarFile = File(p.join(avatarsDir.path, '${sanitizeFileName(nativeContactId)}.jpg'));
+      final avatarFile = _avatarFile(nativeContactId);
 
       if (await avatarFile.exists()) {
         return await avatarFile.readAsBytes();
