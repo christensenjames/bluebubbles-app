@@ -179,9 +179,7 @@ class IntentsService {
     } catch (e, s) {
       Logger.warn("Failed to fetch FaceTime answer link", error: e, trace: s, tag: 'IntentsService');
     }
-    if (route != null && route.isActive) {
-      route.navigator!.removeRoute(route);
-    }
+    if (route != null) NavigationSvc.closeRoute(route);
     if (link == null) {
       return showSnackbar("Failed to answer FaceTime", "Unable to generate FaceTime link!");
     }

@@ -367,8 +367,10 @@ class ConversationTextFieldState extends CustomState<ConversationTextField, void
         },
       );
       final response = await HttpSvc.message.createScheduled(chat.guid, text, date.toUtc(), {"type": "once"});
+      // The builder that captures the route runs on the frame after the push, which a fast server can beat.
+      if (dialogRoute == null) await WidgetsBinding.instance.endOfFrame;
       final route = dialogRoute;
-      if (route != null && route.isActive) route.navigator!.removeRoute(route);
+      if (route != null) NavigationSvc.closeRoute(route);
       if (response.statusCode == 200 && response.data != null) {
         showSnackbar("Notice", "Message scheduled successfully for ${buildFullDate(date)}");
       } else {
