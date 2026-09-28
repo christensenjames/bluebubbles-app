@@ -9,7 +9,8 @@ class CustomGroupActions {
     // the group<->chat relation.
     final chatGuids = (data['chatGuids'] as List).cast<String>().toSet();
     return Database.runInTransaction(TxMode.write, () {
-      final group = CustomGroup(name: name);
+      final maxSortOrder = Database.customGroups.getAll().fold(-1, (m, g) => g.sortOrder > m ? g.sortOrder : m);
+      final group = CustomGroup(name: name, sortOrder: maxSortOrder + 1);
       final matchedChats = chatGuids
           .map((guid) => Database.chats.query(Chat_.guid.equals(guid)).build().findFirst())
           .whereType<Chat>()
