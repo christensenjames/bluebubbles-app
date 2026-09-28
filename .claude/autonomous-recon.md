@@ -25,8 +25,8 @@
 
 ## Push tier
 
-- `Green (James: all private repos are green, 2026-09-12)`.
-- `--push` applies because this checkout has remotes (`origin` and `upstream`).
+- Not green. `origin` (`christensenjames/bluebubbles-app`) is a public fork: the GitHub API reports `"visibility": "public"`, and a branch page loads without a login (checked 2026-09-28). James's 2026-09-12 rule makes private repos green, so it does not cover this repo, and no other tier is declared.
+- `--push` runs therefore stay disk-only until James declares a tier for this repo. Anything pushed to `origin` is world-readable.
 
 ## Privacy band
 
