@@ -319,8 +319,12 @@ class MethodChannelHandlers {
       if (arguments != null) {
         final Chat? chat = Chat.findOne(guid: arguments['chatGuid']);
         if (chat != null) {
-          await chat.toggleHasUnreadAsync(false, clearLocalNotifications: false);
-          ChatsSvc.getChatState(chat.guid)?.updateHasUnreadInternal(false);
+          try {
+            // force: a retry after a failed receipt finds the chat already read and would otherwise skip the receipt.
+            await chat.toggleHasUnreadAsync(false, clearLocalNotifications: false, force: true, awaitReadReceipt: true);
+          } finally {
+            ChatsSvc.getChatState(chat.guid)?.updateHasUnreadInternal(false);
+          }
           return _ok();
         }
       }
