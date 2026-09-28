@@ -76,6 +76,8 @@ class SpellCheckTextEditingController extends TextEditingController {
   /// Mistake tooltip
   OverlayEntry? _mistakeTooltip;
 
+  bool _disposed = false;
+
   @override
   set value(TextEditingValue newValue) {
     String origText = newValue.text;
@@ -150,6 +152,7 @@ class SpellCheckTextEditingController extends TextEditingController {
 
   @override
   void dispose() {
+    _disposed = true;
     _languageCheckService.dispose();
     _mistakeTooltip?.remove();
     _mistakeTooltip = null;
@@ -207,6 +210,7 @@ class SpellCheckTextEditingController extends TextEditingController {
     final mistakesWrapper = await _latestResponseService.processLatestOperation(
       () => _languageCheckService.findMistakes(newText),
     );
+    if (_disposed) return;
     if (mistakesWrapper == null || !mistakesWrapper.hasResult) return;
 
     final mistakes = mistakesWrapper.result();

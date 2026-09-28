@@ -211,6 +211,9 @@ class ConversationViewController extends StatefulController with GetSingleTicker
       a.player.pause();
       a.player.dispose();
     }
+    final entries = editing.toList();
+    editing.clear();
+    _disposeEditEntriesAfterFrame(entries);
     scrollController.dispose();
     super.onClose();
   }
@@ -249,6 +252,22 @@ class ConversationViewController extends StatefulController with GetSingleTicker
 
   bool isEditing(String guid, int part) {
     return editing.firstWhereOrNull((e) => e.message.guid == guid && e.part.part == part) != null;
+  }
+
+  void endEdit(String guid, int part) {
+    final removed = editing.where((e) => e.message.guid == guid && e.part.part == part).toList();
+    editing.removeWhere(removed.contains);
+    _disposeEditEntriesAfterFrame(removed);
+  }
+
+  // The edit TextField keeps using the controller until it unmounts on the next frame.
+  void _disposeEditEntriesAfterFrame(List<MessageEditEntry> entries) {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      for (final e in entries) {
+        e.controller.focusNode?.dispose();
+        e.controller.dispose();
+      }
+    });
   }
 
   void updateSmartReplyLayout({required bool visible, required double height}) {
