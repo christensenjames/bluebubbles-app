@@ -140,11 +140,15 @@ class AttachmentDownloadService extends GetxService {
   }
 
   void _removeFromQueue(AttachmentDownloadController downloader) {
-    downloaders.remove(downloader.attachment.guid!);
+    final guid = downloader.attachment.guid!;
     final chatGuid = downloader.attachment.message.target?.chat.target?.guid ?? "unknown";
-    _downloaders[chatGuid]?.removeWhere((e) => e.attachment.guid == downloader.attachment.guid);
+    _downloaders[chatGuid]?.removeWhere((e) => identical(e, downloader));
     if (_downloaders[chatGuid]?.isEmpty ?? false) _downloaders.remove(chatGuid);
-    Get.delete<AttachmentDownloadController>(tag: downloader.attachment.guid!);
+    if (!_downloaders.values.flattened.any((e) => e.attachment.guid == guid)) downloaders.remove(guid);
+    if (Get.isRegistered<AttachmentDownloadController>(tag: guid) &&
+        identical(Get.find<AttachmentDownloadController>(tag: guid), downloader)) {
+      Get.delete<AttachmentDownloadController>(tag: guid);
+    }
     _fetchNext();
   }
 
@@ -213,7 +217,7 @@ class AttachmentDownloadController extends GetxController {
     if (_cancelToken?.isCancelled == false) _cancelToken?.cancel('superseded');
   }
 
-  /// Fails this download: drops any partial file, notifies the error callbacks,
+  /// Fails this download: drops its partial file unless a newer controller owns it, notifies the error callbacks,
   /// moves to [AttachmentDownloadState.error], and frees the queue slot.
   ///
   /// Every abnormal exit from [fetchAttachment] must come through here. A path
@@ -233,7 +237,10 @@ class AttachmentDownloadController extends GetxController {
       trace: trace,
     );
 
-    if (!kIsWeb && tempPath != null) {
+    // A newer controller for this guid streams into the same `.part` path, so leave it alone.
+    final superseded = Get.isRegistered<AttachmentDownloadController>(tag: attachment.guid) &&
+        !identical(Get.find<AttachmentDownloadController>(tag: attachment.guid), this);
+    if (!kIsWeb && tempPath != null && !superseded) {
       try {
         final tempFile = File(tempPath);
         if (await tempFile.exists()) await tempFile.delete();
@@ -253,7 +260,12 @@ class AttachmentDownloadController extends GetxController {
   }
 
   Future<void> fetchAttachment() async {
-    if (attachment.guid == null || attachment.guid!.contains("temp")) return;
+    if (attachment.guid == null || attachment.guid!.contains("temp")) {
+      // First call runs inside Get.put -> onInit; failing synchronously would Get.delete mid-registration.
+      await Future.microtask(() {});
+      await _failDownload(null, "attachment has no server GUID");
+      return;
+    }
     if (_fetchStarted) return;
     _fetchStarted = true;
     state.value = AttachmentDownloadState.downloading;
