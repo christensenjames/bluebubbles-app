@@ -132,9 +132,13 @@ class IntentsService {
   }
 
   Future<void> answerFaceTime(String callUuid) async {
+    DialogRoute? route;
     if (Get.context != null) {
-      showDialog(
+      final nav = Navigator.of(Get.context!, rootNavigator: true);
+      route = DialogRoute(
           context: Get.context!,
+          barrierColor: Get.context!.theme.dialogTheme.barrierColor ?? Colors.black54,
+          traversalEdgeBehavior: TraversalEdgeBehavior.closedLoop,
           builder: (BuildContext context) {
             return AlertDialog(
               backgroundColor: context.theme.colorScheme.surfaceContainerHighest,
@@ -153,6 +157,7 @@ class IntentsService {
               ),
             );
           });
+      nav.push(route);
       hideFaceTimeOverlay(callUuid);
     }
 
@@ -163,8 +168,8 @@ class IntentsService {
     } catch (e, s) {
       Logger.warn("Failed to fetch FaceTime answer link", error: e, trace: s, tag: 'IntentsService');
     }
-    if (Get.context != null) {
-      Navigator.of(Get.context!, rootNavigator: true).pop();
+    if (route != null && route.isActive) {
+      route.navigator!.removeRoute(route);
     }
     if (link == null) {
       return showSnackbar("Failed to answer FaceTime", "Unable to generate FaceTime link!");
