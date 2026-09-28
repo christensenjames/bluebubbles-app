@@ -41,11 +41,17 @@ class PrefsActions {
 
     // Replace the settings in the SettingsService
     SettingsSvc.settings = newSettings;
-    if (GetIt.I.isRegistered<HttpService>()) HttpSvc.updateTimeouts();
+    if (GetIt.I.isRegistered<HttpService>()) {
+      HttpSvc.updateTimeouts();
+      HttpSvc.updateHeaders();
+    }
   }
 
   static Future<void> syncSettings(dynamic data) async {
     Settings.updateFromMap(data);
-    if (data.containsKey('apiTimeout') && GetIt.I.isRegistered<HttpService>()) HttpSvc.updateTimeouts();
+    if (GetIt.I.isRegistered<HttpService>()) {
+      if (data.containsKey('apiTimeout')) HttpSvc.updateTimeouts();
+      if (data.containsKey('customHeaders')) HttpSvc.updateHeaders();
+    }
   }
 }
