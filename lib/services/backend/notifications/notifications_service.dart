@@ -388,7 +388,7 @@ class NotificationsService {
     oldTimer?.cancel();
     debounceTimers[guid] = Timer(
       const Duration(milliseconds: 300),
-      () async => await _buildAndShowToast(chat, title, message),
+      () => _lock.synchronized(() => _buildAndShowToast(chat, title, message)),
     );
   }
 
@@ -632,7 +632,11 @@ class NotificationsService {
         : "The following aliases have been deregistered:\n${aliases.join("\n")}";
 
     if (kIsDesktop) {
-      if (aliasesToastText == text) {
+      final int? live = aliasesToast;
+      if (aliasesToastText == text &&
+          live != null &&
+          DesktopNotifications.isLive(live) &&
+          (Platform.isLinux || (await DesktopNotifications.activeIds()).contains(live))) {
         return;
       }
       final int? existing = aliasesToast;
