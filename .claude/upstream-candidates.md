@@ -16,7 +16,7 @@ is independent of other fork changes, so rebuild on `upstream/master` before ope
 | unit | defect | applies | before sending |
 |---|---|---|---|
 | U27 | An interrupted first sync hides every message it had not fetched yet, permanently. | clean | Use the corrected version from `autonomous/integration` (`89cf00a2c`), not the raw `u27` branch. |
-| U117 | A split notification reply (a URL at either end, on a Catalina-or-older server) stops every later message from sending until restart. | clean | Android device test. U135 is its follow-up and is stacked on it. |
+| U117 | A split notification reply (a URL at either end, on a Catalina-or-older server) stops every later message from sending until restart. | clean | Android device test. U135 is its follow-up and is stacked on it; include `8e9072486`, which retries a reply only when the server never received it. |
 | U133 | The composer throws on text it did not type, causing double sends, a failed forward and wiped drafts. | clean | - |
 | U143 | Messages from a contact's secondary address are saved but never shown. | clean | - |
 | U127 | Moving the API timeout slider drops the custom, ngrok and zrok headers until restart. | clean | U136 (the same gap for isolate requests) is stacked on it. |
