@@ -344,6 +344,7 @@ class ContactTile extends StatelessWidget {
               label: 'Email',
               onTap: () async {
                 await hideMenu();
+                if (!context.mounted) return;
                 showAddressPicker(contact, handle, isEmail: true, context);
               },
             ),
@@ -353,6 +354,7 @@ class ContactTile extends StatelessWidget {
               label: 'Call',
               onTap: () async {
                 await hideMenu();
+                if (!context.mounted) return;
                 showAddressPicker(contact, handle, context);
               },
             ),
@@ -362,6 +364,7 @@ class ContactTile extends StatelessWidget {
               label: 'Video',
               onTap: () async {
                 await hideMenu();
+                if (!context.mounted) return;
                 showAddressPicker(contact, handle, context, video: true);
               },
             ),

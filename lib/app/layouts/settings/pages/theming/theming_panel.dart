@@ -329,7 +329,7 @@ class _ThemingPanelState extends CustomState<ThemingPanel, void, ThemingPanelCon
                             onChanged: (value) async {
                               SettingsSvc.settings.useDesktopAccent.value = value;
                               await SettingsSvc.settings.saveOneAsync('useDesktopAccent');
-                              await ThemeSvc.refreshDesktopAccent(context);
+                              await ThemeSvc.refreshDesktopAccent(Get.context!);
                             },
                           )),
                     if (kIsDesktop) const SettingsDivider(padding: EdgeInsets.only(left: 16.0)),
@@ -364,7 +364,7 @@ class _ThemingPanelState extends CustomState<ThemingPanel, void, ThemingPanelCon
                                     darkTheme: "OLED Dark",
                                   );
                                 }
-                                await ThemeSvc.refreshMonet(context);
+                                await ThemeSvc.refreshMonet(Get.context!);
                               },
                             )),
                       ),
@@ -388,7 +388,7 @@ class _ThemingPanelState extends CustomState<ThemingPanel, void, ThemingPanelCon
                                       lightTheme: currentLight.name,
                                       darkTheme: currentDark.name,
                                     );
-                                    await ThemeSvc.changeTheme(context,
+                                    await ThemeSvc.changeTheme(Get.context!,
                                         light: allThemes.firstWhere((element) => element.name == "Music Theme ☀"),
                                         dark: allThemes.firstWhere((element) => element.name == "Music Theme 🌙"));
                                     SettingsSvc.settings.colorsFromMedia.value = val;
@@ -407,7 +407,7 @@ class _ThemingPanelState extends CustomState<ThemingPanel, void, ThemingPanelCon
                                   var previousDark = allThemes.firstWhere((e) => e.name == darkName);
                                   await PrefsSvc.theme.clearPreviousLightTheme();
                                   await PrefsSvc.theme.clearPreviousDarkTheme();
-                                  await ThemeSvc.changeTheme(context, light: previousLight, dark: previousDark);
+                                  await ThemeSvc.changeTheme(Get.context!, light: previousLight, dark: previousDark);
                                   SettingsSvc.settings.colorsFromMedia.value = val;
                                   await SettingsSvc.settings.saveOneAsync('colorsFromMedia');
                                 }

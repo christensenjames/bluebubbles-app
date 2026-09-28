@@ -100,6 +100,7 @@ class ExpressiveChatHeader extends StatelessWidget {
                                     iconColor: colorScheme.primary,
                                     onTap: () async {
                                       await hideMenu();
+                                      if (!context.mounted) return;
                                       await photo_actions.deletePhoto(context, chat);
                                     },
                                   )

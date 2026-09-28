@@ -326,10 +326,10 @@ class ThemeStudioController extends StatefulController {
       lightTheme = ThemeStruct.resolveByName(_sourceLightThemeName, Brightness.light);
     } else if (isDark.value) {
       darkTheme = await ThemeSvc.revertToPreviousDarkTheme();
-      await ThemeSvc.changeTheme(context, dark: darkTheme);
+      await ThemeSvc.changeTheme(Get.context!, dark: darkTheme);
     } else {
       lightTheme = await ThemeSvc.revertToPreviousLightTheme();
-      await ThemeSvc.changeTheme(context, light: lightTheme);
+      await ThemeSvc.changeTheme(Get.context!, light: lightTheme);
     }
     _reload();
     EventDispatcherSvc.emit('theme-update', null);

@@ -24,6 +24,7 @@ Future<void> remindLater(MessagePopupActionContext ctx) async {
     }
   }
 
+  if (!ctx.context.mounted) return;
   final finalDate = await showTimeframePicker(
     "Select Reminder Time",
     ctx.context,

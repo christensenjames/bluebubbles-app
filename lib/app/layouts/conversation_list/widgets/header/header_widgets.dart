@@ -262,6 +262,7 @@ class MaterialAvatarMenu extends StatelessWidget {
               label: 'Mark All As Read',
               onTap: () async {
                 await hideMenu();
+                if (!context.mounted) return;
                 await markAllAsReadRespectingFilter(context, controller);
               },
             ),

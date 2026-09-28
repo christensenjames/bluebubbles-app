@@ -164,6 +164,7 @@ class ManualMarkState extends State<ManualMark> with ThemeHelpers {
                 }
                 widget.controller.inSelectMode.value = false;
                 widget.controller.selected.clear();
+                if (!context.mounted) return;
                 NavigationSvc.pushAndRemoveUntil(
                   context,
                   NewChatCreator(
