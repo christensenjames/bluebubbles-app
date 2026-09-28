@@ -243,6 +243,7 @@ class ContactV2Actions {
         Logger.info(
             '[ContactV2] Built lookup maps: ${emailHandleMap.length} email keys, ${phoneHandleMap.length} phone variant keys');
 
+        final syncedContactIds = <String>{};
         for (final rawContact in [...deviceContacts, ...networkContacts]) {
           // Normalize addresses
           final normalizedAddresses = <String>{};
@@ -430,6 +431,7 @@ class ContactV2Actions {
           contact.handles.clear();
           contact.handles.addAll(matchedHandles);
 
+          syncedContactIds.add(contactId);
           // Always persist the contact — this ensures phone/email JSON columns are
           // written to the DB regardless of whether handle assignments changed.
           try {
@@ -462,6 +464,22 @@ class ContactV2Actions {
               Logger.info('[ContactV2] Updating ${chatsToUpdate.length} chats to link matched handles');
               Database.chats.putMany(chatsToUpdate.toList());
             }
+          }
+        }
+
+        // A failed provider read (null cursor) looks like an empty address book; never remove on it.
+        if (syncedContactIds.isNotEmpty) {
+          final sourceQuery = contactsBox.query(ContactV2_.isNative.equals(!kIsDesktop)).build();
+          final staleContacts =
+              sourceQuery.find().where((c) => !syncedContactIds.contains(c.nativeContactId)).toList();
+          sourceQuery.close();
+
+          if (staleContacts.isNotEmpty) {
+            for (final stale in staleContacts) {
+              affectedHandleIds.addAll(stale.handles.map((h) => h.id).whereType<int>());
+            }
+            Logger.info('[ContactV2] Removing ${staleContacts.length} contacts no longer in the synced source');
+            contactsBox.removeMany(staleContacts.map((c) => c.id).toList());
           }
         }
       });
