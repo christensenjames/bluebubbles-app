@@ -53,21 +53,21 @@ class FullSyncManager extends SyncManager {
     addToOutput("Reloading your contacts...");
     addToOutput('Fetching chats from the server...');
 
-    // Get the total chats so we can properly fetch them all
-    Response chatCountResponse = await HttpSvc.chat.getCount();
-    Map<String, dynamic> res = chatCountResponse.data;
-    int? totalChats;
-    if (chatCountResponse.statusCode == 200) {
-      totalChats = res["data"]["total"];
-    }
-
-    addToOutput('Received $totalChats chat(s) from the server!');
-
-    if (totalChats == 0) {
-      return await complete();
-    }
-
     try {
+      // Get the total chats so we can properly fetch them all
+      Response chatCountResponse = await HttpSvc.chat.getCount();
+      Map<String, dynamic> res = chatCountResponse.data;
+      int? totalChats;
+      if (chatCountResponse.statusCode == 200) {
+        totalChats = res["data"]["total"];
+      }
+
+      addToOutput('Received $totalChats chat(s) from the server!');
+
+      if (totalChats == 0) {
+        return await complete();
+      }
+
       int completedChats = 0;
       int filteredChatsCount = 0;
       if (kIsDesktop && Platform.isWindows) {
