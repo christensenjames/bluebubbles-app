@@ -33,7 +33,7 @@ is independent of other fork changes, so rebuild on `upstream/master` before ope
 | U26 | Attributed-body parts are added after the function has already returned. | clean | Use the corrected version from `autonomous/integration`. |
 | U24 | "Mark all as read" leaves wrong badges and stops at the first server error. | clean | Use the corrected version from `autonomous/integration`. Overlaps our open #3273 area. |
 | U25 | Mentions are sliced against the wrong string in redacted mode. | clean | Use the corrected version from `autonomous/integration`. |
-| U154 | Send in the new chat creator can go to the previous chat, and the group limit lets a second recipient through. | clean | - |
+| U154 | Send in the new chat creator can go to the previous chat, and the group limit lets a second recipient through. | clean | Include its follow-up `86e8279fe`, which stops a send that would drop an unresolved typed recipient. |
 | U148 | Swipe-to-reply and bubble effects use the wrong part of a multi-part message. | clean | - |
 | U128 | Attachment re-downloads and temp attachments break the download queue. | clean | - |
 
@@ -42,6 +42,7 @@ is independent of other fork changes, so rebuild on `upstream/master` before ope
 - Lint and deprecation cleanups (the 2026-09-18 `ubcs`/deprecation/dead-code branches, U110, U155):
   broad churn with little user impact. U110 carries two real bugs (a forward with attachments throws;
   scheduling a message can close the conversation). Send those two as their own small PR if upstream
-  wants them.
+  wants them. The scheduling fix must include its follow-up `cf1983e8f`, which closes the dialog when the
+  server answers before the dialog's first frame.
 - U102 (passphrase bytes): check that the server derives its key the same way before offering it.
 - Anything that depends on a fork-only change (`feat/send-emoji-tapbacks`, or the 2026-09-18 base).
