@@ -311,7 +311,6 @@ class MethodChannelHandlers {
   }
 
   Future<bool> _handleMarkChatRead(MethodCall _, Map<String, dynamic>? arguments) async {
-    if (!service.headless && LifecycleSvc.isAlive) return _ok();
     await Database.waitForInit();
     Logger.info('Received markAsRead from Kotlin');
 
