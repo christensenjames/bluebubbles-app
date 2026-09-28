@@ -17,8 +17,6 @@ import 'method_channel_constants.dart';
 abstract class MethodChannelServiceDelegate {
   bool get headless;
   bool get shouldIgnoreMessage;
-  bool get isRunning;
-  set isRunning(bool value);
   Uint8List? get previousArt;
   set previousArt(Uint8List? value);
 }
@@ -359,9 +357,13 @@ class MethodChannelHandlers {
     if (!SettingsSvc.settings.colorsFromMedia.value) return _ok();
 
     final Uint8List art = call.arguments['albumArt'];
-    if (Get.context != null && (!service.isRunning || art != service.previousArt)) {
-      ThemeSvc.updateMusicTheme(Get.context!, art);
-      service.isRunning = false;
+    if (Get.context != null && !listEquals(art, service.previousArt)) {
+      try {
+        await ThemeSvc.updateMusicTheme(Get.context!, art);
+        service.previousArt = art;
+      } catch (e, s) {
+        Logger.warn("Failed to update music theme", error: e, trace: s);
+      }
     }
 
     return _ok();

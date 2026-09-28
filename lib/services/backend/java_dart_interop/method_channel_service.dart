@@ -25,8 +25,6 @@ class MethodChannelService implements MethodChannelServiceDelegate {
 
   // music theme
   @override
-  bool isRunning = false;
-  @override
   Uint8List? previousArt;
 
   /// Whether this isolate should drop a push copy because another consumer owns it.

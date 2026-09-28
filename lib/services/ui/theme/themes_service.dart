@@ -573,7 +573,7 @@ class ThemesService {
     _loadTheme(context);
   }
 
-  void updateMusicTheme(BuildContext context, Uint8List art) async {
+  Future<void> updateMusicTheme(BuildContext context, Uint8List art) async {
     final darkTheme = ThemeStruct.getThemes().firstWhere((e) => e.name == "Music Theme 🌙");
     final lightTheme = ThemeStruct.getThemes().firstWhere((e) => e.name == "Music Theme ☀");
     final lightScheme = await ColorScheme.fromImageProvider(provider: MemoryImage(art), brightness: Brightness.light);
