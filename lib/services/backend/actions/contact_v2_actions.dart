@@ -698,7 +698,7 @@ class ContactV2Actions {
     try {
       // First try to get from disk (if we've already saved it)
       final avatarsDir = Directory(FilesystemSvc.contactAvatarsPath);
-      final avatarFile = File(p.join(avatarsDir.path, '$nativeContactId.jpg'));
+      final avatarFile = File(p.join(avatarsDir.path, '${sanitizeFileName(nativeContactId)}.jpg'));
 
       if (await avatarFile.exists()) {
         return await avatarFile.readAsBytes();
