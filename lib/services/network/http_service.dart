@@ -175,6 +175,13 @@ class HttpService implements BaseApi {
     dio.options.headers = headers;
   }
 
+  void updateTimeouts() {
+    final timeout = Duration(milliseconds: SettingsSvc.settings.apiTimeout.value);
+    dio.options.connectTimeout = timeout;
+    dio.options.receiveTimeout = timeout;
+    dio.options.sendTimeout = timeout;
+  }
+
   Future<Response> downloadFromUrl(String url, {Function(int, int)? progress, CancelToken? cancelToken}) async {
     return runApiGuarded(() async {
       final response = await dio.get(

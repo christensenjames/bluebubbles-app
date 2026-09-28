@@ -2,7 +2,6 @@ import 'package:bluebubbles/helpers/types/classes/language_codes.dart';
 import 'package:bluebubbles/services/services.dart';
 import 'package:bluebubbles/helpers/helpers.dart';
 import 'package:bluebubbles/app/layouts/settings/widgets/settings_widgets.dart';
-import 'package:dio/dio.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -250,6 +249,7 @@ class _MiscPanelState extends State<MiscPanel> with ThemeHelpers {
                                     onPressed: () async {
                                       SettingsSvc.settings.apiTimeout.value = 30000;
                                       await SettingsSvc.settings.saveOneAsync('apiTimeout');
+                                      HttpSvc.updateTimeouts();
                                     },
                                     child: const Text("Reset"),
                                   )
@@ -262,12 +262,7 @@ class _MiscPanelState extends State<MiscPanel> with ThemeHelpers {
                           },
                           onChangeEnd: (double val) async {
                             await SettingsSvc.settings.saveOneAsync('apiTimeout');
-                            HttpSvc.dio = Dio(BaseOptions(
-                              connectTimeout: Duration(milliseconds: SettingsSvc.settings.apiTimeout.value),
-                              receiveTimeout: Duration(milliseconds: SettingsSvc.settings.apiTimeout.value),
-                              sendTimeout: Duration(milliseconds: SettingsSvc.settings.apiTimeout.value),
-                            ));
-                            HttpSvc.dio.interceptors.add(ApiInterceptor());
+                            HttpSvc.updateTimeouts();
                           },
                           backgroundColor: tileColor,
                           min: 5,
