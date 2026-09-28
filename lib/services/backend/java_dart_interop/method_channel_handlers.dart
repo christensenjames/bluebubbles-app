@@ -262,37 +262,35 @@ class MethodChannelHandlers {
     final Chat? chat = Chat.findOne(guid: data['chatGuid']);
     if (chat == null) return _retry();
 
-    // Held so the temp GUID assigned during queueing can be used to check the
-    // send outcome below.
-    final replyMessage = Message(
-      text: data['text'],
-      dateCreated: DateTime.now(),
-      hasAttachments: false,
-      isFromMe: true,
-      handleId: 0,
-    );
-
     final Completer<void> completer = Completer();
     OutgoingMsgHandler.queue(
       OutgoingMessage(
         completer: completer,
         chat: chat,
-        message: replyMessage,
+        message: Message(
+          text: data['text'],
+          dateCreated: DateTime.now(),
+          hasAttachments: false,
+          isFromMe: true,
+          handleId: 0,
+        ),
         clearNotificationsIfFromMe: false,
       ),
     );
 
-    await completer.future;
-
-    // A failed send is finalized inside the handler — the message is persisted with
-    // an error code — and the completer still completes *normally*, so waiting on it
-    // says nothing about success. Re-read the queued message to find out. On success
-    // the temp GUID is swapped for the real one and this lookup finds nothing.
-    final tempGuid = replyMessage.guid;
-    final sent = tempGuid == null ? null : Message.findOne(guid: tempGuid);
-    if (sent != null && sent.error != 0) {
-      Logger.error('Reply failed to send (error ${sent.error}); requesting retry');
-      return _retry();
+    try {
+      await completer.future;
+    } on OutgoingPartFailure catch (e) {
+      // Kotlin retries re-send every part of the reply, so retry only when no part went out.
+      if (e.anySent) {
+        Logger.error('Reply only partly sent; not retrying', error: e);
+      } else if (e.canceledByUser) {
+        Logger.info('Reply canceled by the user; not retrying');
+        return _ok();
+      } else {
+        Logger.error('Reply failed to send; requesting retry', error: e);
+        return _retry();
+      }
     }
 
     // Only now that the send has actually resolved is it safe to record this reply
