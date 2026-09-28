@@ -59,6 +59,7 @@ class MessageActions {
           inputNewMessage.didNotifyRecipient ? inputNewMessage.didNotifyRecipient : existing.didNotifyRecipient;
       existing.error = inputNewMessage.error;
       existing.errorMessage = inputNewMessage.errorMessage;
+      existing.originalROWID ??= inputNewMessage.originalROWID;
 
       try {
         messageBox.put(existing, mode: PutMode.update);
@@ -131,7 +132,21 @@ class MessageActions {
         }
       }
 
-      associatedMessages.sort((a, b) => a.originalROWID!.compareTo(b.originalROWID!));
+      associatedMessages.sort((a, b) {
+        final aRowId = a.originalROWID;
+        final bRowId = b.originalROWID;
+        if ((aRowId == null) != (bRowId == null)) return aRowId == null ? 1 : -1;
+        if (aRowId != null) return aRowId.compareTo(bRowId!);
+        final aDate = a.dateCreated;
+        final bDate = b.dateCreated;
+        if (aDate == null || bDate == null) {
+          if (aDate != bDate) return aDate == null ? 1 : -1;
+        } else {
+          final byDate = aDate.compareTo(bDate);
+          if (byDate != 0) return byDate;
+        }
+        return (a.id ?? 0).compareTo(b.id ?? 0);
+      });
 
       return {
         'associatedMessages': associatedMessages.map((e) => e.toMap()).toList(),
