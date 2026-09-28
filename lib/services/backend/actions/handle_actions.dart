@@ -24,6 +24,8 @@ class HandleActions {
       if (existing != null) {
         handle.id = existing.id;
         handle.originalROWID ??= existing.originalROWID;
+        handle.defaultPhone ??= existing.defaultPhone;
+        handle.defaultEmail ??= existing.defaultEmail;
       }
       // Contact matching is now handled automatically by ContactServiceV2
       if (!updateColor) {
