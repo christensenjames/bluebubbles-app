@@ -53,12 +53,13 @@ class SetupView extends StatefulWidget {
 
 class _SetupViewState extends State<SetupView> {
   final controller = Get.put(SetupViewController(), permanent: true);
+  Worker? _socketStateWorker;
 
   @override
   void initState() {
     super.initState();
 
-    ever(SocketSvc.state, (event) {
+    _socketStateWorker = ever(SocketSvc.state, (event) {
       if (event == SocketState.error &&
           !SettingsSvc.settings.finishedSetup.value &&
           controller.pageController.hasClients &&
@@ -79,6 +80,12 @@ class _SetupViewState extends State<SetupView> {
         );
       }
     });
+  }
+
+  @override
+  void dispose() {
+    _socketStateWorker?.dispose();
+    super.dispose();
   }
 
   @override

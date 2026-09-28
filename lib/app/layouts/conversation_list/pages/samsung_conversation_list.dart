@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:bluebubbles/app/components/sliver_decoration.dart';
 import 'package:bluebubbles/helpers/helpers.dart';
 import 'package:bluebubbles/app/layouts/conversation_list/pages/conversation_list.dart';
@@ -32,18 +34,25 @@ class _SamsungConversationListState extends State<SamsungConversationList> with 
   Color get _tileColor =>
       SettingsSvc.settings.windowEffect.value == WindowEffect.disabled ? tileColor : Colors.transparent;
   ConversationListController get controller => widget.parentController;
+  StreamSubscription? _windowEffectSub;
 
   @override
   void initState() {
     super.initState();
     // update widget when background color changes
     if (kIsDesktop) {
-      SettingsSvc.settings.windowEffect.listen((WindowEffect effect) {
+      _windowEffectSub = SettingsSvc.settings.windowEffect.listen((WindowEffect effect) {
         if (mounted) {
           setState(() {});
         }
       });
     }
+  }
+
+  @override
+  void dispose() {
+    _windowEffectSub?.cancel();
+    super.dispose();
   }
 
   @override
