@@ -60,6 +60,10 @@ class MethodChannelHandlers {
   static Future<bool> _ok() => Future.value(true);
   static Future<bool> _retry() => Future.value(false);
 
+  // The socket also subscribes the read-status and FaceTime-status events; SocketService registers late in startup.
+  bool get _socketWillDeliver =>
+      !service.headless && GetIt.I.isRegistered<SocketService>() && (SocketSvc.socket?.connected ?? false);
+
   Future<bool> _handleNewServerUrl(MethodCall _, Map<String, dynamic>? arguments) async {
     if (arguments == null) return _retry();
     await Database.waitForInit();
@@ -331,7 +335,7 @@ class MethodChannelHandlers {
   }
 
   Future<bool> _handleChatReadStatusChanged(MethodCall _, Map<String, dynamic>? arguments) async {
-    if (!service.headless && LifecycleSvc.isAlive) return _ok();
+    if (_socketWillDeliver) return _ok();
     await Database.waitForInit();
     Logger.info('Received chat status change from FCM');
 
@@ -384,7 +388,7 @@ class MethodChannelHandlers {
   }
 
   Future<bool> _handleFtCallStatusChanged(MethodCall _, Map<String, dynamic>? arguments) async {
-    if (!service.headless && LifecycleSvc.isAlive) return _ok();
+    if (_socketWillDeliver) return _ok();
     await Database.waitForInit();
     Logger.info('Received facetime call status change from FCM');
 
