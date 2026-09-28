@@ -378,10 +378,8 @@ class ApiInterceptor extends Interceptor {
 
   @override
   void onError(DioException err, ErrorInterceptorHandler handler) {
-    // Get params without sensitive info
-    final params = err.requestOptions.queryParameters;
-    params.remove("guid");
-    params.remove("password");
+    final params = Map.of(err.requestOptions.queryParameters)
+      ..removeWhere((key, _) => const {"guid", "password", "token", "access_token"}.contains(key));
 
     // Make a nice log of what failed
     Logger.error("""Failed Request: [${err.requestOptions.method}] ${err.requestOptions.path}
