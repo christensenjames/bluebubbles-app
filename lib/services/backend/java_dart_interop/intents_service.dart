@@ -112,6 +112,7 @@ class IntentsService {
         return;
       default:
         if (intent.data?.startsWith("imessage://") ?? false) {
+          if (!SettingsSvc.settings.finishedSetup.value) return;
           final uri =
               Uri.tryParse(intent.data!.replaceFirst("imessage://", "imessage:").replaceFirst("&body=", "?body="));
           if (uri != null) {
