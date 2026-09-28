@@ -34,7 +34,7 @@ class KeyboardShortcutHandler {
     // Chat creator: Enter sends message
     if (isChatCreator) {
       if ((kIsDesktop || kIsWeb) &&
-          (ev.logicalKey == LogicalKeyboardKey.enter || ev.logicalKey == LogicalKeyboardKey.numpadEnter) &&
+          ev.logicalKey.isEnter &&
           !HardwareKeyboard.instance.isShiftPressed) {
         sendMessage();
         return KeyEventResult.handled;
@@ -86,7 +86,7 @@ class KeyboardShortcutHandler {
 
     // Desktop/Web: Enter (without modifier) sends message
     if ((kIsDesktop || kIsWeb) &&
-        (ev.logicalKey == LogicalKeyboardKey.enter || ev.logicalKey == LogicalKeyboardKey.numpadEnter) &&
+        ev.logicalKey.isEnter &&
         !HardwareKeyboard.instance.isShiftPressed) {
       sendMessage();
       controller.focusNode.requestFocus();

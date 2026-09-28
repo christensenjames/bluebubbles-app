@@ -47,7 +47,7 @@ class MessageEditField extends StatelessWidget {
     }
 
     // Enter without shift = submit
-    if ((ev.logicalKey == LogicalKeyboardKey.enter || ev.logicalKey == LogicalKeyboardKey.numpadEnter) &&
+    if (ev.logicalKey.isEnter &&
         !HardwareKeyboard.instance.isShiftPressed) {
       onComplete(editController.text, part);
       return KeyEventResult.handled;
