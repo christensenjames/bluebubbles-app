@@ -19,7 +19,14 @@ class SetupService extends GetxService {
 
     // Pre-fetch server details before the full sync so sync managers can
     // read SettingsSvc.serverDetails.value synchronously during the sync.
-    await SettingsSvc.fetchServerDetails();
+    try {
+      await SettingsSvc.fetchServerDetails();
+    } catch (e) {
+      SyncSvc.fullSyncManager!
+        ..startedAt = DateTime.now().toUtc()
+        ..completeWithError(e.toString());
+      return;
+    }
     await SyncSvc.startFullSync();
     await _finishSetup();
   }

@@ -30,6 +30,7 @@ class _SyncProgressState extends State<SyncProgress> {
   final controller = Get.find<SetupViewController>();
   final Tween<double> tween = Tween<double>(begin: 0, end: 5);
   bool hasPlayed = false;
+  Worker? _statusWorker;
 
   FullSyncManager get syncManager => SyncSvc.fullSyncManager!;
 
@@ -37,26 +38,42 @@ class _SyncProgressState extends State<SyncProgress> {
   void initState() {
     super.initState();
 
-    ever<SyncStatus>(syncManager.status, (event) async {
-      String err = syncManager.error ?? "Unknown Error";
-      if (event == SyncStatus.COMPLETED_ERROR) {
-        await showDialog(
-          context: context,
-          builder: (context) => FailedToScanDialog(exception: err, title: "An error occured during setup!"),
-        );
+    // `ever` does not replay the current value, and a fast failure can land before this page is built.
+    final initial = syncManager.status.value;
+    _statusWorker = ever<SyncStatus>(syncManager.status, _onStatus);
+    if (initial == SyncStatus.COMPLETED_ERROR || initial == SyncStatus.COMPLETED_SUCCESS) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _onStatus(initial);
+      });
+    }
+  }
 
-        controller.pageController.animateToPage(
-          controller.pageOfNoReturn - 1,
-          duration: const Duration(milliseconds: 500),
-          curve: Curves.easeInOut,
-        );
-      } else if (event == SyncStatus.COMPLETED_SUCCESS && !hasPlayed) {
-        setState(() {
-          hasPlayed = true;
-        });
-        confettiController.play();
-      }
-    });
+  Future<void> _onStatus(SyncStatus event) async {
+    String err = syncManager.error ?? "Unknown Error";
+    if (event == SyncStatus.COMPLETED_ERROR) {
+      await showDialog(
+        context: context,
+        builder: (context) => FailedToScanDialog(exception: err, title: "An error occured during setup!"),
+      );
+
+      controller.pageController.animateToPage(
+        controller.pageOfNoReturn - 1,
+        duration: const Duration(milliseconds: 500),
+        curve: Curves.easeInOut,
+      );
+    } else if (event == SyncStatus.COMPLETED_SUCCESS && !hasPlayed) {
+      setState(() {
+        hasPlayed = true;
+      });
+      confettiController.play();
+    }
+  }
+
+  @override
+  void dispose() {
+    _statusWorker?.dispose();
+    confettiController.dispose();
+    super.dispose();
   }
 
   @override
