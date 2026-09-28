@@ -36,6 +36,8 @@ class ServerInterface {
       macOSMinorVersion: response['macOSMinorVersion'] as int,
       serverVersion: response['serverVersion'] as String,
       serverVersionCode: response['serverVersionCode'] as int,
+      privateApiEnabled: response['privateApi'] as bool?,
+      iCloudAccount: response['detectedICloud'] as String?,
     );
   }
 }
