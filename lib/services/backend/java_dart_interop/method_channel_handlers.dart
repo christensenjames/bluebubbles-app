@@ -322,7 +322,7 @@ class MethodChannelHandlers {
             // force: a retry after a failed receipt finds the chat already read and would otherwise skip the receipt.
             await chat.toggleHasUnreadAsync(false, clearLocalNotifications: false, force: true, awaitReadReceipt: true);
           } finally {
-            ChatsSvc.getChatState(chat.guid)?.updateHasUnreadInternal(false);
+            if (GetIt.I.isRegistered<ChatsService>()) ChatsSvc.getChatState(chat.guid)?.updateHasUnreadInternal(false);
           }
           return _ok();
         }
