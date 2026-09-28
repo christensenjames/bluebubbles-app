@@ -103,18 +103,22 @@ Future<Null> initApp(bool bubble, List<String> arguments) async {
       };
     }
 
-    await StartupTasks.initStartupServices(isBubble: bubble);
-
     /* ----- RANDOM STUFF INITIALIZATION ----- */
     HttpOverrides.global = CustomHttpContext();
     dynamic exception;
     StackTrace? stacktrace;
 
     FlutterError.onError = (details) {
-      Logger.error("Rendering Error: ${details.exceptionAsString()}", error: details.exception, trace: details.stack);
+      if (GetIt.I.isRegistered<BaseLogger>() && GetIt.I.isReadySync<BaseLogger>()) {
+        Logger.error("Rendering Error: ${details.exceptionAsString()}", error: details.exception, trace: details.stack);
+      } else {
+        FlutterError.presentError(details);
+      }
     };
 
     try {
+      await StartupTasks.initStartupServices(isBubble: bubble);
+
       // Once all the services are initialized, we need to perform some
       // startup tasks to ensure that the app has the information it needs.
       StartupTasks.onStartup().then((_) {
@@ -224,7 +228,6 @@ Future<Null> initApp(bool bubble, List<String> arguments) async {
       /* ----- EMOJI FONT INITIALIZATION ----- */
       Future.microtask(() => FilesystemSvc.checkFont());
     } catch (e, s) {
-      Logger.error("Failure during app initialization!", error: e, trace: s);
       exception = e;
       stacktrace = s;
     }
@@ -246,12 +249,26 @@ Future<Null> initApp(bool bubble, List<String> arguments) async {
       )));
     } else {
       runApp(FailureToStart(e: exception, s: stacktrace));
+      if (kIsDesktop) {
+        // Windows (BDW_HIDE_ON_STARTUP) ignores show() until bitsdojo's window-ready callback has fired.
+        doWhenWindowReady(() async {
+          await windowManager.ensureInitialized();
+          await windowManager.show();
+          try {
+            await const MethodChannel('bluebubbles/splash').invokeMethod('closeSplash');
+          } catch (_) {}
+          detachSplashStatus?.call();
+        });
+      }
       throw Exception("$exception $stacktrace");
     }
   }, (dynamic error, StackTrace stackTrace) {
     print("Failure during app initialization: $error");
     print(stackTrace);
-    Logger.error("Unhandled Exception", trace: stackTrace, error: error);
+    // Startup failures can land here before BaseLogger is registered.
+    if (GetIt.I.isRegistered<BaseLogger>() && GetIt.I.isReadySync<BaseLogger>()) {
+      Logger.error("Unhandled Exception", trace: stackTrace, error: error);
+    }
   });
 }
 
