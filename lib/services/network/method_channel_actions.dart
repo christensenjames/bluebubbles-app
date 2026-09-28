@@ -149,8 +149,8 @@ class MethodChannelActions {
     });
   }
 
-  Future<String> getContentUriPath({required String uri}) async {
-    return (await service.invokeMethod('get-content-uri-path', {'uri': uri})).toString();
+  Future<String?> getContentUriPath({required String uri}) async {
+    return await service.invokeMethod('get-content-uri-path', {'uri': uri}) as String?;
   }
 
   Future<void> googleDuo({required String number}) async {
