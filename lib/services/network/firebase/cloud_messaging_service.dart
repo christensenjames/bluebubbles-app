@@ -43,6 +43,7 @@ class CloudMessagingService {
       return completer!.future;
     } else {
       completer = Completer<void>();
+      completer!.future.ignore();
     }
 
     // The completer must always resolve here, no matter which path _registerDevice()
