@@ -362,7 +362,11 @@ class Chat {
           markAsRead: !hasUnread,
           shouldMarkOnServer: true,
         );
-        if (awaitReadReceipt) await receipt;
+        if (awaitReadReceipt) {
+          await receipt;
+        } else {
+          unawaited(receipt);
+        }
       }
     } catch (e, s) {
       Logger.warn("Failed to mark chat as read on message add", error: e, trace: s, tag: 'Chat');

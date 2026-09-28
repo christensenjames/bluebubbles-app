@@ -18,6 +18,7 @@ class FailureToStart extends StatelessWidget {
           statusBarIconBrightness: Brightness.light,
           statusBarColor: Colors.transparent,
         ),
+        // Not BBScaffold: it reads SettingsSvc, which may not be registered when startup fails.
         child: Scaffold(
           backgroundColor: Colors.black,
           body: SafeArea(

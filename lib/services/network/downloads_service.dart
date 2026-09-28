@@ -217,16 +217,7 @@ class AttachmentDownloadController extends GetxController {
     if (_cancelToken?.isCancelled == false) _cancelToken?.cancel('superseded');
   }
 
-  /// Fails this download: drops its partial file unless a newer controller owns it, notifies the error callbacks,
-  /// moves to [AttachmentDownloadState.error], and frees the queue slot.
-  ///
-  /// Every abnormal exit from [fetchAttachment] must come through here. A path
-  /// that returns without it leaves the controller parked in a non-terminal
-  /// state forever: the UI keeps rendering the downloading widget, the tap
-  /// handler refuses to retry (it only retries from `error`), and — because
-  /// [AttachmentDownloadService._fetchNext] counts `downloading` controllers
-  /// against `maxConcurrentDownloads` (default 2) — the slot is never released,
-  /// so two stranded downloads deadlock the queue for the whole session.
+  /// Every abnormal exit from [fetchAttachment] must come here, or its queue slot is never freed and the queue stalls.
   Future<void> _failDownload(String? tempPath, String reason, {Object? error, StackTrace? trace}) async {
     if (_failed) return;
     _failed = true;

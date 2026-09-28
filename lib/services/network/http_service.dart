@@ -210,7 +210,7 @@ class HttpService implements BaseApi {
       downloadingFont.value = false;
       fontDownloadProgress.value = null;
       fontDownloadTotalSize.value = null;
-      Logger.error("Failed to download font", error: error);
+      Logger.error("Failed to download font", error: error, tag: "HTTP Service");
       showSnackbar("Error", "Failed to download font!");
 
       return Response(requestOptions: RequestOptions(path: ''));

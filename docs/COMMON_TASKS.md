@@ -223,10 +223,14 @@ Full component/theming reference: `docs/CUSTOM_COMPONENTS.md`.
 
 1. **`lib/services/backend_ui_interop/intents.dart`** — Add an `Intent` subclass and an `Action` subclass that performs the operation.
 
-2. **Register the binding** — In the widget that should handle the shortcut, add to the `Shortcuts` widget map:
+2. **Register the binding** — App-wide shortcuts go in the `shortcuts:` map of `GetMaterialApp` in `lib/main.dart`. Key
+   them with the file-private `_NoLockKeySet`, not `LogicalKeySet`: the GTK embedder reports an already-on Caps/Num Lock
+   as a held key, so a plain `LogicalKeySet` never matches on Linux while a lock is on.
    ```dart
-   LogicalKeySet(LogicalKeyboardKey.keyN): const MyNewIntent(),
+   _NoLockKeySet(LogicalKeyboardKey.alt, LogicalKeyboardKey.keyN): const MyNewIntent(),
    ```
+   `_NoLockKeySet` is private to `main.dart`; the only other `Shortcuts` map in `lib/`
+   (`text_field_component.dart`, Windows paste) uses `SingleActivator`, which is unaffected.
    And add the action to the `Actions` widget map:
    ```dart
    MyNewIntent: MyNewAction(context),
