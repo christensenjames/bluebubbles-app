@@ -61,10 +61,10 @@ class _MaterialConversationListState extends State<MaterialConversationList> {
       },
       child: Container(
         color: backgroundColor,
-        padding: EdgeInsets.only(top: kIsDesktop ? 30 : 0),
         child: Scaffold(
           appBar: PreferredSize(
-            preferredSize: const Size.fromHeight(60),
+            // The header grows under the custom desktop title bar rather than being pushed below it.
+            preferredSize: Size.fromHeight(kIsDesktop ? 80 : 60),
             child: MaterialHeader(parentController: controller),
           ),
           backgroundColor: SettingsSvc.settings.windowEffect.value == WindowEffect.disabled
@@ -131,7 +131,7 @@ class _MaterialConversationListState extends State<MaterialConversationList> {
                       child: Obx(() => ListView.builder(
                             controller: controller.materialScrollController,
                             physics: ThemeSwitcher.getScrollPhysics(),
-                            padding: const EdgeInsets.only(top: 8),
+                            padding: EdgeInsets.zero,
                             findChildIndexCallback: (key) => findChildIndexByKey(_chats, key, (item) => item.guid),
                             itemBuilder: (context, index) {
                               final chat = _chats[index];

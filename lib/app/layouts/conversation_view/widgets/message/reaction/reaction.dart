@@ -64,8 +64,10 @@ class ReactionWidgetState extends State<ReactionWidget> with ThemeHelpers {
       final found = parentController.associatedMessages.firstWhereOrNull((m) =>
           m.guid == widget.reaction.guid ||
           (m.associatedMessageType == widget.reaction.associatedMessageType &&
+              m.associatedMessageEmoji == widget.reaction.associatedMessageEmoji &&
               m.associatedMessagePart == widget.reaction.associatedMessagePart &&
-              m.isFromMe == widget.reaction.isFromMe));
+              m.isFromMe == widget.reaction.isFromMe &&
+              m.handleId == widget.reaction.handleId));
       if (found != null) return found;
     }
     // Fallback to widget.reaction if not found in MessageState
@@ -91,6 +93,24 @@ class ReactionWidgetState extends State<ReactionWidget> with ThemeHelpers {
     final chatGuid = widget.chatGuid ?? _parentMessage?.chat.target?.guid ?? ChatsSvc.activeChat?.chat.guid;
     if (chatGuid == null || reaction.guid == null) return null;
     return maybeFindMessagesSvc(chatGuid)?.getMessageStateIfExists(reaction.guid!);
+  }
+
+  Widget _badgeGlyph(BuildContext context, String type, String? emoji, bool isFromMe) {
+    if (ReactionTypes.baseType(type) == ReactionTypes.EMOJI) {
+      return Text(
+        ReactionTypes.emojiFor(type, emoji),
+        style: const TextStyle(fontSize: 15, fontFamily: 'Apple Color Emoji'),
+        textAlign: TextAlign.center,
+      );
+    }
+    return SvgPicture.asset(
+      'assets/reactions/$type-black.svg',
+      colorFilter: ColorFilter.mode(
+          type == "love"
+              ? Colors.pink
+              : (isFromMe ? context.theme.colorScheme.onPrimary : context.theme.colorScheme.onSurfaceVariant),
+          BlendMode.srcIn),
+    );
   }
 
   static const double iosSize = 35;
@@ -138,13 +158,13 @@ class ReactionWidgetState extends State<ReactionWidget> with ThemeHelpers {
                 Navigator.push(
                   context,
                   PageRouteBuilder(
-                    transitionDuration: const Duration(milliseconds: 500),
+                    transitionDuration: Durations.medium2,
                     pageBuilder: (routeCtx, animation, secondaryAnimation) {
                       return SlideTransition(
                         position: Tween<Offset>(
                           begin: const Offset(0.0, 1.0),
                           end: Offset.zero,
-                        ).animate(CurvedAnimation(parent: animation, curve: Curves.easeOut)),
+                        ).animate(CurvedAnimation(parent: animation, curve: Easing.emphasizedDecelerate)),
                         child: Theme(
                           data: capturedTheme.copyWith(
                             // in case some components still use legacy theming
@@ -181,7 +201,7 @@ class ReactionWidgetState extends State<ReactionWidget> with ThemeHelpers {
               child: Center(
                 child: Builder(builder: (context) {
                   final text = Text(
-                    ReactionTypes.reactionToEmoji[reactionType] ?? "X",
+                    ReactionTypes.emojiFor(reactionType, reaction.associatedMessageEmoji),
                     style: const TextStyle(fontSize: 15, fontFamily: 'Apple Color Emoji'),
                     textAlign: TextAlign.center,
                   );
@@ -238,16 +258,7 @@ class ReactionWidgetState extends State<ReactionWidget> with ThemeHelpers {
                           child: Padding(
                         padding:
                             const EdgeInsets.all(6.5).add(EdgeInsets.only(right: reactionType == "emphasize" ? 1 : 0)),
-                        child: SvgPicture.asset(
-                          'assets/reactions/$reactionType-black.svg',
-                          colorFilter: ColorFilter.mode(
-                              reactionType == "love"
-                                  ? Colors.pink
-                                  : (reactionIsFromMe
-                                      ? context.theme.colorScheme.onPrimary
-                                      : context.theme.colorScheme.onSurfaceVariant),
-                              BlendMode.srcIn),
-                        ),
+                        child: _badgeGlyph(context, reactionType, reaction.associatedMessageEmoji, reactionIsFromMe),
                       )),
                     ));
               })),
@@ -341,7 +352,7 @@ class ReactionWidgetState extends State<ReactionWidget> with ThemeHelpers {
         child: Center(
           child: Builder(builder: (ctx) {
             final text = Text(
-              ReactionTypes.reactionToEmoji[rType] ?? "X",
+              ReactionTypes.emojiFor(rType, reaction.associatedMessageEmoji),
               style: const TextStyle(fontSize: 15, fontFamily: 'Apple Color Emoji'),
               textAlign: TextAlign.center,
             );
@@ -407,17 +418,7 @@ class ReactionWidgetState extends State<ReactionWidget> with ThemeHelpers {
                 child: Center(
                   child: Padding(
                     padding: const EdgeInsets.all(6.5).add(EdgeInsets.only(right: rType == "emphasize" ? 1 : 0)),
-                    child: SvgPicture.asset(
-                      'assets/reactions/$rType-black.svg',
-                      colorFilter: ColorFilter.mode(
-                        rType == "love"
-                            ? Colors.pink
-                            : (isFromMe
-                                ? context.theme.colorScheme.onPrimary
-                                : context.theme.colorScheme.onSurfaceVariant),
-                        BlendMode.srcIn,
-                      ),
-                    ),
+                    child: _badgeGlyph(context, rType, reaction.associatedMessageEmoji, isFromMe),
                   ),
                 ),
               ),

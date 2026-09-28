@@ -505,8 +505,8 @@ class TextFieldComponentState extends State<TextFieldComponent> {
           Expanded(child: textInput),
         ]),
         AnimatedSize(
-          duration: const Duration(milliseconds: 250),
-          curve: Curves.easeIn,
+          duration: Durations.medium1,
+          curve: Easing.emphasizedDecelerate,
           alignment: Alignment.bottomCenter,
           child: _showAttachmentPickerLocal
               ? AttachmentPicker(controller: controller!)

@@ -97,6 +97,7 @@ class MessageAnimationOrchestrator {
     );
   }
 
-  /// Get the insertion duration for new messages
-  Duration getInsertionDuration() => MessageListAnimationConfig.insertionDuration;
+  Duration getInsertionDuration({required bool isFromMe}) => isFromMe
+      ? MessageListAnimationConfig.sentInsertionDuration
+      : MessageListAnimationConfig.receivedInsertionDuration;
 }

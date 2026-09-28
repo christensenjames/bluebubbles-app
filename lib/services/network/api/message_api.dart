@@ -263,6 +263,7 @@ class MessageApi {
     String selectedMessageGuid,
     String reaction, {
     int? partIndex,
+    String? reactionEmoji,
     CancelToken? cancelToken,
   }) async {
     return _svc.runApiGuarded(() async {
@@ -275,6 +276,7 @@ class MessageApi {
           "selectedMessageGuid": selectedMessageGuid,
           "reaction": reaction,
           "partIndex": partIndex,
+          "reactionEmoji": ?reactionEmoji,
         },
         cancelToken: cancelToken,
       );

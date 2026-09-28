@@ -327,7 +327,7 @@ class CupertinoUrlPreview extends StatelessWidget {
     return FadeTransition(
       opacity: CurvedAnimation(parent: controller.iconAnimation, curve: Curves.easeOut),
       child: ScaleTransition(
-        scale: CurvedAnimation(parent: controller.iconAnimation, curve: Curves.easeOutBack),
+        scale: CurvedAnimation(parent: controller.iconAnimation, curve: const Cubic(0.23, 1.0, 0.32, 1.0)),
         child: icon,
       ),
     );
@@ -432,7 +432,7 @@ class CupertinoUrlPreview extends StatelessWidget {
   /// triggers when a child changes size during layout.
   Widget _sizeTransition(Widget child) {
     return SizeTransition(
-      sizeFactor: CurvedAnimation(parent: controller.imageAnimation, curve: Curves.easeIn),
+      sizeFactor: CurvedAnimation(parent: controller.imageAnimation, curve: const Cubic(0.23, 1.0, 0.32, 1.0)),
       axisAlignment: -1.0,
       child: child,
     );

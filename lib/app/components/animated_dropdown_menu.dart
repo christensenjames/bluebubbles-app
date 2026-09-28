@@ -51,7 +51,8 @@ class _AnimatedDropdownMenuState extends State<AnimatedDropdownMenu> with Single
   // up the `TickerMode` inherited widget to do it. That throws "Looking up a
   // deactivated widget's ancestor is unsafe".
   late final AnimationController _animationController;
-  late final CurvedAnimation _scaleAnimation;
+  late final CurvedAnimation _scaleCurve;
+  late final Animation<double> _scaleAnimation;
   late final CurvedAnimation _fadeAnimation;
   OverlayEntry? _overlayEntry;
 
@@ -64,18 +65,20 @@ class _AnimatedDropdownMenuState extends State<AnimatedDropdownMenu> with Single
     super.initState();
     _animationController = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 300),
-      reverseDuration: const Duration(milliseconds: 250),
+      duration: Durations.short4,
+      reverseDuration: Durations.short3,
     );
-    _scaleAnimation = CurvedAnimation(parent: _animationController, curve: Curves.easeOutBack);
-    _fadeAnimation = CurvedAnimation(parent: _animationController, curve: Curves.easeOut);
+    // Enter at 92% rather than from nothing: a menu is a surface arriving, not an object springing into place.
+    _scaleCurve = CurvedAnimation(parent: _animationController, curve: Easing.emphasizedDecelerate);
+    _scaleAnimation = Tween<double>(begin: 0.92, end: 1.0).animate(_scaleCurve);
+    _fadeAnimation = CurvedAnimation(parent: _animationController, curve: Easing.standard);
   }
 
   @override
   void dispose() {
     _overlayEntry?.remove();
     _overlayEntry = null;
-    _scaleAnimation.dispose();
+    _scaleCurve.dispose();
     _fadeAnimation.dispose();
     _animationController.dispose();
     super.dispose();

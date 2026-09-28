@@ -4,11 +4,13 @@ import 'dart:typed_data';
 import 'package:bluebubbles/app/layouts/chat_creator/new_chat_creator.dart';
 import 'package:bluebubbles/app/state/chat_state_scope.dart';
 import 'package:bluebubbles/helpers/helpers.dart';
+import 'package:bluebubbles/database/database.dart';
 import 'package:bluebubbles/database/models.dart';
 import 'package:bluebubbles/services/services.dart';
+import 'package:dio/dio.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
-import 'package:get/get.dart';
+import 'package:get/get.dart' hide Response;
 import 'package:universal_io/io.dart';
 
 class ManualMark extends StatefulWidget {
@@ -21,10 +23,51 @@ class ManualMark extends StatefulWidget {
 }
 
 class ManualMarkState extends State<ManualMark> with ThemeHelpers {
-  bool marked = false;
   bool marking = false;
+  Message? _latestIncoming;
+  StreamSubscription<Query<Message>>? _sub;
 
   Chat get chat => widget.controller.chat;
+
+  bool? get _isRead => _latestIncoming == null ? null : _latestIncoming!.dateRead != null;
+
+  @override
+  void initState() {
+    super.initState();
+    _watchLatestIncoming();
+  }
+
+  @override
+  void didUpdateWidget(covariant ManualMark oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.controller.chat.id != widget.controller.chat.id) {
+      _watchLatestIncoming();
+    }
+  }
+
+  @override
+  void dispose() {
+    _sub?.cancel();
+    super.dispose();
+  }
+
+  void _watchLatestIncoming() {
+    _sub?.cancel();
+    final query = Database.messages.query(Message_.dateDeleted
+        .isNull()
+        .and(Message_.dateCreated.notNull())
+        .and(Message_.isFromMe.equals(false))
+        .and(Message_.associatedMessageGuid.isNull()))
+      ..link(Message_.chat, Chat_.id.equals(chat.id!))
+      ..order(Message_.dateCreated, flags: Order.descending);
+    _sub = query.watch(triggerImmediately: true).listen((q) {
+      final latest = q.findFirst();
+      // Always adopt the fresh row - onPressed saves it - but only rebuild when what we render moved.
+      final rendered = latest?.guid == _latestIncoming?.guid && latest?.dateRead == _latestIncoming?.dateRead;
+      _latestIncoming = latest;
+      if (!rendered && mounted) setState(() {});
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -36,52 +79,57 @@ class ManualMarkState extends State<ManualMark> with ThemeHelpers {
       return Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          IconButton(
-            icon: Icon(
-              widget.controller.inSelectMode.value
-                  ? (iOS ? CupertinoIcons.trash : Icons.delete_outlined)
+          if (widget.controller.inSelectMode.value || _isRead != null)
+            IconButton(
+              icon: Icon(
+                widget.controller.inSelectMode.value
+                    ? (iOS ? CupertinoIcons.trash : Icons.delete_outlined)
+                    : marking
+                        ? (iOS ? CupertinoIcons.arrow_2_circlepath : Icons.sync)
+                        : _isRead == true
+                            ? (iOS ? CupertinoIcons.app : Icons.mark_chat_read_outlined)
+                            : (iOS ? CupertinoIcons.app_badge : Icons.mark_chat_unread_outlined),
+                color: !iOS
+                    ? context.theme.colorScheme.onSurface
+                    : (_isRead == false && !marking || widget.controller.inSelectMode.value)
+                        ? context.theme.colorScheme.primary
+                        : context.theme.colorScheme.outline,
+              ),
+              tooltip: widget.controller.inSelectMode.value
+                  ? "Delete"
                   : marking
-                      ? (iOS ? CupertinoIcons.arrow_2_circlepath : Icons.sync)
-                      : marked
-                          ? (iOS ? CupertinoIcons.app : Icons.mark_chat_read_outlined)
-                          : (iOS ? CupertinoIcons.app_badge : Icons.mark_chat_unread_outlined),
-              color: !iOS
-                  ? context.theme.colorScheme.onSurface
-                  : (!marked && !marking || widget.controller.inSelectMode.value)
-                      ? context.theme.colorScheme.primary
-                      : context.theme.colorScheme.outline,
-            ),
-            tooltip: widget.controller.inSelectMode.value
-                ? "Delete"
-                : marking
-                    ? null
-                    : marked
-                        ? "Mark Unread"
-                        : "Mark Read",
-            onPressed: () async {
-              if (widget.controller.inSelectMode.value) {
-                for (Message m in widget.controller.selected) {
-                  await MessagesSvc(chat.guid).softDeleteMessage(m);
+                      ? null
+                      : _isRead == true
+                          ? "Mark Unread"
+                          : "Mark Read",
+              onPressed: () async {
+                if (widget.controller.inSelectMode.value) {
+                  for (Message m in widget.controller.selected) {
+                    await MessagesSvc(chat.guid).softDeleteMessage(m);
+                  }
+                  widget.controller.inSelectMode.value = false;
+                  widget.controller.selected.clear();
+                  return;
                 }
-                widget.controller.inSelectMode.value = false;
-                widget.controller.selected.clear();
-                return;
-              }
-              if (marking) return;
-              setState(() {
-                marking = true;
-              });
-              if (!marked) {
-                await HttpSvc.chat.markRead(chat.guid);
-              } else {
-                await HttpSvc.chat.markUnread(chat.guid);
-              }
-              setState(() {
-                marking = false;
-                marked = !marked;
-              });
-            },
-          ),
+                if (marking) return;
+                setState(() {
+                  marking = true;
+                });
+                final wasRead = _isRead == true;
+                try {
+                  await (wasRead ? HttpSvc.chat.markUnread(chat.guid) : HttpSvc.chat.markRead(chat.guid));
+                  _latestIncoming
+                    ?..dateRead = wasRead ? null : DateTime.now()
+                    ..save();
+                  await ChatsSvc.setChatHasUnread(chat, wasRead, force: true, privateMark: false);
+                } catch (e) {
+                  final detail = e is Response ? e.data?["error"]?["message"]?.toString() : null;
+                  showSnackbar("Error", "Failed to mark ${wasRead ? "unread" : "read"}: ${detail ?? e}");
+                } finally {
+                  if (mounted) setState(() => marking = false);
+                }
+              },
+            ),
           if (widget.controller.inSelectMode.value)
             IconButton(
               icon: Icon(

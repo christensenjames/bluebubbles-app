@@ -174,15 +174,15 @@ class ConversationFullscreenHolderState extends State<ConversationFullscreenHold
                     tag: "RawKeyboardListener");
                 if (event.physicalKey.debugName == "Arrow Right") {
                   if (SettingsSvc.settings.fullscreenViewerSwipeDir.value == SwipeDirection.RIGHT) {
-                    controller.previousPage(duration: const Duration(milliseconds: 300), curve: Curves.easeIn);
+                    controller.previousPage(duration: Durations.medium2, curve: Easing.emphasizedDecelerate);
                   } else {
-                    controller.nextPage(duration: const Duration(milliseconds: 300), curve: Curves.easeIn);
+                    controller.nextPage(duration: Durations.medium2, curve: Easing.emphasizedDecelerate);
                   }
                 } else if (event.physicalKey.debugName == "Arrow Left") {
                   if (SettingsSvc.settings.fullscreenViewerSwipeDir.value == SwipeDirection.LEFT) {
-                    controller.previousPage(duration: const Duration(milliseconds: 300), curve: Curves.easeIn);
+                    controller.previousPage(duration: Durations.medium2, curve: Easing.emphasizedDecelerate);
                   } else {
-                    controller.nextPage(duration: const Duration(milliseconds: 300), curve: Curves.easeIn);
+                    controller.nextPage(duration: Durations.medium2, curve: Easing.emphasizedDecelerate);
                   }
                 } else if (event.physicalKey.debugName == "Escape") {
                   Navigator.of(context).pop();

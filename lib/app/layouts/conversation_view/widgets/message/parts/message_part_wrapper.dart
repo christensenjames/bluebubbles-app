@@ -215,9 +215,9 @@ class _MessageContentBubble extends StatelessWidget {
               final editStuff = cvController.editing
                   .firstWhereOrNull((e2) => e2.message.guid == message.guid! && e2.part.part == part.part);
               return AnimatedSize(
-                duration: const Duration(milliseconds: 250),
+                duration: Durations.medium1,
                 alignment: Alignment.centerRight,
-                curve: Curves.easeOutBack,
+                curve: Easing.emphasizedDecelerate,
                 child: editStuff == null
                     ? const SizedBox.shrink()
                     : _EditModeTextField(

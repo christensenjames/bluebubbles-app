@@ -3,13 +3,20 @@ package com.bluebubbles.messaging
 import android.app.Activity
 import android.content.Context
 import android.content.Intent
+import android.os.Build
+import android.os.Bundle
+import android.view.WindowInsets
+import android.view.WindowInsetsAnimation
 import androidx.activity.ComponentActivity
+import androidx.annotation.RequiresApi
 import com.bluebubbles.messaging.services.backend_ui_interop.MethodCallHandler
 import com.bluebubbles.messaging.services.foreground.ForegroundServiceBroadcastReceiver
 import com.bluebubbles.messaging.Constants
 import com.bluebubbles.messaging.utils.PersistentLog
 import com.google.firebase.firestore.FirebaseFirestoreException
+import io.flutter.embedding.android.FlutterFragment
 import io.flutter.embedding.android.FlutterFragmentActivity
+import io.flutter.embedding.android.FlutterView
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
 
@@ -56,6 +63,35 @@ class MainActivity : FlutterFragmentActivity() {
                 _dartReady = ready
             }
         }
+    }
+
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) refeedImeInsetsAfterAnimation()
+    }
+
+    // Flutter replays stale IME insets after resuming mid-animation; re-feed the real ones past its listener.
+    @RequiresApi(Build.VERSION_CODES.R)
+    private fun refeedImeInsetsAfterAnimation() {
+        val decor = window.decorView
+        decor.setWindowInsetsAnimationCallback(object : WindowInsetsAnimation.Callback(DISPATCH_MODE_CONTINUE_ON_SUBTREE) {
+            private var runningImeAnimations = 0
+            override fun onPrepare(animation: WindowInsetsAnimation) {
+                if (animation.typeMask and WindowInsets.Type.ime() == 0) return
+                runningImeAnimations++
+            }
+            override fun onProgress(insets: WindowInsets, running: MutableList<WindowInsetsAnimation>) = insets
+            override fun onEnd(animation: WindowInsetsAnimation) {
+                if (animation.typeMask and WindowInsets.Type.ime() == 0) return
+                // Re-feeding while another IME animation runs would snap the view to the final inset.
+                if (--runningImeAnimations > 0) return
+                decor.post {
+                    if (runningImeAnimations > 0) return@post
+                    val flutterView = findViewById<FlutterView>(FlutterFragment.FLUTTER_VIEW_ID) ?: return@post
+                    flutterView.rootWindowInsets?.let { flutterView.dispatchApplyWindowInsets(it) }
+                }
+            }
+        })
     }
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {

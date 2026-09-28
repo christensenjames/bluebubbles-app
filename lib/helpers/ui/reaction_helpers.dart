@@ -14,6 +14,8 @@ class ReactionTypes {
   static const String EMPHASIZE = "emphasize";
   // ignore: non_constant_identifier_names
   static const String QUESTION = "question";
+  // ignore: non_constant_identifier_names
+  static const String EMOJI = "emoji";
 
   static List<String> toList() {
     return [
@@ -24,6 +26,27 @@ class ReactionTypes {
       EMPHASIZE,
       QUESTION,
     ];
+  }
+
+  static String? baseType(String? type) => type != null && type.startsWith("-") ? type.substring(1) : type;
+
+  static const Set<String> _all = {LOVE, LIKE, DISLIKE, LAUGH, EMPHASIZE, QUESTION, EMOJI};
+
+  static bool isReaction(String? type) => _all.contains(baseType(type));
+
+  static bool isAddedReaction(String? type) => _all.contains(type);
+
+  static String emojiFor(String? type, String? emoji) => emoji ?? reactionToEmoji[baseType(type)] ?? "X";
+
+  // Never returns null: an unmapped type used to interpolate into the chat preview as the literal "null".
+  static String verbFor(String? type, String? emoji) {
+    final known = reactionToVerb[type];
+    if (known != null) return known;
+    final symbol = emoji ?? reactionToEmoji[baseType(type)];
+    if (type != null && type.startsWith("-")) {
+      return symbol == null ? "removed a reaction from" : "removed a $symbol reaction from";
+    }
+    return symbol == null ? "reacted to" : "reacted $symbol to";
   }
 
   static final Map<String, String> reactionToVerb = {
