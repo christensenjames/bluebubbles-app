@@ -63,6 +63,19 @@ Message handleSendError(dynamic error, Message m) {
   return m;
 }
 
+/// True when the request never reached the server, so re-sending cannot duplicate it.
+/// Also accepts the `toString()` of a [DioException], the form GlobalIsolate hands back.
+bool failedBeforeReachingServer(Object error) {
+  if (error is DioException) {
+    return error.type == DioExceptionType.connectionError || error.type == DioExceptionType.connectionTimeout;
+  }
+  if (error is String) {
+    return error.startsWith('DioException [connection error]') ||
+        error.startsWith('DioException [connection timeout]');
+  }
+  return false;
+}
+
 /// Normalizes a server error response body shaped like `{status, message, error: {type, message}}`
 /// into a single readable string. Falls back to whatever subset of keys is present:
 /// `[status] error.type: error.message` -> `[status] message` -> `null` (caller supplies fallback).

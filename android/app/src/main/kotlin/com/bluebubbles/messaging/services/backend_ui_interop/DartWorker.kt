@@ -188,8 +188,13 @@ class DartWorker(context: Context, workerParams: WorkerParameters): ListenableWo
                         }
 
                         override fun error(errorCode: String, errorMessage: String?, errorDetails: Any?) {
-                            PersistentLog.e(applicationContext, Constants.logTag, "Worker with method $method failed! ($errorCode: $errorMessage)")
-                            if (cont.isActive) cont.resume(retryOrFail(method, "Dart returned error $errorCode: $errorMessage"))
+                            if (errorCode == Constants.dartNoRetryErrorCode) {
+                                PersistentLog.e(applicationContext, Constants.logTag, "Worker with method $method failed; Dart asked not to retry ($errorMessage)")
+                                if (cont.isActive) cont.resume(Result.failure())
+                            } else {
+                                PersistentLog.e(applicationContext, Constants.logTag, "Worker with method $method failed! ($errorCode: $errorMessage)")
+                                if (cont.isActive) cont.resume(retryOrFail(method, "Dart returned error $errorCode: $errorMessage"))
+                            }
                             closeEngineIfNeeded()
                         }
 

@@ -57,6 +57,8 @@ class MethodChannelHandlers {
 
   static Future<bool> _ok() => Future.value(true);
   static Future<bool> _retry() => Future.value(false);
+  static Future<bool> _failNoRetry(String reason) =>
+      Future.error(PlatformException(code: MethodChannelErrorCodes.noRetry, message: reason));
 
   // The socket also subscribes the read-status and FaceTime-status events; SocketService registers late in startup.
   bool get _socketWillDeliver =>
@@ -285,16 +287,13 @@ class MethodChannelHandlers {
     try {
       await completer.future;
     } on OutgoingPartFailure catch (e) {
-      // Kotlin retries re-send every part of the reply, so retry only when no part went out.
-      if (e.anySent) {
-        Logger.error('Reply only partly sent; not retrying', error: e);
-      } else if (e.canceledByUser) {
-        Logger.info('Reply canceled by the user; not retrying');
-        return _ok();
-      } else {
-        Logger.error('Reply failed to send; requesting retry', error: e);
+      // Kotlin retries re-send every part, so retry only when the server received none of it.
+      if (!e.anySent && !e.canceledByUser && failedBeforeReachingServer(e.cause)) {
+        Logger.warn('Reply never reached the server; requesting retry', error: e);
         return _retry();
       }
+      Logger.error('Reply failed; not retrying', error: e);
+      return _failNoRetry('Reply failed: $e');
     }
 
     // Only now that the send has actually resolved is it safe to record this reply

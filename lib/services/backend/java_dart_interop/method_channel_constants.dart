@@ -19,3 +19,8 @@ abstract class MethodChannelInboundMethods {
   static const String socketEvent = 'socket-event';
   static const String unifiedpushSettings = 'unifiedpush-settings';
 }
+
+// Kotlin's DartWorker fails the work without retrying on this code; keep in sync with Constants.dartNoRetryErrorCode.
+abstract class MethodChannelErrorCodes {
+  static const String noRetry = 'no-retry';
+}

@@ -431,7 +431,8 @@ class ApiInterceptor extends Interceptor {
         }
       }, requestOptions: err.requestOptions, statusCode: err.response!.statusCode));
     }
-    if (err.type.name.contains("Timeout")) {
+    // The server never saw a request that timed out while connecting.
+    if (err.type == DioExceptionType.sendTimeout || err.type == DioExceptionType.receiveTimeout) {
       return handler.resolve(Response(data: {
         'status': 500,
         'error': {
