@@ -563,7 +563,9 @@ class TextFieldComponentState extends State<TextFieldComponent> {
 
     // Check which key was pressed
     final isEscapeKey = ev.logicalKey == LogicalKeyboardKey.escape;
-    final isTabOrEnter = ev.logicalKey == LogicalKeyboardKey.tab || ev.logicalKey == LogicalKeyboardKey.enter;
+    final isTabOrEnter = ev.logicalKey == LogicalKeyboardKey.tab ||
+        ev.logicalKey == LogicalKeyboardKey.enter ||
+        ev.logicalKey == LogicalKeyboardKey.numpadEnter;
     final isDownArrow = ev.logicalKey == LogicalKeyboardKey.arrowDown;
     final isUpArrow = ev.logicalKey == LogicalKeyboardKey.arrowUp;
 
