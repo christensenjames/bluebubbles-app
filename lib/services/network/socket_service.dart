@@ -103,6 +103,7 @@ class SocketService {
   final Rx<SocketState> state = SocketState.connecting.obs;
   RxString lastError = "".obs;
   Socket? socket;
+  String? get _dialedOrigin => socket?.io.uri;
 
   /// Unsubscribe callbacks for every listener registered in [startSocket].
   ///
@@ -532,7 +533,6 @@ class SocketService {
     bool rebuild = false;
     _urlDiscoveryInProgress = true;
     try {
-      final String previousOrigin = serverAddress;
       Logger.info(tag: _tag, "Connection still failing — checking whether the server URL changed");
 
       // fetchNewUrl() persists whatever it finds via saveNewServerUrl(force: true).
@@ -546,10 +546,9 @@ class SocketService {
         return;
       }
 
-      // Compare the resolved origin rather than the returned string — that is what
-      // the socket actually dials.
-      if (serverAddress != previousOrigin) {
-        Logger.info(tag: _tag, "Server URL changed from $previousOrigin to $serverAddress — rebuilding socket");
+      // The connectivity listener can drop a LAN override without a rebuild, so compare against what is dialed.
+      if (serverAddress != _dialedOrigin) {
+        Logger.info(tag: _tag, "Socket dials ${_dialedOrigin ?? 'nothing'}, server is $serverAddress — rebuilding");
         rebuild = true;
       } else if (_socketGaveUp) {
         // Same address, but socket.io has stopped retrying it — a rebuild is the
@@ -566,8 +565,8 @@ class SocketService {
         Logger.info(tag: _tag, "Server URL unchanged — re-probing the local address override");
         await NetworkTasks.detectLocalhost().timeout(_urlDiscoveryTimeout);
         if (!connectionDesired) return;
-        if (serverAddress != previousOrigin) {
-          Logger.info(tag: _tag, "Local address changed from $previousOrigin to $serverAddress — rebuilding socket");
+        if (serverAddress != _dialedOrigin) {
+          Logger.info(tag: _tag, "Socket dials $_dialedOrigin, local address is $serverAddress — rebuilding socket");
           rebuild = true;
         }
       } else {
@@ -575,6 +574,8 @@ class SocketService {
       }
     } catch (e, stack) {
       Logger.warn("Failed to check for a new server URL", error: e, trace: stack, tag: _tag);
+      // A timeout can land after the persisted URL or the override already changed.
+      rebuild = _socketGaveUp || serverAddress != _dialedOrigin;
     } finally {
       _urlDiscoveryInProgress = false;
     }
