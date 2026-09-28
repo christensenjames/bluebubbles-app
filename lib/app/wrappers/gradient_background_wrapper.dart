@@ -40,6 +40,12 @@ class _GradientBackgroundState extends CustomState<GradientBackground, void, Con
   }
 
   @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     // Use a Stack so widget.child is always at a fixed position in the element
     // tree. This prevents Flutter from tearing down the child subtree (and
