@@ -53,8 +53,8 @@ void sendEffectAction(
     for (String word in textSplit) {
       if (word == MentionTextEditingController.escapingChar) flag = !flag;
       int? index = flag ? int.tryParse(word) : null;
-      if (index != null) {
-        final mention = mentionables[index];
+      final mention = index != null ? mentionables.elementAtOrNull(index) : null;
+      if (mention != null) {
         newText.add(mention);
         continue;
       }
