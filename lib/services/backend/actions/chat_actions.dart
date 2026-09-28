@@ -610,6 +610,9 @@ class ChatActions {
         if (existing != null) {
           inputHandle.id = existing.id;
           inputHandle.originalROWID ??= existing.originalROWID;
+          inputHandle.color ??= existing.color;
+          inputHandle.defaultPhone ??= existing.defaultPhone;
+          inputHandle.defaultEmail ??= existing.defaultEmail;
           handlesToSave.add(inputHandle);
         } else {
           // Brand-new handle — track it so we can attempt contact matching after the transaction.
