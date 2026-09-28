@@ -200,11 +200,15 @@ base class DesktopSharedPreferencesStore extends SharedPreferencesAsyncPlatform 
   /// desktop platforms.
   Future<T> _locked<T>(Future<T> Function() action) async {
     final File lockFile = File('${(await _getDataFile()).path}.lock');
+    Stopwatch? sinceFirstFailure;
     while (true) {
       try {
         lockFile.createSync(recursive: true, exclusive: true);
         break;
       } on FileSystemException {
+        sinceFirstFailure ??= Stopwatch()..start();
+        // Stale locks are broken after _staleLockTimeout, so failing for twice that is not ordinary contention.
+        if (sinceFirstFailure.elapsed > _staleLockTimeout * 2) rethrow;
         _breakStaleLock(lockFile);
         await Future.delayed(_lockRetryDelay);
       }
