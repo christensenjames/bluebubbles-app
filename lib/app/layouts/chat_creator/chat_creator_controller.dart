@@ -466,7 +466,9 @@ class ChatCreatorController extends StatefulController {
         ));
       }
     }
-    return Future.value(true);
+    if (text.isEmpty) return Future.value(true);
+    showSnackbar('Error', 'Choose a recipient for "$text" from the list');
+    return Future.value(false);
   }
 
   // ---------------------------------------------------------------------------
