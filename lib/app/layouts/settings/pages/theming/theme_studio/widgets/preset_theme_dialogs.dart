@@ -155,7 +155,7 @@ class PresetThemeDialogs {
           onPressed: () {
             Navigator.of(context, rootNavigator: true).pop();
             controller.applyTheme(context, theme);
-            controller.deleteTheme(context);
+            controller.deleteTheme();
           },
         ),
       ],

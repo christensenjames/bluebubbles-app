@@ -74,39 +74,35 @@ class IntentsService {
         final id = intent.extra?["android.intent.extra.shortcut.ID"];
         final text = intent.extra?["android.intent.extra.TEXT"];
         final files = <PlatformFile>[];
-        int failed = 0;
-        if (intent.extra?["android.intent.extra.STREAM"] != null) {
-          final data = intent.extra!["android.intent.extra.STREAM"];
-          final uris = data is List ? data : [data.toString()];
-          for (final uri in uris) {
-            if (uri is! String) {
-              Logger.warn("Unreadable shared STREAM entry $uri", tag: "IntentsService");
-              failed++;
+        final data = intent.extra?["android.intent.extra.STREAM"];
+        final uris = data == null ? const [] : (data is List ? data : [data.toString()]);
+        for (final uri in uris) {
+          if (uri is! String) {
+            Logger.warn("Unreadable shared STREAM entry $uri", tag: "IntentsService");
+            continue;
+          }
+          try {
+            final path = await MethodChannelSvc.actions.getContentUriPath(uri: uri);
+            if (path == null) {
+              Logger.warn("Could not resolve path for shared URI $uri", tag: "IntentsService");
               continue;
             }
-            try {
-              final path = await MethodChannelSvc.actions.getContentUriPath(uri: uri);
-              if (path == null) {
-                Logger.warn("Could not resolve path for shared URI $uri", tag: "IntentsService");
-                failed++;
-                continue;
-              }
-              final bytes = await File(path).readAsBytes();
-              files.add(PlatformFile(
-                path: path,
-                name: basename(path),
-                bytes: bytes,
-                size: bytes.length,
-              ));
-            } catch (e, s) {
-              Logger.warn("Failed to read shared URI $uri", tag: "IntentsService", error: e, trace: s);
-              failed++;
-            }
+            final bytes = await File(path).readAsBytes();
+            files.add(PlatformFile(
+              path: path,
+              name: basename(path),
+              bytes: bytes,
+              size: bytes.length,
+            ));
+          } catch (e, s) {
+            Logger.warn("Failed to read shared URI $uri", tag: "IntentsService", error: e, trace: s);
           }
         }
+        final failed = uris.length - files.length;
         if (failed > 0) {
-          // Not awaited: showSnackbar needs the UI, and openChat's push may not complete until the route is popped.
-          StartupTasks.waitForUI().then((_) => showSnackbar("Error", "Failed to load $failed shared file(s)!"));
+          // showSnackbar needs the UI, and openChat's push may not complete until the route is popped.
+          unawaited(
+              StartupTasks.waitForUI().then((_) => showSnackbar("Error", "Failed to load $failed shared file(s)!")));
         }
         await openChat(id, text: text, attachments: files, isInitialIntent: isInitialIntent);
         return;

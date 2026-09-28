@@ -152,7 +152,7 @@ class ThemeManagementSection extends StatelessWidget {
                             "Are you sure you want to delete \"${controller.activeTheme.name}\"? This cannot be undone.",
                         confirmLabel: "Delete",
                         isDestructive: true,
-                        onConfirm: () => controller.deleteTheme(context),
+                        onConfirm: () => controller.deleteTheme(),
                       ),
                     ),
                   ],

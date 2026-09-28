@@ -318,7 +318,7 @@ class ThemeStudioController extends StatefulController {
     pendingChanges.value = true;
   }
 
-  Future<void> deleteTheme(BuildContext context) async {
+  Future<void> deleteTheme() async {
     if (activeTheme.isPreset) return;
     activeTheme.delete();
     if (isChatScoped) {

@@ -65,12 +65,22 @@ Future<Null> bubble() async {
 
 //ignore: prefer_void_to_null
 Future<Null> initApp(bool bubble, List<String> arguments) async {
+  // Startup failures can reach the error handlers before BaseLogger is registered.
+  bool loggerReady() => GetIt.I.isRegistered<BaseLogger>() && GetIt.I.isReadySync<BaseLogger>();
+
   runZonedGuarded<Future<void>>(() async {
     WidgetsFlutterBinding.ensureInitialized();
 
     /* ----- DESKTOP NATIVE SPLASH STATUS ----- */
     // Pushes startup status to the native splash; detached once it's dismissed.
     void Function()? detachSplashStatus;
+    Future<void> dismissSplash() async {
+      try {
+        await const MethodChannel('bluebubbles/splash').invokeMethod('closeSplash');
+      } catch (_) {}
+      detachSplashStatus?.call();
+    }
+
     if (kIsDesktop && !bubble && arguments.firstOrNull != "minimized") {
       const splashChannel = MethodChannel('bluebubbles/splash');
       bool titleBarApplied = false;
@@ -109,7 +119,7 @@ Future<Null> initApp(bool bubble, List<String> arguments) async {
     StackTrace? stacktrace;
 
     FlutterError.onError = (details) {
-      if (GetIt.I.isRegistered<BaseLogger>() && GetIt.I.isReadySync<BaseLogger>()) {
+      if (loggerReady()) {
         Logger.error("Rendering Error: ${details.exceptionAsString()}", error: details.exception, trace: details.stack);
       } else {
         FlutterError.presentError(details);
@@ -209,10 +219,7 @@ Future<Null> initApp(bool bubble, List<String> arguments) async {
           } else {
             await windowManager.hide();
           }
-          try {
-            await const MethodChannel('bluebubbles/splash').invokeMethod('closeSplash');
-          } catch (_) {}
-          detachSplashStatus?.call();
+          await dismissSplash();
           unawaited(ThemeSvc.initDynamicColorsDeferred()); // Linux: deferred past splash
           bool shouldAuthenticate =
               !Platform.isLinux && SettingsSvc.canAuthenticate && SettingsSvc.settings.shouldSecure.value;
@@ -254,10 +261,7 @@ Future<Null> initApp(bool bubble, List<String> arguments) async {
         doWhenWindowReady(() async {
           await windowManager.ensureInitialized();
           await windowManager.show();
-          try {
-            await const MethodChannel('bluebubbles/splash').invokeMethod('closeSplash');
-          } catch (_) {}
-          detachSplashStatus?.call();
+          await dismissSplash();
         });
       }
       throw Exception("$exception $stacktrace");
@@ -265,8 +269,7 @@ Future<Null> initApp(bool bubble, List<String> arguments) async {
   }, (dynamic error, StackTrace stackTrace) {
     print("Failure during app initialization: $error");
     print(stackTrace);
-    // Startup failures can land here before BaseLogger is registered.
-    if (GetIt.I.isRegistered<BaseLogger>() && GetIt.I.isReadySync<BaseLogger>()) {
+    if (loggerReady()) {
       Logger.error("Unhandled Exception", trace: stackTrace, error: error);
     }
   });

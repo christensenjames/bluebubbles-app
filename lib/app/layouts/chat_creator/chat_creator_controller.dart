@@ -488,9 +488,8 @@ class ChatCreatorController extends StatefulController {
     if (selectedContacts.isEmpty && activeController.value == null) return;
 
     // Re-check for an existing chat in case the debounce hasn't fired yet.
-    Chat? resolvedChat = typed
-        ? await findExistingChat(checkDeleted: true, update: false)
-        : activeController.value?.chat ?? await findExistingChat(checkDeleted: true, update: false);
+    Chat? resolvedChat =
+        (typed ? null : activeController.value?.chat) ?? await findExistingChat(checkDeleted: true, update: false);
     bool messageSentWithChat = false;
     // Messages already synced to the DB during the new-chat creation flow.
     // Pre-seeded into messagesService.struct before navigation so MessagesView's

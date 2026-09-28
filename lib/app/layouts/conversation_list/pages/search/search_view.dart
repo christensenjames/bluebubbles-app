@@ -21,16 +21,6 @@ import 'search_models.dart';
 import 'search_query_helper.dart';
 import 'conversation_search_field.dart';
 
-class SearchResult {
-  final String chatGuidFilter;
-  final List<SearchResultItem> results;
-
-  SearchResult({
-    required this.results,
-    this.chatGuidFilter = "",
-  });
-}
-
 class SearchView extends StatefulWidget {
   const SearchView({
     super.key,
@@ -45,7 +35,7 @@ class SearchViewState extends State<SearchView> with ThemeHelpers {
   final SlidingUpPanelController panelController = SlidingUpPanelController();
   final FocusNode focusNode = FocusNode();
 
-  final Rx<SearchResult?> currentSearch = Rx<SearchResult?>(null);
+  final Rx<List<SearchResultItem>?> currentSearch = Rx<List<SearchResultItem>?>(null);
   final RxBool noResults = false.obs;
   final RxBool isSearching = false.obs;
   final Rx<String?> currentSearchTerm = Rx<String?>(null);
@@ -81,32 +71,18 @@ class SearchViewState extends State<SearchView> with ThemeHelpers {
 
     isSearching.value = true;
 
-    final search = SearchResult(results: []);
+    final List<SearchResultItem> results;
 
     try {
-      if (local.value) {
-        search.results.addAll(
-          await SearchQueryHelper.runLocal(
-            term: currentSearchTerm.value!,
-            selectedChat: selectedChat.value,
-            selectedHandle: selectedHandle.value,
-            isFromMe: isFromMe.value,
-            isNotFromMe: isNotFromMe.value,
-            sinceDate: sinceDate.value,
-          ),
-        );
-      } else {
-        search.results.addAll(
-          await SearchQueryHelper.runNetwork(
-            term: currentSearchTerm.value!,
-            selectedChat: selectedChat.value,
-            selectedHandle: selectedHandle.value,
-            isFromMe: isFromMe.value,
-            isNotFromMe: isNotFromMe.value,
-            sinceDate: sinceDate.value,
-          ),
-        );
-      }
+      final run = local.value ? SearchQueryHelper.runLocal : SearchQueryHelper.runNetwork;
+      results = await run(
+        term: currentSearchTerm.value!,
+        selectedChat: selectedChat.value,
+        selectedHandle: selectedHandle.value,
+        isFromMe: isFromMe.value,
+        isNotFromMe: isNotFromMe.value,
+        sinceDate: sinceDate.value,
+      );
     } catch (e, s) {
       Logger.error("Search failed", error: e, trace: s);
       showSnackbar("Error", "Search failed");
@@ -116,8 +92,8 @@ class SearchViewState extends State<SearchView> with ThemeHelpers {
     }
 
     isSearching.value = false;
-    noResults.value = search.results.isEmpty;
-    currentSearch.value = search;
+    noResults.value = results.isEmpty;
+    currentSearch.value = results;
   }
 
   @override
@@ -297,8 +273,8 @@ class SearchViewState extends State<SearchView> with ThemeHelpers {
                             .copyWith(color: context.theme.colorScheme.outline, height: 1.5)
                             .apply(fontSizeFactor: SettingsSvc.settings.skin.value == Skins.Material ? 1.05 : 1.0);
 
-                        final chat = currentSearch.value!.results[index].chat;
-                        final message = currentSearch.value!.results[index].message;
+                        final chat = currentSearch.value![index].chat;
+                        final message = currentSearch.value![index].message;
 
                         // Create the textspans
                         List<InlineSpan> spans = [];
@@ -398,7 +374,7 @@ class SearchViewState extends State<SearchView> with ThemeHelpers {
                           ),
                         );
                       },
-                      childCount: currentSearch.value!.results.length,
+                      childCount: currentSearch.value!.length,
                     ),
                   )
               ],
