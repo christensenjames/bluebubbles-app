@@ -21,14 +21,14 @@ is independent of other fork changes, so rebuild on `upstream/master` before ope
 | U143 | Messages from a contact's secondary address are saved but never shown. | clean | - |
 | U127 | Moving the API timeout slider drops the custom, ngrok and zrok headers until restart. | clean | U136 (the same gap for isolate requests) is stacked on it. |
 | U125 | Google OAuth tokens are written to the log users export and share. | clean | - |
-| U126 | The socket keeps dialling a server address that is no longer valid. | clean | Android device test (wifi to cellular). |
+| U126 | The socket keeps dialling a server address that is no longer valid. | clean | - (Pixel wifi-to-cellular passed 2026-09-28: rebuilt from the LAN URI to the public URL 51 s after wifi dropped.) |
 | U151 | First-time setup hangs on "Syncing..." forever when the server fails. | clean | - |
 
 ## Worth sending
 
 | unit | defect | applies | before sending |
 |---|---|---|---|
-| U118 | Tapping a notification marks the chat being left as read and sends its read receipt. | clean | Android device test. |
+| U118 | Tapping a notification marks the chat being left as read and sends its read receipt. | clean | Android device test that hits the race. The 2026-09-28 Pixel run (app backgrounded, OpenChat for B) made B active before `onAppResume` ran, so neither the bug nor the fix was exercised; try a recreated Activity (Don't keep activities). |
 | U147 | A startup failure on desktop leaves the splash screen up forever, with no error. | conflicts in `lib/main.dart` | Rebase onto `upstream/master`. |
 | U26 | Attributed-body parts are added after the function has already returned. | clean | Use the corrected version from `autonomous/integration`. |
 | U24 | "Mark all as read" leaves wrong badges and stops at the first server error. | clean | Use the corrected version from `autonomous/integration`. Overlaps our open #3273 area. |
