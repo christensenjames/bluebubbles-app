@@ -106,6 +106,7 @@ class IntentsService {
           final uri =
               Uri.tryParse(intent.data!.replaceFirst("imessage://", "imessage:").replaceFirst("&body=", "?body="));
           if (uri != null) {
+            await StartupTasks.waitForUI();
             final address = uri.path;
             final handle = Handle.findOne(addressAndService: HandleLookupKey(address, "iMessage"));
             NavigationSvc.pushAndRemoveUntil(
