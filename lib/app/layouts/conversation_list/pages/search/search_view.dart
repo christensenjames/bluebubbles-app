@@ -8,6 +8,7 @@ import 'package:bluebubbles/app/layouts/conversation_view/pages/conversation_vie
 import 'package:bluebubbles/app/layouts/settings/widgets/settings_widgets.dart';
 import 'package:bluebubbles/database/models.dart';
 import 'package:bluebubbles/services/services.dart';
+import 'package:bluebubbles/utils/logger/logger.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -21,14 +22,10 @@ import 'search_query_helper.dart';
 import 'conversation_search_field.dart';
 
 class SearchResult {
-  final String search;
   final String chatGuidFilter;
-  final SearchMode mode;
   final List<SearchResultItem> results;
 
   SearchResult({
-    required this.search,
-    required this.mode,
     required this.results,
     this.chatGuidFilter = "",
   });
@@ -47,7 +44,6 @@ class SearchViewState extends State<SearchView> with ThemeHelpers {
   final TextEditingController textEditingController = TextEditingController();
   final SlidingUpPanelController panelController = SlidingUpPanelController();
   final FocusNode focusNode = FocusNode();
-  final List<SearchResult> pastSearches = [];
 
   final Rx<SearchResult?> currentSearch = Rx<SearchResult?>(null);
   final RxBool noResults = false.obs;
@@ -83,51 +79,42 @@ class SearchViewState extends State<SearchView> with ThemeHelpers {
     noResults.value = false;
     currentSearchTerm.value = newSearch;
 
-    // If we've already searched for the results and there are none, set no results and return
-    if (pastSearches
-            .firstWhereOrNull(
-              (e) => e.search == newSearch && e.mode == (local.value ? SearchMode.local : SearchMode.network),
-            )
-            ?.results
-            .isEmpty ??
-        false) {
-      noResults.value = true;
+    isSearching.value = true;
+
+    final search = SearchResult(results: []);
+
+    try {
+      if (local.value) {
+        search.results.addAll(
+          await SearchQueryHelper.runLocal(
+            term: currentSearchTerm.value!,
+            selectedChat: selectedChat.value,
+            selectedHandle: selectedHandle.value,
+            isFromMe: isFromMe.value,
+            isNotFromMe: isNotFromMe.value,
+            sinceDate: sinceDate.value,
+          ),
+        );
+      } else {
+        search.results.addAll(
+          await SearchQueryHelper.runNetwork(
+            term: currentSearchTerm.value!,
+            selectedChat: selectedChat.value,
+            selectedHandle: selectedHandle.value,
+            isFromMe: isFromMe.value,
+            isNotFromMe: isNotFromMe.value,
+            sinceDate: sinceDate.value,
+          ),
+        );
+      }
+    } catch (e, s) {
+      Logger.error("Search failed", error: e, trace: s);
+      showSnackbar("Error", "Search failed");
+      isSearching.value = false;
+      currentSearch.value = null;
       return;
     }
 
-    isSearching.value = true;
-
-    final search = SearchResult(
-      search: currentSearchTerm.value!,
-      mode: local.value ? SearchMode.local : SearchMode.network,
-      results: [],
-    );
-
-    if (local.value) {
-      search.results.addAll(
-        await SearchQueryHelper.runLocal(
-          term: currentSearchTerm.value!,
-          selectedChat: selectedChat.value,
-          selectedHandle: selectedHandle.value,
-          isFromMe: isFromMe.value,
-          isNotFromMe: isNotFromMe.value,
-          sinceDate: sinceDate.value,
-        ),
-      );
-    } else {
-      search.results.addAll(
-        await SearchQueryHelper.runNetwork(
-          term: currentSearchTerm.value!,
-          selectedChat: selectedChat.value,
-          selectedHandle: selectedHandle.value,
-          isFromMe: isFromMe.value,
-          isNotFromMe: isNotFromMe.value,
-          sinceDate: sinceDate.value,
-        ),
-      );
-    }
-
-    pastSearches.add(search);
     isSearching.value = false;
     noResults.value = search.results.isEmpty;
     currentSearch.value = search;
