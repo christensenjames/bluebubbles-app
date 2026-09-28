@@ -357,7 +357,7 @@ class TextFieldComponentState extends State<TextFieldComponent> {
                                     final mentionText = textPart.substring(mentionMatch.start, mentionMatch.end);
                                     int? mentionIndex = int.tryParse(mentionText.substring(1, mentionText.length - 1));
                                     if (mentionIndex == null) return; // Shouldn't happen
-                                    final mention = controller?.mentionables[mentionIndex];
+                                    final mention = controller?.mentionables.elementAtOrNull(mentionIndex);
                                     final replacement = mention != null ? "@${mention.displayName}" : "";
                                     text = editableTextState.textEditingValue.text.replaceRange(
                                         (start - 1).clamp(0, text.length),
@@ -384,7 +384,8 @@ class TextFieldComponentState extends State<TextFieldComponent> {
                                     final mentionText = textPart.substring(mentionMatch.start, mentionMatch.end);
                                     int? mentionIndex = int.tryParse(mentionText.substring(1, mentionText.length - 1));
                                     if (mentionIndex == null) return; // Shouldn't happen
-                                    final mention = controller?.mentionables[mentionIndex];
+                                    final mention = controller?.mentionables.elementAtOrNull(mentionIndex);
+                                    if (mention == null) return;
                                     if (kIsDesktop || kIsWeb) {
                                       controller?.showingOverlays = true;
                                     }
@@ -392,7 +393,7 @@ class TextFieldComponentState extends State<TextFieldComponent> {
                                     if (kIsDesktop || kIsWeb) {
                                       controller?.showingOverlays = false;
                                     }
-                                    if (!isNullOrEmpty(changed) && mention != null) {
+                                    if (!isNullOrEmpty(changed)) {
                                       mention.customDisplayName = changed!;
                                     }
                                     final spaceAfter = end < text.length && text.substring(end, end + 1) == " ";

@@ -545,8 +545,8 @@ class MentionTextEditingController extends SpellCheckTextEditingController {
         return "";
       }
       int? index = flag ? int.tryParse(word) : null;
-      if (index != null) {
-        final mention = mentionables[index];
+      final mention = index != null ? mentionables.elementAtOrNull(index) : null;
+      if (mention != null) {
         return mention.displayName;
       }
       return word;
@@ -646,8 +646,8 @@ class MentionTextEditingController extends SpellCheckTextEditingController {
 
         if (word == escapingChar) flag = !flag;
         int? index = flag ? int.tryParse(word) : null;
-        if (index != null) {
-          final mention = mentionables[index];
+        final mention = index != null ? mentionables.elementAtOrNull(index) : null;
+        if (mention != null) {
           mentionIndexLength = "$index".length;
           // Mandatory WidgetSpan so that it takes the appropriate char number.
           return WidgetSpan(
