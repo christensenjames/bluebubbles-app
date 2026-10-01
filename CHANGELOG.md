@@ -13,6 +13,12 @@ chat read locally, without sending a read receipt. A re-reported latest message 
 undo a manual mark-unread, and a from-me message admitted by the 2 s stale tolerance does
 not clear a newer incoming one. Other callers of that method leave the unread flag alone.
 
+Still open: James reports that a message he sends from the desktop client makes the chat
+show unread on the Pixel even when it was read before, which this sync-only fix does not
+address. The Pixel's logcat carries none of the app's Dart log lines, and the release
+build blocks `run-as`, so the next step is the app's own log via Settings → Troubleshoot →
+Download / Share Logs, captured right after one desktop send.
+
 ## 2026-10-01 — Fullscreen video controls
 
 The fullscreen video viewer now puts its actions inside media_kit's own control overlay
