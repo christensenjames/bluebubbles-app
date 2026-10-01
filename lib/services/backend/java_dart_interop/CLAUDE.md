@@ -1,6 +1,6 @@
 # services/backend/java_dart_interop/ — Dart ↔ Android Bridge
 
-Three files that form the Dart side of the Android method channel bridge. The Kotlin side lives in `android/app/src/main/kotlin/com/bluebubbles/messaging/`.
+These files form the Dart side of the Android method channel bridge. The Kotlin side lives in `android/app/src/main/kotlin/com/bluebubbles/messaging/`.
 
 For the full Android bridge overview, see `android/CLAUDE.md`.
 
@@ -24,6 +24,21 @@ Key methods invoked:
 **Android calling Dart:** The service also registers a `MethodCallHandler` to receive calls from Kotlin (e.g. handling an incoming notification tap, background wake-up).
 
 **Guards:** Initialization is skipped in headless/bubble/desktop modes. Always check `MethodChannelSvc.isAvailable` before calling on non-Android platforms.
+
+---
+
+### `pip_service.dart` — `PipService` / `PipSvc`
+
+GetIt singleton for picture-in-picture support and playback state.
+
+**Calling Android from Dart:**
+- `"pip-supported"` — query support, returning a Boolean
+- `"pip-enter"` — enter PiP with `{"aspectRatio": double}`, returning null
+- `"pip-auto-enter"` — configure auto-enter with `{"enabled": bool, "aspectRatio": double?}`, returning null; omit `aspectRatio` when absent
+
+**Android calling Dart:**
+- `"pip-mode-changed"` — `{active: bool}`, exposed as `PipSvc.active`
+- `"pip-dismissed"` — `{}`, exposed as `PipSvc.dismissed`
 
 ---
 

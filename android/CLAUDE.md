@@ -9,7 +9,7 @@ Source: `app/src/main/kotlin/com/bluebubbles/messaging/`
 | `services/firebase/` | FCM push notifications and Firebase auth |
 | `services/notifications/` | Notification channels, message/FaceTime builders |
 | `services/intents/` | Intent receivers (deep links, auto-start) |
-| `services/system/` | Calendar, contacts, browser, Chrome OS integrations |
+| `services/system/` | Calendar, contacts, browser, Chrome OS integrations, picture-in-picture (`PictureInPictureHandler`) |
 | `services/network/` | Native HTTP service |
 | `services/backend_ui_interop/` | DartWorkManager / DartWorker for background Dart |
 | `services/filesystem/` | File path resolution |

@@ -92,6 +92,7 @@ class StartupTasks {
       await notificationsService.init(headless: headless);
       return notificationsService;
     });
+    GetIt.I.registerSingleton<PipService>(PipService());
     GetIt.I.registerSingletonAsync<MethodChannelService>(() async {
       await interopReady.future;
       final channelService = MethodChannelService();
