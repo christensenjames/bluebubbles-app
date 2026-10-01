@@ -1,5 +1,18 @@
 # Changelog
 
+## 2026-10-01 — Chats ending in your own message no longer show unread
+
+A message sent from another device (the desktop client, the Mac) could leave the chat
+marked unread on Android. Incremental sync writes synced messages and updates the chat's
+latest message, but never touched the unread flag. Upstream `189e96f73` removed the old
+`syncLatestMessages` pass that did. The socket and FCM paths go through `Chat.addMessage`,
+which marks the chat read for a from-me message, but a backgrounded or Doze-deferred phone
+gets these messages through sync. When sync moves a chat's latest message forward to a
+different, not-older message from me, `ChatsService.updateChatLatestMessage` now marks the
+chat read locally, without sending a read receipt. A re-reported latest message does not
+undo a manual mark-unread, and a from-me message admitted by the 2 s stale tolerance does
+not clear a newer incoming one. Other callers of that method leave the unread flag alone.
+
 ## 2026-09-22 — Review gate over the autonomous queue
 
 ### Queue review
