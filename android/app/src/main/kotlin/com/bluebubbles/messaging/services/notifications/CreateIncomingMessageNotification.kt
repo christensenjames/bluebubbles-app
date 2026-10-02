@@ -4,12 +4,13 @@ import android.app.NotificationManager
 import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
+import android.graphics.Bitmap
+import android.graphics.BitmapFactory
 import android.os.Build
 import android.os.Bundle
 import androidx.core.app.NotificationCompat
 import androidx.core.app.Person
 import androidx.core.app.RemoteInput
-import androidx.core.content.FileProvider
 import androidx.core.graphics.drawable.IconCompat
 import com.bluebubbles.messaging.BubbleActivity
 import com.bluebubbles.messaging.Constants
@@ -21,7 +22,6 @@ import com.bluebubbles.messaging.services.system.PushShareTargetsHandler
 import com.bluebubbles.messaging.utils.Utils
 import io.flutter.plugin.common.MethodCall
 import io.flutter.plugin.common.MethodChannel
-import java.io.File
 
 class CreateIncomingMessageNotification: MethodCallHandlerImpl() {
     companion object {
@@ -48,7 +48,6 @@ class CreateIncomingMessageNotification: MethodCallHandlerImpl() {
         val messageDate: Long = call.argument("message_date")!!
         val messageIsFromMe: Boolean = call.argument("message_is_from_me")!!
         val messageImagePath: String? = call.argument("message_image_path")
-        val messageImageMime: String? = call.argument("message_image_mime")
         // contact details
         val contactName: String = call.argument("contact_name")!!
         val contactIcon: ByteArray? = call.argument("contact_avatar")
@@ -93,21 +92,11 @@ class CreateIncomingMessageNotification: MethodCallHandlerImpl() {
             style.conversationTitle = chatTitle
         }
         // add the new message to the style
-        val notificationMessage = NotificationCompat.MessagingStyle.Message(
+        style.addMessage(NotificationCompat.MessagingStyle.Message(
             messageText,
             messageDate,
             sender
-        )
-        if (messageImagePath != null && messageImageMime != null) {
-            val imageFile = File(messageImagePath)
-            if (imageFile.exists()) {
-                notificationMessage.setData(
-                    messageImageMime,
-                    FileProvider.getUriForFile(context, context.getString(R.string.file_provider), imageFile)
-                )
-            }
-        }
-        style.addMessage(notificationMessage)
+        ))
 
         // create a bundle for extra info
         val extras = Bundle()
@@ -221,6 +210,15 @@ class CreateIncomingMessageNotification: MethodCallHandlerImpl() {
             .addAction(replyAction)
             .addPerson(sender)
             .addExtras(extras)
+        // Wear OS renders a bridged BigPictureStyle image far sharper than a MessagingStyle data URI.
+        val picture = messageImagePath?.let { BitmapFactory.decodeFile(it) }
+        if (picture != null) {
+            notificationBuilder
+                .setContentTitle(if (chatIsGroup) "$chatTitle: $contactName" else contactName)
+                .setContentText(messageText)
+                .setLargeIcon(picture)
+                .setStyle(NotificationCompat.BigPictureStyle().bigPicture(picture).bigLargeIcon(null as Bitmap?))
+        }
 
         // Conditionally add reaction action if enabled
         if (showReactionAction) {

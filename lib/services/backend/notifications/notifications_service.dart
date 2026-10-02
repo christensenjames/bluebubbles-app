@@ -228,7 +228,6 @@ class NotificationsService {
 
         await GetIt.I.isReady<MethodChannelService>();
         String? messageImagePath;
-        String? messageImageMime;
         if (!hideContent) {
           final imageAttachment = message.realAttachments.firstWhereOrNull(
             (attachment) => attachment.mimeType?.startsWith('image/') == true && attachment.guid != null,
@@ -248,10 +247,7 @@ class NotificationsService {
                 rotate: 0,
                 keepExif: false,
               );
-              if (upright != null) {
-                messageImagePath = upright.path;
-                messageImageMime = 'image/jpeg';
-              }
+              messageImagePath = upright?.path;
             } catch (error) {
               Logger.warn(
                 'Failed to prepare notification image $imageGuid: $error',
@@ -276,7 +272,6 @@ class NotificationsService {
           showReactionAction: showReactionAction,
           reactionType: reactionType,
           messageImagePath: messageImagePath,
-          messageImageMime: messageImageMime,
         );
       }
     }

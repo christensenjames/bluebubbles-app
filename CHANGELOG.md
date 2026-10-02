@@ -5,14 +5,20 @@
 A message notification on Android now shows the message's first image, on the phone and,
 through notification bridging, on a paired Wear OS watch (checked on a Pixel Watch 4). The
 app downloads a copy resized to 1600 px wide from the server, which also converts HEIC to
-JPEG, then re-encodes it with the EXIF rotation applied, because the notification renderer
-ignores the orientation tag. The file lives in the app temp directory and is attached
-through the existing FileProvider. A failed download, or "hide content", leaves the usual
+JPEG, then re-encodes it with the EXIF rotation applied, because Android's bitmap decoder
+ignores the orientation tag. A failed download, or "hide content", leaves the usual
 text-only notification.
 
-On the watch the image is softer than in apps such as Google Messages, which have their own
-watch app and draw the image there. The bridge's own resizing is not documented and the
-app cannot change it.
+A message with an image posts as a BigPictureStyle notification instead of MessagingStyle.
+The watch rendered a MessagingStyle image (a data URI on the message) visibly blurred, while
+a BigPictureStyle bitmap of the same size came through sharp, as in Home Assistant's camera
+alerts. The notification keeps its shortcut, bubble and message category, but drops the
+conversation layout and earlier messages, so the chat's next notification starts a fresh
+thread.
+
+The background worker engine that posts notifications while the app is closed now registers
+`flutter_image_compress`. Without it the rotation step failed and those notifications fell
+back to text.
 
 ## 2026-10-01 — Chats ending in your own message no longer show unread
 
