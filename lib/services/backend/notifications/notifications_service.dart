@@ -15,6 +15,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart' hide Notification;
 import 'package:flutter/services.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart' hide Message;
+import 'package:flutter_image_compress/flutter_image_compress.dart';
 import 'package:get/get.dart';
 import 'package:bluebubbles/services/backend/notifications/desktop_notification.dart';
 import 'package:path/path.dart';
@@ -226,6 +227,39 @@ class NotificationsService {
         final String reactionType = SettingsSvc.settings.notificationReactionActionType.value;
 
         await GetIt.I.isReady<MethodChannelService>();
+        String? messageImagePath;
+        String? messageImageMime;
+        if (!hideContent) {
+          final imageAttachment = message.realAttachments.firstWhereOrNull(
+            (attachment) => attachment.mimeType?.startsWith('image/') == true && attachment.guid != null,
+          );
+          if (imageAttachment != null) {
+            final imageGuid = imageAttachment.guid!;
+            final imagePath = join(FilesystemSvc.appTempPath, 'notification_images', imageGuid);
+            try {
+              await HttpSvc.attachment.download(imageGuid, width: 1600, savePath: imagePath);
+              // The notification renderer ignores the EXIF orientation tag, so bake it into the pixels.
+              final upright = await FlutterImageCompress.compressAndGetFile(
+                imagePath,
+                '$imagePath.jpg',
+                format: CompressFormat.jpeg,
+                minWidth: 1600,
+                minHeight: 1600,
+                rotate: 0,
+                keepExif: false,
+              );
+              if (upright != null) {
+                messageImagePath = upright.path;
+                messageImageMime = 'image/jpeg';
+              }
+            } catch (error) {
+              Logger.warn(
+                'Failed to prepare notification image $imageGuid: $error',
+                tag: 'NotificationsService',
+              );
+            }
+          }
+        }
         await MethodChannelSvc.actions.createIncomingMessageNotification(
           channelId: NEW_MESSAGE_CHANNEL,
           chatId: chat.id,
@@ -241,6 +275,8 @@ class NotificationsService {
           messageIsFromMe: false,
           showReactionAction: showReactionAction,
           reactionType: reactionType,
+          messageImagePath: messageImagePath,
+          messageImageMime: messageImageMime,
         );
       }
     }

@@ -1,5 +1,19 @@
 # Changelog
 
+## 2026-10-02 — Incoming images in Android notifications
+
+A message notification on Android now shows the message's first image, on the phone and,
+through notification bridging, on a paired Wear OS watch (checked on a Pixel Watch 4). The
+app downloads a copy resized to 1600 px wide from the server, which also converts HEIC to
+JPEG, then re-encodes it with the EXIF rotation applied, because the notification renderer
+ignores the orientation tag. The file lives in the app temp directory and is attached
+through the existing FileProvider. A failed download, or "hide content", leaves the usual
+text-only notification.
+
+On the watch the image is softer than in apps such as Google Messages, which have their own
+watch app and draw the image there. The bridge's own resizing is not documented and the
+app cannot change it.
+
 ## 2026-10-01 — Chats ending in your own message no longer show unread
 
 A message sent from another device (the desktop client, the Mac) could leave the chat
