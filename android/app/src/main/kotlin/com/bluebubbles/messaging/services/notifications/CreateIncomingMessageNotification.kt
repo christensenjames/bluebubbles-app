@@ -69,9 +69,6 @@ class CreateIncomingMessageNotification: MethodCallHandlerImpl() {
             if (notificationPostedAlready) return result.success(null)
         }
         
-        // this is used to copy the style, since the notification already exists
-        val chatNotification = notificationManager.activeNotifications.lastOrNull { it.notification.extras.getString("chatGuid") == chatGuid && it.notification.extras.getString("channelId") == channelId }
-
         // build the sender object and push the share target again
         val sender = Person.Builder()
             .setName(contactName)
@@ -80,23 +77,26 @@ class CreateIncomingMessageNotification: MethodCallHandlerImpl() {
             .build()
         PushShareTargetsHandler().pushShareTarget(context, chatTitle, chatGuid, chatIcon)
 
-        // get or create a messaging style
-        val style = if (chatNotification != null) {
-            NotificationCompat.MessagingStyle.extractMessagingStyleFromNotification(chatNotification.notification)
-                ?: NotificationCompat.MessagingStyle(Person.Builder().setName("You").build())
+        // Wear OS renders a bridged BigPictureStyle image far sharper than a MessagingStyle data URI.
+        val picture = messageImagePath?.let { BitmapFactory.decodeFile(it) }
+        val style = if (picture != null) {
+            NotificationCompat.BigPictureStyle().bigPicture(picture).bigLargeIcon(null as Bitmap?)
         } else {
-            NotificationCompat.MessagingStyle(Person.Builder().setName("You").build())
+            // copy the style of the chat's existing notification so earlier messages stay visible
+            val chatNotification = notificationManager.activeNotifications.lastOrNull { it.notification.extras.getString("chatGuid") == chatGuid && it.notification.extras.getString("channelId") == channelId }
+            val messagingStyle = chatNotification?.let {
+                NotificationCompat.MessagingStyle.extractMessagingStyleFromNotification(it.notification)
+            } ?: NotificationCompat.MessagingStyle(Person.Builder().setName("You").build())
+            if (chatIsGroup) {
+                messagingStyle.isGroupConversation = true
+                messagingStyle.conversationTitle = chatTitle
+            }
+            messagingStyle.addMessage(NotificationCompat.MessagingStyle.Message(
+                messageText,
+                messageDate,
+                sender
+            ))
         }
-        if (chatIsGroup) {
-            style.isGroupConversation = true
-            style.conversationTitle = chatTitle
-        }
-        // add the new message to the style
-        style.addMessage(NotificationCompat.MessagingStyle.Message(
-            messageText,
-            messageDate,
-            sender
-        ))
 
         // create a bundle for extra info
         val extras = Bundle()
@@ -210,14 +210,11 @@ class CreateIncomingMessageNotification: MethodCallHandlerImpl() {
             .addAction(replyAction)
             .addPerson(sender)
             .addExtras(extras)
-        // Wear OS renders a bridged BigPictureStyle image far sharper than a MessagingStyle data URI.
-        val picture = messageImagePath?.let { BitmapFactory.decodeFile(it) }
         if (picture != null) {
             notificationBuilder
                 .setContentTitle(if (chatIsGroup) "$chatTitle: $contactName" else contactName)
                 .setContentText(messageText)
                 .setLargeIcon(picture)
-                .setStyle(NotificationCompat.BigPictureStyle().bigPicture(picture).bigLargeIcon(null as Bitmap?))
         }
 
         // Conditionally add reaction action if enabled
