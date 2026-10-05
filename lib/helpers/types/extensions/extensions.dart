@@ -13,12 +13,14 @@ import 'package:get/get.dart';
 extension DateHelpers on DateTime {
   bool isToday() {
     final now = DateTime.now();
-    return now.day == day && now.month == month && now.year == year;
+    final local = toLocal();
+    return now.day == local.day && now.month == local.month && now.year == local.year;
   }
 
   bool isYesterday() {
     final yesterday = DateTime.now().subtract(const Duration(days: 1));
-    return yesterday.day == day && yesterday.month == month && yesterday.year == year;
+    final local = toLocal();
+    return yesterday.day == local.day && yesterday.month == local.month && yesterday.year == local.year;
   }
 
   bool isWithin(DateTime other, {int? ms, int? seconds, int? minutes, int? hours, int? days}) {
