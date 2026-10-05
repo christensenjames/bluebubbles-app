@@ -147,6 +147,8 @@ class MessagesViewState extends State<MessagesView> with MessagesServiceMixin, T
           jumpToMessage,
           _messages,
         );
+        // Claim ownership before the await so a peek opened meanwhile borrows the service instead of re-initializing it.
+        service.owner = this;
 
         // Load messages if needed (check service flag to avoid redundant loads).
         // Wrap in try-catch: if loadChunk throws (e.g. server HTTP error for a
