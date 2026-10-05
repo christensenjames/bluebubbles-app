@@ -2,22 +2,29 @@ import 'dart:async';
 import 'package:bluebubbles/helpers/helpers.dart';
 import 'package:bluebubbles/database/models.dart';
 import 'package:bluebubbles/services/services.dart';
+import 'package:bluebubbles/utils/logger/logger.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 
 void showChangeName(Chat chat, String method, BuildContext context) {
   final controller = TextEditingController(text: chat.displayName);
   final node = FocusNode();
+  late ModalRoute<dynamic> editorRoute;
   showBBDialog(
     context: context,
     title: "Change Name",
-    content: TextField(
-      controller: controller,
-      focusNode: node,
-      decoration: const InputDecoration(
-        labelText: "Chat Name",
-        border: OutlineInputBorder(),
-      ),
+    content: Builder(
+      builder: (dialogContext) {
+        editorRoute = ModalRoute.of(dialogContext)!;
+        return TextField(
+          controller: controller,
+          focusNode: node,
+          decoration: const InputDecoration(
+            labelText: "Chat Name",
+            border: OutlineInputBorder(),
+          ),
+        );
+      },
     ),
     actions: [
       BBDialogAction(
@@ -27,9 +34,12 @@ void showChangeName(Chat chat, String method, BuildContext context) {
           node.unfocus();
           final nav = Navigator.of(context, rootNavigator: true);
           if (method == "private-api") {
-            showDialog(
-                context: context,
-                builder: (BuildContext context) {
+            final progressRoute = DialogRoute<void>(
+              context: context,
+              themes: InheritedTheme.capture(from: context, to: nav.context),
+              barrierColor: Theme.of(context).dialogTheme.barrierColor ?? Colors.black54,
+              traversalEdgeBehavior: TraversalEdgeBehavior.closedLoop,
+              builder: (BuildContext context) {
                   return AlertDialog(
                     backgroundColor: context.theme.colorScheme.surfaceContainerHighest,
                     title: Text(
@@ -47,16 +57,19 @@ void showChangeName(Chat chat, String method, BuildContext context) {
                     ),
                   );
                 });
-            final response = await HttpSvc.chat.setDisplayName(chat.guid, controller.text);
-            if (response.statusCode == 200) {
-              nav.pop();
-              nav.pop();
-              unawaited(ChatsSvc.setChatDisplayName(chat, controller.text));
-              showSnackbar("Notice", "Updated name successfully!");
-            } else {
-              nav.pop();
+            nav.push(progressRoute);
+            try {
+              await HttpSvc.chat.setDisplayName(chat.guid, controller.text);
+            } catch (e, s) {
+              Logger.error("Failed to update name of ${chat.guid}", error: e, trace: s);
+              NavigationSvc.closeRoute(progressRoute);
               showSnackbar("Error", "Failed to update name!");
+              return;
             }
+            NavigationSvc.closeRoute(progressRoute);
+            NavigationSvc.closeRoute(editorRoute);
+            unawaited(ChatsSvc.setChatDisplayName(chat, controller.text));
+            showSnackbar("Notice", "Updated name successfully!");
           } else {
             Navigator.of(context, rootNavigator: true).pop();
             unawaited(ChatsSvc.setChatDisplayName(chat, controller.text));
