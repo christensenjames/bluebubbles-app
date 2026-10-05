@@ -50,6 +50,9 @@ class _InteractiveHolderState extends State<InteractiveHolder> with AutomaticKee
     return Obx(() {
       // Observe selection state
       final selected = !iOS && (controller.cvController?.selected.any((m) => m.guid == message.guid) ?? false);
+      final redactLinkPreview = SettingsSvc.settings.redactedMode.value &&
+          SettingsSvc.settings.hideMessageContent.value &&
+          (payloadData?.type == PayloadType.url || message.isLegacyUrlPreview);
 
       return ColorFiltered(
         colorFilter: ColorFilter.mode(
@@ -101,7 +104,7 @@ class _InteractiveHolderState extends State<InteractiveHolder> with AutomaticKee
                     child: Center(
                       heightFactor: 1,
                       widthFactor: 1,
-                      child: _ms.shouldHideAttachments.value
+                      child: (_ms.shouldHideAttachments.value || redactLinkPreview)
                           ? const Padding(padding: EdgeInsets.all(15), child: Text("Interactive Message"))
                           : Obx(() {
                               final isTempMessage = controller.isSending.value;

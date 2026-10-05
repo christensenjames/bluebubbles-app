@@ -147,9 +147,16 @@ class _LinksSectionState extends State<LinksSection> with ThemeHelpers {
           );
         },
         child: Center(
-          child: UrlPreview(
-            data: _displayedLinks[index].payloadData!.urlData!.first,
-          ),
+          child: Obx(() {
+            final redacted = SettingsSvc.settings.redactedMode.value &&
+                (SettingsSvc.settings.hideAttachments.value || SettingsSvc.settings.hideMessageContent.value);
+            if (redacted) {
+              return const Padding(padding: EdgeInsets.all(15), child: Text("Link"));
+            }
+            return UrlPreview(
+              data: _displayedLinks[index].payloadData!.urlData!.first,
+            );
+          }),
         ),
       ),
     );

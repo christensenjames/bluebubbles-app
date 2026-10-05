@@ -96,14 +96,19 @@ class _LocationsSectionState extends State<LocationsSection> {
           }
         },
         child: Center(
-          child: UrlPreview(
-            data: UrlPreviewData(
-              title:
-                  "Location from ${DateFormat.yMd().format(_displayedLocations[index].message.target!.dateCreated!)}",
-              siteName: "Tap to open",
-            ),
-            file: AttachmentsSvc.getContent(_displayedLocations[index]),
-          ),
+          child: Obx(() {
+            if (SettingsSvc.settings.redactedMode.value && SettingsSvc.settings.hideAttachments.value) {
+              return const Padding(padding: EdgeInsets.all(15), child: Text("Location"));
+            }
+            return UrlPreview(
+              data: UrlPreviewData(
+                title:
+                    "Location from ${DateFormat.yMd().format(_displayedLocations[index].message.target!.dateCreated!)}",
+                siteName: "Tap to open",
+              ),
+              file: AttachmentsSvc.getContent(_displayedLocations[index]),
+            );
+          }),
         ),
       ),
     );
