@@ -620,8 +620,7 @@ class NotificationsService {
     }
 
     if (interaction.action == 'mark-read') {
-      chat.toggleHasUnreadAsync(false);
-      EventDispatcher().emit('refresh', null);
+      await ChatsSvc.setChatHasUnread(chat, false);
       return;
     }
 
