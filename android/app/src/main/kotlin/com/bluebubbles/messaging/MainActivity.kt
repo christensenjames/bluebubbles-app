@@ -1,14 +1,19 @@
 package com.bluebubbles.messaging
 
 import android.app.Activity
+import android.app.PictureInPictureParams
 import android.content.Context
 import android.content.Intent
+import android.content.res.Configuration
 import android.os.Build
 import android.os.Bundle
+import android.os.PowerManager
+import android.util.Rational
 import android.view.WindowInsets
 import android.view.WindowInsetsAnimation
 import androidx.activity.ComponentActivity
 import androidx.annotation.RequiresApi
+import androidx.lifecycle.Lifecycle
 import com.bluebubbles.messaging.services.backend_ui_interop.MethodCallHandler
 import com.bluebubbles.messaging.services.foreground.ForegroundServiceBroadcastReceiver
 import com.bluebubbles.messaging.Constants
@@ -21,6 +26,13 @@ import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
 
 class MainActivity : FlutterFragmentActivity() {
+    private var pipModeActive = false
+    private val pipActivityResumed get() = lifecycle.currentState.isAtLeast(Lifecycle.State.RESUMED)
+    private var pipAutoEnterEnabled = false
+    private var pipExitPending = false
+    private var pipDismissedSent = false
+    private var pipAspectRatio = Rational(16, 9)
+
     companion object {
         private val engineLock = Any()
         @Volatile private var _engine: FlutterEngine? = null
@@ -135,6 +147,73 @@ class MainActivity : FlutterFragmentActivity() {
                 defaultHandler?.uncaughtException(thread, throwable)
             }
         }
+    }
+
+    fun configurePipAutoEnter(enabled: Boolean, aspectRatio: Rational?) {
+        pipAutoEnterEnabled = enabled
+        if (aspectRatio != null) pipAspectRatio = aspectRatio
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            val params = PictureInPictureParams.Builder().setAutoEnterEnabled(enabled)
+            if (aspectRatio != null) params.setAspectRatio(aspectRatio)
+            setPictureInPictureParams(params.build())
+        }
+    }
+
+    override fun onUserLeaveHint() {
+        super.onUserLeaveHint()
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S &&
+            pipAutoEnterEnabled &&
+            !isInPictureInPictureMode
+        ) {
+            val params = PictureInPictureParams.Builder()
+                .setAspectRatio(pipAspectRatio)
+                .build()
+            enterPictureInPictureMode(params)
+        }
+    }
+
+    override fun onPictureInPictureModeChanged(
+        isInPictureInPictureMode: Boolean,
+        newConfig: Configuration
+    ) {
+        super.onPictureInPictureModeChanged(isInPictureInPictureMode, newConfig)
+        val wasInPictureInPictureMode = pipModeActive
+        pipModeActive = isInPictureInPictureMode
+        if (isInPictureInPictureMode) {
+            pipExitPending = false
+            pipDismissedSent = false
+        } else if (wasInPictureInPictureMode && !pipActivityResumed) {
+            pipExitPending = true
+        } else if (pipActivityResumed) {
+            pipExitPending = false
+        }
+        MethodCallHandler.invokeMethod("pip-mode-changed", mapOf("active" to isInPictureInPictureMode))
+    }
+
+    override fun onResume() {
+        super.onResume()
+        pipExitPending = false
+        pipDismissedSent = false
+    }
+
+    override fun onStop() {
+        if (pipModeActive || isInPictureInPictureMode || pipExitPending) {
+            if (!getSystemService(PowerManager::class.java).isInteractive) {
+                super.onStop()
+                return
+            }
+            if (pipModeActive || isInPictureInPictureMode) {
+                MethodCallHandler.invokeMethod("pip-mode-changed", mapOf("active" to false))
+            }
+            pipModeActive = false
+            pipExitPending = false
+            if (!pipDismissedSent) {
+                pipDismissedSent = true
+                MethodCallHandler.invokeMethod("pip-dismissed", emptyMap())
+            }
+        }
+        super.onStop()
     }
 
     override fun onDestroy() {

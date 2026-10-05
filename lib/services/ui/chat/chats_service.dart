@@ -1598,12 +1598,15 @@ class ChatsService {
   /// older delta message as a chat's latest, which would rewind its sort order.
   /// The 2s tolerance allows a temp->real GUID swap. [allowOlder] opts out for the
   /// post-deletion recompute, which must fall back to an older surviving message.
-  void updateChatLatestMessage(String chatGuid, Message message, {bool allowOlder = false}) {
+  /// [markReadIfFromMe] is for sync, which skips the read marking `Chat.addMessage`
+  /// does for a message sent from another device.
+  void updateChatLatestMessage(String chatGuid, Message message,
+      {bool allowOlder = false, bool markReadIfFromMe = false}) {
     final state = getChatState(chatGuid);
     if (state == null) return;
 
+    final current = state.latestMessage.value;
     if (!allowOlder) {
-      final current = state.latestMessage.value;
       final currentDate = current?.dateCreated;
       final incomingDate = message.dateCreated;
       const staleTolerance = Duration(seconds: 2);
@@ -1616,6 +1619,10 @@ class ChatsService {
         return;
       }
     }
+    // The stale tolerance above still admits a slightly older message, and sync re-reports the same one.
+    final advanced = current == null ||
+        (current.guid != message.guid &&
+            !(message.dateCreated ?? DateTime(0)).isBefore(current.dateCreated ?? DateTime(0)));
 
     state.updateLatestMessageInternal(message);
     final redacted = SettingsSvc.settings.redactedMode.value;
@@ -1625,6 +1632,10 @@ class ChatsService {
         message.getNotificationText(hideContactInfo: hideContactInfo, hideMessageContent: hideMessageContent));
     state.chat.setLatestMessage(message);
     _repositionChat(state.chat, immediate: true);
+    if (markReadIfFromMe && advanced && message.isFromMe == true && state.hasUnreadMessage.value) {
+      unawaited(setChatHasUnread(state.chat, false,
+          clearLocalNotifications: message.associatedMessageGuid == null, privateMark: false));
+    }
   }
 
   /// Set chat text field text

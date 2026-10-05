@@ -1,5 +1,109 @@
 # Changelog
 
+## 2026-10-02 — Incoming images in Android notifications
+
+A message notification on Android now shows the message's first image, on the phone and,
+through notification bridging, on a paired Wear OS watch (checked on a Pixel Watch 4). The
+app downloads a copy resized to 1080 px wide from the server, which also converts HEIC to
+JPEG, then re-encodes it with the EXIF rotation applied, because Android's bitmap decoder
+ignores the orientation tag. Preparing the image is capped at 10 s, because the background
+worker gives the whole message 120 s; a slow or failed download, or "hide content", leaves
+the usual text-only notification. Both image files are deleted once the notification is
+posted.
+
+A message with an image posts as a BigPictureStyle notification instead of MessagingStyle.
+The watch rendered a MessagingStyle image (a data URI on the message) visibly blurred, while
+a BigPictureStyle bitmap of the same size came through sharp, as in Home Assistant's camera
+alerts. Android counts only MessagingStyle notifications as conversations, so an image
+notification sits below the Conversations section, cannot bubble (`mAllowBubble=false` on
+the Pixel), and does not get a priority conversation's Do Not Disturb bypass. It also drops
+the conversation layout and earlier messages, so the chat's next notification starts a
+fresh thread. James is trying this tradeoff before deciding whether it stays.
+
+The background worker engine that posts notifications while the app is closed now registers
+`flutter_image_compress`. Without it the rotation step failed and those notifications fell
+back to text.
+
+## 2026-10-01 — Chats ending in your own message no longer show unread
+
+A message sent from another device (the desktop client, the Mac) could leave the chat
+marked unread on Android. Incremental sync writes synced messages and updates the chat's
+latest message, but never touched the unread flag. Upstream `189e96f73` removed the old
+`syncLatestMessages` pass that did. The socket and FCM paths go through `Chat.addMessage`,
+which marks the chat read for a from-me message, but a backgrounded or Doze-deferred phone
+gets these messages through sync. When sync moves a chat's latest message forward to a
+different, not-older message from me, `ChatsService.updateChatLatestMessage` now marks the
+chat read locally, without sending a read receipt. A re-reported latest message does not
+undo a manual mark-unread, and a from-me message admitted by the 2 s stale tolerance does
+not clear a newer incoming one. Other callers of that method leave the unread flag alone.
+
+Still open: James reports that a message he sends from the desktop client makes the chat
+show unread on the Pixel even when it was read before, which this sync-only fix does not
+address. The Pixel's logcat carries none of the app's Dart log lines, and the release
+build blocks `run-as`, so the next step is the app's own log via Settings → Troubleshoot →
+Download / Share Logs, captured right after one desktop send.
+
+## 2026-10-01 — Fullscreen video controls
+
+The fullscreen video viewer now puts its actions inside media_kit's own control overlay
+instead of a separate bar, on every platform. Close sits top-left; info and re-download sit
+top-right when `showInteractions` is set. On mobile and web a mute toggle replaces the
+fullscreen button, which did nothing useful because the viewer is already fullscreen. The
+old close bar was an unpositioned `Stack` child, so it rendered as a dark band across the
+middle of the video. Desktop drops its separate close bar and centre play button for the
+same overlay, with play/pause, mute, position and native fullscreen in the bottom bar and
+click-to-pause on the video. The top bar is omitted inside media_kit's native fullscreen
+route, where close would pop that route without leaving native fullscreen. The seek bar
+takes the theme's primary colour instead of media_kit's red, and on mobile it is inset
+from the screen edges and the bottom gesture area so dragging it no longer competes with
+the system back and home gestures.
+
+media_kit's `MaterialVideoControlsTheme.updateShouldNotify` is inverted (it returns
+`identical(...)`), so its controls never pick up a rebuilt theme. The top bar kept the
+portrait status-bar inset after rotating to landscape and floated down towards the middle.
+The controls are now keyed on the top inset, so they remount when it changes.
+
+The inline chat video shows a fullscreen button on every platform, not only desktop, and
+it stays visible while the video plays. On desktop it now hands the inline player to the
+viewer instead of opening a second one. In the gallery only the attachment the viewer
+opened on borrows that player; every other video page owns its own, so pages no longer
+share one player. Re-downloading a video that borrowed the inline player first swaps in a
+fresh player, because the re-download disposes the inline one. Opening the viewer from a
+video, or from a media row in high-performance mode, unfocuses the text field first, as the
+image path already did. Before, a field whose keyboard had been dismissed with the back
+gesture kept focus, and closing the viewer restored it and reopened the keyboard.
+
+Outside the iOS skin, the viewer's top bar gains save and, on mobile, share, next to info
+and re-download. The bottom bar gains a speed button (1x, 1.5x, 2x, 0.5x) and a loop toggle.
+When the viewer closes and hands its player back to the inline video, it resets speed and
+loop, because the inline video has no UI for either. On mobile, double-tapping either side
+of the video seeks, and holding it speeds playback up. media_kit's horizontal-drag seek is
+off, because a sideways drag pages the gallery. A single tap waits out the double-tap
+window before it toggles the overlay. On desktop the viewer takes keyboard shortcuts: space
+and K play or pause, J and L seek 10 seconds, the up and down arrows change volume, M
+mutes, F toggles native fullscreen, and Escape leaves fullscreen or closes the viewer. The
+left and right arrows stay unbound so they keep paging the gallery, and in the gallery only
+the page on screen takes keyboard focus. Both fullscreen holders now act on Escape only on
+key-down: they ignore its key-up and swallow its key-repeats. Before, the key-up of an Escape
+that closed the viewer reached the closing route's Escape handler and popped the chat
+underneath, which left a blank window. Holding Escape did the same through the app-wide
+Escape shortcut, which accepts repeats. Unmuting restores the volume from before
+the mute instead of resetting it to 100. Unless the caller passes a mute state, the viewer
+starts with the mute state last chosen in any viewer this session, and falls back to the
+"start videos muted in fullscreen" setting.
+
+On Android the viewer supports picture-in-picture when it shows its action buttons. Outside
+the iOS skin, a button in the top bar enters it. On every skin, the app enters it when the
+user leaves the app while a video plays: through auto-enter on Android 12 and later, and
+through `onUserLeaveHint` on Android 8 to 11. In the gallery only the page on screen drives
+auto-enter, and paging away from a video pauses it. Share turns auto-enter off and pauses
+first, so the share sheet does not open PiP. The controls hide inside the PiP window, and
+closing that window pauses the video and pops the viewer; locking the screen during PiP
+does not count as closing it. The manifest declares `supportsPictureInPicture`.
+`PictureInPictureHandler` answers the support, enter and auto-enter calls. `MainActivity`
+reports mode changes and dismissal, and `PipService`, a GetIt singleton, takes those events
+on the Dart side.
+
 ## 2026-09-22 — Review gate over the autonomous queue
 
 ### Queue review

@@ -98,6 +98,7 @@ class OtherFile extends StatelessWidget {
     return InkWell(
       onTap: () async {
         if (attachment.mimeStart == "image" || (attachment.mimeStart == "video")) {
+          FocusManager.instance.primaryFocus?.unfocus();
           Navigator.of(Get.context!).push(
             ThemeSwitcher.buildPageRoute(
               builder: (context) => ConversationFullscreenHolder(

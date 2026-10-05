@@ -43,6 +43,8 @@ class MethodChannelHandlers {
       MethodChannelInboundMethods.iMessageAliasesRemoved: _handleAliasesRemoved,
       MethodChannelInboundMethods.socketEvent: _handleSocketEvent,
       MethodChannelInboundMethods.unifiedpushSettings: _handleUnifiedPushSettings,
+      MethodChannelInboundMethods.pipModeChanged: _handlePipModeChanged,
+      MethodChannelInboundMethods.pipDismissed: _handlePipDismissed,
     };
   }
 
@@ -461,6 +463,17 @@ class MethodChannelHandlers {
       return Future.error(e, s);
     }
 
+    return _ok();
+  }
+
+  Future<bool> _handlePipModeChanged(MethodCall _, Map<String, dynamic>? arguments) async {
+    final value = arguments?['active'];
+    if (value is bool) PipSvc.handleModeChanged(value);
+    return _ok();
+  }
+
+  Future<bool> _handlePipDismissed(MethodCall _, Map<String, dynamic>? arguments) async {
+    PipSvc.handleDismissed();
     return _ok();
   }
 }

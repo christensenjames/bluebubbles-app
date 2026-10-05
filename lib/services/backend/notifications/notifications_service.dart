@@ -15,6 +15,8 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart' hide Notification;
 import 'package:flutter/services.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart' hide Message;
+import 'package:dio/dio.dart' show CancelToken;
+import 'package:flutter_image_compress/flutter_image_compress.dart';
 import 'package:get/get.dart';
 import 'package:bluebubbles/services/backend/notifications/desktop_notification.dart';
 import 'package:path/path.dart';
@@ -226,22 +228,76 @@ class NotificationsService {
         final String reactionType = SettingsSvc.settings.notificationReactionActionType.value;
 
         await GetIt.I.isReady<MethodChannelService>();
-        await MethodChannelSvc.actions.createIncomingMessageNotification(
-          channelId: NEW_MESSAGE_CHANNEL,
-          chatId: chat.id,
-          chatGuid: guid,
-          chatIsGroup: isGroup,
-          chatTitle: title,
-          chatIcon: isGroup ? chatIcon : contactIcon,
-          contactName: contactName,
-          contactAvatar: contactIcon,
-          messageGuid: message.guid!,
-          messageText: text,
-          messageDate: message.dateCreated!.millisecondsSinceEpoch,
-          messageIsFromMe: false,
-          showReactionAction: showReactionAction,
-          reactionType: reactionType,
-        );
+        String? imageDownloadPath;
+        String? messageImagePath;
+        if (!hideContent) {
+          final imageAttachment = message.realAttachments.firstWhereOrNull(
+            (attachment) => attachment.mimeType?.startsWith('image/') == true && attachment.guid != null,
+          );
+          if (imageAttachment != null) {
+            final imageGuid = imageAttachment.guid!;
+            final downloadPath = join(FilesystemSvc.appTempPath, 'notification_images', imageGuid);
+            imageDownloadPath = downloadPath;
+            const imageSize = 1080;
+            final cancelToken = CancelToken();
+            try {
+              // The headless worker gives the whole message 120s; a slow image must not cost the notification.
+              messageImagePath = await () async {
+                await HttpSvc.attachment.download(
+                  imageGuid,
+                  width: imageSize,
+                  savePath: downloadPath,
+                  cancelToken: cancelToken,
+                );
+                if (cancelToken.isCancelled) return null;
+                // Android's bitmap decoder ignores the EXIF orientation tag, so bake it into the pixels.
+                final upright = await FlutterImageCompress.compressAndGetFile(
+                  downloadPath,
+                  '$downloadPath.jpg',
+                  format: CompressFormat.jpeg,
+                  minWidth: imageSize,
+                  minHeight: imageSize,
+                  rotate: 0,
+                  keepExif: false,
+                );
+                return upright?.path;
+              }().timeout(const Duration(seconds: 10));
+            } catch (error) {
+              cancelToken.cancel();
+              Logger.warn(
+                'Failed to prepare notification image $imageGuid: $error',
+                tag: 'NotificationsService',
+              );
+            }
+          }
+        }
+        try {
+          await MethodChannelSvc.actions.createIncomingMessageNotification(
+            channelId: NEW_MESSAGE_CHANNEL,
+            chatId: chat.id,
+            chatGuid: guid,
+            chatIsGroup: isGroup,
+            chatTitle: title,
+            chatIcon: isGroup ? chatIcon : contactIcon,
+            contactName: contactName,
+            contactAvatar: contactIcon,
+            messageGuid: message.guid!,
+            messageText: text,
+            messageDate: message.dateCreated!.millisecondsSinceEpoch,
+            messageIsFromMe: false,
+            showReactionAction: showReactionAction,
+            reactionType: reactionType,
+            messageImagePath: messageImagePath,
+          );
+        } finally {
+          // The native side has decoded the bitmap by the time the call returns.
+          if (imageDownloadPath != null) {
+            for (final path in [imageDownloadPath, '$imageDownloadPath.jpg']) {
+              final file = File(path);
+              if (await file.exists()) await file.delete();
+            }
+          }
+        }
       }
     }
   }

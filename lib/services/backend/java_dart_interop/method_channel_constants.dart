@@ -18,6 +18,8 @@ abstract class MethodChannelInboundMethods {
   static const String iMessageAliasesRemoved = 'imessage-aliases-removed';
   static const String socketEvent = 'socket-event';
   static const String unifiedpushSettings = 'unifiedpush-settings';
+  static const String pipModeChanged = 'pip-mode-changed';
+  static const String pipDismissed = 'pip-dismissed';
 }
 
 // Kotlin's DartWorker fails the work without retrying on this code; keep in sync with Constants.dartNoRetryErrorCode.
