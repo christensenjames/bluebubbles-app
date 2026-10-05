@@ -148,9 +148,12 @@ class ActionHandler extends GetxService {
         }
         return;
       case "chat-read-status-changed":
-        Chat? chat = Chat.findOne(guid: data["chatGuid"]);
+        final String? chatGuid = data["chatGuid"];
+        Chat? chat = (chatGuid != null ? ChatsSvc.findChatByGuid(chatGuid) : null) ?? Chat.findOne(guid: chatGuid);
         if (chat != null && (data["read"] == true || data["read"] == false)) {
-          chat.toggleHasUnreadAsync(!data["read"]!, force: data["read"] == true, privateMark: false);
+          if (data["read"] == false && ChatsSvc.isChatActive(chat.guid)) return;
+          await chat.toggleHasUnreadAsync(!data["read"]!, force: data["read"] == true, privateMark: false);
+          ChatsSvc.getChatState(chat.guid)?.updateHasUnreadInternal(chat.hasUnreadMessage ?? false);
         }
         return;
       case "typing-indicator":
