@@ -121,7 +121,7 @@ class SpellCheckTextEditingController extends TextEditingController {
         // We can replace the :emoji: with the actual emoji here
         final emoji = shortNameToEmoji[emojiName] ?? shortNameToSkinToneEmoji[emojiName]!;
         newText = newText.substring(0, match.start) + emoji.emoji + newText.substring(match.end);
-        newOffset = match.start + emoji.emoji.length;
+        newOffset = max(match.start + emoji.emoji.length, newOffset - (match.end - match.start) + emoji.emoji.length);
       }
     }
 
