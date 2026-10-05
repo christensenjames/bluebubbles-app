@@ -61,7 +61,7 @@ Future<void> forward(MessagePopupActionContext ctx) async {
   final navigator = Navigator.of(ctx.context);
   ctx.popDetails();
   final List<PlatformFile> attachments = [];
-  final _attachments = ctx.message.dbAttachments
+  final _attachments = ctx.part.attachments
       .where((e) => AttachmentsSvc.getContent(e, autoDownload: false) is PlatformFile)
       .map((e) => AttachmentsSvc.getContent(e, autoDownload: false) as PlatformFile);
   for (final PlatformFile a in _attachments) {
@@ -76,17 +76,19 @@ Future<void> forward(MessagePopupActionContext ctx) async {
   }
 
   if (!navigator.mounted) return;
-  if (attachments.isNotEmpty || !isNullOrEmpty(ctx.message.text)) {
+  if (attachments.isNotEmpty || !isNullOrEmpty(ctx.part.text)) {
     // This route replacement bypasses ConversationView's back-handler, so
     // explicitly close the active controller first.
     ctx.cvController.close();
     NavigationSvc.pushAndRemoveUntil(
       navigator.context,
       NewChatCreator(
-        initialText: ctx.message.text,
+        initialText: ctx.part.text,
         initialAttachments: attachments,
       ),
       (route) => route.isFirst,
     );
+  } else {
+    ctx.showSnack("Forward Error", "Download the attachment before forwarding it.");
   }
 }
