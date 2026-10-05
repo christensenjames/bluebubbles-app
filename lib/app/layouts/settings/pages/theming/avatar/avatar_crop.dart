@@ -31,6 +31,7 @@ class _AvatarCropState extends State<AvatarCrop> with ThemeHelpers {
   final _cropController = CropController();
   Uint8List? _imageData;
   bool _isLoading = true;
+  DialogRoute? _savingRoute;
 
   Future<void> _pickImageFromGallery() async {
     if (kIsDesktop || kIsWeb) return _pickImageFromFiles();
@@ -55,20 +56,7 @@ class _AvatarCropState extends State<AvatarCrop> with ThemeHelpers {
   Future<void> _handlePickedImage(Uint8List bytes, {String? fileName}) async {
     final lowerName = (fileName ?? '').toLowerCase();
     if (lowerName.endsWith('.gif')) {
-      showDialog(
-        context: context,
-        builder: (context) => AlertDialog(
-          title: Text("Saving avatar...", style: context.theme.textTheme.titleLarge),
-          content: SizedBox(
-            height: 70,
-            child: Center(
-              child: buildProgressIndicator(context),
-            ),
-          ),
-          backgroundColor: context.theme.colorScheme.surfaceContainerHighest,
-        ),
-        barrierDismissible: false,
-      );
+      showSavingAvatarDialog();
       onCropped(CropSuccess(bytes));
       return;
     }
@@ -78,7 +66,8 @@ class _AvatarCropState extends State<AvatarCrop> with ThemeHelpers {
   }
 
   void onCropped(CropResult croppedResult) async {
-    final rootNav = Navigator.of(context, rootNavigator: true);
+    final savingRoute = _savingRoute;
+    _savingRoute = null;
     final nav = Navigator.of(context);
     Uint8List croppedData;
     switch (croppedResult) {
@@ -86,7 +75,7 @@ class _AvatarCropState extends State<AvatarCrop> with ThemeHelpers {
         croppedData = croppedImage;
         break;
       case CropFailure(:final cause, :final stackTrace):
-        rootNav.pop();
+        if (savingRoute != null) NavigationSvc.closeRoute(savingRoute);
         showSnackbar("Error", "Failed to crop image");
         Logger.debug("Failed to crop image");
         Logger.error(cause);
@@ -94,33 +83,46 @@ class _AvatarCropState extends State<AvatarCrop> with ThemeHelpers {
         return;
     }
 
-    if (widget.index == null && widget.chat == null) {
-      File file = File(p.join(FilesystemSvc.avatarsPath, "you", "avatar-${croppedData.length}.jpg"));
-      if (!(await file.exists())) {
-        await file.create(recursive: true);
+    String? chatAvatarPath;
+    try {
+      if (widget.index == null && widget.chat == null) {
+        File file = File(p.join(FilesystemSvc.avatarsPath, "you", "avatar-${croppedData.length}.jpg"));
+        if (!(await file.exists())) {
+          await file.create(recursive: true);
+        }
+        final oldPath = SettingsSvc.settings.userAvatarPath.value;
+        if (oldPath != null && await File(oldPath).exists()) {
+          await File(oldPath).delete();
+        }
+        await file.writeAsBytes(croppedData);
+        SettingsSvc.settings.userAvatarPath.value = file.path;
+        await SettingsSvc.settings.saveOneAsync("userAvatarPath");
+      } else if (widget.chat != null) {
+        File file = File(p.join(FilesystemSvc.avatarsPath, FilesystemService.sanitizeGuid(widget.chat!.guid),
+            "avatar-${croppedData.length}.jpg"));
+        if (!(await file.exists())) {
+          await file.create(recursive: true);
+        }
+        await file.writeAsBytes(croppedData);
+        chatAvatarPath = file.path;
       }
-      if (SettingsSvc.settings.userAvatarPath.value != null) {
-        await File(SettingsSvc.settings.userAvatarPath.value!).delete();
-      }
-      await file.writeAsBytes(croppedData);
-      SettingsSvc.settings.userAvatarPath.value = file.path;
-      await SettingsSvc.settings.saveOneAsync("userAvatarPath");
-      rootNav.pop();
-      nav.pop();
-      showSnackbar("Notice", "User avatar saved successfully");
-    } else if (widget.chat != null) {
-      File file = File(p.join(FilesystemSvc.avatarsPath, FilesystemService.sanitizeGuid(widget.chat!.guid),
-          "avatar-${croppedData.length}.jpg"));
-      if (!(await file.exists())) {
-        await file.create(recursive: true);
-      }
-      await file.writeAsBytes(croppedData);
+    } catch (e, s) {
+      Logger.error("Failed to save avatar", error: e, trace: s);
+      showSnackbar("Error", "Failed to save the avatar. Please try again.");
+      return;
+    } finally {
+      if (savingRoute != null) NavigationSvc.closeRoute(savingRoute);
+    }
 
-      rootNav.pop();
-      nav.pop(file.path);
+    if (widget.index == null && widget.chat == null) {
+      if (mounted) nav.pop();
+      showSnackbar("Notice", "User avatar saved successfully");
+    } else if (!mounted) {
+      return;
+    } else if (widget.chat != null) {
+      nav.pop(chatAvatarPath);
       showSnackbar("Notice", "Custom chat avatar saved successfully");
     } else {
-      rootNav.pop();
       nav.pop();
     }
   }
@@ -203,19 +205,25 @@ class _AvatarCropState extends State<AvatarCrop> with ThemeHelpers {
   }
 
   void showSavingAvatarDialog() {
-    showDialog(
+    _savingRoute = DialogRoute(
       context: context,
-      builder: (context) => AlertDialog(
-        title: Text("Saving avatar...", style: context.theme.textTheme.titleLarge),
-        content: SizedBox(
-          height: 70,
-          child: Center(
-            child: buildProgressIndicator(context),
-          ),
-        ),
-        backgroundColor: context.theme.colorScheme.surfaceContainerHighest,
-      ),
+      barrierColor: context.theme.dialogTheme.barrierColor ?? Colors.black54,
       barrierDismissible: false,
+      traversalEdgeBehavior: TraversalEdgeBehavior.closedLoop,
+      builder: (context) => PopScope(
+        canPop: false,
+        child: AlertDialog(
+          title: Text("Saving avatar...", style: context.theme.textTheme.titleLarge),
+          content: SizedBox(
+            height: 70,
+            child: Center(
+              child: buildProgressIndicator(context),
+            ),
+          ),
+          backgroundColor: context.theme.colorScheme.surfaceContainerHighest,
+        ),
+      ),
     );
+    Navigator.of(context, rootNavigator: true).push(_savingRoute!);
   }
 }
