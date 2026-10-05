@@ -10,10 +10,12 @@ class SendButton extends StatefulWidget {
     super.key,
     required this.onLongPress,
     required this.sendMessage,
+    this.visible = true,
   });
 
   final Function() onLongPress;
   final Function() sendMessage;
+  final bool visible;
 
   @override
   SendButtonState createState() => SendButtonState();
@@ -45,6 +47,12 @@ class SendButtonState extends State<SendButton> with SingleTickerProviderStateMi
         widget.sendMessage.call();
       }
     });
+  }
+
+  @override
+  void didUpdateWidget(SendButton oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.visible && !widget.visible) controller.reset();
   }
 
   @override
