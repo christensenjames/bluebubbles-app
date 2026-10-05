@@ -349,7 +349,7 @@ class MethodChannelHandlers {
           return _retry();
         }
 
-        chat.toggleHasUnreadAsync(!payload.data['read']!, privateMark: false);
+        chat.toggleHasUnreadAsync(!payload.data['read']!, force: payload.data['read'] == true, privateMark: false);
         return _ok();
       }
 

@@ -150,7 +150,7 @@ class ActionHandler extends GetxService {
       case "chat-read-status-changed":
         Chat? chat = Chat.findOne(guid: data["chatGuid"]);
         if (chat != null && (data["read"] == true || data["read"] == false)) {
-          chat.toggleHasUnreadAsync(!data["read"]!, privateMark: false);
+          chat.toggleHasUnreadAsync(!data["read"]!, force: data["read"] == true, privateMark: false);
         }
         return;
       case "typing-indicator":
