@@ -281,7 +281,7 @@ class _ConversationPanelState extends State<ConversationPanel> with ThemeHelpers
                       SettingsTile(
                         title: "${SettingsSvc.settings.sendSoundPath.value == null ? "Add" : "Change"} Send Sound",
                         subtitle: SettingsSvc.settings.sendSoundPath.value != null
-                            ? basename(SettingsSvc.settings.sendSoundPath.value!).substring("send-".length)
+                            ? basename(SettingsSvc.settings.sendSoundPath.value!).replaceFirst(RegExp(r'^send-'), "")
                             : "Adds a sound to be played when sending a message",
                         onTap: () async {
                           FilePickerResult? result = await FilePicker.pickFiles(type: FileType.audio, withData: true);
@@ -354,7 +354,8 @@ class _ConversationPanelState extends State<ConversationPanel> with ThemeHelpers
                         title:
                             "${SettingsSvc.settings.receiveSoundPath.value == null ? "Add" : "Change"} Receive Sound",
                         subtitle: SettingsSvc.settings.receiveSoundPath.value != null
-                            ? basename(SettingsSvc.settings.receiveSoundPath.value!).substring("receive-".length)
+                            ? basename(SettingsSvc.settings.receiveSoundPath.value!)
+                                .replaceFirst(RegExp(r'^receive-'), "")
                             : "Adds a sound to be played when receiving a message",
                         onTap: () async {
                           FilePickerResult? result = await FilePicker.pickFiles(type: FileType.audio, withData: true);
