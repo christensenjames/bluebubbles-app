@@ -1118,6 +1118,7 @@ class ChatsService {
 
     // Remove from service state
     removeChat(chat);
+    await _clearChatNotifications(chat);
   }
 
   /// Performs a full messaging reset: wipes all Messages, Attachments, Chats,
@@ -1181,6 +1182,15 @@ class ChatsService {
 
     // Remove from service state
     removeChat(chat);
+    await _clearChatNotifications(chat);
+  }
+
+  Future<void> _clearChatNotifications(Chat chat) async {
+    if (kIsDesktop) {
+      await NotificationsSvc.clearDesktopNotificationsForChat(chat.guid);
+    } else {
+      await ChatInterface.clearNotificationForChat(chatId: chat.id!, chatGuid: chat.guid);
+    }
   }
 
   /// Undelete a chat
