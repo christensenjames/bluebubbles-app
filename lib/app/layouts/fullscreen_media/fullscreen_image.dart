@@ -100,23 +100,23 @@ class _FullscreenImageState extends State<FullscreenImage>
       compatiblePath = null;
       hasError = false;
     });
-    AttachmentsSvc.redownloadAttachment(
-      widget.attachment,
-      onComplete: (newFile) {
-        if (kIsWeb || newFile.path == null) {
-          setState(() {
-            bytes = newFile.bytes;
-          });
-        } else {
-          initBytes();
-        }
-      },
-      onError: () {
+    void onComplete(PlatformFile newFile) {
+      if (kIsWeb || newFile.path == null) {
         setState(() {
-          hasError = true;
+          bytes = newFile.bytes;
         });
-      },
-    );
+      } else {
+        initBytes();
+      }
+    }
+
+    void onError() {
+      setState(() {
+        hasError = true;
+      });
+    }
+
+    redownloadAttachmentFromViewer(attachment, onComplete: onComplete, onError: onError);
   }
 
   Widget _buildPhotoView(BuildContext context) {
