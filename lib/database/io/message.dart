@@ -479,9 +479,12 @@ class Message {
   }
 
   /// Delete a message and remove all instances of that message in the DB
-  static Future<void> delete(String guid) async {
+  static Future<void> delete(String guid, {bool deleteAttachments = false}) async {
     if (kIsWeb) return;
-    await MessageInterface.deleteMessage(guid: guid);
+    await MessageInterface.deleteMessage(
+      guid: guid,
+      attachmentsPath: deleteAttachments ? FilesystemSvc.attachmentsPath : null,
+    );
   }
 
   static Future<void> softDelete(String guid) async {

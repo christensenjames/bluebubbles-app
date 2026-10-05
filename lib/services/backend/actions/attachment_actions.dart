@@ -1,9 +1,33 @@
+import 'dart:io';
+
 import 'package:bluebubbles/database/database.dart';
 import 'package:bluebubbles/database/models.dart';
 import 'package:bluebubbles/services/backend/descriptors/attachment_query_descriptor.dart';
 import 'package:collection/collection.dart';
+import 'package:bluebubbles/utils/logger/logger.dart';
+import 'package:path/path.dart' as p;
 
 class AttachmentActions {
+  static Future<void> deleteAttachmentDirs(String attachmentsPath, Iterable<String> guids) async {
+    for (final guid in guids) {
+      // A guid must name exactly one direct child; './x' or 'a/b' would alias another attachment's dir, '/' the root.
+      if (guid.isEmpty || guid == '.' || guid == '..' || p.basename(guid) != guid) continue;
+      final dir = Directory(p.join(attachmentsPath, guid));
+      if (!p.isWithin(attachmentsPath, dir.path)) continue;
+      // Runs after the rows are removed: a surviving row whose guid differs only in case shares this dir on
+      // case-insensitive filesystems.
+      final owners = Database.attachments.query(Attachment_.guid.equals(guid, caseSensitive: false)).build();
+      final stillOwned = owners.count() > 0;
+      owners.close();
+      if (stillOwned) continue;
+      try {
+        if (await dir.exists()) await dir.delete(recursive: true);
+      } catch (e, s) {
+        Logger.warn('Failed to delete attachment directory for $guid', error: e, trace: s);
+      }
+    }
+  }
+
   static Attachment? findOne(String guid) {
     final queryBuilder = Database.attachments.query(Attachment_.guid.equals(guid));
     queryBuilder.link(Attachment_.message);

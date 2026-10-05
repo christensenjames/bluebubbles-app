@@ -46,9 +46,11 @@ class MessageInterface {
 
   static Future<void> deleteMessage({
     required String guid,
+    String? attachmentsPath,
   }) async {
     final data = {
       'guid': guid,
+      'attachmentsPath': attachmentsPath,
     };
 
     if (isIsolate) {
