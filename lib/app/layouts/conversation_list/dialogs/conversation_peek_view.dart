@@ -115,6 +115,7 @@ class _ConversationPeekViewState extends State<ConversationPeekView>
   }
 
   void popPeekView() {
+    if (!mounted || !(ModalRoute.of(context)?.isActive ?? false)) return;
     bool dialogOpen = Get.isDialogOpen ?? false;
     if (dialogOpen) {
       if (kIsWeb) {
