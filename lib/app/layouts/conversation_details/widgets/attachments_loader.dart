@@ -1,4 +1,5 @@
 import 'package:bluebubbles/database/models.dart';
+import 'package:bluebubbles/utils/logger/logger.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
@@ -6,11 +7,13 @@ import 'package:flutter/material.dart';
 class AttachmentsLoader extends StatefulWidget {
   final Chat chat;
   final Function(List<Attachment>, List<Attachment>, List<Attachment>) onAttachmentsLoaded;
+  final void Function(Object) onAttachmentsLoadFailed;
 
   const AttachmentsLoader({
     super.key,
     required this.chat,
     required this.onAttachmentsLoaded,
+    required this.onAttachmentsLoadFailed,
   });
 
   @override
@@ -65,12 +68,13 @@ class _AttachmentsLoaderState extends State<AttachmentsLoader> {
       });
 
       widget.onAttachmentsLoaded(media, docs, locations);
-    } catch (e) {
-      if (mounted) {
-        setState(() {
-          isLoading = false;
-        });
-      }
+    } catch (e, s) {
+      Logger.error("Failed to load attachments", error: e, trace: s);
+      if (!mounted) return;
+      setState(() {
+        isLoading = false;
+      });
+      widget.onAttachmentsLoadFailed(e);
     }
   }
 
