@@ -240,6 +240,7 @@ class MessagesViewState extends State<MessagesView> with MessagesServiceMixin, T
     _setStateDebouncer?.cancel();
     _eventSubscription?.cancel();
     _listVersion.dispose();
+    smartRepliesManager.dispose();
     super.dispose();
   }
 
