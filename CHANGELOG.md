@@ -1,5 +1,28 @@
 # Changelog
 
+## 2026-10-05 — Overnight run 10-05, scheduling spinner, combined build on the Pixel
+
+Scheduling a message on Android no longer leaves the "Scheduling message..." dialog
+spinning after the server has accepted it. The dialog now closes on every outcome
+(`autonomous/r1005-schedule-spinner`, `c09beb89b`). James confirmed the fix on the Pixel.
+
+An unattended run (`.overnight-2026-10-05/`, disk-only, 42 fires, ended on the weekly cap)
+landed 157 fixes on 156 local `autonomous/r1005-*` branches stacked on
+`autonomous/base-2026-10-05`. That base is the 09-27 run's combined base merged with
+`feat/send-emoji-tapbacks`. The run's report is `.overnight-2026-10-05/REPORT.md`, and the
+merge order is in `MORNING-QUEUE.md`. Nothing was pushed.
+
+All 156 branches were then merged in that order into `autonomous/install-2026-10-05`
+(worktree `../bluebubbles-app-overnight/install-1005`, head `7ce972904`). Seven conflicts were
+resolved by hand, combining both sides: the Escape go-back action (one non-repeating key
+binding, plus a popup dismiss that pops the focused navigator on phones), the details page's
+attachment-failure handler inside the focus wrapper, the Redacted Mode locations card with a
+local-time date, the voice memo stop path (try/catch, missing-file and Linux no-audio
+checks), the Samsung date separator in local time, and the custom sound names using
+`_soundName`. These resolutions were not reviewed. The combined tree analyzes at 68 infos
+with no errors or warnings and builds for Linux debug. A release `--flavor prod` APK of it is
+installed on the Pixel 11 Pro and launches without a crash.
+
 ## 2026-10-02 — Incoming images in Android notifications
 
 A message notification on Android now shows the message's first image, on the phone and,
