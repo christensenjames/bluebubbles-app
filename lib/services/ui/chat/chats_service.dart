@@ -1143,7 +1143,7 @@ class ChatsService {
     final chatGuids = chatStates.keys.toList();
 
     Database.resetMessagingData();
-    await FilesystemSvc.deleteCacheDirectories();
+    await FilesystemSvc.deleteCacheDirectories(keepUserAvatar: true);
 
     for (final guid in chatGuids) {
       maybeFindMessagesSvc(guid)?.close(force: true);

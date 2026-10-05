@@ -221,12 +221,20 @@ class FilesystemService {
   /// Deletes all on-disk cache directories: attachments (originals/thumbnails/live-photo
   /// .mov), per-chat avatars, per-chat custom backgrounds, per-message balloon bundle
   /// directories, cached URL preview images, and cached contact avatars.
-  Future<void> deleteCacheDirectories() async {
+  Future<void> deleteCacheDirectories({bool keepUserAvatar = false}) async {
     if (kIsWeb) return;
     final paths = [attachmentsPath, avatarsPath, customBackgroundsPath, messagesPath, urlPreviewsPath, contactAvatarsPath];
     for (final path in paths) {
       final dir = Directory(path);
-      if (await dir.exists()) await dir.delete(recursive: true);
+      if (!await dir.exists()) continue;
+      if (keepUserAvatar && path == avatarsPath) {
+        final keep = join(avatarsPath, 'you');
+        await for (final entity in dir.list(followLinks: false)) {
+          if (entity.path != keep) await entity.delete(recursive: true);
+        }
+        continue;
+      }
+      await dir.delete(recursive: true);
     }
   }
 
