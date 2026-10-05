@@ -26,6 +26,7 @@ class _MessageRemindersPanelState extends State<MessageRemindersPanel> with Them
 
   void getExistingMessages() async {
     final _pending = await NotificationsSvc.flnp.pendingNotificationRequests();
+    if (!mounted) return;
     setState(() {
       scheduled = _pending;
       fetching = false;
@@ -33,9 +34,11 @@ class _MessageRemindersPanelState extends State<MessageRemindersPanel> with Them
   }
 
   void deleteMessage(PendingNotificationRequest item) async {
-    setState(() {
-      scheduled.removeWhere((element) => element.id == item.id);
-    });
+    if (mounted) {
+      setState(() {
+        scheduled.removeWhere((element) => element.id == item.id);
+      });
+    }
     NotificationsSvc.flnp.cancel(id: item.id);
   }
 
