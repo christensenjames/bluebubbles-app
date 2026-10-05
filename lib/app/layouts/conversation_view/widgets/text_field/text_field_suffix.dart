@@ -279,33 +279,39 @@ class _RecordingButton extends StatelessWidget {
             late final String? path;
             late final PlatformFile file;
 
-            if (isDesktop) {
-              path = await audioRecorder.stop();
-              // Desktop record plugins can return the path after deleting or never writing the file.
-              if (path == null || !await File(path).exists()) {
-                showSnackbar("Error", "Failed to save voice memo. Please try again.", type: SnackbarType.error);
-                return;
+            try {
+              if (isDesktop) {
+                path = await audioRecorder.stop();
+                // Desktop record plugins can return the path after deleting or never writing the file.
+                if (path == null || !await File(path).exists()) {
+                  showSnackbar("Error", "Failed to save voice memo. Please try again.", type: SnackbarType.error);
+                  return;
+                }
+                final _file = File(path);
+                file = PlatformFile(
+                  name: basename(_file.path),
+                  path: _file.path,
+                  bytes: await _file.readAsBytes(),
+                  size: await _file.length(),
+                );
+              } else {
+                path = await recorderController!.stop();
+                if (path == null) {
+                  showSnackbar("Error", "Failed to save voice memo. Please try again.", type: SnackbarType.error);
+                  return;
+                }
+                final _file = File(path);
+                file = PlatformFile(
+                  name: basename(_file.path),
+                  path: _file.path,
+                  bytes: await _file.readAsBytes(),
+                  size: await _file.length(),
+                );
               }
-              final _file = File(path);
-              file = PlatformFile(
-                name: basename(_file.path),
-                path: _file.path,
-                bytes: await _file.readAsBytes(),
-                size: await _file.length(),
-              );
-            } else {
-              path = await recorderController!.stop();
-              if (path == null) {
-                showSnackbar("Error", "Failed to save voice memo. Please try again.", type: SnackbarType.error);
-                return;
-              }
-              final _file = File(path);
-              file = PlatformFile(
-                name: basename(_file.path),
-                path: _file.path,
-                bytes: await _file.readAsBytes(),
-                size: await _file.length(),
-              );
+            } catch (e, stack) {
+              showSnackbar("Error", "Failed to save voice memo. Please try again.", type: SnackbarType.error);
+              Logger.error("Error stopping recording", error: e, trace: stack);
+              return;
             }
 
             if (!context.mounted) return;
