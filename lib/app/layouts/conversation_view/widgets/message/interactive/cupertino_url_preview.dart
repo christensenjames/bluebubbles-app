@@ -433,7 +433,7 @@ class CupertinoUrlPreview extends StatelessWidget {
   Widget _sizeTransition(Widget child) {
     return SizeTransition(
       sizeFactor: CurvedAnimation(parent: controller.imageAnimation, curve: const Cubic(0.23, 1.0, 0.32, 1.0)),
-      axisAlignment: -1.0,
+      alignment: AlignmentDirectional.topStart,
       child: child,
     );
   }

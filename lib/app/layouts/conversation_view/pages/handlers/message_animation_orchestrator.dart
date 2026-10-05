@@ -54,7 +54,7 @@ class MessageAnimationOrchestrator {
             CurveTween(curve: MessageListAnimationConfig.insertionSizeCurve),
           ),
         ),
-        axisAlignment: MessageListAnimationConfig.sizeTransitionAxisAlignment,
+        alignment: const AlignmentDirectional(-1.0, MessageListAnimationConfig.sizeTransitionAxisAlignment),
         child: FadeTransition(
           opacity: animation.drive(
             Tween<double>(begin: 0.0, end: 1.0).chain(
@@ -91,7 +91,7 @@ class MessageAnimationOrchestrator {
             CurveTween(curve: MessageListAnimationConfig.insertionSizeCurve),
           ),
         ),
-        axisAlignment: MessageListAnimationConfig.sizeTransitionAxisAlignment,
+        alignment: const AlignmentDirectional(-1.0, MessageListAnimationConfig.sizeTransitionAxisAlignment),
         child: child,
       ),
     );
