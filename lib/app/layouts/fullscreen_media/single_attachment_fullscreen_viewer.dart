@@ -92,7 +92,7 @@ class _SingleAttachmentFullscreenViewerState extends State<SingleAttachmentFulls
               autofocus: true,
               onKeyEvent: (node, event) {
                 if (event is KeyUpEvent) return KeyEventResult.ignored;
-                if (event.physicalKey.debugName == "Escape") {
+                if (event.logicalKey == LogicalKeyboardKey.escape) {
                   // Swallow repeats too, or they reach the app-wide Escape shortcut and close the chat.
                   if (event is KeyDownEvent && ModalRoute.of(context)?.isCurrent == true) Navigator.of(context).pop();
                   return KeyEventResult.handled;
