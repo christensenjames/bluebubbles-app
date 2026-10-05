@@ -74,7 +74,7 @@ class _NotificationPanelState extends State<NotificationPanel> with SingleTicker
                 SettingsTile(
                   onTap: () async {
                     String res = await uh.Notification.requestPermission();
-                    setState(() {});
+                    if (mounted) setState(() {});
                     showSnackbar("Notice", "Notification permission $res");
                   },
                   title: uh.Notification.permission == "granted"
