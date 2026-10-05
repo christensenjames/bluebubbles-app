@@ -60,9 +60,8 @@ List<InlineSpan> buildMessageSpans(BuildContext context, MessagePart part, Messa
       ));
       textSpans.addAll(MessageHelper.buildEmojiText(
           part.displayText!.substring(range.first, range.last), textStyle.apply(fontWeightDelta: 2),
-          recognizer: TapGestureRecognizer()
+          recognizer: (kIsDesktop || kIsWeb) ? null : (TapGestureRecognizer()
             ..onTap = () async {
-              if (kIsDesktop || kIsWeb) return;
               final handle = ChatsSvc.activeChat!.chat.handles
                   .firstWhereOrNull((e) => e.address == part.mentions[i].mentionedAddress);
               if (handle?.contactsV2.isNotEmpty == true && handle!.contactsV2.first.isNative) {
@@ -79,7 +78,7 @@ List<InlineSpan> buildMessageSpans(BuildContext context, MessagePart part, Messa
                   isEmail: handle.address.isEmail,
                 );
               }
-            }));
+            })));
       if (i == part.mentions.length - 1) {
         textSpans.addAll(MessageHelper.buildEmojiText(
           part.displayText!.substring(range.last),
@@ -204,9 +203,8 @@ Future<List<InlineSpan>> buildEnrichedMessageSpans(BuildContext context, Message
       ));
       if (type == "mention") {
         textSpans.addAll(MessageHelper.buildEmojiText(text, textStyle.apply(fontWeightDelta: 2),
-            recognizer: TapGestureRecognizer()
+            recognizer: (kIsDesktop || kIsWeb) ? null : (TapGestureRecognizer()
               ..onTap = () async {
-                if (kIsDesktop || kIsWeb) return;
                 final handle = ChatsSvc.activeChat!.chat.handles.firstWhereOrNull((e) => e.address == data!.first);
                 if (handle?.contactsV2.isNotEmpty == true && handle!.contactsV2.first.isNative) {
                   try {
@@ -222,7 +220,7 @@ Future<List<InlineSpan>> buildEnrichedMessageSpans(BuildContext context, Message
                     isEmail: handle.address.isEmail,
                   );
                 }
-              }));
+              })));
       } else if (urlRegex.hasMatch(text) ||
           type == "map" ||
           text.isPhoneNumber ||
