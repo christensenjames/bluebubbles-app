@@ -27,13 +27,11 @@ class BackupRestoreActions {
     final themesRes = await HttpSvc.backup.getTheme().catchError((_) {
       return Response(requestOptions: RequestOptions(path: ''));
     });
-    if (themesRes.statusCode != 200 || themesRes.data['data'] == null) {
-      return false;
+    if (themesRes.statusCode == 200 && themesRes.data['data'] != null) {
+      themes
+        ..clear()
+        ..addAll(themesRes.data['data'].cast<Map<String, dynamic>>());
     }
-
-    themes
-      ..clear()
-      ..addAll(themesRes.data['data'].cast<Map<String, dynamic>>());
     return true;
   }
 
