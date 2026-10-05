@@ -14,8 +14,8 @@ class CustomGroupsRestoreResult {
 /// Exports/imports custom groups in a server/device-agnostic way for the
 /// Settings backup/restore feature. Member chats are identified via
 /// [ChatBackupIdentifier] rather than `chat.guid`. Group names are unique
-/// locally, so on restore a name collision is resolved by suffixing
-/// " (1)", " (2)", etc.
+/// locally, so on restore a group whose name already exists has the backup's
+/// members merged into it (union) instead of being duplicated.
 class CustomGroupsBackup {
   static Future<List<Map<String, dynamic>>> exportList() async {
     final groups = await CustomGroupInterface.getAll();
@@ -23,6 +23,7 @@ class CustomGroupsBackup {
       return {
         "name": g.name,
         "chats": g.chats.map(ChatBackupIdentifier.export).toList(),
+        "showUnreadBadge": g.showUnreadBadge,
       };
     }).toList();
   }
@@ -31,7 +32,7 @@ class CustomGroupsBackup {
     final restored = <String>[];
     final skipped = <String>[];
 
-    final existingNames = (await CustomGroupInterface.getAll()).map((g) => g.name).toSet();
+    final existing = {for (final g in await CustomGroupInterface.getAll()) g.name: g};
 
     for (final entry in List<Map<String, dynamic>>.from(entries)) {
       final baseName = entry["name"] as String;
@@ -50,18 +51,23 @@ class CustomGroupsBackup {
         }
       }
 
-      // Collision handling: suffix " (1)", " (2)", ... against both existing
-      // groups and groups already created earlier in this same restore pass.
-      var name = baseName;
-      var suffix = 1;
-      while (existingNames.contains(name)) {
-        name = "$baseName ($suffix)";
-        suffix++;
+      var group = existing[baseName];
+      if (group != null) {
+        final current = group.chats.map((c) => c.guid).toSet();
+        if (!current.containsAll(matchedGuids)) {
+          group = await CustomGroupInterface.updateChats(
+              id: group.id!, chatGuids: {...current, ...matchedGuids}.toList());
+        }
+      } else {
+        group = await CustomGroupInterface.create(name: baseName, chatGuids: matchedGuids);
       }
-      existingNames.add(name);
+      existing[baseName] = group;
 
-      await CustomGroupInterface.create(name: name, chatGuids: matchedGuids);
-      restored.add(name == baseName ? name : "$baseName (renamed to \"$name\")");
+      final showUnreadBadge = entry["showUnreadBadge"] as bool?;
+      if (showUnreadBadge != null && showUnreadBadge != group.showUnreadBadge) {
+        await CustomGroupInterface.setShowUnreadBadge(id: group.id!, value: showUnreadBadge);
+      }
+      restored.add(baseName);
     }
 
     return CustomGroupsRestoreResult(restored: restored, skipped: skipped);
