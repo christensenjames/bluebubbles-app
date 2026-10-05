@@ -288,7 +288,9 @@ class _VideoPlayerState extends State<VideoPlayer> with AutomaticKeepAliveClient
   Future<void> _openFullscreen() async {
     if (attachment.id == null) return;
     // A focused-but-hidden text field would get its focus, and the keyboard, back when the viewer pops.
-    FocusManager.instance.primaryFocus?.unfocus();
+    // Unfocusing a scope would hand focus to the route scope, above the chat's Escape action.
+    final focused = FocusManager.instance.primaryFocus;
+    if (focused is! FocusScopeNode) focused?.unfocus();
     await Navigator.of(Get.context!).push(
       ThemeSwitcher.buildPageRoute(
         builder: (context) => ConversationFullscreenHolder(

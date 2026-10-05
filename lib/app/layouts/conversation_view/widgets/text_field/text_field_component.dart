@@ -497,7 +497,10 @@ class TextFieldComponentState extends State<TextFieldComponent> {
                     ));
                   }
                 } else {
-                  if (!_showAttachmentPickerLocal) FocusScope.of(context).unfocus();
+                  if (!_showAttachmentPickerLocal) {
+                    final focused = FocusManager.instance.primaryFocus;
+                    if (focused is! FocusScopeNode) focused?.unfocus();
+                  }
                   setState(() => _showAttachmentPickerLocal = !_showAttachmentPickerLocal);
                 }
               },

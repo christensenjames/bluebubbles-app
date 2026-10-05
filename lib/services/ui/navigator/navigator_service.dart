@@ -196,6 +196,9 @@ class NavigatorService {
         }
         return true;
       }, id: 1);
+    } else {
+      final navigator = Navigator.of(context);
+      if (navigator.canPop()) navigator.maybePop();
     }
   }
 
