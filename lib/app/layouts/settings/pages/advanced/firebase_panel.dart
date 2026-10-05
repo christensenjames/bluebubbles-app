@@ -156,7 +156,8 @@ class _FirebasePanelState extends State<FirebasePanel> with ThemeHelpers {
                                 error.value = "Firebase not configured on the server!";
                               }
                             } catch (e) {
-                              Logger.error("Error loading Firebase Configurations: ${e.toString()}");
+                              error.value = "Error loading Firebase Configurations: ${e.toString()}";
+                              Logger.error(error.value!);
                             } finally {
                               isLoading.value = false;
                             }
