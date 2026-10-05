@@ -48,6 +48,7 @@ class ConversationTextFieldState extends CustomState<ConversationTextField, void
   final recorderController = kIsWeb ? null : RecorderController();
   final localController = ConversationTextFieldLocalController();
   final _emojiScrollController = ScrollController();
+  bool _sending = false;
 
   Chat get chat => controller.chat;
 
@@ -410,14 +411,21 @@ class ConversationTextFieldState extends CustomState<ConversationTextField, void
             break;
         }
       }
-      await controller.send(SendData(
-        attachments: controller.pickedAttachments,
-        text: text,
-        subject: controller.subjectTextController.text,
-        replyGuid: controller.replyToMessage?.message.threadOriginatorGuid ?? controller.replyToMessage?.message.guid,
-        replyPart: controller.replyToMessage?.partIndex,
-        effectId: effect,
-      ));
+      // The composer is only cleared after send returns, so a second tap meanwhile would send it again.
+      if (_sending) return;
+      _sending = true;
+      try {
+        await controller.send(SendData(
+          attachments: controller.pickedAttachments,
+          text: text,
+          subject: controller.subjectTextController.text,
+          replyGuid: controller.replyToMessage?.message.threadOriginatorGuid ?? controller.replyToMessage?.message.guid,
+          replyPart: controller.replyToMessage?.partIndex,
+          effectId: effect,
+        ));
+      } finally {
+        _sending = false;
+      }
     }
     controller.pickedAttachments.clear();
     controller.textController.clear();
