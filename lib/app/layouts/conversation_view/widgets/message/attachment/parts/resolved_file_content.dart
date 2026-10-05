@@ -137,7 +137,7 @@ class ResolvedFileContent extends StatelessWidget {
         padding: showTail ? tailPadding : EdgeInsets.zero,
         child: UrlPreview(
           data: UrlPreviewData(
-            title: "Location from ${DateFormat.yMd().format(message.dateCreated!)}",
+            title: "Location from ${DateFormat.yMd().format(message.dateCreated!.toLocal())}",
             siteName: "Tap to open",
           ),
           file: file,
