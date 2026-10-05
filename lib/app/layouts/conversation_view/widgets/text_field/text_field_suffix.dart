@@ -89,6 +89,7 @@ class _TextFieldSuffixState extends State<TextFieldSuffix> with ThemeHelpers {
               return Padding(
                 padding: const EdgeInsets.all(3.0),
                 child: SendButton(
+                  key: widget.controller!.sendButtonKey,
                   sendMessage: widget.sendMessage,
                   onLongPress: () {},
                 ),
@@ -130,6 +131,7 @@ class _TextFieldSuffixState extends State<TextFieldSuffix> with ThemeHelpers {
                 onDeleteRecording: deleteAudioRecording,
               ),
               secondChild: SendButton(
+                key: widget.controller!.sendButtonKey,
                 sendMessage: widget.sendMessage,
                 onLongPress: () {
                   if (widget.controller!.scheduledDate.value != null) return;

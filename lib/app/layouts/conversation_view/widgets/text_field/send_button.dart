@@ -78,6 +78,7 @@ class SendButtonState extends State<SendButton> with SingleTickerProviderStateMi
           minimumSize: const Size(32, 32),
           tapTargetSize: MaterialTapTargetSize.shrinkWrap,
         ),
+        onPressed: onSendPressed,
         child: AnimatedBuilder(
           animation: controller,
           builder: (context, widget) {
@@ -91,16 +92,6 @@ class SendButtonState extends State<SendButton> with SingleTickerProviderStateMi
             );
           },
         ),
-        onPressed: () {
-          if (controller.isAnimating) {
-            controller.reset();
-          } else if (SettingsSvc.settings.sendDelay.value != 0) {
-            controller.forward();
-          } else {
-            HapticFeedback.lightImpact();
-            widget.sendMessage.call();
-          }
-        },
         onLongPress: () {
           if (controller.isAnimating) {
             controller.reset();
@@ -110,6 +101,17 @@ class SendButtonState extends State<SendButton> with SingleTickerProviderStateMi
         },
       ),
     );
+  }
+
+  void onSendPressed() {
+    if (controller.isAnimating) {
+      controller.reset();
+    } else if (SettingsSvc.settings.sendDelay.value != 0) {
+      controller.forward();
+    } else {
+      HapticFeedback.lightImpact();
+      widget.sendMessage.call();
+    }
   }
 }
 

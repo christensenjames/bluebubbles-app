@@ -26,6 +26,19 @@ class KeyboardShortcutHandler {
     required this.isChatCreator,
   });
 
+  // The send button stays mounted while hidden (empty composer or recording), and its delay cannot run there.
+  void _send() {
+    final sendButton = controller.sendButtonKey.currentState;
+    final hasContent = messageTextController.text.isNotEmpty ||
+        controller.subjectTextController.text.isNotEmpty ||
+        controller.pickedAttachments.isNotEmpty;
+    if (sendButton != null && hasContent && !controller.showRecording.value) {
+      sendButton.onSendPressed();
+    } else {
+      sendMessage();
+    }
+  }
+
   /// Handle general keyboard shortcuts (non-autocomplete).
   /// Returns a [KeyEventResult] indicating whether the event was handled.
   KeyEventResult handleKeyEvent(KeyEvent ev) {
@@ -36,7 +49,7 @@ class KeyboardShortcutHandler {
       if ((kIsDesktop || kIsWeb) &&
           ev.logicalKey.isEnter &&
           !HardwareKeyboard.instance.isShiftPressed) {
-        sendMessage();
+        _send();
         return KeyEventResult.handled;
       }
       return KeyEventResult.ignored;
@@ -88,7 +101,7 @@ class KeyboardShortcutHandler {
     if ((kIsDesktop || kIsWeb) &&
         ev.logicalKey.isEnter &&
         !HardwareKeyboard.instance.isShiftPressed) {
-      sendMessage();
+      _send();
       controller.focusNode.requestFocus();
       return KeyEventResult.handled;
     }
@@ -97,7 +110,7 @@ class KeyboardShortcutHandler {
     if (kIsDesktop || kIsWeb) return KeyEventResult.ignored;
     if (ev.physicalKey == PhysicalKeyboardKey.enter && SettingsSvc.settings.sendWithReturn.value) {
       if (!isNullOrEmpty(messageTextController.text) || !isNullOrEmpty(controller.subjectTextController.text)) {
-        sendMessage();
+        _send();
         controller.focusNode.previousFocus();
         return KeyEventResult.handled;
       } else {
