@@ -3,6 +3,7 @@ import 'package:bluebubbles/app/layouts/chat_creator/chat_creator_controller.dar
 import 'package:bluebubbles/app/layouts/chat_creator/widgets/chat_creator_tile.dart';
 import 'package:bluebubbles/app/layouts/chat_creator/widgets/search_contact_tile.dart';
 import 'package:bluebubbles/app/wrappers/theme_switcher.dart';
+import 'package:bluebubbles/database/models.dart';
 import 'package:bluebubbles/helpers/helpers.dart';
 import 'package:bluebubbles/services/services.dart';
 import 'package:flutter/material.dart';
@@ -11,8 +12,8 @@ import 'package:get/get.dart';
 /// The scrollable list of search results shown when no chat is resolved.
 ///
 /// Section 0 — "Send to [address]": shown when the typed query is a valid
-/// phone number or email that does not match any known contact. Lets the user
-/// send to arbitrary addresses.
+/// phone number or email that no visible contact row already offers. Lets the
+/// user send to arbitrary addresses.
 ///
 /// Section 1 — "Conversations": existing chats matching the current search/
 /// service filter. Tapping a row selects all its participants.
@@ -30,11 +31,12 @@ class SearchResultsList extends StatelessWidget {
 
   final ChatCreatorController controller;
 
-  /// True when [query] is a standalone valid address not covered by any
-  /// existing contact result or already-selected chip.
+  /// True when [query] is a standalone valid address not offered by a visible
+  /// contact row (rows hide addresses when contact info is hidden) or an
+  /// already-selected chip.
   bool _shouldShowFallback(
     String query,
-    List contacts,
+    List<ContactV2> contacts,
     List selected,
   ) {
     if (query.isEmpty) return false;
@@ -43,7 +45,14 @@ class SearchResultsList extends StatelessWidget {
     if (selected.any((c) => (c as SelectedContact).address == query)) {
       return false;
     }
-    // Already surfaced in a contact row — don't duplicate
+    // Contact rows show emails only for iMessage and blank addresses when info is hidden; then keep the fallback
+    final hideInfo = SettingsSvc.settings.redactedMode.value && SettingsSvc.settings.hideContactInfo.value;
+    if (query.isEmail && controller.selectedService.value.isIMessageService && !hideInfo) {
+      final q = query.toLowerCase();
+      if (contacts.any((contact) => contact.emailAddresses.any((email) => email.address.trim().toLowerCase() == q))) {
+        return false;
+      }
+    }
     return true;
   }
 
