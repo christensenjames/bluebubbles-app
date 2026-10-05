@@ -375,6 +375,14 @@ class ChatList extends StatefulWidget {
 
 class ChatListState extends State<ChatList> with ThemeHelpers {
   final ScrollController controller = ScrollController();
+  final ScrollController innerController = ScrollController();
+
+  @override
+  void dispose() {
+    controller.dispose();
+    innerController.dispose();
+    super.dispose();
+  }
 
   String getSubtitle(Chat chat) {
     if (chat.muteType == null) {
@@ -438,8 +446,6 @@ class ChatListState extends State<ChatList> with ThemeHelpers {
             );
           }
 
-          final _controller = ScrollController();
-
           return SliverToBoxAdapter(
             child: SingleChildScrollView(
               physics: const NeverScrollableScrollPhysics(),
@@ -449,11 +455,11 @@ class ChatListState extends State<ChatList> with ThemeHelpers {
                   height: context.height - 175,
                   color: tileColor,
                   child: ScrollbarWrapper(
-                    controller: _controller,
+                    controller: innerController,
                     child: ListView.builder(
                       physics: ThemeSwitcher.getScrollPhysics(),
                       shrinkWrap: true,
-                      controller: _controller,
+                      controller: innerController,
                       findChildIndexCallback: (key) => findChildIndexByKey(ChatsSvc.allChats, key, (item) => item.guid),
                       itemBuilder: (context, index) {
                         final chat = ChatsSvc.allChats[index];
