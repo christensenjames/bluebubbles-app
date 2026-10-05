@@ -863,6 +863,14 @@ class Message {
       existing.dateDeleted = newMessage.dateDeleted;
     }
 
+    // Update date edited
+    if ((existing.dateEdited == null && newMessage.dateEdited != null) ||
+        (existing.dateEdited != null &&
+            newMessage.dateEdited != null &&
+            existing.dateEdited!.millisecondsSinceEpoch < newMessage.dateEdited!.millisecondsSinceEpoch)) {
+      existing.dateEdited = newMessage.dateEdited;
+    }
+
     // Also update attributedBody / messageSummaryInfo when the existing record
     // has no data but the incoming message does (independent of edit date).
     if (!isNullOrEmpty(newMessage.attributedBody)) {

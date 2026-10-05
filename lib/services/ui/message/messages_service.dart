@@ -859,12 +859,14 @@ class MessagesService extends GetxController {
     final incomingAttributedBody = updated.attributedBody;
     final incomingSummaryInfo = updated.messageSummaryInfo;
     final incomingPayloadData = updated.payloadData;
+    final incomingDateEdited = updated.dateEdited;
     updated = updated.mergeWith(toUpdate);
     updated.error = incomingError;
     updated.errorMessage = incomingErrorMessage;
     if (incomingAttributedBody.isNotEmpty) updated.attributedBody = incomingAttributedBody;
     if (incomingSummaryInfo.isNotEmpty) updated.messageSummaryInfo = incomingSummaryInfo;
     if (incomingPayloadData != null) updated.payloadData = incomingPayloadData;
+    if (incomingDateEdited != null) updated.dateEdited = incomingDateEdited;
     struct.removeMessage(oldGuid ?? updated.guid!);
     struct.removeAttachments(toUpdate.dbAttachments.map((e) => e.guid!));
     struct.addMessages([updated]);
