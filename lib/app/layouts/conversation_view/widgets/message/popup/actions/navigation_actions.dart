@@ -10,6 +10,7 @@ import 'package:bluebubbles/database/models.dart';
 import 'package:bluebubbles/helpers/helpers.dart';
 import 'package:bluebubbles/services/services.dart';
 import 'package:bluebubbles/models/models.dart' show MessageReplyContext;
+import 'package:collection/collection.dart';
 import 'package:flutter/cupertino.dart' as cupertino;
 import 'package:flutter/widgets.dart';
 
@@ -36,8 +37,9 @@ void showThread(MessagePopupActionContext ctx) {
   if (ctx.message.threadOriginatorGuid != null) {
     final mwc = ctx.service.getMessageStateIfExists(ctx.message.threadOriginatorGuid!);
     if (mwc == null) return ctx.showSnack("Error", "Failed to find thread!");
-    showReplyThread(
-        ctx.context, mwc.message, mwc.parts[ctx.message.normalizedThreadPart], ctx.service, ctx.cvController);
+    final part = mwc.parts.firstWhereOrNull((p) => p.part == ctx.message.normalizedThreadPart);
+    if (part == null) return ctx.showSnack("Error", "Failed to find thread!");
+    showReplyThread(ctx.context, mwc.message, part, ctx.service, ctx.cvController);
   } else {
     showReplyThread(ctx.context, ctx.message, ctx.part, ctx.service, ctx.cvController);
   }
