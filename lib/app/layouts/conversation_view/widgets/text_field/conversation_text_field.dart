@@ -319,6 +319,7 @@ class ConversationTextFieldState extends CustomState<ConversationTextField, void
     unawaited(ChatsSvc.setChatTextFieldText(chat, draftText));
     unawaited(ChatsSvc.setChatTextFieldAttachments(chat, draftAttachments));
 
+    proxyController.dispose();
     controller.focusNode.dispose();
     controller.subjectFocusNode.dispose();
     controller.textController.dispose();
