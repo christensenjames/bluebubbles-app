@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:bluebubbles/app/components/custom_text_editing_controllers.dart';
 import 'package:bluebubbles/app/layouts/chat_creator/chat_creator.dart' show SelectedContact;
+import 'package:bluebubbles/app/layouts/chat_creator/chat_creator_utils.dart';
 import 'package:bluebubbles/app/layouts/conversation_view/pages/conversation_view.dart';
 import 'package:bluebubbles/app/wrappers/stateful_boilerplate.dart';
 import 'package:bluebubbles/app/wrappers/titlebar_wrapper.dart';
@@ -344,25 +345,9 @@ class ChatCreatorController extends StatefulController {
     // narrowed by the current search query and would miss valid chats.
     if (existingChat == null) {
       final searchList = checkDeleted ? ChatsSvc.allChats : _allChats.where(_chatMatchesService).toList();
+      final selectedAddresses = selectedContacts.map((contact) => contact.address).toList(growable: false);
       for (final c in searchList) {
-        if (c.handles.length != selectedContacts.length) continue;
-        int matches = 0;
-        for (final contact in selectedContacts) {
-          for (final participant in c.handles) {
-            if (contact.address.isEmail && !participant.address.isEmail) continue;
-            if (contact.address == participant.address) {
-              matches++;
-              break;
-            }
-            final matchLengths = [15, 14, 13, 12, 11, 10, 9, 8, 7];
-            final numeric = contact.address.numericOnly();
-            if (matchLengths.contains(numeric.length) && cleansePhoneNumber(participant.address).endsWith(numeric)) {
-              matches++;
-              break;
-            }
-          }
-        }
-        if (matches == selectedContacts.length) {
+        if (ChatCreatorUtils.chatMatchesSelectedContacts(c, selectedAddresses)) {
           existingChat = c;
           break;
         }
