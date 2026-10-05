@@ -158,12 +158,16 @@ class MaterialHeader extends StatelessWidget implements PreferredSizeWidget {
                             text: "Yes",
                             isDestructive: true,
                             onPressed: () async {
-                              ChatsSvc.removeChat(controller.chat);
-                              ChatsSvc.softDeleteChat(controller.chat);
+                              final chat = controller.chat;
                               if (Get.isSnackbarOpen) {
                                 Get.closeAllSnackbars();
                               }
                               Navigator.of(context, rootNavigator: true).pop();
+                              // Closing first clears the active chat, so softDeleteChat has no open view to tear down.
+                              controller.close();
+                              Navigator.of(context).pop();
+                              ChatsSvc.removeChat(chat);
+                              ChatsSvc.softDeleteChat(chat);
                             },
                           ),
                         ],
