@@ -164,11 +164,17 @@ class FindMyController extends GetxController {
       }
 
       if (granted == LocationPermission.whileInUse || granted == LocationPermission.always) {
-        Geolocator.getCurrentPosition().then((loc) {
+        Geolocator.getCurrentPosition().then((loc) async {
           if (!_isAlive) return;
           location.value = loc;
           buildLocationMarker(location.value!);
-          if (!kIsDesktop) {
+          if (kIsDesktop) {
+            // Desktop gets no position stream, so this is the only chance to center; wait for the map to exist.
+            await completer.future;
+            if (!_isAlive || hasMovedToCurrentLocation.value) return;
+            mapController.move(LatLng(loc.latitude, loc.longitude), 10);
+            hasMovedToCurrentLocation.value = true;
+          } else {
             locationSub = Geolocator.getPositionStream().listen((event) {
               if (!_isAlive) return;
               buildLocationMarker(event);
