@@ -26,7 +26,7 @@ class ExpressiveChatHeader extends StatelessWidget {
   bool get _canCall =>
       !kIsWeb &&
       !kIsDesktop &&
-      !chat.chatIdentifier!.startsWith("urn:biz") &&
+      chat.chatIdentifier?.startsWith("urn:biz") != true &&
       (chat.handles.isNotEmpty &&
           ((chat.handles.first.contactsV2.firstOrNull?.phoneNumbers.isNotEmpty ?? false) ||
               !chat.handles.first.address.contains("@")));
