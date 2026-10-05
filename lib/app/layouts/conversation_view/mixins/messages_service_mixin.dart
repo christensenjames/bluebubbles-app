@@ -16,6 +16,8 @@ import 'package:flutter/material.dart';
 /// 5. Access via the messageService getter
 mixin MessagesServiceMixin<T extends StatefulWidget> on State<T> {
   MessagesService? _messageService;
+  // A borrower never closes the service: it may be mid-handoff, and an orphan is reclaimed by its next owner.
+  bool _borrowedService = false;
 
   /// Get the messages service instance
   MessagesService get messageService {
@@ -55,6 +57,7 @@ mixin MessagesServiceMixin<T extends StatefulWidget> on State<T> {
     // Take ownership: if another view for this chat is still mounted (duplicate
     // ConversationView), its dispose must leave the service alone from now on.
     _messageService!.owner = this;
+    _borrowedService = false;
 
     // Only initialize handlers if this is NOT a customService
     // CustomService is already initialized by the caller, don't reinitialize
@@ -85,6 +88,7 @@ mixin MessagesServiceMixin<T extends StatefulWidget> on State<T> {
   /// Use when borrowing a service owned by another mounted view.
   void attachMessagesService(Chat chat, List<Message> messages, ConversationViewController cvController) {
     _messageService = ensureMessagesSvc(chat.guid);
+    _borrowedService = true;
     _seedMessages(messages, cvController);
   }
 
@@ -190,7 +194,7 @@ mixin MessagesServiceMixin<T extends StatefulWidget> on State<T> {
   /// ChatCreator to ConversationView) so the service stays alive in GetX's
   /// registry and [prepMessage] can still reach it via [addNewMessage].
   void disposeMessagesService({bool force = false, bool onlyDetach = false}) {
-    if (!onlyDetach) {
+    if (!onlyDetach && !_borrowedService) {
       if (_messageService != null && _messageService!.owner != null && _messageService!.owner != this) {
         // A newer view for the same chat took ownership (duplicate ConversationView,
         // e.g. via notification tap) — deleting the shared tagged service here would
@@ -199,10 +203,11 @@ mixin MessagesServiceMixin<T extends StatefulWidget> on State<T> {
             tag: 'MessagesServiceMixin');
       } else {
         _messageService?.close(force: force);
-        if (_messageService?.owner == this) _messageService?.owner = null;
       }
     }
 
+    // A detached service stays registered; an owner left pointing here would hand a later peek this dead view's handlers.
+    if (_messageService?.owner == this) _messageService?.owner = null;
     _messageService = null;
   }
 }

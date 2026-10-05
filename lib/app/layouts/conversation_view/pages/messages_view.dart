@@ -236,7 +236,7 @@ class MessagesViewState extends State<MessagesView> with MessagesServiceMixin, T
     controller.resetMessagesViewReady();
 
     // Disposed mid-load: drop the claim now so a peek opened before the load ends owns the service, not a dead view.
-    if (!_handsOffService && _loadingService?.owner == this) _loadingService!.owner = null;
+    if (_loadingService?.owner == this) _loadingService!.owner = null;
 
     // When a customService is provided it is shared with (or transferred to) the
     // ConversationView we are navigating to.  Calling close() on it can delete
