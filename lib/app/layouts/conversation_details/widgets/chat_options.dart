@@ -13,6 +13,7 @@ import 'package:bluebubbles/app/layouts/conversation_details/pages/wallpaper_pic
 import 'package:bluebubbles/app/wrappers/theme_switcher.dart';
 import 'package:bluebubbles/database/models.dart';
 import 'package:bluebubbles/services/services.dart';
+import 'package:bluebubbles/utils/logger/logger.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -523,11 +524,14 @@ class _ChatOptionsState extends State<ChatOptions> with ThemeHelpers {
             final nav = Navigator.of(context, rootNavigator: true);
             final date = await showTimeframePicker("Select Timeframe", context, additionalTimeframes: {"6 Hours": 6});
             if (date == null) return;
-            bool dialogShown = false;
+            DialogRoute<void>? progressRoute;
             if (context.mounted) {
-              dialogShown = true;
-              showDialog(
+              progressRoute = DialogRoute<void>(
                 context: context,
+                themes: InheritedTheme.capture(from: context, to: nav.context),
+                barrierColor: Theme.of(context).dialogTheme.barrierColor ?? Colors.black54,
+                traversalEdgeBehavior: TraversalEdgeBehavior.closedLoop,
+                barrierDismissible: false,
                 builder: (context) => AlertDialog(
                   title: Text("Generating document...", style: context.theme.textTheme.titleLarge),
                   content: Column(
@@ -537,48 +541,58 @@ class _ChatOptionsState extends State<ChatOptions> with ThemeHelpers {
                   ),
                   backgroundColor: context.theme.colorScheme.surfaceContainerHighest,
                 ),
-                barrierDismissible: false,
               );
+              nav.push(progressRoute);
             }
-            final messages = (await Chat.getMessagesAsync(
-              chat,
-              limit: 0,
-              includeDeleted: true,
-            )).reversed.where((e) => e.dateCreated!.isAfter(date));
-            if (messages.isEmpty) {
-              if (dialogShown) nav.pop();
-              showSnackbar("Error", "No messages found!");
-              return;
+            try {
+              final messages = (await Chat.getMessagesAsync(
+                chat,
+                limit: 0,
+                includeDeleted: true,
+              )).reversed.where((e) => e.dateCreated!.isAfter(date));
+              if (messages.isEmpty) {
+                if (progressRoute != null) NavigationSvc.closeRoute(progressRoute);
+                showSnackbar("Error", "No messages found!");
+                return;
+              }
+              final List<String> lines = [];
+              for (Message m in messages) {
+                final readStr = m.dateRead != null ? "Read: ${buildFullDate(m.dateRead!)}, " : "";
+                final deliveredStr = m.dateDelivered != null ? "Delivered: ${buildFullDate(m.dateDelivered!)}, " : "";
+                final sentStr = "Sent: ${buildFullDate(m.dateCreated!)}";
+                final text = m.getNotificationText(withSender: true);
+                final line = "($readStr$deliveredStr$sentStr) $text";
+                lines.add(line);
+              }
+              final now = DateTime.now().toLocal();
+              final filePath = p.join(
+                await FilesystemSvc.downloadsDirectory,
+                "${chat.getTitle().replaceAll(RegExp(r'[<>:"/\\|?*]'), "")}-transcript-${now.year}${now.month}${now.day}_${now.hour}${now.minute}${now.second}.txt",
+              );
+              File file = File(filePath);
+              await file.create(recursive: true);
+              await file.writeAsString(lines.join('\n'));
+              if (progressRoute != null) NavigationSvc.closeRoute(progressRoute);
+              showSnackbar("Success", "Saved transcript to the downloads folder");
+            } catch (e, s) {
+              Logger.error("Failed to export transcript for ${chat.guid}", error: e, trace: s);
+              showSnackbar("Error", "Failed to save transcript!");
+            } finally {
+              if (progressRoute != null) NavigationSvc.closeRoute(progressRoute);
             }
-            final List<String> lines = [];
-            for (Message m in messages) {
-              final readStr = m.dateRead != null ? "Read: ${buildFullDate(m.dateRead!)}, " : "";
-              final deliveredStr = m.dateDelivered != null ? "Delivered: ${buildFullDate(m.dateDelivered!)}, " : "";
-              final sentStr = "Sent: ${buildFullDate(m.dateCreated!)}";
-              final text = m.getNotificationText(withSender: true);
-              final line = "($readStr$deliveredStr$sentStr) $text";
-              lines.add(line);
-            }
-            final now = DateTime.now().toLocal();
-            final filePath = p.join(
-              await FilesystemSvc.downloadsDirectory,
-              "${chat.getTitle().replaceAll(RegExp(r'[<>:"/\\|?*]'), "")}-transcript-${now.year}${now.month}${now.day}_${now.hour}${now.minute}${now.second}.txt",
-            );
-            File file = File(filePath);
-            await file.create(recursive: true);
-            await file.writeAsString(lines.join('\n'));
-            if (dialogShown) nav.pop();
-            showSnackbar("Success", "Saved transcript to the downloads folder");
           },
           onLongPress: () async {
             final nav = Navigator.of(context, rootNavigator: true);
             final date = await showTimeframePicker("Select Timeframe", context, additionalTimeframes: {"6 Hours": 6});
             if (date == null) return;
-            bool dialogShown = false;
+            DialogRoute<void>? progressRoute;
             if (context.mounted) {
-              dialogShown = true;
-              showDialog(
+              progressRoute = DialogRoute<void>(
                 context: context,
+                themes: InheritedTheme.capture(from: context, to: nav.context),
+                barrierColor: Theme.of(context).dialogTheme.barrierColor ?? Colors.black54,
+                traversalEdgeBehavior: TraversalEdgeBehavior.closedLoop,
+                barrierDismissible: false,
                 builder: (context) => AlertDialog(
                   title: Text("Generating PDF...", style: context.theme.textTheme.titleLarge),
                   content: Column(
@@ -588,112 +602,119 @@ class _ChatOptionsState extends State<ChatOptions> with ThemeHelpers {
                   ),
                   backgroundColor: context.theme.colorScheme.surfaceContainerHighest,
                 ),
-                barrierDismissible: false,
               );
+              nav.push(progressRoute);
             }
-            final messages = (await Chat.getMessagesAsync(
-              chat,
-              limit: 0,
-              includeDeleted: true,
-            )).reversed.where((e) => e.dateCreated!.isAfter(date));
-            if (messages.isEmpty) {
-              if (dialogShown) nav.pop();
-              showSnackbar("Error", "No messages found!");
-              return;
-            }
-            final doc = pw.Document();
-            final List<String> timestamps = [];
-            final List<dynamic> content = [];
-            final List<Size?> dimensions = [];
-            for (Message m in messages) {
-              final readStr = m.dateRead != null ? "Read: ${buildFullDate(m.dateRead!)}, " : "";
-              final deliveredStr = m.dateDelivered != null ? "Delivered: ${buildFullDate(m.dateDelivered!)}, " : "";
-              final sentStr = "Sent: ${buildFullDate(m.dateCreated!)}";
-              if (m.hasAttachments) {
-                final attachments = m.dbAttachments.where(
-                  (e) => e.guid != null && ["image/png", "image/jpg", "image/jpeg"].contains(e.mimeType),
-                );
-                final files = attachments
-                    .map((e) => AttachmentsSvc.getContent(e, autoDownload: false))
-                    .whereType<PlatformFile>();
-                if (files.isNotEmpty) {
-                  for (PlatformFile f in files) {
-                    final a = attachments.firstWhere((e) => e.transferName == f.name);
-                    timestamps.add(readStr + deliveredStr + sentStr);
-                    content.add(pw.MemoryImage(await File(f.path!).readAsBytes()));
-                    final aspectRatio = (a.width ?? 150.0) / (a.height ?? 150.0);
-                    dimensions.add(Size(400, aspectRatio * 400));
-                  }
-                }
-                timestamps.add(readStr + deliveredStr + sentStr);
-                content.add(m.getNotificationText(withSender: true));
-                dimensions.add(null);
-              } else {
-                timestamps.add(readStr + deliveredStr + sentStr);
-                content.add(m.getNotificationText(withSender: true));
-                dimensions.add(null);
+            try {
+              final messages = (await Chat.getMessagesAsync(
+                chat,
+                limit: 0,
+                includeDeleted: true,
+              )).reversed.where((e) => e.dateCreated!.isAfter(date));
+              if (messages.isEmpty) {
+                if (progressRoute != null) NavigationSvc.closeRoute(progressRoute);
+                showSnackbar("Error", "No messages found!");
+                return;
               }
-            }
-            final font = await PdfGoogleFonts.openSansRegular();
-            doc.addPage(
-              pw.MultiPage(
-                maxPages: 1000,
-                header: (pw.Context context) => pw.Padding(
-                  padding: const pw.EdgeInsets.only(bottom: 10),
-                  child: pw.Text(
-                    chat.getTitle(),
-                    textScaleFactor: 2,
-                    style: pw.Theme.of(context).defaultTextStyle.copyWith(fontWeight: pw.FontWeight.bold, font: font),
+              final doc = pw.Document();
+              final List<String> timestamps = [];
+              final List<dynamic> content = [];
+              final List<Size?> dimensions = [];
+              for (Message m in messages) {
+                final readStr = m.dateRead != null ? "Read: ${buildFullDate(m.dateRead!)}, " : "";
+                final deliveredStr = m.dateDelivered != null ? "Delivered: ${buildFullDate(m.dateDelivered!)}, " : "";
+                final sentStr = "Sent: ${buildFullDate(m.dateCreated!)}";
+                if (m.hasAttachments) {
+                  final attachments = m.dbAttachments.where(
+                    (e) => e.guid != null && ["image/png", "image/jpg", "image/jpeg"].contains(e.mimeType),
+                  );
+                  final files = attachments
+                      .map((e) => AttachmentsSvc.getContent(e, autoDownload: false))
+                      .whereType<PlatformFile>();
+                  if (files.isNotEmpty) {
+                    for (PlatformFile f in files) {
+                      final a = attachments.firstWhere((e) => e.transferName == f.name);
+                      timestamps.add(readStr + deliveredStr + sentStr);
+                      content.add(pw.MemoryImage(await File(f.path!).readAsBytes()));
+                      final aspectRatio = (a.width ?? 150.0) / (a.height ?? 150.0);
+                      dimensions.add(Size(400, aspectRatio * 400));
+                    }
+                  }
+                  timestamps.add(readStr + deliveredStr + sentStr);
+                  content.add(m.getNotificationText(withSender: true));
+                  dimensions.add(null);
+                } else {
+                  timestamps.add(readStr + deliveredStr + sentStr);
+                  content.add(m.getNotificationText(withSender: true));
+                  dimensions.add(null);
+                }
+              }
+              final font = await PdfGoogleFonts.openSansRegular();
+              doc.addPage(
+                pw.MultiPage(
+                  maxPages: 1000,
+                  header: (pw.Context context) => pw.Padding(
+                    padding: const pw.EdgeInsets.only(bottom: 10),
+                    child: pw.Text(
+                      chat.getTitle(),
+                      textScaleFactor: 2,
+                      style: pw.Theme.of(context).defaultTextStyle.copyWith(fontWeight: pw.FontWeight.bold, font: font),
+                    ),
                   ),
-                ),
-                build: (pw.Context context) => [
-                  pw.Partitions(
-                    children: [
-                      pw.Partition(
-                        child: pw.Table(
-                          children: List.generate(
-                            timestamps.length,
-                            (index) => pw.TableRow(
-                              children: [
-                                pw.Padding(
-                                  padding: const pw.EdgeInsets.symmetric(horizontal: 3, vertical: 10),
-                                  child: pw.Text(
-                                    timestamps[index],
-                                    style: pw.Theme.of(context).defaultTextStyle.copyWith(font: font),
-                                  ),
-                                ),
-                                pw.Container(
-                                  child: pw.Padding(
+                  build: (pw.Context context) => [
+                    pw.Partitions(
+                      children: [
+                        pw.Partition(
+                          child: pw.Table(
+                            children: List.generate(
+                              timestamps.length,
+                              (index) => pw.TableRow(
+                                children: [
+                                  pw.Padding(
                                     padding: const pw.EdgeInsets.symmetric(horizontal: 3, vertical: 10),
-                                    child: content[index] is pw.MemoryImage
-                                        ? pw.Image(
-                                            content[index],
-                                            width: dimensions[index]!.width,
-                                            height: dimensions[index]!.height,
-                                          )
-                                        : pw.Text(content[index].toString(), style: pw.TextStyle(font: font)),
+                                    child: pw.Text(
+                                      timestamps[index],
+                                      style: pw.Theme.of(context).defaultTextStyle.copyWith(font: font),
+                                    ),
                                   ),
-                                ),
-                              ],
+                                  pw.Container(
+                                    child: pw.Padding(
+                                      padding: const pw.EdgeInsets.symmetric(horizontal: 3, vertical: 10),
+                                      child: content[index] is pw.MemoryImage
+                                          ? pw.Image(
+                                              content[index],
+                                              width: dimensions[index]!.width,
+                                              height: dimensions[index]!.height,
+                                            )
+                                          : pw.Text(content[index].toString(), style: pw.TextStyle(font: font)),
+                                    ),
+                                  ),
+                                ],
+                              ),
                             ),
                           ),
                         ),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-            );
-            final now = DateTime.now().toLocal();
-            final filePath = p.join(
-              await FilesystemSvc.downloadsDirectory,
-              "${chat.getTitle().replaceAll(RegExp(r'[<>:"/\\|?*]'), "")}-transcript-${now.year}${now.month}${now.day}_${now.hour}${now.minute}${now.second}.pdf",
-            );
-            File file = File(filePath);
-            await file.create(recursive: true);
-            await file.writeAsBytes(await doc.save());
-            if (dialogShown) nav.pop();
-            showSnackbar("Success", "Saved transcript to the downloads folder");
+                      ],
+                    ),
+                  ],
+                ),
+              );
+              final now = DateTime.now().toLocal();
+              final filePath = p.join(
+                await FilesystemSvc.downloadsDirectory,
+                "${chat.getTitle().replaceAll(RegExp(r'[<>:"/\\|?*]'), "")}-transcript-${now.year}${now.month}${now.day}_${now.hour}${now.minute}${now.second}.pdf",
+              );
+              File file = File(filePath);
+              await file.create(recursive: true);
+              await file.writeAsBytes(await doc.save());
+              if (progressRoute != null) NavigationSvc.closeRoute(progressRoute);
+              showSnackbar("Success", "Saved transcript to the downloads folder");
+            } catch (e, s) {
+              Logger.error("Failed to export transcript for ${chat.guid}", error: e, trace: s);
+              showSnackbar("Error", "Failed to save transcript!");
+            } finally {
+              if (progressRoute != null) NavigationSvc.closeRoute(progressRoute);
+            }
           },
         ),
       ),
@@ -782,19 +803,26 @@ class _ChatOptionsState extends State<ChatOptions> with ThemeHelpers {
       onNo: () => Navigator.of(context, rootNavigator: true).pop(),
       onYes: () async {
         Navigator.of(context, rootNavigator: true).pop();
-        showDialog(
+        final nav = Navigator.of(context, rootNavigator: true);
+        final progressRoute = DialogRoute<void>(
           context: context,
+          themes: InheritedTheme.capture(from: context, to: nav.context),
+          barrierColor: Theme.of(context).dialogTheme.barrierColor ?? Colors.black54,
+          traversalEdgeBehavior: TraversalEdgeBehavior.closedLoop,
           barrierDismissible: false,
           builder: (context) => const BBProgressDialog(title: "Leaving chat..."),
         );
-        final response = await HttpSvc.chat.leave(chat.guid);
-        if (!context.mounted) return;
-        Navigator.of(context, rootNavigator: true).pop();
-        if (response.statusCode == 200) {
-          showSnackbar("Notice", "Left chat successfully!");
-        } else {
+        nav.push(progressRoute);
+        try {
+          await HttpSvc.chat.leave(chat.guid);
+        } catch (e, s) {
+          Logger.error("Failed to leave chat ${chat.guid}", error: e, trace: s);
+          NavigationSvc.closeRoute(progressRoute);
           showSnackbar("Error", "Failed to leave chat!");
+          return;
         }
+        NavigationSvc.closeRoute(progressRoute);
+        showSnackbar("Notice", "Left chat successfully!");
       },
     );
   }
