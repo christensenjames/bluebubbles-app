@@ -385,7 +385,12 @@ class BaseLogger {
 
       for (final file in logDir.listSync()) {
         if (file is File) {
-          file.deleteSync();
+          // Open outputs still hold the latest file; deleting it would leave them writing to an unlinked file.
+          if (basename(file.path) == latestLogName) {
+            file.writeAsBytesSync(const []);
+          } else {
+            file.deleteSync();
+          }
         }
       }
     } catch (e, stackTrace) {

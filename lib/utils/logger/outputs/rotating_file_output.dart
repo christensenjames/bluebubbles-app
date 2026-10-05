@@ -11,10 +11,12 @@ import 'package:path/path.dart';
 /// Android DartWorker — builds its own instance against the same file, so this
 /// has to tolerate concurrent writers in one process:
 ///
-///  * An event is written with a single [RandomAccessFile.writeFromSync]. The
-///    handle is opened append-mode (O_APPEND), which makes one write atomic
-///    against the other isolates; writing line by line let another isolate's
-///    line land inside a multi-line event (stack traces, breadcrumb dumps).
+///  * An event is written with a single [RandomAccessFile.writeFromSync], so
+///    another isolate's line cannot land inside a multi-line event (stack
+///    traces, breadcrumb dumps). Dart's append mode only seeks to the end when
+///    the file is opened (it is not O_APPEND), so each write first seeks to the
+///    current end; otherwise the handle keeps writing at its own offset over
+///    other isolates' lines, and after any truncate it pads the gap with NULs.
 ///  * Rotation is decided from the file's real length and truncates in place.
 ///    A per-instance byte counter only ever saw its own writes, so every
 ///    instance rotated on a wrong total; worse, renaming left the other
@@ -70,6 +72,7 @@ class RotatingFileOutput extends LogOutput {
     if (raf == null || event.lines.isEmpty) return;
     try {
       // One write per event — never one per line. See the class doc.
+      raf.setPositionSync(raf.lengthSync());
       raf.writeFromSync(encoding.encode('${event.lines.join('\n')}\n'));
       if (raf.lengthSync() >= _maxBytes) _rotate(raf);
     } catch (_) {}
