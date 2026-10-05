@@ -85,19 +85,25 @@ Future<void> updatePhoto(BuildContext context, Chat chat) async {
           );
         });
     nav.push(progressRoute);
+    var uploaded = false;
     try {
       await HttpSvc.chat.setIcon(chat.guid, result);
+      uploaded = true;
+      await ChatsSvc.setChatCustomAvatarPath(chat, result);
     } catch (e, s) {
       Logger.error("Failed to update group photo of ${chat.guid}", error: e, trace: s);
+      if (uploaded) {
+        showSnackbar("Error", "Updated group photo on the server, but failed to save it locally!");
+        return;
+      }
       try {
         await File(result).delete();
       } catch (_) {}
-      NavigationSvc.closeRoute(progressRoute);
       showSnackbar("Error", "Failed to update group photo!");
       return;
+    } finally {
+      NavigationSvc.closeRoute(progressRoute);
     }
-    await ChatsSvc.setChatCustomAvatarPath(chat, result);
-    NavigationSvc.closeRoute(progressRoute);
     showSnackbar("Notice", "Updated group photo successfully!");
   } else if (usePrivateApi) {
     try {

@@ -139,26 +139,37 @@ void showAddParticipant(BuildContext context, Chat chat) {
                       );
                     });
                 nav.push(progressRoute);
-                final Response response;
+                var added = false;
                 try {
-                  response = await HttpSvc.chat.modifyParticipant("add", chat.guid, participantController.text);
+                  final Response response = await HttpSvc.chat.modifyParticipant(
+                    "add",
+                    chat.guid,
+                    participantController.text,
+                  );
+                  added = true;
+                  // Sync the updated chat (with the new participant) to the DB
+                  // and propagate the changes to ChatState so the UI updates.
+                  if (response.data != null && response.data['data'] != null) {
+                    final result = await ChatInterface.bulkSyncChats(
+                      chatsData: [response.data['data'] as Map<String, dynamic>],
+                    );
+                    if (result.chats.isNotEmpty) {
+                      ChatsSvc.updateChat(result.chats.first, override: true);
+                    }
+                  }
                 } catch (e, s) {
                   Logger.error("Failed to add participant ${participantController.text}", error: e, trace: s);
-                  NavigationSvc.closeRoute(progressRoute);
-                  showSnackbar("Error", "Failed to add ${participantController.text}!");
-                  return;
-                }
-                // Sync the updated chat (with the new participant) to the DB
-                // and propagate the changes to ChatState so the UI updates.
-                if (response.data != null && response.data['data'] != null) {
-                  final result = await ChatInterface.bulkSyncChats(
-                    chatsData: [response.data['data'] as Map<String, dynamic>],
+                  showSnackbar(
+                    "Error",
+                    added
+                        ? "Added ${participantController.text}, but failed to refresh the chat!"
+                        : "Failed to add ${participantController.text}!",
                   );
-                  if (result.chats.isNotEmpty) {
-                    ChatsSvc.updateChat(result.chats.first, override: true);
-                  }
+                  if (added) NavigationSvc.closeRoute(editorRoute);
+                  return;
+                } finally {
+                  NavigationSvc.closeRoute(progressRoute);
                 }
-                NavigationSvc.closeRoute(progressRoute);
                 NavigationSvc.closeRoute(editorRoute);
                 showSnackbar("Notice", "Added ${participantController.text} successfully!");
               },
