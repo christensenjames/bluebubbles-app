@@ -16,8 +16,13 @@ class _SyncDialogState extends State<SyncDialog> {
   @override
   Widget build(BuildContext context) {
     return Obx(() => BBProgressDialog(
-          title: widget.manager.progress.value >= 1 ? "Done syncing!" : "Syncing messages....",
+          title: widget.manager.status.value == SyncStatus.COMPLETED_ERROR
+              ? "Sync failed!"
+              : widget.manager.progress.value >= 1
+                  ? "Done syncing!"
+                  : "Syncing messages....",
           progress: widget.manager.progress.value,
+          body: widget.manager.status.value == SyncStatus.COMPLETED_ERROR ? Text(widget.manager.error!) : null,
           actions: [
             BBDialogAction(text: "OK", onPressed: () => Navigator.of(context).pop()),
           ],

@@ -432,7 +432,11 @@ class _TroubleshootPanelState extends State<TroubleshootPanel> with ThemeHelpers
                               context: context,
                               builder: (context) => SyncDialog(manager: mgr),
                             );
-                            await mgr.start();
+                            try {
+                              await mgr.start();
+                            } catch (e, s) {
+                              Logger.warn("Incremental sync failed", error: e, trace: s, tag: 'TroubleshootPanel');
+                            }
                           },
                         );
                       },
