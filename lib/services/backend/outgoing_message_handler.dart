@@ -196,14 +196,12 @@ class OutgoingMessageHandler {
   /// there is actually something pending for a given chat.
   final pendingChatGuids = <String>{}.obs;
 
-  /// Enqueues [item] for sending.  Preparation (DB write / file copy) is
-  /// performed synchronously before the item enters the queue, so the
-  /// outgoing bubble appears in the UI immediately.  The actual HTTP call
+  /// Prepares [item] (DB write / file copy) and enqueues it; the HTTP call
   /// happens when the queue reaches this item.
   ///
-  /// Returns a [Future] that completes (or errors) when the item's
-  /// [OutgoingQueueItem.completer] resolves — i.e. when the HTTP response arrives
-  /// or an error is surfaced.
+  /// The returned future completes once the item is enqueued, or once a failed
+  /// preparation has been surfaced as a failed message. It does not wait for the
+  /// send: use [OutgoingQueueItem.completer] for that.
   Future<void> queue(OutgoingQueueItem item) async {
     // Every item must have a stable temp GUID before prep/retry begins — see
     // [_ensureTempGuid]. Centralized here so individual UI call sites can't
