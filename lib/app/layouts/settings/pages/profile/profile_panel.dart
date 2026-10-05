@@ -48,7 +48,7 @@ class _ProfilePanelState extends State<ProfilePanel> with WidgetsBindingObserver
     } catch (e, s) {
       Logger.warn("Failed to fetch account profile info", error: e, trace: s, tag: 'ProfilePanel');
     }
-    setState(() {});
+    if (mounted) setState(() {});
   }
 
   void updateName() async {
@@ -61,7 +61,7 @@ class _ProfilePanelState extends State<ProfilePanel> with WidgetsBindingObserver
       Navigator.of(context, rootNavigator: true).pop();
       SettingsSvc.settings.userName.value = nameController.text;
       await SettingsSvc.settings.saveOneAsync("userName");
-      setState(() {});
+      if (mounted) setState(() {});
     }
 
     await showDialog(
