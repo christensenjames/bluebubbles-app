@@ -110,10 +110,17 @@ class _MediaGalleryCardState extends State<MediaGalleryCard> with AutomaticKeepA
 
     try {
       videoPreviewPath = await AttachmentsSvc.getVideoThumbnail(file.path!);
-      dynamic _file = File(file.path!);
-      final tempController = VideoPlayerController.file(_file);
-      await tempController.initialize();
-      duration = tempController.value.duration;
+      // Duration only renders off-desktop; Linux/Windows also lack video_player, where create() throws.
+      if (!kIsDesktop && !kIsWeb) {
+        final tempController = VideoPlayerController.file(File(file.path!));
+        try {
+          await tempController.initialize();
+          duration = tempController.value.duration;
+        } finally {
+          // Not awaited: if create() threw, dispose() waits forever on the plugin's creation completer.
+          unawaited(tempController.dispose());
+        }
+      }
     } catch (ex) {
       videoPreviewFailed = true;
     }
