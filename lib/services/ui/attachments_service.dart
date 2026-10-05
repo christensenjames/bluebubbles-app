@@ -324,15 +324,20 @@ class AttachmentsService extends GetxService {
       }
 
       if (savePath != null) {
+        File target;
         try {
           final bytes =
               file.bytes != null && file.bytes!.isNotEmpty ? file.bytes! : await File(file.path!).readAsBytes();
-          await File(join(savePath, basename(file.name))).writeAsBytes(bytes);
+          target = File(join(savePath, basename(file.name)));
+          for (int i = 1; await target.exists(); i++) {
+            target = File(join(savePath, '${basenameWithoutExtension(file.name)} ($i)${extension(file.name)}'));
+          }
+          await target.writeAsBytes(bytes);
         } catch (ex, stack) {
           Logger.error('Failed to save attachment!', error: ex, trace: stack);
           return showSnackbar('Error', 'Failed to save attachment!');
         }
-        showSnackbar('Success', 'Saved attachment to ${FilesystemSvc.toDisplayPath(savePath)} folder!');
+        showSnackbar('Success', 'Saved ${basename(target.path)} to ${FilesystemSvc.toDisplayPath(savePath)} folder!');
       } else {
         return showSnackbar('Error', 'You didn\'t select a file path!');
       }
