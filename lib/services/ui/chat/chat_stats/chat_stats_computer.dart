@@ -39,13 +39,17 @@ int dayKey(int millis) {
   return DateTime(d.year, d.month, d.day).millisecondsSinceEpoch;
 }
 
+/// Days since the epoch for [d]'s calendar date; differences stay exact across DST changes.
+int civilDay(DateTime d) => DateTime.utc(d.year, d.month, d.day).millisecondsSinceEpoch ~/ Duration.millisecondsPerDay;
+
 OverviewStats computeOverview({
   required Map<int, List<int>> byParticipant,
   required int attachments,
   required int unattributedCount,
+  ({int first, int last})? unattributedBounds,
   int? firstTrackedMessageMillis,
 }) {
-  int total = 0;
+  int total = unattributedCount;
   final leaderboard = <ParticipantCount>[];
   for (final entry in byParticipant.entries) {
     total += entry.value.length;
@@ -64,15 +68,19 @@ OverviewStats computeOverview({
     if (lastMillis == null || list.last > lastMillis) lastMillis = list.last;
   }
 
+  // Unattributed messages count toward the average but not the series bounds, which only attributed lists feed.
+  var spanFirst = firstMillis;
+  var spanLast = lastMillis;
+  if (unattributedBounds != null) {
+    if (spanFirst == null || unattributedBounds.first < spanFirst) spanFirst = unattributedBounds.first;
+    if (spanLast == null || unattributedBounds.last > spanLast) spanLast = unattributedBounds.last;
+  }
   double averagePerDay = 0;
-  if (firstMillis != null && lastMillis != null && total > 0) {
-    final firstDay = DateTime.fromMillisecondsSinceEpoch(firstMillis);
-    final lastDay = DateTime.fromMillisecondsSinceEpoch(lastMillis);
-    final spanDays = DateTime(lastDay.year, lastDay.month, lastDay.day)
-            .difference(DateTime(firstDay.year, firstDay.month, firstDay.day))
-            .inDays +
+  if (spanFirst != null && spanLast != null && total > 0) {
+    final spanDays = civilDay(DateTime.fromMillisecondsSinceEpoch(spanLast)) -
+        civilDay(DateTime.fromMillisecondsSinceEpoch(spanFirst)) +
         1;
-    averagePerDay = total / (spanDays < 1 ? 1 : spanDays);
+    averagePerDay = total / spanDays;
   }
 
   // Build the sorted set of distinct day keys across all participants for streaks.

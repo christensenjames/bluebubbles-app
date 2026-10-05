@@ -385,14 +385,14 @@ class _CalendarHeatmap extends StatelessWidget {
 
     final firstDay = DateTime.fromMillisecondsSinceEpoch(days.first.startMillis);
     final lastDay = DateTime.fromMillisecondsSinceEpoch(days.last.startMillis);
-    final gridStart = firstDay.subtract(Duration(days: firstDay.weekday - 1)); // Monday-aligned
-    final totalDays = lastDay.difference(gridStart).inDays + 1;
+    final gridStart = DateTime(firstDay.year, firstDay.month, firstDay.day - (firstDay.weekday - 1)); // Monday-aligned
+    final totalDays = civilDay(lastDay) - civilDay(gridStart) + 1;
     final weeks = (totalDays / 7).ceil().clamp(1, 1000000);
 
     final values = List.generate(7, (_) => List<int>.filled(weeks, 0));
     for (final day in activity.byDay.entries) {
       final date = DateTime.fromMillisecondsSinceEpoch(day.key);
-      final offset = date.difference(gridStart).inDays;
+      final offset = civilDay(date) - civilDay(gridStart);
       if (offset < 0) continue;
       final col = offset ~/ 7;
       final row = date.weekday - 1;
@@ -402,7 +402,7 @@ class _CalendarHeatmap extends StatelessWidget {
     final colLabels = <String?>[];
     int? lastMonth;
     for (var c = 0; c < weeks; c++) {
-      final colStart = gridStart.add(Duration(days: c * 7));
+      final colStart = DateTime(gridStart.year, gridStart.month, gridStart.day + c * 7);
       if (colStart.month != lastMonth) {
         colLabels.add(DateFormat.MMM().format(colStart));
         lastMonth = colStart.month;
@@ -420,7 +420,7 @@ class _CalendarHeatmap extends StatelessWidget {
       cellSize: 12.0,
       scrollToEnd: true,
       cellLabel: (row, col, value) {
-        final date = gridStart.add(Duration(days: col * 7 + row));
+        final date = DateTime(gridStart.year, gridStart.month, gridStart.day + col * 7 + row);
         return "${DateFormat.MMMd().format(date)} · $value message${value == 1 ? '' : 's'}";
       },
     );
