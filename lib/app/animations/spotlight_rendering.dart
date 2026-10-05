@@ -119,7 +119,7 @@ class RenderSpotlight extends RenderBox {
       double dxr = -dy;
       double dyr = dx;
       double d = sqrt(pow(dx, 2) + pow(dy, 2));
-      double rho = size / 2 / d;
+      double rho = min(1.0, size / 2 / d);
       double ad = pow(rho, 2).toDouble();
       double bd = rho * sqrt(1 - pow(rho, 2));
       double tangent1X = centerX + ad * dx + bd * dxr;
