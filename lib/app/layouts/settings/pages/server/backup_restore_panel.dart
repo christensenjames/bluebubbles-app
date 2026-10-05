@@ -679,7 +679,7 @@ class _BackupRestorePanelState extends State<BackupRestorePanel> with ThemeHelpe
     if (destination.isCloud) {
       bool errored = false;
       for (ThemeStruct e in allThemes) {
-        var response = await HttpSvc.backup.setTheme(e.name.characters.take(50).string, e.toMap());
+        var response = await HttpSvc.backup.setTheme(BackupRestoreActions.themeBackupKey(e.name), e.toMap());
         if (response.statusCode != 200) {
           errored = true;
         }

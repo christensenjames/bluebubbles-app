@@ -2,6 +2,7 @@ import 'package:bluebubbles/services/services.dart';
 import 'package:device_info_plus/device_info_plus.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/widgets.dart' show StringCharacters;
 import 'package:universal_io/io.dart';
 
 class BackupRestoreActions {
@@ -50,7 +51,17 @@ class BackupRestoreActions {
     required String name,
   }) {
     themes.removeWhere((element) => element["name"] == name);
-    HttpSvc.backup.deleteTheme(name);
+    HttpSvc.backup.deleteTheme(themeBackupKey(name));
+  }
+
+  /// The server stores a theme backup under its name, rejecting names over 50 UTF-16 code units.
+  static String themeBackupKey(String name) {
+    final key = StringBuffer();
+    for (final grapheme in name.characters) {
+      if (key.length + grapheme.length > 50) break;
+      key.write(grapheme);
+    }
+    return key.toString();
   }
 
   static Future<String> defaultDeviceName() async {
