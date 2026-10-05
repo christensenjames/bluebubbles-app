@@ -427,7 +427,7 @@ mixin ConnectionPanelHelpersMixin {
                           showDialog(
                             context: context,
                             builder: (context) => SyncDialog(manager: newMgr),
-                          );
+                          ).then((_) => dialogShown = false);
                         }
                         await newMgr.start();
                       } catch (e, s) {
@@ -691,11 +691,11 @@ mixin ConnectionPanelHelpersMixin {
                     if (SocketSvc.state.value != SocketState.connected || controller.isRestartingMessages.value) {
                       return;
                     }
-                    controller.isRestartingMessages.value = true;
                     int now = DateTime.now().toUtc().millisecondsSinceEpoch;
                     if (controller.lastRestartMessages != null && now - controller.lastRestartMessages! < 1000 * 30) {
                       return;
                     }
+                    controller.isRestartingMessages.value = true;
                     controller.lastRestartMessages = now;
                     HttpSvc.server.restartImessage().then((_) {
                       controller.isRestartingMessages.value = false;
@@ -738,12 +738,12 @@ mixin ConnectionPanelHelpersMixin {
                               controller.isRestartingPrivateAPI.value) {
                             return;
                           }
-                          controller.isRestartingPrivateAPI.value = true;
                           int now = DateTime.now().toUtc().millisecondsSinceEpoch;
                           if (controller.lastRestartPrivateAPI != null &&
                               now - controller.lastRestartPrivateAPI! < 1000 * 30) {
                             return;
                           }
+                          controller.isRestartingPrivateAPI.value = true;
                           controller.lastRestartPrivateAPI = now;
                           HttpSvc.server.softRestart().then((_) {
                             controller.isRestartingPrivateAPI.value = false;
@@ -781,9 +781,9 @@ mixin ConnectionPanelHelpersMixin {
                   ),
                   onTap: () async {
                     if (controller.isRestarting.value) return;
-                    controller.isRestarting.value = true;
                     int now = DateTime.now().toUtc().millisecondsSinceEpoch;
                     if (controller.lastRestart != null && now - controller.lastRestart! < 1000 * 30) return;
+                    controller.isRestarting.value = true;
                     controller.lastRestart = now;
                     try {
                       if (Platform.isAndroid) {
