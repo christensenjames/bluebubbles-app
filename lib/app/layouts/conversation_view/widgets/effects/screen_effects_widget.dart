@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:math';
 
 import 'package:bluebubbles/app/animations/balloon_classes.dart';
@@ -34,6 +35,8 @@ class _ScreenEffectsWidgetState extends State<ScreenEffectsWidget> with TickerPr
   late final LoveController loveController;
   late final SpotlightController spotlightController;
   late final LaserController laserController;
+  late final StreamSubscription<dynamic> _eventSubscription;
+  bool _initialized = false;
   String screenSelected = "";
 
   @override
@@ -41,6 +44,7 @@ class _ScreenEffectsWidgetState extends State<ScreenEffectsWidget> with TickerPr
     super.initState();
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
       fireworkController =
           FireworkController(vsync: this, windowSize: Size(NavigationSvc.width(context), context.height));
       celebrationController =
@@ -52,9 +56,10 @@ class _ScreenEffectsWidgetState extends State<ScreenEffectsWidget> with TickerPr
       spotlightController =
           SpotlightController(vsync: this, windowSize: Size(NavigationSvc.width(context), context.height));
       laserController = LaserController(vsync: this, windowSize: Size(NavigationSvc.width(context), context.height));
+      _initialized = true;
     });
 
-    EventDispatcherSvc.stream.listen((event) async {
+    _eventSubscription = EventDispatcherSvc.stream.listen((event) async {
       if (event.type == 'play-effect' && mounted && screenSelected.isEmpty) {
         setState(() {
           screenSelected = event.data['type'];
@@ -64,6 +69,7 @@ class _ScreenEffectsWidgetState extends State<ScreenEffectsWidget> with TickerPr
           fireworkController.windowSize = Size(NavigationSvc.width(context), context.height);
           fireworkController.start();
           await Future.delayed(const Duration(seconds: 1));
+          if (!mounted) return;
           fireworkController.stop(onStop: () {
             setState(() {
               screenSelected = "";
@@ -73,6 +79,7 @@ class _ScreenEffectsWidgetState extends State<ScreenEffectsWidget> with TickerPr
           celebrationController.windowSize = Size(NavigationSvc.width(context), context.height);
           celebrationController.start();
           await Future.delayed(const Duration(seconds: 1));
+          if (!mounted) return;
           celebrationController.stop(onStop: () {
             setState(() {
               screenSelected = "";
@@ -82,6 +89,7 @@ class _ScreenEffectsWidgetState extends State<ScreenEffectsWidget> with TickerPr
           balloonController.windowSize = Size(NavigationSvc.width(context), context.height);
           balloonController.start();
           await Future.delayed(const Duration(seconds: 1));
+          if (!mounted) return;
           balloonController.stop(onStop: () {
             setState(() {
               screenSelected = "";
@@ -92,6 +100,7 @@ class _ScreenEffectsWidgetState extends State<ScreenEffectsWidget> with TickerPr
             loveController.windowSize = Size(NavigationSvc.width(context), context.height);
             loveController.start(Point((rect!.left + rect!.right) / 2, (rect!.top + rect!.bottom) / 2));
             await Future.delayed(const Duration(seconds: 1));
+            if (!mounted) return;
             loveController.stop(onStop: () {
               setState(() {
                 screenSelected = "";
@@ -103,6 +112,7 @@ class _ScreenEffectsWidgetState extends State<ScreenEffectsWidget> with TickerPr
             spotlightController.windowSize = Size(NavigationSvc.width(context), context.height);
             spotlightController.start(rect!);
             await Future.delayed(const Duration(seconds: 1));
+            if (!mounted) return;
             spotlightController.stop(onStop: () {
               setState(() {
                 screenSelected = "";
@@ -114,6 +124,7 @@ class _ScreenEffectsWidgetState extends State<ScreenEffectsWidget> with TickerPr
             laserController.windowSize = Size(NavigationSvc.width(context), context.height);
             laserController.start(rect!);
             await Future.delayed(const Duration(seconds: 1));
+            if (!mounted) return;
             laserController.stop(onStop: () {
               setState(() {
                 screenSelected = "";
@@ -123,10 +134,27 @@ class _ScreenEffectsWidgetState extends State<ScreenEffectsWidget> with TickerPr
         } else if (screenSelected == "confetti") {
           confettiController.play();
           await Future.delayed(const Duration(seconds: 1));
+          if (!mounted) return;
           screenSelected = "";
         }
       }
     });
+  }
+
+  @override
+  void dispose() {
+    _eventSubscription.cancel();
+    if (_initialized) {
+      confettiController.dispose();
+      // An effect's ticker exists only while it plays; finished effects already disposed theirs.
+      if (fireworkController.isPlaying) fireworkController.dispose();
+      if (celebrationController.isPlaying) celebrationController.dispose();
+      if (balloonController.isPlaying) balloonController.dispose();
+      if (loveController.isPlaying) loveController.dispose();
+      if (spotlightController.isPlaying) spotlightController.dispose();
+      if (laserController.isPlaying) laserController.dispose();
+    }
+    super.dispose();
   }
 
   @override
