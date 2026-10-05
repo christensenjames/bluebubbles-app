@@ -199,6 +199,8 @@ class FindMyDevice {
         "maxMsgChar": maxMsgChar,
         "deviceClass": deviceClass,
         "crowdSourcedLocation": crowdSourcedLocation,
+        "role": role,
+        "lostModeMetadata": lostModeMetadata,
       };
 }
 
