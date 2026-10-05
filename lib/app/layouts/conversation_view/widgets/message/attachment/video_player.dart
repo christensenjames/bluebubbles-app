@@ -301,6 +301,7 @@ class _VideoPlayerState extends State<VideoPlayer> with AutomaticKeepAliveClient
         ),
       ),
     );
+    if (!mounted) return;
     if (videoController != null) showPlayPauseOverlay.value = !videoController!.player.state.playing;
   }
 

@@ -61,6 +61,8 @@ class ConversationFullscreenHolderState extends State<ConversationFullscreenHold
   int currentIndex = 0;
   ScrollPhysics? physics;
 
+  VideoController? _inlineController;
+
   // media_kit_video_controls' seek/volume/brightness GestureDetector always registers a
   // non-null onHorizontalDragUpdate regardless of the `seekGesture` theme flag (only its
   // callback body checks the flag, not whether the recognizer is attached). As a descendant
@@ -84,6 +86,7 @@ class ConversationFullscreenHolderState extends State<ConversationFullscreenHold
   @override
   void initState() {
     super.initState();
+    _inlineController = widget.videoController;
     if (kIsWeb || !widget.showInteractions) {
       controller = PageController(initialPage: 0);
     } else {
@@ -288,7 +291,7 @@ class ConversationFullscreenHolderState extends State<ConversationFullscreenHold
                         file: content,
                         attachment: attachment,
                         showInteractions: widget.showInteractions,
-                        videoController: attachment.guid == widget.attachment.guid ? widget.videoController : null,
+                        videoController: attachment.guid == widget.attachment.guid ? _inlineController : null,
                         mute: widget.mute,
                         isCurrentPage: index == currentIndex,
                         onOverlayToggle: (show) {
@@ -297,6 +300,9 @@ class ConversationFullscreenHolderState extends State<ConversationFullscreenHold
                               showAppBar = show;
                             });
                           }
+                        },
+                        onPlayerDetached: () {
+                          _inlineController = null;
                         },
                       );
                     } else {

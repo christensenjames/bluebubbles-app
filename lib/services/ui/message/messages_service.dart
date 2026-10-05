@@ -573,11 +573,12 @@ class MessagesService extends GetxController {
   }
 
   /// Starts a download for [attachment] and wires it into [AttachmentState].
-  void _startAttachmentDownload(String messageGuid, Attachment attachment) {
+  void _startAttachmentDownload(String messageGuid, Attachment attachment, {Function(PlatformFile)? onComplete}) {
     final msgGuid = messageGuid;
     final attGuid = attachment.guid!;
     final ctrl = AttachmentDownloader.startDownload(attachment, onComplete: (PlatformFile file) {
       _onAttachmentDownloadComplete(msgGuid, attGuid, file);
+      onComplete?.call(file);
     });
 
     final msgState = messageStates[messageGuid];
@@ -613,9 +614,15 @@ class MessagesService extends GetxController {
   /// `attachmentRefreshKey` bump, this method explicitly clears `resolvedFile`
   /// and transitions the state to [AttachmentTransferState.downloading] so
   /// that [loadAttachmentContent]'s early-exit guards don't swallow the event.
-  Future<void> redownloadAttachment(String messageGuid, Attachment attachment) async {
-    final attGuid = attachment.guid;
-    if (attGuid == null) return;
+  Future<void> redownloadAttachment(
+    String messageGuid,
+    Attachment attachment, {
+    Function(PlatformFile)? onComplete,
+  }) async {
+    if (attachment.guid == null || attachment.guid!.startsWith('temp')) {
+      return;
+    }
+    final attGuid = attachment.guid!;
 
     // Hard reset any stale queued/completed controller before state wiring.
     AttachmentDownloader.clearControllerForGuid(attGuid);
@@ -632,7 +639,7 @@ class MessagesService extends GetxController {
 
     // 2. Delete local files, reset DB flag, and register a new controller.
     try {
-      await AttachmentsSvc.redownloadAttachment(attachment);
+      await AttachmentsSvc.redownloadAttachment(attachment, onComplete: onComplete);
     } catch (e, s) {
       Logger.error('redownloadAttachment failed for $attGuid', error: e, trace: s, tag: 'MessagesService');
     }
@@ -644,7 +651,7 @@ class MessagesService extends GetxController {
       notifyAttachmentDownloadStarted(messageGuid, attGuid, ctrl);
     } else {
       // Defensive fallback: ensure the re-download always starts.
-      _startAttachmentDownload(messageGuid, attachment);
+      _startAttachmentDownload(messageGuid, attachment, onComplete: onComplete);
     }
   }
 
