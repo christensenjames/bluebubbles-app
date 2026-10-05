@@ -299,12 +299,16 @@ class MessagesViewState extends State<MessagesView> with MessagesServiceMixin, T
     }
     // otherwise fetch until it is loaded
     final message = Message.findOne(guid: guid);
+    if (message == null) {
+      showSnackbar("Error", "Failed to find message!");
+      return;
+    }
     final query = (Database.messages.query(Message_.dateDeleted.isNull().and(Message_.dateCreated.notNull()))
           ..link(Message_.chat, Chat_.id.equals(chat.id!))
           ..order(Message_.dateCreated, flags: Order.descending))
         .build();
     final ids = await query.findIdsAsync();
-    final pos = ids.indexOf(message!.id!);
+    final pos = ids.indexOf(message.id!);
     await _loadMoreMessages(limit: pos + 10);
     index = _messages.indexWhere((element) => element.guid == guid);
     if (index != -1) {
