@@ -281,17 +281,12 @@ class Attachment {
 
   String get directory => "$baseDirectory/$guid";
 
-  String get path {
-    switch (Platform.operatingSystem) {
-      case "windows":
-        return "$directory/${"$transferName".replaceAll(RegExp(r'[<>:"/|?*]'), "_")}";
-      case "linux":
-      case "macos":
-        return "$directory/${"$transferName".replaceAll(RegExp(r'/'), "_")}";
-      default:
-        return "$directory/$transferName";
-    }
-  }
+  static final RegExp _unsafeFileNameChars =
+      Platform.operatingSystem == "windows" ? RegExp(r'[<>:"/\\|?*]') : RegExp(r'/');
+
+  static String safeFileName(String name) => name.replaceAll(_unsafeFileNameChars, "_");
+
+  String get path => "$directory/${safeFileName("$transferName")}";
 
   /// Extension used for the on-disk conversion of formats Flutter can't decode
   /// natively.

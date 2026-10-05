@@ -118,7 +118,7 @@ class AttachmentsService extends GetxService {
               for (final dir in dirs) {
                 final fileName = attachment.transferName;
                 if (fileName != null) {
-                  final potentialFile = File("${dir.path}/$fileName");
+                  final potentialFile = File("${dir.path}/${Attachment.safeFileName(fileName)}");
                   if (potentialFile.existsSync() &&
                       (attachment.totalBytes == null || potentialFile.lengthSync() == attachment.totalBytes)) {
                     return PlatformFile(name: fileName, path: potentialFile.path, size: attachment.totalBytes ?? 0);
@@ -325,7 +325,7 @@ class AttachmentsService extends GetxService {
 
       if (savePath != null) {
         final bytes = file.bytes != null && file.bytes!.isNotEmpty ? file.bytes! : await File(file.path!).readAsBytes();
-        await File(join(savePath, file.name)).writeAsBytes(bytes);
+        await File(join(savePath, basename(file.name))).writeAsBytes(bytes);
         showSnackbar('Success', 'Saved attachment to ${FilesystemSvc.toDisplayPath(savePath)} folder!');
       } else {
         return showSnackbar('Error', 'You didn\'t select a file path!');
