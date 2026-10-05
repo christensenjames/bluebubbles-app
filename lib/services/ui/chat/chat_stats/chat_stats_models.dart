@@ -82,7 +82,7 @@ extension StatsTimeframeX on StatsTimeframe {
   /// Full-word phrasing for section headers (e.g. the Overview volume
   /// sparkline), as opposed to [label]'s compact chip text.
   String get longLabel => switch (this) {
-        StatsTimeframe.day => 'Today',
+        StatsTimeframe.day => 'Last 24 Hours',
         StatsTimeframe.week => 'Last 7 Days',
         StatsTimeframe.month => 'Last 30 Days',
         StatsTimeframe.threeMonths => 'Last 3 Months',
