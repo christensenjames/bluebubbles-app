@@ -45,6 +45,12 @@ class _SingleAttachmentFullscreenViewerState extends State<SingleAttachmentFulls
   late bool showAppBar = !_isVideo;
 
   @override
+  void dispose() {
+    focusNode.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     return TitleBarWrapper(
       child: Actions(

@@ -102,6 +102,7 @@ class ConversationFullscreenHolderState extends State<ConversationFullscreenHold
 
   @override
   void dispose() {
+    focusNode.dispose();
     controller.dispose();
     super.dispose();
   }
