@@ -36,6 +36,13 @@ class _NotificationPanelState extends State<NotificationPanel> with SingleTicker
   }
 
   @override
+  void dispose() {
+    tabController.dispose();
+    controller1.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     final bodySlivers = [
       SliverList(
