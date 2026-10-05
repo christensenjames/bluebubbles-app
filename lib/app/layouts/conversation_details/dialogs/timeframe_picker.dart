@@ -108,21 +108,17 @@ Future<DateTime?> showTimeframePicker(String title, BuildContext context,
             // If the user selected a date and the time picker is enabled, show the time picker
             if (showHourPicker && finalDate != null) {
               final messageTime = await showTimePicker(context: dialogContext, initialTime: TimeOfDay.now());
-              if (messageTime != null) {
-                finalDate =
-                    DateTime(finalDate.year, finalDate.month, finalDate.day, messageTime.hour, messageTime.minute);
-              } else {
-                finalDate = null;
-              }
+              if (messageTime == null || !dialogContext.mounted) return;
+              finalDate =
+                  DateTime(finalDate.year, finalDate.month, finalDate.day, messageTime.hour, messageTime.minute);
 
               DateTime now = DateTime.now();
 
-              // If the selected date is not in the future, show an error
-              if (!presetsAhead && now.isBefore(finalDate!)) {
-                showSnackbar("Invalid Date Selection", "Please select a date in the future");
-                finalDate = null;
-              } else if (presetsAhead && now.isAfter(finalDate!)) {
+              if (!presetsAhead && now.isBefore(finalDate)) {
                 showSnackbar("Invalid Date Selection", "Please select a date in the past");
+                finalDate = null;
+              } else if (presetsAhead && now.isAfter(finalDate)) {
+                showSnackbar("Invalid Date Selection", "Please select a date in the future");
                 finalDate = null;
               }
 
