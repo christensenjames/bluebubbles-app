@@ -62,7 +62,6 @@ class ChatSelectorViewState extends State<ChatSelectorView> with ThemeHelpers {
         }, Priority.animation);
 
         if (!mounted) return;
-        _debounce = null;
         setState(() {
           filteredChats = List<Chat>.from(searchChats);
         });
