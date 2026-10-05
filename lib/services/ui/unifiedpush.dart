@@ -7,10 +7,8 @@ UnifiedPushPanelRefresh upr = Get.isRegistered<UnifiedPushPanelRefresh>()
 
 class UnifiedPushPanelRefresh extends GetxService {
   var enabled = SettingsSvc.settings.enableUnifiedPush.value.obs;
-  var endpoint = SettingsSvc.settings.endpointUnifiedPush.value.obs;
 
   void update(String newEndpoint) {
-    endpoint.value = newEndpoint;
     enabled.value = newEndpoint != "";
     SettingsSvc.settings.endpointUnifiedPush.value = newEndpoint;
     SettingsSvc.settings.enableUnifiedPush.value = enabled.value;
