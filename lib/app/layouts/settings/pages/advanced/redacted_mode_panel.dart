@@ -224,7 +224,10 @@ class _RedactedModePanelState extends State<RedactedModePanel> with ThemeHelpers
                               SettingsSwitch(
                                 onChanged: (bool val) async {
                                   SettingsSvc.settings.hideMessageContent.value = val;
-                                  await saveSettings('hideMessageContent');
+                                  placeholder.value += 1;
+                                  // Settings.fromMap reads the legacy alias first, so it must be written too.
+                                  await SettingsSvc.settings
+                                      .saveManyAsync(['hideMessageContent', 'generateFakeMessageContent']);
                                 },
                                 initialVal: SettingsSvc.settings.hideMessageContent.value,
                                 title: "Hide Message Content",
