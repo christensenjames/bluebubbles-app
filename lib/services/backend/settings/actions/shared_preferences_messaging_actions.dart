@@ -43,14 +43,19 @@ class SharedPreferencesMessagingActions {
     String? messageGuid,
     int? messagePart,
   }) async {
+    // Both calls update the cache synchronously; awaiting between them let a load read a mixed pair.
     if (messageGuid != null && messagePart != null) {
-      await service.i.setString(_replyMessageKey(chatGuid), messageGuid);
-      await service.i.setInt(_replyMessagePartKey(chatGuid), messagePart);
+      await Future.wait([
+        service.i.setString(_replyMessageKey(chatGuid), messageGuid),
+        service.i.setInt(_replyMessagePartKey(chatGuid), messagePart),
+      ]);
       return;
     }
 
-    await service.i.remove(_replyMessageKey(chatGuid));
-    await service.i.remove(_replyMessagePartKey(chatGuid));
+    await Future.wait([
+      service.i.remove(_replyMessageKey(chatGuid)),
+      service.i.remove(_replyMessagePartKey(chatGuid)),
+    ]);
   }
 
   ReplyToMessageState? loadReplyToMessageState(String chatGuid) {
