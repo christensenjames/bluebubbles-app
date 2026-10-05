@@ -1,8 +1,8 @@
 /// Represents the messaging service type for a chat.
 ///
 /// Derived from the GUID prefix (the part before `;-;` or `;+;`).
-/// Add new service types here. Set [isVisible] to false to define a service
-/// without exposing it in the UI (e.g. RCS, which is defined but not yet shown).
+/// Add new service types here. Set [isVisible] to false to keep a service out of
+/// the new-chat service picker (e.g. RCS).
 enum ChatServiceType {
   iMessage(label: 'iMessage', isVisible: true),
   sms(label: 'SMS', isVisible: true),

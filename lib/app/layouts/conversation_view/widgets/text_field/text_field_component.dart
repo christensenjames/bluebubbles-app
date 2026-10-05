@@ -300,8 +300,8 @@ class TextFieldComponentState extends State<TextFieldComponent> {
                                       : chatTitle ?? ""
                                   : (chat!.isTextForwarding && !isRecording)
                                       ? "Text Forwarding"
-                                      : (!isRecording) // Only show iMessage when not recording
-                                          ? "iMessage"
+                                      : (!isRecording)
+                                          ? chat!.service.label
                                           : "",
                           enabledBorder: InputBorder.none,
                           border: InputBorder.none,
