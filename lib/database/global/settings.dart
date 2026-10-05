@@ -477,6 +477,27 @@ class Settings {
     return map;
   }
 
+  static const Set<String> _deviceLocalBackupKeys = {
+    'lastIncrementalSync',
+    'lastIncrementalSyncRowId',
+    'contactSyncAccountName',
+    'contactSyncAccountType',
+    'enableUnifiedPush',
+    'endpointUnifiedPush',
+    'enableFcm',
+  };
+
+  /// Backup map minus state that only means something on the device that produced it.
+  static Map<String, dynamic> forBackupRestore(Map<String, dynamic> backup) {
+    final map = Map<String, dynamic>.from(backup)..removeWhere((k, _) => _deviceLocalBackupKeys.contains(k));
+    if (map['savedChatFilters'] != null) {
+      // customGroupIds are ObjectBox row ids of the exporting device.
+      map['savedChatFilters'] = Map<String, String>.from(_processSavedChatFilters(map['savedChatFilters']))
+        ..remove('customGroupIds');
+    }
+    return map;
+  }
+
   static void updateFromMap(Map<String, dynamic> map) {
     SettingsSvc.settings.iCloudAccount.value = map['iCloudAccount'] ?? SettingsSvc.settings.iCloudAccount.value;
     SettingsSvc.settings.serverAddress.value = map['serverAddress'] ?? SettingsSvc.settings.serverAddress.value;
