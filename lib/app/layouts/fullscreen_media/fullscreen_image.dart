@@ -76,7 +76,7 @@ class _FullscreenImageState extends State<FullscreenImage>
       } else {
         bytes = file.bytes;
       }
-      setState(() {});
+      if (mounted) setState(() {});
       return;
     }
 
@@ -101,6 +101,7 @@ class _FullscreenImageState extends State<FullscreenImage>
       hasError = false;
     });
     void onComplete(PlatformFile newFile) {
+      if (!mounted) return;
       if (kIsWeb || newFile.path == null) {
         setState(() {
           bytes = newFile.bytes;
@@ -111,6 +112,7 @@ class _FullscreenImageState extends State<FullscreenImage>
     }
 
     void onError() {
+      if (!mounted) return;
       setState(() {
         hasError = true;
       });
