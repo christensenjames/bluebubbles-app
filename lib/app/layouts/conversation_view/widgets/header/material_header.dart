@@ -134,6 +134,7 @@ class MaterialHeader extends StatelessWidget implements PreferredSizeWidget {
                       );
                     } else if (value == 1) {
                       ChatsSvc.setChatArchived(controller.chat, !controller.chat.isArchived!);
+                      controller.close();
                       if (Get.isSnackbarOpen) {
                         Get.closeAllSnackbars();
                       }
