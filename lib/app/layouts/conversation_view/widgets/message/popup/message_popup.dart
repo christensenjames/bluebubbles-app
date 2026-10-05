@@ -170,6 +170,12 @@ class _MessagePopupState extends State<MessagePopup> with SingleTickerProviderSt
     });
   }
 
+  @override
+  void dispose() {
+    controller.dispose();
+    super.dispose();
+  }
+
   void _remeasureChild() {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;

@@ -25,6 +25,13 @@ class _ManualEntryDialogState extends State<ManualEntryDialog> {
   final TextEditingController passwordController = TextEditingController();
   final error = Rx<String?>(null);
 
+  @override
+  void dispose() {
+    urlController.dispose();
+    passwordController.dispose();
+    super.dispose();
+  }
+
   void connect(String url, String password) async {
     if (url.endsWith("/")) {
       url = url.substring(0, url.length - 1);
