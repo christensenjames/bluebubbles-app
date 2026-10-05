@@ -10,6 +10,7 @@ import 'package:bluebubbles/utils/logger/logger.dart';
 import 'package:collection/collection.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import 'package:path/path.dart' as p;
 import 'package:skeletonizer/skeletonizer.dart';
 import 'package:universal_io/io.dart';
 
@@ -106,7 +107,10 @@ class _ProfilePanelState extends State<ProfilePanel> with WidgetsBindingObserver
 
   Future<void> removePhoto() async {
     File file = File(SettingsSvc.settings.userAvatarPath.value!);
-    file.delete();
+    // A restored settings file can point anywhere, including a chat avatar; only delete our own copy.
+    if (p.isWithin(p.join(FilesystemSvc.avatarsPath, "you"), file.path) && await file.exists()) {
+      await file.delete();
+    }
     SettingsSvc.settings.userAvatarPath.value = null;
     await SettingsSvc.settings.saveOneAsync("userAvatarPath");
   }
