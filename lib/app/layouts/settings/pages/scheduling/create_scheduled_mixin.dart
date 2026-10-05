@@ -51,6 +51,14 @@ mixin CreateScheduledMixin<T extends StatefulWidget> on State<T> {
     });
   }
 
+  @override
+  void dispose() {
+    messageController.dispose();
+    messageNode.dispose();
+    numberController.dispose();
+    super.dispose();
+  }
+
   Future<void> pickDateTime(BuildContext context) async {
     final picked = await showBBDateTimePicker(context: context, initialDate: date.value);
     if (picked == null) return;
