@@ -46,6 +46,7 @@ class SearchViewState extends State<SearchView> with ThemeHelpers {
   final RxBool isFromMe = false.obs;
   final RxBool isNotFromMe = false.obs;
   final Rx<DateTime?> sinceDate = Rx<DateTime?>(null);
+  int _searchGeneration = 0;
 
   Color get backgroundColor => SettingsSvc.settings.windowEffect.value == WindowEffect.disabled
       ? context.theme.colorScheme.surface
@@ -65,6 +66,7 @@ class SearchViewState extends State<SearchView> with ThemeHelpers {
 
   Future<void> search(String newSearch) async {
     if (isSearching.value || isNullOrEmpty(newSearch) || newSearch.length < 3) return;
+    final generation = ++_searchGeneration;
     focusNode.unfocus();
     noResults.value = false;
     currentSearchTerm.value = newSearch;
@@ -84,6 +86,7 @@ class SearchViewState extends State<SearchView> with ThemeHelpers {
         sinceDate: sinceDate.value,
       );
     } catch (e, s) {
+      if (!mounted || generation != _searchGeneration) return;
       Logger.error("Search failed", error: e, trace: s);
       showSnackbar("Error", "Search failed");
       isSearching.value = false;
@@ -91,6 +94,7 @@ class SearchViewState extends State<SearchView> with ThemeHelpers {
       return;
     }
 
+    if (!mounted || generation != _searchGeneration) return;
     isSearching.value = false;
     noResults.value = results.isEmpty;
     currentSearch.value = results;
@@ -231,6 +235,7 @@ class SearchViewState extends State<SearchView> with ThemeHelpers {
                                 local.value = false;
                                 network.value = true;
                               }
+                              ++_searchGeneration;
                               isSearching.value = false;
                               noResults.value = false;
                               currentSearch.value = null;
@@ -444,6 +449,7 @@ class SearchViewState extends State<SearchView> with ThemeHelpers {
                                       ? null
                                       : () {
                                           sinceDate.value = null;
+                                          ++_searchGeneration;
                                           isSearching.value = false;
                                           noResults.value = false;
                                           currentSearch.value = null;
@@ -460,6 +466,7 @@ class SearchViewState extends State<SearchView> with ThemeHelpers {
                                         },
                                         selectionSuffix: "Ago",
                                         useTodayYesterday: true);
+                                    ++_searchGeneration;
                                     isSearching.value = false;
                                     noResults.value = false;
                                     currentSearch.value = null;
@@ -494,6 +501,7 @@ class SearchViewState extends State<SearchView> with ThemeHelpers {
                                       ? null
                                       : () {
                                           selectedChat.value = null;
+                                          ++_searchGeneration;
                                           isSearching.value = false;
                                           noResults.value = false;
                                           currentSearch.value = null;
@@ -503,6 +511,7 @@ class SearchViewState extends State<SearchView> with ThemeHelpers {
                                     NavigationSvc.push(context, ChatSelectorView(
                                       onSelect: (chat) {
                                         selectedChat.value = chat;
+                                        ++_searchGeneration;
                                         isSearching.value = false;
                                         noResults.value = false;
                                         currentSearch.value = null;
@@ -536,6 +545,7 @@ class SearchViewState extends State<SearchView> with ThemeHelpers {
                                         ? null
                                         : () {
                                             selectedHandle.value = null;
+                                            ++_searchGeneration;
                                             isSearching.value = false;
                                             noResults.value = false;
                                             currentSearch.value = null;
@@ -548,6 +558,7 @@ class SearchViewState extends State<SearchView> with ThemeHelpers {
                                             forChat: selectedChat.value,
                                             onSelect: (handle) {
                                               selectedHandle.value = handle;
+                                              ++_searchGeneration;
                                               isSearching.value = false;
                                               noResults.value = false;
                                               currentSearch.value = null;
@@ -567,6 +578,7 @@ class SearchViewState extends State<SearchView> with ThemeHelpers {
                                             color: context.theme.colorScheme.onSurface)),
                                     onSelected: (selected) {
                                       isFromMe.value = selected;
+                                      ++_searchGeneration;
                                       isSearching.value = false;
                                       noResults.value = false;
                                       currentSearch.value = null;
@@ -584,6 +596,7 @@ class SearchViewState extends State<SearchView> with ThemeHelpers {
                                             color: context.theme.colorScheme.onSurface)),
                                     onSelected: (selected) {
                                       isNotFromMe.value = selected;
+                                      ++_searchGeneration;
                                       isSearching.value = false;
                                       noResults.value = false;
                                       currentSearch.value = null;
