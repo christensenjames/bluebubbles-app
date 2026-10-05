@@ -60,6 +60,12 @@ class SendButtonState extends State<SendButton> with SingleTickerProviderStateMi
   }
 
   @override
+  void dispose() {
+    controller.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     return GestureDetector(
       onSecondaryTap: () {
