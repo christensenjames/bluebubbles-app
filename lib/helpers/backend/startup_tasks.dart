@@ -310,7 +310,9 @@ class StartupTasks {
     // if there is no network connection. The cause is not 100% known, but it likely
     // has to do with processing pressure, stale ports, or port binding exhaustion.
     if (SettingsSvc.settings.finishedSetup.value) {
-      unawaited(NetworkTasks.detectLocalhost().then((_) => SyncSvc.startIncrementalSync()));
+      unawaited(NetworkTasks.detectLocalhost()
+          .catchError((e, s) => Logger.warn("Failed to detect localhost on startup!", error: e, trace: s))
+          .then((_) => SyncSvc.startIncrementalSync()));
     }
   }
 
