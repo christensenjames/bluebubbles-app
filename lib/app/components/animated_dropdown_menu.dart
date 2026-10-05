@@ -1,5 +1,8 @@
+import 'package:bluebubbles/helpers/helpers.dart';
 import 'package:bluebubbles/services/services.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_acrylic/flutter_acrylic.dart';
 import 'package:get/get.dart';
 
@@ -55,6 +58,7 @@ class _AnimatedDropdownMenuState extends State<AnimatedDropdownMenu> with Single
   late final Animation<double> _scaleAnimation;
   late final CurvedAnimation _fadeAnimation;
   OverlayEntry? _overlayEntry;
+  final FocusNode _menuFocus = FocusNode(debugLabel: 'AnimatedDropdownMenu');
 
   Alignment _targetAnchor = Alignment.bottomRight;
   Alignment _followerAnchor = Alignment.topRight;
@@ -81,6 +85,7 @@ class _AnimatedDropdownMenuState extends State<AnimatedDropdownMenu> with Single
     _scaleCurve.dispose();
     _fadeAnimation.dispose();
     _animationController.dispose();
+    _menuFocus.dispose();
     super.dispose();
   }
 
@@ -117,6 +122,9 @@ class _AnimatedDropdownMenuState extends State<AnimatedDropdownMenu> with Single
     _computeAnchors();
     _overlayEntry = _buildOverlayEntry();
     Overlay.of(context).insert(_overlayEntry!);
+    // The overlay sits outside the page's focus tree; without focus here, Escape reaches the app's go-back action.
+    // Hardware-keyboard platforms only: taking focus from a text field on Android hides and re-shows the soft keyboard.
+    if (kIsDesktop || kIsWeb) _menuFocus.requestFocus();
     _animationController.forward();
   }
 
@@ -129,30 +137,38 @@ class _AnimatedDropdownMenuState extends State<AnimatedDropdownMenu> with Single
   OverlayEntry _buildOverlayEntry() {
     return OverlayEntry(
       builder: (overlayContext) {
-        return Stack(
-          children: [
-            Positioned.fill(
-              child: GestureDetector(
-                behavior: HitTestBehavior.translucent,
-                onTap: _hideMenu,
-                child: const SizedBox.expand(),
-              ),
-            ),
-            CompositedTransformFollower(
-              link: _layerLink,
-              targetAnchor: _targetAnchor,
-              followerAnchor: _followerAnchor,
-              offset: _offset,
-              child: ScaleTransition(
-                scale: _scaleAnimation,
-                alignment: _followerAnchor,
-                child: FadeTransition(
-                  opacity: _fadeAnimation,
-                  child: widget.menuBuilder(overlayContext, _hideMenu),
+        return Focus(
+          focusNode: _menuFocus,
+          onKeyEvent: (_, event) {
+            if (event is! KeyDownEvent || event.logicalKey != LogicalKeyboardKey.escape) return KeyEventResult.ignored;
+            _hideMenu();
+            return KeyEventResult.handled;
+          },
+          child: Stack(
+            children: [
+              Positioned.fill(
+                child: GestureDetector(
+                  behavior: HitTestBehavior.translucent,
+                  onTap: _hideMenu,
+                  child: const SizedBox.expand(),
                 ),
               ),
-            ),
-          ],
+              CompositedTransformFollower(
+                link: _layerLink,
+                targetAnchor: _targetAnchor,
+                followerAnchor: _followerAnchor,
+                offset: _offset,
+                child: ScaleTransition(
+                  scale: _scaleAnimation,
+                  alignment: _followerAnchor,
+                  child: FadeTransition(
+                    opacity: _fadeAnimation,
+                    child: widget.menuBuilder(overlayContext, _hideMenu),
+                  ),
+                ),
+              ),
+            ],
+          ),
         );
       },
     );
