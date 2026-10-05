@@ -175,7 +175,8 @@ class FindMyController extends GetxController {
             mapController.move(LatLng(loc.latitude, loc.longitude), 10);
             hasMovedToCurrentLocation.value = true;
           } else {
-            locationSub = Geolocator.getPositionStream().listen((event) {
+            // Refresh re-enters here; one live position stream already keeps the marker current.
+            locationSub ??= Geolocator.getPositionStream().listen((event) {
               if (!_isAlive) return;
               buildLocationMarker(event);
 
