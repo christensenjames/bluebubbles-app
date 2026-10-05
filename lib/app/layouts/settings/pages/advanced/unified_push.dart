@@ -160,6 +160,6 @@ class _UnifiedPushPanelState extends CustomState<UnifiedPushPanel, void, Unified
       SettingsSvc.settings.endpointUnifiedPush.value = "";
     }
 
-    await SettingsSvc.settings.saveOneAsync('endpointUnifiedPush');
+    await SettingsSvc.settings.saveManyAsync(['endpointUnifiedPush', if (!val) 'enableUnifiedPush']);
   }
 }
