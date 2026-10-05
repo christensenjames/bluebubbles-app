@@ -265,7 +265,10 @@ class _DesktopPanelState extends State<DesktopPanel> with ThemeHelpers {
                           containerColor: Colors.red,
                         ),
                       )),
-                  Obx(() => AnimatedSizeAndFade.showHide(
+                  Obx(() {
+                    final soundPath = SettingsSvc.settings.desktopNotificationSoundPath.value;
+                    final soundName = soundPath == null ? null : basename(soundPath);
+                    return AnimatedSizeAndFade.showHide(
                         show: SettingsSvc.settings.desktopNotifications.value,
                         child: SettingsTile(
                           leading: const SettingsLeadingIcon(
@@ -274,10 +277,11 @@ class _DesktopPanelState extends State<DesktopPanel> with ThemeHelpers {
                             containerColor: Colors.purple,
                           ),
                           title:
-                              "${SettingsSvc.settings.desktopNotificationSoundPath.value == null ? "Add" : "Change"} Notification Sound",
-                          subtitle: SettingsSvc.settings.desktopNotificationSoundPath.value != null
-                              ? basename(SettingsSvc.settings.desktopNotificationSoundPath.value!)
-                                  .substring("notification-".length)
+                              "${soundPath == null ? "Add" : "Change"} Notification Sound",
+                          subtitle: soundName != null
+                              ? soundName.startsWith("notification-")
+                                  ? soundName.substring("notification-".length)
+                                  : soundName
                               : "Adds a sound to be played with notifications. This is separate from the system notification settings.${Platform.isWindows ? " This will silence the system notification sound." : ""}",
                           onTap: () async {
                             FilePickerResult? result = await FilePicker.pickFiles(type: FileType.audio, withData: true);
@@ -290,7 +294,7 @@ class _DesktopPanelState extends State<DesktopPanel> with ThemeHelpers {
                               await SettingsSvc.settings.saveOneAsync('desktopNotificationSoundPath');
                             }
                           },
-                          trailing: SettingsSvc.settings.desktopNotificationSoundPath.value != null
+                          trailing: soundPath != null
                               ? Row(
                                   mainAxisSize: MainAxisSize.min,
                                   children: [
@@ -330,7 +334,8 @@ class _DesktopPanelState extends State<DesktopPanel> with ThemeHelpers {
                                 )
                               : const SizedBox.shrink(),
                         ),
-                      )),
+                    );
+                  }),
                   Obx(() => AnimatedSizeAndFade.showHide(
                       show: SettingsSvc.settings.desktopNotifications.value &&
                           SettingsSvc.settings.desktopNotificationSoundPath.value != null,
