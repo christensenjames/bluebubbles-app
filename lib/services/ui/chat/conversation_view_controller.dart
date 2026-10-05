@@ -27,7 +27,8 @@ ConversationViewController cvc(Chat chat, {String? tag}) =>
         ? Get.find<ConversationViewController>(tag: tag ?? chat.guid)
         : Get.put(ConversationViewController(chat, tag_: tag), tag: tag ?? chat.guid);
 
-class ConversationViewController extends StatefulController with GetSingleTickerProviderStateMixin {
+// The send-effect picker creates one ticker per effect preview, so this provider must allow many.
+class ConversationViewController extends StatefulController with GetTickerProviderStateMixin {
   final Chat chat;
   late final String tag;
   bool fromChatCreator = false;
