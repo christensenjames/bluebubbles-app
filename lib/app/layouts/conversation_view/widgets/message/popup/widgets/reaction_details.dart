@@ -46,7 +46,10 @@ class ReactionDetails extends StatelessWidget {
                   String? reactionName;
                   if (!SettingsSvc.settings.hideNamesForReactions.value) {
                     if (message.isFromMe!) {
-                      reactionName = SettingsSvc.settings.userName.value;
+                      reactionName =
+                          SettingsSvc.settings.redactedMode.value && SettingsSvc.settings.hideContactInfo.value
+                              ? "User Name"
+                              : SettingsSvc.settings.userName.value;
                     } else if (handle != null) {
                       reactionName = HandleSvc.getOrCreateHandleState(handle).reactionDisplayName.value;
                     }
