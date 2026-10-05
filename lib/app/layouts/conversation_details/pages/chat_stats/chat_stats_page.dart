@@ -12,6 +12,7 @@ import 'package:bluebubbles/app/wrappers/bb_scaffold.dart';
 import 'package:bluebubbles/database/models.dart';
 import 'package:bluebubbles/helpers/helpers.dart';
 import 'package:bluebubbles/services/ui/chat/chat_stats/chat_stats_models.dart';
+import 'package:bluebubbles/services/services.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
@@ -70,64 +71,71 @@ class _ChatStatsPageState extends State<ChatStatsPage> with SingleTickerProvider
 
   @override
   Widget build(BuildContext context) {
-    return BBScaffold(
-      extendBodyBehindAppBar: false,
-      appBar: BBAppBar(
-        title: Column(
-          mainAxisSize: MainAxisSize.min,
-          // `BBAppBar` centers the title as a block on iOS (`centerTitle`
-          // defaults to `context.iOS`), but a left-aligned two-line title
-          // whose lines have very different widths (short "Stats" vs. a
-          // potentially long chat name) still reads as off-center inside
-          // that centered block. Centering the lines themselves fixes it;
-          // Material/Samsung keep the conventional left alignment.
-          crossAxisAlignment: iOS ? CrossAxisAlignment.center : CrossAxisAlignment.start,
-          children: [
-            Text("Stats", style: context.theme.textTheme.titleLarge),
-            Text(
-              widget.chat.getTitle(),
-              style: context.theme.textTheme.bodySmall?.copyWith(color: context.theme.colorScheme.outline),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-            ),
-          ],
-        ),
-        leading: buildBackButton(context),
-        actions: [
-          IconButton(
-            icon: Icon(iOS ? CupertinoIcons.refresh : Icons.refresh),
-            onPressed: () => controller.ensureSection(_visibleStage, force: true),
-          ),
-        ],
-        bottom: _ChatStatsTabBar(controller: tabController, labels: _tabLabels),
-      ),
-      body: Column(
-        children: [
-          _TimeframeSelector(controller: controller),
-          AnimatedSwitcher(
-            duration: const Duration(milliseconds: 300),
-            transitionBuilder: (child, animation) => SizeTransition(
-              sizeFactor: animation,
-              alignment: Alignment.topCenter,
-              child: FadeTransition(opacity: animation, child: child),
-            ),
-            child: _showComparisonSelector
-                ? ComparisonSelector(key: const ValueKey('comparison-selector'), controller: controller)
-                : const SizedBox.shrink(key: ValueKey('comparison-selector-hidden')),
-          ),
-          _ProgressBar(controller: controller),
-          Expanded(
-            child: TabBarView(
-              controller: tabController,
+    return Actions(
+      actions: {GoBackIntent: GoBackAction(context)},
+      child: Focus(
+        // Without a focused node below Actions, primary focus sits on the route scope and Escape misses GoBackAction.
+        autofocus: true,
+        child: BBScaffold(
+          extendBodyBehindAppBar: false,
+          appBar: BBAppBar(
+            title: Column(
+              mainAxisSize: MainAxisSize.min,
+              // `BBAppBar` centers the title as a block on iOS (`centerTitle`
+              // defaults to `context.iOS`), but a left-aligned two-line title
+              // whose lines have very different widths (short "Stats" vs. a
+              // potentially long chat name) still reads as off-center inside
+              // that centered block. Centering the lines themselves fixes it;
+              // Material/Samsung keep the conventional left alignment.
+              crossAxisAlignment: iOS ? CrossAxisAlignment.center : CrossAxisAlignment.start,
               children: [
-                ChatStatsOverviewTab(controller: controller),
-                ChatStatsActivityTab(controller: controller),
-                ChatStatsEngagementTab(controller: controller),
-                ChatStatsContentTab(controller: controller),
+                Text("Stats", style: context.theme.textTheme.titleLarge),
+                Text(
+                  widget.chat.getTitle(),
+                  style: context.theme.textTheme.bodySmall?.copyWith(color: context.theme.colorScheme.outline),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
               ],
             ),
+            leading: buildBackButton(context),
+            actions: [
+              IconButton(
+                icon: Icon(iOS ? CupertinoIcons.refresh : Icons.refresh),
+                onPressed: () => controller.ensureSection(_visibleStage, force: true),
+              ),
+            ],
+            bottom: _ChatStatsTabBar(controller: tabController, labels: _tabLabels),
           ),
-        ],
+          body: Column(
+            children: [
+              _TimeframeSelector(controller: controller),
+              AnimatedSwitcher(
+                duration: const Duration(milliseconds: 300),
+                transitionBuilder: (child, animation) => SizeTransition(
+                  sizeFactor: animation,
+                  alignment: Alignment.topCenter,
+                  child: FadeTransition(opacity: animation, child: child),
+                ),
+                child: _showComparisonSelector
+                    ? ComparisonSelector(key: const ValueKey('comparison-selector'), controller: controller)
+                    : const SizedBox.shrink(key: ValueKey('comparison-selector-hidden')),
+              ),
+              _ProgressBar(controller: controller),
+              Expanded(
+                child: TabBarView(
+                  controller: tabController,
+                  children: [
+                    ChatStatsOverviewTab(controller: controller),
+                    ChatStatsActivityTab(controller: controller),
+                    ChatStatsEngagementTab(controller: controller),
+                    ChatStatsContentTab(controller: controller),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }

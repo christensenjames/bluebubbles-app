@@ -350,7 +350,11 @@ class GoBackAction extends Action<GoBackIntent> {
   @override
   Object? invoke(covariant GoBackIntent intent) {
     if (SettingsSvc.settings.finishedSetup.value && !(Get.isDialogOpen ?? true)) {
-      NavigationSvc.backConversationView(context);
+      if (NavigationSvc.isTabletMode(context)) {
+        NavigationSvc.backConversationView(context);
+      } else {
+        Navigator.of(context).maybePop();
+      }
     }
     return null;
   }

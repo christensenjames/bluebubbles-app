@@ -402,7 +402,7 @@ class Main extends StatelessWidget {
             _NoLockKeySet(LogicalKeyboardKey.control, LogicalKeyboardKey.shift, LogicalKeyboardKey.tab):
                 const OpenPreviousChatIntent(),
           _NoLockKeySet(LogicalKeyboardKey.control, LogicalKeyboardKey.keyI): const OpenChatDetailsIntent(),
-          _NoLockKeySet(LogicalKeyboardKey.escape): const GoBackIntent(),
+          _NoRepeatKeySet(LogicalKeyboardKey.escape): const GoBackIntent(),
         },
         builder: (context, child) => SafeArea(
           top: false,
@@ -527,6 +527,16 @@ class _NoLockKeySet extends LogicalKeySet {
     final pressed = state.logicalKeysPressed.difference(_lockKeys);
     return triggers.contains(event.logicalKey) &&
         setEquals(LogicalKeyboardKey.collapseSynonyms(keys), LogicalKeyboardKey.collapseSynonyms(pressed));
+  }
+}
+
+// Held Escape would otherwise pop route after route, down to closing the chat.
+class _NoRepeatKeySet extends _NoLockKeySet {
+  _NoRepeatKeySet(super.key1);
+
+  @override
+  bool accepts(KeyEvent event, HardwareKeyboard state) {
+    return event is! KeyRepeatEvent && super.accepts(event, state);
   }
 }
 

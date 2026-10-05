@@ -166,6 +166,7 @@ class ConversationViewState extends State<ConversationView> with ThemeHelpers<Co
 
   void _buildActionsMap() {
     _actionsMap = {
+      GoBackIntent: GoBackAction(context),
       OpenChatDetailsIntent: OpenChatDetailsAction(context, widget.chat.guid),
     };
 
@@ -265,13 +266,13 @@ class ConversationViewState extends State<ConversationView> with ThemeHelpers<Co
               if (LifecycleSvc.isBubble) return;
               return Navigator.of(context).pop();
             },
-            child: BBScaffold(
-              backgroundColor: windowEffect != WindowEffect.disabled ? Colors.transparent : colorScheme.surface,
-              extendBodyBehindAppBar: true,
-              appBar: _appBar,
-              body: Actions(
-                actions: _actionsMap,
-                child: _bodyContent,
+            child: Actions(
+              actions: _actionsMap,
+              child: BBScaffold(
+                backgroundColor: windowEffect != WindowEffect.disabled ? Colors.transparent : colorScheme.surface,
+                extendBodyBehindAppBar: true,
+                appBar: _appBar,
+                body: _bodyContent,
               ),
             ),
           ),
