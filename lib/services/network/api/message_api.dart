@@ -362,7 +362,9 @@ class MessageApi {
           "payload": {
             "chatGuid": chatGuid,
             "message": message,
-            "method": SettingsSvc.settings.privateAPISend.value ? 'private-api' : "apple-script",
+            "method": SettingsSvc.settings.enablePrivateAPI.value && SettingsSvc.settings.privateAPISend.value
+                ? 'private-api'
+                : 'apple-script',
           },
           "scheduledFor": date.millisecondsSinceEpoch,
           "schedule": schedule,
@@ -378,7 +380,8 @@ class MessageApi {
     String chatGuid,
     String message,
     DateTime date,
-    Map<String, dynamic> schedule, {
+    Map<String, dynamic> schedule,
+    String method, {
     CancelToken? cancelToken,
   }) async {
     return _svc.runApiGuarded(() async {
@@ -388,7 +391,7 @@ class MessageApi {
         cancelToken: cancelToken,
         data: {
           "type": "send-message",
-          "payload": {"chatGuid": chatGuid, "message": message, "method": "apple-script"},
+          "payload": {"chatGuid": chatGuid, "message": message, "method": method},
           "scheduledFor": date.millisecondsSinceEpoch,
           "schedule": schedule,
         },

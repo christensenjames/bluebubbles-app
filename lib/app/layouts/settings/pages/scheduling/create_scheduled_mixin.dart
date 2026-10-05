@@ -107,6 +107,7 @@ mixin CreateScheduledMixin<T extends StatefulWidget> on State<T> {
           messageController.text,
           date.value.toUtc(),
           scheduleMap,
+          existingMessage!.payload.method,
         );
       } else {
         response = await HttpSvc.message.createScheduled(
