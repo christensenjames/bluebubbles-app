@@ -64,6 +64,13 @@ class SearchViewState extends State<SearchView> with ThemeHelpers {
     });
   }
 
+  @override
+  void dispose() {
+    textEditingController.dispose();
+    focusNode.dispose();
+    super.dispose();
+  }
+
   Future<void> search(String newSearch) async {
     if (isSearching.value || isNullOrEmpty(newSearch) || newSearch.length < 3) return;
     final generation = ++_searchGeneration;
