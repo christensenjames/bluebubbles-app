@@ -76,6 +76,7 @@ class ChatStatsController extends GetxController {
 
   /// Guards against duplicate concurrent computation of the same section.
   final Set<StatsStage> _inFlight = {};
+  int _timeframeRevision = 0;
 
   /// UI-only view state — changing this must NOT trigger a recompute. Local
   /// to the Activity tab's own bucket-granularity control — distinct from
@@ -156,12 +157,14 @@ class ChatStatsController extends GetxController {
     if (_inFlight.contains(stage)) return;
     if (!force && _isComputed(stage)) return;
     _inFlight.add(stage);
+    final revision = _timeframeRevision;
     // Tabs call this from `initState`, which runs mid-build — yield to a
     // microtask first so the Rx writes below land after the current build
     // phase finishes, not during it (otherwise Obx.setState fires while the
     // framework is still building this exact subtree).
     await Future<void>.value();
     try {
+      if (revision != _timeframeRevision) return;
       error.value = null;
       progress.value = const ChatStatsProgress(StatsStage.loadingMessages);
       // The sole place `_cacheKey` is resolved and a cache hit is applied —
@@ -169,13 +172,16 @@ class ChatStatsController extends GetxController {
       // `initState`, or `init()`'s small-tier kickoff) reaches it first, and
       // never clobbers data another in-flight call already produced.
       _cacheKey ??= await runAsync(() => ChatStatsQueries.cacheKey(chat));
+      if (revision != _timeframeRevision) return;
       stats.value ??= ChatStatsCache.get(_cacheEntryKey, _cacheKey!);
       final currentTimeframe = timeframe.value;
       if (_byParticipant == null || _byParticipantTimeframe != currentTimeframe) {
         final fetchWatch = Stopwatch()..start();
-        _byParticipant = await runAsync(
+        final byParticipant = await runAsync(
           () => ChatStatsQueries.timestampsByParticipant(chat, sinceMillis: currentTimeframe.cutoffMillis()),
         );
+        if (revision != _timeframeRevision) return;
+        _byParticipant = byParticipant;
         _byParticipantTimeframe = currentTimeframe;
         Logger.debug(
           'Fetched timestampsByParticipant for ${chat.guid} (${currentTimeframe.label}, ${_byParticipant!.values.fold<int>(0, (a, b) => a + b.length)} messages) in ${fetchWatch.elapsedMilliseconds}ms',
@@ -195,16 +201,20 @@ class ChatStatsController extends GetxController {
       switch (stage) {
         case StatsStage.computingOverview:
           final overview = await _computeOverview();
+          if (revision != _timeframeRevision) return;
           stats.value = _base().copyWith(overview: overview);
         case StatsStage.computingActivity:
           final activity = await _computeActivity();
+          if (revision != _timeframeRevision) return;
           stats.value = _base().copyWith(activity: activity);
         case StatsStage.computingEngagement:
           final engagement = await _computeEngagement();
+          if (revision != _timeframeRevision) return;
           stats.value = _base().copyWith(engagement: engagement);
         case StatsStage.computingContent:
           final contentCacheKey = '$_cacheEntryKey:${comparisonParticipantId.value}';
           final content = (force ? null : _contentByComparison[contentCacheKey]) ?? await _computeContent();
+          if (revision != _timeframeRevision) return;
           _contentByComparison[contentCacheKey] = content;
           stats.value = _base().copyWith(content: content);
         default:
@@ -214,10 +224,15 @@ class ChatStatsController extends GetxController {
       ChatStatsCache.put(_cacheEntryKey, stats.value!);
     } catch (e, s) {
       Logger.error('Failed to compute $stage', error: e, trace: s, tag: 'ChatStats');
-      error.value = 'Could not load these stats.';
+      if (revision == _timeframeRevision) {
+        error.value = 'Could not load these stats.';
+      }
     } finally {
       _inFlight.remove(stage);
       progress.value = ChatStatsProgress.idle;
+      if (revision != _timeframeRevision && !isClosed) {
+        unawaited(ensureSection(stage, force: true));
+      }
     }
   }
 
@@ -280,16 +295,19 @@ class ChatStatsController extends GetxController {
   /// Switches the page-level window and recomputes every section that was
   /// already showing data, so visible tabs update immediately; not-yet-opened
   /// tabs just pick up the new [timeframe] naturally when first visited.
+  /// Sections still computing restart themselves when their stale run ends.
   Future<void> setTimeframe(StatsTimeframe value) async {
     if (timeframe.value == value) return;
+    _timeframeRevision++;
     timeframe.value = value;
 
-    final toRecompute = <StatsStage>[
+    final toRecompute = <StatsStage>{
+      ..._inFlight,
       if (stats.value?.overview != null) StatsStage.computingOverview,
       if (stats.value?.activity != null) StatsStage.computingActivity,
       if (stats.value?.engagement != null) StatsStage.computingEngagement,
       if (stats.value?.content != null) StatsStage.computingContent,
-    ];
+    };
     if (toRecompute.isEmpty) return;
 
     stats.value = _cacheKey == null
