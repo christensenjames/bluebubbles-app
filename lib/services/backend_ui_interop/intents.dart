@@ -114,7 +114,7 @@ class ReplyRecentAction extends Action<ReplyRecentIntent> {
     final message = service.mostRecentReceived;
     if (message != null && SettingsSvc.settings.enablePrivateAPI.value) {
       final parts = service.getOrCreateState(message).parts;
-      cvc(chat).replyToMessage = MessageReplyContext(message, parts.length - 1);
+      cvc(chat).replyToMessage = MessageReplyContext(message, parts.lastOrNull?.part ?? 0);
     }
     return null;
   }

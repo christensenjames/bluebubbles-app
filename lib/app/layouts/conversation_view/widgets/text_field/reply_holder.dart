@@ -31,7 +31,11 @@ class _ReplyHolderState extends State<ReplyHolder> with ThemeHelpers {
       final chatGuid = message?.chat.target?.guid ?? ChatStateScope.maybeChatOf(context)?.guid;
       final resolvedReply = message?.guid == null || chatGuid == null
           ? message
-          : (maybeFindMessagesSvc(chatGuid)?.getMessageStateIfExists(message!.guid!)?.parts[part] ?? message);
+          : (maybeFindMessagesSvc(chatGuid)
+                  ?.getMessageStateIfExists(message!.guid!)
+                  ?.parts
+                  .firstWhereOrNull((p) => p.part == part) ??
+              message);
       final reply = resolvedReply is MessagePart && attachmentGuid != null
           ? MessagePart(
               part: resolvedReply.part,

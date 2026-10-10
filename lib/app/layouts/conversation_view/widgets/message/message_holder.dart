@@ -231,9 +231,10 @@ class _MessageHolderState extends State<MessageHolder> with AutomaticKeepAliveCl
         final _rxGuard = (controller.isSending.value, controller.hasError.value, controller.parts.length);
 
         // Read controller.parts reactively so Obx rebuilds when parts change
-        final rawMessageParts = widget.isReplyThread && widget.replyPart != null
-            ? [controller.parts[widget.replyPart!]]
-            : controller.parts.toList();
+        final selectedPart = widget.isReplyThread && widget.replyPart != null
+            ? controller.parts.firstWhereOrNull((p) => p.part == widget.replyPart)
+            : null;
+        final rawMessageParts = selectedPart != null ? [selectedPart] : controller.parts.toList();
         final messageParts = _collapseImageGalleryParts(rawMessageParts);
 
         // Grow per-part arrays so replyOffsets[index] and keys[index] are
