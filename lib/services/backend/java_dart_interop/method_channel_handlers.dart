@@ -347,12 +347,24 @@ class MethodChannelHandlers {
       final Map<String, dynamic>? data = arguments;
       if (!isNullOrEmpty(data)) {
         final payload = ServerPayload.fromJson(data!);
-        final Chat? chat = Chat.findOne(guid: payload.data['chatGuid']);
+        final bool chatsRegistered = GetIt.I.isRegistered<ChatsService>();
+        final String? guid = payload.data['chatGuid'];
+        final Chat? chat =
+            (guid != null && chatsRegistered ? ChatsSvc.findChatByGuid(guid) : null) ?? Chat.findOne(guid: guid);
         if (chat == null || (payload.data['read'] != true && payload.data['read'] != false)) {
           return await _retry();
         }
 
-        chat.toggleHasUnreadAsync(!payload.data['read']!, force: payload.data['read'] == true, privateMark: false);
+        if (payload.data['read'] == false && chatsRegistered && ChatsSvc.isChatActive(chat.guid)) {
+          return await _ok();
+        }
+
+        await chat.toggleHasUnreadAsync(
+          !payload.data['read']!,
+          force: payload.data['read'] == true,
+          privateMark: false,
+        );
+        if (chatsRegistered) ChatsSvc.getChatState(chat.guid)?.updateHasUnreadInternal(chat.hasUnreadMessage ?? false);
         return await _ok();
       }
 
