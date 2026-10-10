@@ -28,10 +28,12 @@ class CustomGroupFilterChipRow extends StatelessWidget {
       final current = filters.customGroupIds;
 
       // Read chatListVersion so this rebuilds when chats are added/removed, and
-      // read each ChatState's hasUnreadMessage below so it rebuilds when any
-      // chat's read status changes.
+      // read each ChatState's hasUnreadMessage and muteType below so it rebuilds
+      // when any chat's read or mute status changes.
       ChatsSvc.chatListVersion.value;
-      final unreadStates = ChatsSvc.chatStates.values.where((s) => s.hasUnreadMessage.value).toList();
+      final unreadStates = ChatsSvc.chatStates.values
+          .where((s) => s.hasUnreadMessage.value && s.muteType.value != "mute")
+          .toList();
       // Membership is read from `group.chats` (the group's own ToMany,
       // refreshed whenever CustomGroupsSvc reloads) rather than
       // `s.chat.customGroups` — that backlink is lazily cached per Chat
