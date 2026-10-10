@@ -545,10 +545,9 @@ class _MessageHolderState extends State<MessageHolder> with AutomaticKeepAliveCl
                                                                                               message.guid! &&
                                                                                           e2.part.part == e.part);
                                                                                   return AnimatedSize(
-                                                                                      duration: const Duration(
-                                                                                          milliseconds: 250),
+                                                                                      duration: Durations.medium1,
                                                                                       alignment: Alignment.centerRight,
-                                                                                      curve: Curves.easeOutBack,
+                                                                                      curve: Easing.emphasizedDecelerate,
                                                                                       child: editStuff == null
                                                                                           ? const SizedBox.shrink()
                                                                                           : MessageEditField(

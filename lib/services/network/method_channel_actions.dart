@@ -124,6 +124,7 @@ class MethodChannelActions {
     required bool messageIsFromMe,
     required bool showReactionAction,
     required String reactionType,
+    String? messageImagePath,
   }) async {
     await service.invokeMethod('create-incoming-message-notification', {
       'channel_id': channelId,
@@ -140,6 +141,7 @@ class MethodChannelActions {
       'message_is_from_me': messageIsFromMe,
       'show_reaction_action': showReactionAction,
       'reaction_type': reactionType,
+      'message_image_path': messageImagePath,
     });
   }
 

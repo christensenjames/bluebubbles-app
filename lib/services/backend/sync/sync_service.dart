@@ -96,7 +96,7 @@ class SyncService {
           final chat = msg.chat.target;
           if (chat != null) await ChatsSvc.addChat(chat, immediate: true);
         }
-        ChatsSvc.updateChatLatestMessage(entry.key, msg, repositionImmediate: false);
+        ChatsSvc.updateChatLatestMessage(entry.key, msg, repositionImmediate: false, markReadIfFromMe: true);
         processedSubtitleByChat[entry.key] = entry.value;
       }
 
@@ -148,7 +148,7 @@ class SyncService {
         for (final entry in latestPerChat.entries) {
           final message = entry.value;
           if (message.id != null && processedSubtitleByChat[entry.key] == message.id) continue;
-          ChatsSvc.updateChatLatestMessage(entry.key, message, repositionImmediate: false);
+          ChatsSvc.updateChatLatestMessage(entry.key, message, repositionImmediate: false, markReadIfFromMe: true);
         }
 
         // Dispatch newly synced messages to any currently active chat view.

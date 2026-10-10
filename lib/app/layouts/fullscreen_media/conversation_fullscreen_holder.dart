@@ -14,6 +14,7 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/gestures.dart';
 import "package:flutter/material.dart";
+import 'package:flutter/services.dart';
 import 'package:gesture_x_detector/gesture_x_detector.dart';
 import 'package:get/get.dart';
 
@@ -172,20 +173,22 @@ class ConversationFullscreenHolderState extends State<ConversationFullscreenHold
                 Logger.info(
                     "Got device label ${event.deviceType.label}, physical key ${event.physicalKey.toString()}, logical key ${event.logicalKey.toString()}",
                     tag: "RawKeyboardListener");
+                if (event is KeyUpEvent) return KeyEventResult.ignored;
                 if (event.physicalKey.debugName == "Arrow Right") {
                   if (SettingsSvc.settings.fullscreenViewerSwipeDir.value == SwipeDirection.RIGHT) {
-                    controller.previousPage(duration: const Duration(milliseconds: 300), curve: Curves.easeIn);
+                    controller.previousPage(duration: Durations.medium2, curve: Easing.emphasizedDecelerate);
                   } else {
-                    controller.nextPage(duration: const Duration(milliseconds: 300), curve: Curves.easeIn);
+                    controller.nextPage(duration: Durations.medium2, curve: Easing.emphasizedDecelerate);
                   }
                 } else if (event.physicalKey.debugName == "Arrow Left") {
                   if (SettingsSvc.settings.fullscreenViewerSwipeDir.value == SwipeDirection.LEFT) {
-                    controller.previousPage(duration: const Duration(milliseconds: 300), curve: Curves.easeIn);
+                    controller.previousPage(duration: Durations.medium2, curve: Easing.emphasizedDecelerate);
                   } else {
-                    controller.nextPage(duration: const Duration(milliseconds: 300), curve: Curves.easeIn);
+                    controller.nextPage(duration: Durations.medium2, curve: Easing.emphasizedDecelerate);
                   }
                 } else if (event.physicalKey.debugName == "Escape") {
-                  Navigator.of(context).pop();
+                  // Swallow repeats too, or they reach the app-wide Escape shortcut and close the chat.
+                  if (event is KeyDownEvent && ModalRoute.of(context)?.isCurrent == true) Navigator.of(context).pop();
                   return KeyEventResult.handled;
                 }
                 return KeyEventResult.ignored;
@@ -239,7 +242,7 @@ class ConversationFullscreenHolderState extends State<ConversationFullscreenHold
                 reverse: SettingsSvc.settings.fullscreenViewerSwipeDir.value == SwipeDirection.RIGHT,
                 itemCount: attachments.length,
                 onPageChanged: (int val) {
-                  widget.videoController?.player.pause();
+                  PipSvc.setAutoEnter(enabled: false);
                   setState(() {
                     currentIndex = val;
                     // Reset a zoom-lock (NeverScrollableScrollPhysics) set by the page we're
@@ -285,8 +288,9 @@ class ConversationFullscreenHolderState extends State<ConversationFullscreenHold
                         file: content,
                         attachment: attachment,
                         showInteractions: widget.showInteractions,
-                        videoController: widget.videoController,
+                        videoController: attachment.guid == widget.attachment.guid ? widget.videoController : null,
                         mute: widget.mute,
+                        isCurrentPage: index == currentIndex,
                         onOverlayToggle: (show) {
                           if (showAppBar != show) {
                             setState(() {

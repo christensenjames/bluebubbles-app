@@ -1,0 +1,369 @@
+# Changelog
+
+## 2026-10-05 — Overnight run 10-05, scheduling spinner, combined build on the Pixel
+
+Scheduling a message on Android no longer leaves the "Scheduling message..." dialog
+spinning after the server has accepted it. The dialog now closes on every outcome
+(`autonomous/r1005-schedule-spinner`, `c09beb89b`). James confirmed the fix on the Pixel.
+
+An unattended run (`.overnight-2026-10-05/`, disk-only, 42 fires, ended on the weekly cap)
+landed 157 fixes on 156 local `autonomous/r1005-*` branches stacked on
+`autonomous/base-2026-10-05`. That base is the 09-27 run's combined base merged with
+`feat/send-emoji-tapbacks`. The run's report is `.overnight-2026-10-05/REPORT.md`, and the
+merge order is in `MORNING-QUEUE.md`. Nothing was pushed.
+
+All 156 branches were then merged in that order into `autonomous/install-2026-10-05`
+(worktree `../bluebubbles-app-overnight/install-1005`, head `7ce972904`). Seven conflicts were
+resolved by hand, combining both sides: the Escape go-back action (one non-repeating key
+binding, plus a popup dismiss that pops the focused navigator on phones), the details page's
+attachment-failure handler inside the focus wrapper, the Redacted Mode locations card with a
+local-time date, the voice memo stop path (try/catch, missing-file and Linux no-audio
+checks), the Samsung date separator in local time, and the custom sound names using
+`_soundName`. These resolutions were not reviewed. The combined tree analyzes at 68 infos
+with no errors or warnings and builds for Linux debug. A release `--flavor prod` APK of it is
+installed on the Pixel 11 Pro and launches without a crash.
+
+## 2026-10-02 — Incoming images in Android notifications
+
+A message notification on Android now shows the message's first image, on the phone and,
+through notification bridging, on a paired Wear OS watch (checked on a Pixel Watch 4). The
+app downloads a copy resized to 1080 px wide from the server, which also converts HEIC to
+JPEG, then re-encodes it with the EXIF rotation applied, because Android's bitmap decoder
+ignores the orientation tag. Preparing the image is capped at 10 s, because the background
+worker gives the whole message 120 s; a slow or failed download, or "hide content", leaves
+the usual text-only notification. Both image files are deleted once the notification is
+posted.
+
+A message with an image posts as a BigPictureStyle notification instead of MessagingStyle.
+The watch rendered a MessagingStyle image (a data URI on the message) visibly blurred, while
+a BigPictureStyle bitmap of the same size came through sharp, as in Home Assistant's camera
+alerts. Android counts only MessagingStyle notifications as conversations, so an image
+notification sits below the Conversations section, cannot bubble (`mAllowBubble=false` on
+the Pixel), and does not get a priority conversation's Do Not Disturb bypass. It also drops
+the conversation layout and earlier messages, so the chat's next notification starts a
+fresh thread. James is trying this tradeoff before deciding whether it stays.
+
+The background worker engine that posts notifications while the app is closed now registers
+`flutter_image_compress`. Without it the rotation step failed and those notifications fell
+back to text.
+
+## 2026-10-01 — Chats ending in your own message no longer show unread
+
+A message sent from another device (the desktop client, the Mac) could leave the chat
+marked unread on Android. Incremental sync writes synced messages and updates the chat's
+latest message, but never touched the unread flag. Upstream `189e96f73` removed the old
+`syncLatestMessages` pass that did. The socket and FCM paths go through `Chat.addMessage`,
+which marks the chat read for a from-me message, but a backgrounded or Doze-deferred phone
+gets these messages through sync. When sync moves a chat's latest message forward to a
+different, not-older message from me, `ChatsService.updateChatLatestMessage` now marks the
+chat read locally, without sending a read receipt. A re-reported latest message does not
+undo a manual mark-unread, and a from-me message admitted by the 2 s stale tolerance does
+not clear a newer incoming one. Other callers of that method leave the unread flag alone.
+
+Still open: James reports that a message he sends from the desktop client makes the chat
+show unread on the Pixel even when it was read before, which this sync-only fix does not
+address. The Pixel's logcat carries none of the app's Dart log lines, and the release
+build blocks `run-as`, so the next step is the app's own log via Settings → Troubleshoot →
+Download / Share Logs, captured right after one desktop send.
+
+## 2026-10-01 — Fullscreen video controls
+
+The fullscreen video viewer now puts its actions inside media_kit's own control overlay
+instead of a separate bar, on every platform. Close sits top-left; info and re-download sit
+top-right when `showInteractions` is set. On mobile and web a mute toggle replaces the
+fullscreen button, which did nothing useful because the viewer is already fullscreen. The
+old close bar was an unpositioned `Stack` child, so it rendered as a dark band across the
+middle of the video. Desktop drops its separate close bar and centre play button for the
+same overlay, with play/pause, mute, position and native fullscreen in the bottom bar and
+click-to-pause on the video. The top bar is omitted inside media_kit's native fullscreen
+route, where close would pop that route without leaving native fullscreen. The seek bar
+takes the theme's primary colour instead of media_kit's red, and on mobile it is inset
+from the screen edges and the bottom gesture area so dragging it no longer competes with
+the system back and home gestures.
+
+media_kit's `MaterialVideoControlsTheme.updateShouldNotify` is inverted (it returns
+`identical(...)`), so its controls never pick up a rebuilt theme. The top bar kept the
+portrait status-bar inset after rotating to landscape and floated down towards the middle.
+The controls are now keyed on the top inset, so they remount when it changes.
+
+The inline chat video shows a fullscreen button on every platform, not only desktop, and
+it stays visible while the video plays. On desktop it now hands the inline player to the
+viewer instead of opening a second one. In the gallery only the attachment the viewer
+opened on borrows that player; every other video page owns its own, so pages no longer
+share one player. Re-downloading a video that borrowed the inline player first swaps in a
+fresh player, because the re-download disposes the inline one. Opening the viewer from a
+video, or from a media row in high-performance mode, unfocuses the text field first, as the
+image path already did. Before, a field whose keyboard had been dismissed with the back
+gesture kept focus, and closing the viewer restored it and reopened the keyboard.
+
+Outside the iOS skin, the viewer's top bar gains save and, on mobile, share, next to info
+and re-download. The bottom bar gains a speed button (1x, 1.5x, 2x, 0.5x) and a loop toggle.
+When the viewer closes and hands its player back to the inline video, it resets speed and
+loop, because the inline video has no UI for either. On mobile, double-tapping either side
+of the video seeks, and holding it speeds playback up. media_kit's horizontal-drag seek is
+off, because a sideways drag pages the gallery. A single tap waits out the double-tap
+window before it toggles the overlay. On desktop the viewer takes keyboard shortcuts: space
+and K play or pause, J and L seek 10 seconds, the up and down arrows change volume, M
+mutes, F toggles native fullscreen, and Escape leaves fullscreen or closes the viewer. The
+left and right arrows stay unbound so they keep paging the gallery, and in the gallery only
+the page on screen takes keyboard focus. Both fullscreen holders now act on Escape only on
+key-down: they ignore its key-up and swallow its key-repeats. Before, the key-up of an Escape
+that closed the viewer reached the closing route's Escape handler and popped the chat
+underneath, which left a blank window. Holding Escape did the same through the app-wide
+Escape shortcut, which accepts repeats. Unmuting restores the volume from before
+the mute instead of resetting it to 100. Unless the caller passes a mute state, the viewer
+starts with the mute state last chosen in any viewer this session, and falls back to the
+"start videos muted in fullscreen" setting.
+
+On Android the viewer supports picture-in-picture when it shows its action buttons. Outside
+the iOS skin, a button in the top bar enters it. On every skin, the app enters it when the
+user leaves the app while a video plays: through auto-enter on Android 12 and later, and
+through `onUserLeaveHint` on Android 8 to 11. In the gallery only the page on screen drives
+auto-enter, and paging away from a video pauses it. Share turns auto-enter off and pauses
+first, so the share sheet does not open PiP. The controls hide inside the PiP window, and
+closing that window pauses the video and pops the viewer; locking the screen during PiP
+does not count as closing it. The manifest declares `supportsPictureInPicture`.
+`PictureInPictureHandler` answers the support, enter and auto-enter calls. `MainActivity`
+reports mode changes and dismissal, and `PipService`, a GetIt singleton, takes those events
+on the Dart side.
+
+## 2026-09-22 — Review gate over the autonomous queue
+
+### Queue review
+
+Ten parallel reviewer legs read all 26 branches against their own PR bodies: 13 MERGE,
+13 FIX, 0 REJECT. Twenty-five branches merged into `autonomous/integration`; 12 review
+fixes landed on top. The first-parent history has 27 commits: `c6c18f593` fixed the
+setup-page route pop, `89cf00a2c` applied the review-gate corrections, and the remaining
+25 commits merge the branches. `autonomous/integration` was pushed to
+`origin/autonomous/integration`.
+
+### Held-back branch and issue drafts
+
+`autonomous/u5-surface-variant` was held back: `ColorScheme.surfaceVariant` and
+`surfaceContainerHighest` are independent fields with independent fallbacks, not aliases.
+Its migration changed rendered colour at roughly 12 sites.
+
+`autonomous/integration` is not merged into `master`. No pull request was opened. The three
+issue drafts — `queue/ISSUE-web-target-unbuildable.md`,
+`queue/ISSUE-incoming-queue-swallows-errors.md`, and
+`queue/ISSUE-crypto-passphrase-truncation.md` — were fact-checked and corrected in place,
+but were not filed.
+
+## 2026-09-18 — Review fixes and an unattended overnight run
+
+### Emoji reactions
+
+The retry path now carries `associatedMessageEmoji`; reaction re-resolution includes the
+sender, and temporary replacement includes the emoji, so arbitrary emoji reactions keep
+their identity (`message_error_helper.dart:103-111`, `reaction.dart:67`,
+`message_state.dart:467-472`). Badge glyph selection is one helper
+(`reaction.dart:242-259`, `:417-434`). `isReaction` and `isAddedReaction` use a static set
+instead of allocating a list on each call (`reaction_helpers.dart:33,38`).
+
+### Dialogs and mark read
+
+Material and Samsung dialogs now honour `useRootNavigator`, so the emoji picker is scoped
+to the nested navigator instead of being orphaned in split view
+(`dialog_helpers.dart:92`, `message_popup.dart:232`). The picker returns its selected emoji
+to the caller, and the popup carries `selfReactionEmoji` through the send path
+(`message_popup.dart:292`). The mark-read control is hidden when no incoming message
+exists, and its watched query skips unchanged data (`header_widgets.dart:32,63`).
+
+### Motion and insets
+
+`MainActivity.kt` waits for IME animations to settle and re-dispatches real insets through
+`dispatchApplyWindowInsets` (`MainActivity.kt:83`). `typing_indicator.dart` disposes its
+curves, and the message-list opacity fade uses `Easing.standard`
+(`typing_indicator.dart:49-56`, `messages_view.dart:646`). The redundant animation doc
+comments are gone (`message_animation_orchestrator.dart:100`,
+`message_list_animation_config.dart:6`).
+
+### Layout and popup cleanup
+
+The Material desktop title-bar clearance uses one offset instead of `30.0` and `34.0`
+(`material_header.dart:50,130`). The popup drops the unreachable self-reaction hyphen
+guard and the throwaway child list (`message_popup.dart:155,551`). The redundant
+platform-condition comment is gone (`material_conversation_list.dart:66`).
+
+### Overnight run
+
+Twenty-six topic branches were pushed to `origin/autonomous/*` from `master` at
+`e2eaced6e`. Each branch was checked with `flutter analyze --no-pub --no-fatal-infos` and
+`flutter build linux --debug --no-pub`; the app was never launched.
+
+## 2026-09-12 — Helper crash loop, mark-read state, typing stop, M3 motion tokens, upstream PRs
+
+### "iMessage Helper is not connected" (helper crash loop)
+
+Every typing or mark-read request killed Messages.app: 37 crash reports in 18 hours until
+the server's dylib plugin gave up reinjecting ("Failed to start Messages Helper DYLIB 3
+times in a row").
+
+- Root cause: the server sends `start-typing`/`stop-typing`/`mark-chat-read`/`mark-chat-unread`
+  with no `transactionId`; `NetworkController.m` unwrapped that to `nil`, and the handlers
+  build their reply as `@{@"transactionId": transaction}`, which throws
+  `NSInvalidArgumentException` on a nil value. Upstream's May "Initial rewrite" dropped 13 of
+  the release's 41 `transaction != nil` guards. Release 0.0.21 (what 1.9.9 ships) is fine;
+  our fork branched from the rewrite. Upstream issue #72 describes the same crash.
+- Fix: keep `[NSNull null]` at the single decode site (`NetworkController.m:120`,
+  `?: (NSString *)[NSNull null]`); the server discards replies whose id is null. Same
+  treatment for `data: null` (`handleServerEvent:` normalises a non-dictionary to `@{}`).
+- Also cherry-picked into the fork: upstream PR #59 (macOS 26 `IMTypingChatItem` in the
+  reply-part walk aborts Messages) and #55 (`delete-message` used `deleteChatItems:` with
+  message parts, which leaves the row in `chat.db` while returning 200). Both verified live:
+  threaded reply to Kaely carries `thread_originator_guid`; deleted rows leave both `message`
+  and `chat_message_join`. Self-chat replies never thread, so don't test threading there.
+- Diff audit of the rewrite vs 0.0.21 found nothing else that crashes except `share-nickname`,
+  whose both selectors are gone from IMCore on 26 (`allowHandlesForNicknameSharing:forChat:`
+  now takes `fromHandle:forceSend:`). Participant add/remove and leave-chat lost their
+  capability guards (silent misbehaviour, not crashes). Not fixed.
+
+### Mark Read / Mark Unread button (`header_widgets.dart`)
+
+- Upstream bug since 2022 (`0fb434c06`): state was `bool marked = false` on the widget State,
+  so every re-entry showed "Mark Read"; a failed request threw past the `setState` and stuck
+  the icon on the spinner.
+- Now derived from `dateRead` of the latest incoming message via a watched ObjectBox query
+  (excluding soft-deleted rows and reactions), stamped locally on success because the server
+  only pushes `dateRead` for outgoing messages. First attempt keyed off
+  `ChatState.hasUnreadMessage`, which opening a chat clears regardless — rejected on device.
+- Verified on the Pixel: mark → leave → reopen persists both ways; an incoming message from
+  Kaely flipped the icon without leaving the view.
+
+### Stuck typing indicator (server)
+
+- `chatRouter.ts:332` `stopTyping` called `ChatInterface.startTyping`, so every stop from a
+  client re-asserted typing; the only real stop was the send path — hence "nothing while
+  typing, stuck after send". Regression from `560b1e51` (2023); already fixed on upstream
+  `development` (`2825335f`, Jan 2026) but never released. Fork commit `301db55f`, rebuilt and
+  deployed. Verified by the helper's os_log: `DELETE /typing` now arrives as `stop-typing`.
+- Diagnostic that finally worked: `/usr/bin/log show --predicate 'process == "Messages" AND
+  eventMessage CONTAINS "typing"'` on the Mini (bare `log` is a zsh builtin over SSH).
+
+### Keyboard gap after backgrounding mid IME animation (`MainActivity.kt`)
+
+- Flutter's deferring insets listener replays stale insets at the end of the next IME
+  animation. After every IME animation settles, feed the decor view's real insets to the
+  `FlutterView` directly, behind `@RequiresApi(R)`.
+
+### Material 3 Expressive motion tokens
+
+- The two animation passes had left an inline `Cubic(0.23, 1.0, 0.32, 1.0)` and ms literals
+  at ~20 sites. Replaced with `Easing.emphasizedDecelerate` (entrances),
+  `emphasizedAccelerate` (paired exits), `Easing.standard` (fades) and `Durations.*`, matching
+  the existing `M3EMotion` layer. `cupertino_url_preview.dart` keeps its own curve.
+
+### Upstream
+
+- Opened bluebubbles-helper #76 (against `development`, fixes #72) and bluebubbles-app #3273
+  (against `master`). Server needs no PR. Both went through `gh api` because the local
+  code-review gate can't parse a fork-qualified `--head`.
+- Upstream helper `development` does not load on macOS 26.6
+  (`symbol not found: _OBJC_CLASS_$_CKChatController`, PRs #69/#70); noted on #76.
+
+### Incident: compile-only check took down the helper
+
+- The helper Xcode project's build phases copy the dylib into
+  `/Applications/BlueBubbles.app/…/macos11` and `killall Messages` (`project.pbxproj:29,455`).
+  Compiling upstream `development` on the Mini deployed a dylib that can't load, and the
+  plugin stopped retrying. Restored from `~/bb-helper-build/build/Build/Products/Release/`.
+  Never build a non-deploy branch there without restoring afterwards.
+- Also: a `find -name BlueBubblesHelper.dylib` deploy grabbed the dSYM DWARF. Use the
+  explicit `build/Build/Products/Release/` path. Server `restart/*` routes are GET.
+
+## 2026-09-11 — Emoji tapbacks end-to-end, animation audit, desktop layout fixes
+
+### Arbitrary emoji tapbacks (iOS 18+ reactions)
+
+Newer emoji reactions rendered as the literal text `null`. Traced end to end: the emoji
+never left the Mac.
+
+- Sequoia's `chat.db` carries `associated_message_emoji` (column 85), but the server never
+  read it. `MessageTypeTransformer.ts:37-40` fell back to `dbValue.toString()` for unmapped
+  ids, so the client received `associatedMessageType: "2006"` and nothing else.
+- In the app, `reaction_helpers.dart:6-27` knows six reaction strings;
+  `extensions.dart:404` looked up `reactionToVerb["2006"]` → null and `:451` interpolated
+  that into the chat-list subtitle, which is the literal `null`. The bubble overlay
+  separately dropped it at `message_holder_reactions.dart:39-41`.
+- Receive path (app): `831f70d89` carries `associatedMessageEmoji` through the model,
+  ObjectBox schema, helpers and chat preview.
+- Send path: `365ed19ba` adds an emoji picker to the reaction bar and threads
+  `reactionEmoji` through the send path. `15e0d891e` → `38b211d81` → `4ad67ed4c` iterated
+  the remove control, ending as tap-the-highlighted-emoji.
+- `85986da31` fixes an identity bug: two different emoji reactions from the same sender
+  collapsed into one, because `associatedMessageEmoji` was missing from the reaction
+  re-resolve match and from the animator key.
+- Sibling repos: `bluebubbles-server` `11e4b0d2` (receive — entity column gated
+  `isMinSequoia`, decoder, 2006/3006 in the type transformer, serializer key, response
+  type) and `65f68c13` (send); `bluebubbles-helper` `991eccc`
+  (`parseReactionType` emoji/-emoji → 2006/3006, `reactionToVerb:emoji:`, sets the outgoing
+  `IMMessage` via `_associatedMessageEmoji:`).
+- Upstream has tried twice and neither landed: kilabyte's app-only fix merged and was
+  reverted the same day (`8dc75486` → `78b02187`), and ZachGarcia42's three-repo set
+  (app #3162, server #839) is open but untouched since 2026-08-05.
+
+### Animation audit
+
+Audited with the `improve-animations` skill; every finding vetted at its `file:line` before
+being acted on.
+
+- `89639de61` — split `insertionDuration` into `sentInsertionDuration` 475ms and
+  `receivedInsertionDuration` 200ms; introduced `strongEaseOut = Cubic(0.23, 1.0, 0.32, 1.0)`
+  for the three insertion curves; typing indicator 280ms → 200ms entering at 92% instead of
+  from nothing; reaction-details route 500ms → 300ms; both text-field pickers off `easeIn`.
+- `3412641ac` — the anchored dropdown menu fed a bare `CurvedAnimation` to `ScaleTransition`,
+  so it inflated out of a point, with `easeOutBack` springing it past its size. Now
+  `Tween(0.92 → 1.0)`, 300/250ms → 200/150ms. The corner anchor is load-bearing, unchanged.
+- `5a29e8a8d` — 14 defects across 12 files. `easeIn` on entering surfaces (chat-creator and
+  recipient chip rows, attachment picker, message-list fade, URL-preview image, all four
+  fullscreen arrow-key page turns); `easeOutBack` overshoot on content surfaces (long-press
+  details menu, conversation peek, recording overlay, both edit fields, URL-preview icon);
+  overshoot on a *translate* at `message_popup.dart:393`; durations popup 500/400 → 300 both
+  (they were also 100ms out of sync), peek 400 → 300, recording overlay 500 → 300; the filter
+  chip scaled from a literal point and now enters at 92%.
+- Deliberately not changed: `reaction_holder.dart:37-40` still scales a tapback badge from
+  zero with `easeOutBack` — a 25px badge landing on a message is an object, and the pop is
+  the product's signature.
+- Three scout findings rejected after reading the code: the `Obx(() => AnimatedSize(...))`
+  "interruptibility" defects are not real (Flutter preserves `State` across a rebuild of the
+  same widget type at the same position, so `AnimatedSize` retargets rather than restarting);
+  the four scroll-driven header titles are scroll-linked, not time-based; the
+  `bubble_effects.dart` slam/loud wind-up accelerates because that is the physics of an impact.
+
+### Desktop layout (Material skin)
+
+- `1c66005c0` — the conversation list cleared the custom title bar by padding its container
+  down 30px, painting that strip in the list background rather than the header colour, so a
+  black band sat above the left header only. The conversation pane instead grows its AppBar
+  (`toolbarHeight: (kIsDesktop ? 25 : 0) + kToolbarHeight`) and insets the contents, which
+  paints correctly. The list now does the same: `preferredSize` 60 → `kIsDesktop ? 80 : 60`
+  with contents inset 30 (34 in selection mode). Measured against the conversation pane's
+  avatar, both now centre 32px below the window's top edge; the list avatar was 9.5px lower.
+- `e7e174b83` — the chat `ListView` carried an 8px top padding inside a body already clipped
+  to a 26px top radius, so the rounding never drew and the padding read as a dead band under
+  the header. Measured 10px of background before, 0 after.
+- `3dfb7c206` — the Material conversation tile rounded only its left corners, leaving the
+  highlight square where it meets the split-view divider. `cupertino_conversation_tile.dart:107`
+  and `pinned_conversation_tile.dart:93` both already round all four. The file's four radius
+  sites were also three different values (25/20/20/20); they are now one.
+
+### Documentation
+
+- `docs/MESSAGE_RECEIVE_FLOW.md` — the typing indicator's settle time was documented as
+  ~480ms (280ms scale then 200ms collapse); the scale is now 200ms, so it is ~400ms.
+
+### Decisions
+
+- **Material is the better base skin than iOS for the Linux desktop client.** It is the only
+  skin with a design-token layer (`lib/app/components/m3e/`). iOS is the default
+  (`settings.dart:184`) and the largest (17 files / 5,341 lines vs 15 / 3,564) but is
+  touch-first. Samsung is a veneer: 12 files / 2,303 lines, 9 `kIsDesktop` mentions against
+  19 and 18, last touched 2026-08-10.
+- **Adopt M3E motion; do not adopt M3E shapes or spacing.** There is no house motion system,
+  which is why `Cubic(0.23, 1.0, 0.32, 1.0)` was hand-written 19 times — `M3EMotion.spatialFast`
+  is 200ms + `emphasizedDecelerate`, the same value chosen by ear. But the house radius is 20
+  (59 of ~130 radii in the conversation surfaces), which falls between `M3EShapes.lg` 16 and
+  `xl` 28; and the house spacing grid is 5px (10: 87 hits, 5: 55, 15: 39, 20: 23) against
+  M3E's 4px scale, where only `8` and `0` overlap. Shape and spacing already have a
+  consistent house language that simply is not Material's.

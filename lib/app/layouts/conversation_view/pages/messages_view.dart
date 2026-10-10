@@ -457,7 +457,7 @@ class MessagesViewState extends State<MessagesView> with MessagesServiceMixin, T
     animationOrchestrator.markAnimating(message);
 
     // Use insertItem to animate the list sliding up to make space (all messages)
-    final duration = animationOrchestrator.getInsertionDuration();
+    final duration = animationOrchestrator.getInsertionDuration(isFromMe: message.isFromMe ?? false);
     _listKey.currentState?.insertItem(
       insertIndex,
       duration: duration,
@@ -642,8 +642,8 @@ class MessagesViewState extends State<MessagesView> with MessagesServiceMixin, T
                   opacity: _messages.isEmpty && widget.customService == null
                       ? 0
                       : (dropZoneManager.dragging.value ? 0.3 : 1),
-                  duration: const Duration(milliseconds: 150),
-                  curve: Curves.easeIn,
+                  duration: Durations.short3,
+                  curve: Easing.standard,
                   child: DeferredPointerHandler(
                     child: ScrollbarWrapper(
                       reverse: true,

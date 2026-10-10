@@ -314,6 +314,25 @@ class _VideoPlayerState extends State<VideoPlayer> with AutomaticKeepAliveClient
     showPlayPauseOverlay.value = false;
   }
 
+  Future<void> _openFullscreen() async {
+    if (attachment.id == null) return;
+    // A focused-but-hidden text field would get its focus, and the keyboard, back when the viewer pops.
+    FocusManager.instance.primaryFocus?.unfocus();
+    await Navigator.of(Get.context!).push(
+      ThemeSwitcher.buildPageRoute(
+        builder: (context) => ConversationFullscreenHolder(
+          currentChat: widget.controller?.chat ?? ChatStateScope.maybeChatOf(this.context),
+          attachment: attachment,
+          showInteractions: true,
+          videoController: videoController,
+          mute: muted,
+          galleryAttachments: widget.galleryAttachments,
+        ),
+      ),
+    );
+    if (videoController != null) showPlayPauseOverlay.value = !videoController!.player.state.playing;
+  }
+
   /// The thumbnail is generated from the video with orientation applied, so its dimensions are
   /// the ground truth for the box size, DB dimensions can be missing or ignore rotation, and a
   /// mismatch there causes a visible resize when playback starts.
@@ -453,7 +472,6 @@ class _VideoPlayerState extends State<VideoPlayer> with AutomaticKeepAliveClient
   @override
   Widget build(BuildContext context) {
     super.build(context);
-    final currentChat = widget.controller?.chat ?? ChatStateScope.maybeChatOf(context);
     if (videoController != null) {
       return MouseRegion(
         onEnter: (event) => showPlayPauseOverlay.value = true,
@@ -467,40 +485,10 @@ class _VideoPlayerState extends State<VideoPlayer> with AutomaticKeepAliveClient
                     await videoController!.player.pause();
                     showPlayPauseOverlay.value = true;
                   } else {
-                    if (attachment.id == null) return;
-                    await Navigator.of(Get.context!).push(
-                      ThemeSwitcher.buildPageRoute(
-                        builder: (context) => ConversationFullscreenHolder(
-                          currentChat: currentChat,
-                          attachment: attachment,
-                          showInteractions: true,
-                          videoController: videoController,
-                          mute: muted,
-                          galleryAttachments: widget.galleryAttachments,
-                        ),
-                      ),
-                    );
-                    // Sync overlay state with actual playing state when returning from fullscreen
-                    showPlayPauseOverlay.value = !videoController!.player.state.playing;
+                    await _openFullscreen();
                   }
                 }
-              : () async {
-                  if (attachment.id == null) return;
-                  await Navigator.of(Get.context!).push(
-                    ThemeSwitcher.buildPageRoute(
-                      builder: (context) => ConversationFullscreenHolder(
-                        currentChat: currentChat,
-                        attachment: attachment,
-                        showInteractions: true,
-                        mute: muted,
-                        videoController: videoController,
-                        galleryAttachments: widget.galleryAttachments,
-                      ),
-                    ),
-                  );
-                  // Sync overlay state with actual playing state when returning from fullscreen
-                  showPlayPauseOverlay.value = !videoController!.player.state.playing;
-                },
+              : _openFullscreen,
           onDoubleTap: () {
             // Stub to prevent doubleTap events on parent from happening
           },
@@ -535,7 +523,7 @@ class _VideoPlayerState extends State<VideoPlayer> with AutomaticKeepAliveClient
                   muted: muted,
                   controller: videoController,
                   isFromMe: widget.isFromMe),
-              if (kIsDesktop) FullscreenButton(attachment: attachment, isFromMe: widget.isFromMe, muted: muted),
+              FullscreenButton(isFromMe: widget.isFromMe, onTap: _openFullscreen),
               if (!kIsDesktop && !kIsWeb && thumbnailFailed)
                 Obx(() => firstFrameReady.value
                     ? const SizedBox.shrink()
@@ -550,21 +538,7 @@ class _VideoPlayerState extends State<VideoPlayer> with AutomaticKeepAliveClient
       () => InkWell(
           hoverColor: hover.value ? Colors.transparent : null,
           focusColor: hover.value ? Colors.transparent : null,
-          onTap: () async {
-            if (attachment.id == null) return;
-            await Navigator.of(Get.context!).push(
-              ThemeSwitcher.buildPageRoute(
-                builder: (context) => ConversationFullscreenHolder(
-                  currentChat: currentChat,
-                  attachment: attachment,
-                  showInteractions: true,
-                  mute: muted,
-                  videoController: videoController,
-                  galleryAttachments: widget.galleryAttachments,
-                ),
-              ),
-            );
-          },
+          onTap: _openFullscreen,
           // All mobile states (placeholder → thumbnail → playing) share the same
           // Obx(AspectRatio(aspectRatio.value)) geometry so state changes never resize the box
           child: thumbnailPath == null && !thumbnailFailed && !kIsDesktop && !kIsWeb
@@ -647,6 +621,7 @@ class _VideoPlayerState extends State<VideoPlayer> with AutomaticKeepAliveClient
                                 muted: muted,
                                 controller: videoController,
                                 isFromMe: isFromMe),
+                            FullscreenButton(isFromMe: isFromMe, onTap: _openFullscreen),
                           ],
                         ),
                       ))),
@@ -658,38 +633,23 @@ class _VideoPlayerState extends State<VideoPlayer> with AutomaticKeepAliveClient
 }
 
 class FullscreenButton extends StatelessWidget {
-  const FullscreenButton(
-      {super.key, required this.attachment, required this.isFromMe, this.videoController, this.muted});
+  const FullscreenButton({super.key, required this.isFromMe, required this.onTap});
 
-  final Attachment attachment;
   final bool isFromMe;
-  final VideoController? videoController;
-  final RxBool? muted;
+  final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
-    final currentChat = ChatStateScope.maybeChatOf(context);
+    if (ReplyScope.maybeOf(context) != null) return const SizedBox.shrink();
     return Positioned(
       bottom: 8,
-      left: (!isFromMe) ? 15 : 8,
+      left: !isFromMe ? 15 : 8,
       child: Obx(
         () => Material(
           color: Colors.transparent,
           child: InkWell(
             borderRadius: BorderRadius.circular(40),
-            onTap: () async {
-              if (attachment.id == null) return;
-              await Navigator.of(Get.context!).push(
-                ThemeSwitcher.buildPageRoute(
-                  builder: (context) => ConversationFullscreenHolder(
-                      currentChat: currentChat,
-                      attachment: attachment,
-                      showInteractions: true,
-                      videoController: videoController,
-                      mute: muted),
-                ),
-              );
-            },
+            onTap: onTap,
             child: Container(
               height: 30,
               width: 30,

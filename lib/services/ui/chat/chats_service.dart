@@ -1590,13 +1590,15 @@ class ChatsService {
   /// post-deletion recompute, which must fall back to an older surviving message.
   /// [repositionImmediate] controls the chat list rebuild only — the ChatState update is always
   /// synchronous. Pass false when updating many chats in a row so the rebuilds coalesce.
+  /// [markReadIfFromMe] is for sync, which skips the read marking `Chat.addMessage`
+  /// does for a message sent from another device.
   void updateChatLatestMessage(String chatGuid, Message message,
-      {bool allowOlder = false, bool repositionImmediate = true}) {
+      {bool allowOlder = false, bool repositionImmediate = true, bool markReadIfFromMe = false}) {
     final state = getChatState(chatGuid);
     if (state == null) return;
 
+    final current = state.latestMessage.value;
     if (!allowOlder) {
-      final current = state.latestMessage.value;
       final currentDate = current?.dateCreated;
       final incomingDate = message.dateCreated;
       const staleTolerance = Duration(seconds: 2);
@@ -1609,6 +1611,10 @@ class ChatsService {
         return;
       }
     }
+    // The stale tolerance above still admits a slightly older message, and sync re-reports the same one.
+    final advanced = current == null ||
+        (current.guid != message.guid &&
+            !(message.dateCreated ?? DateTime(0)).isBefore(current.dateCreated ?? DateTime(0)));
 
     state.updateLatestMessageInternal(message);
     final redacted = SettingsSvc.settings.redactedMode.value;
@@ -1618,6 +1624,10 @@ class ChatsService {
         message.getNotificationText(hideContactInfo: hideContactInfo, hideMessageContent: hideMessageContent));
     state.chat.setLatestMessage(message);
     _repositionChat(state.chat, immediate: repositionImmediate);
+    if (markReadIfFromMe && advanced && message.isFromMe == true && state.hasUnreadMessage.value) {
+      unawaited(setChatHasUnread(state.chat, false,
+          clearLocalNotifications: message.associatedMessageGuid == null, privateMark: false));
+    }
   }
 
   /// Set chat text field text

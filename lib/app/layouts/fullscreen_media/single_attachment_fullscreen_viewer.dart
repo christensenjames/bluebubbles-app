@@ -7,6 +7,7 @@ import 'package:bluebubbles/database/models.dart';
 import 'package:bluebubbles/helpers/helpers.dart';
 import 'package:bluebubbles/services/backend_ui_interop/intents.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:gesture_x_detector/gesture_x_detector.dart';
 import 'package:get/get.dart';
 
@@ -90,8 +91,10 @@ class _SingleAttachmentFullscreenViewerState extends State<SingleAttachmentFulls
               focusNode: focusNode,
               autofocus: true,
               onKeyEvent: (node, event) {
+                if (event is KeyUpEvent) return KeyEventResult.ignored;
                 if (event.physicalKey.debugName == "Escape") {
-                  Navigator.of(context).pop();
+                  // Swallow repeats too, or they reach the app-wide Escape shortcut and close the chat.
+                  if (event is KeyDownEvent && ModalRoute.of(context)?.isCurrent == true) Navigator.of(context).pop();
                   return KeyEventResult.handled;
                 }
                 return KeyEventResult.ignored;

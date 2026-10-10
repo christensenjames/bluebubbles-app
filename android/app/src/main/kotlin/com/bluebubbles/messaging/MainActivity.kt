@@ -1,19 +1,38 @@
 package com.bluebubbles.messaging
 
 import android.app.Activity
+import android.app.PictureInPictureParams
 import android.content.Context
 import android.content.Intent
+import android.content.res.Configuration
+import android.os.Build
+import android.os.Bundle
+import android.os.PowerManager
+import android.util.Rational
+import android.view.WindowInsets
+import android.view.WindowInsetsAnimation
 import androidx.activity.ComponentActivity
+import androidx.annotation.RequiresApi
+import androidx.lifecycle.Lifecycle
 import com.bluebubbles.messaging.services.backend_ui_interop.MethodCallHandler
 import com.bluebubbles.messaging.services.foreground.ForegroundServiceBroadcastReceiver
 import com.bluebubbles.messaging.Constants
 import com.bluebubbles.messaging.utils.PersistentLog
 import com.google.firebase.firestore.FirebaseFirestoreException
+import io.flutter.embedding.android.FlutterFragment
 import io.flutter.embedding.android.FlutterFragmentActivity
+import io.flutter.embedding.android.FlutterView
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
 
 class MainActivity : FlutterFragmentActivity() {
+    private var pipModeActive = false
+    private val pipActivityResumed get() = lifecycle.currentState.isAtLeast(Lifecycle.State.RESUMED)
+    private var pipAutoEnterEnabled = false
+    private var pipExitPending = false
+    private var pipDismissedSent = false
+    private var pipAspectRatio = Rational(16, 9)
+
     companion object {
         private val engineLock = Any()
         @Volatile private var _engine: FlutterEngine? = null
@@ -58,6 +77,35 @@ class MainActivity : FlutterFragmentActivity() {
         }
     }
 
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) refeedImeInsetsAfterAnimation()
+    }
+
+    // Flutter replays stale IME insets after resuming mid-animation; re-feed the real ones past its listener.
+    @RequiresApi(Build.VERSION_CODES.R)
+    private fun refeedImeInsetsAfterAnimation() {
+        val decor = window.decorView
+        decor.setWindowInsetsAnimationCallback(object : WindowInsetsAnimation.Callback(DISPATCH_MODE_CONTINUE_ON_SUBTREE) {
+            private var runningImeAnimations = 0
+            override fun onPrepare(animation: WindowInsetsAnimation) {
+                if (animation.typeMask and WindowInsets.Type.ime() == 0) return
+                runningImeAnimations++
+            }
+            override fun onProgress(insets: WindowInsets, running: MutableList<WindowInsetsAnimation>) = insets
+            override fun onEnd(animation: WindowInsetsAnimation) {
+                if (animation.typeMask and WindowInsets.Type.ime() == 0) return
+                // Re-feeding while another IME animation runs would snap the view to the final inset.
+                if (--runningImeAnimations > 0) return
+                decor.post {
+                    if (runningImeAnimations > 0) return@post
+                    val flutterView = findViewById<FlutterView>(FlutterFragment.FLUTTER_VIEW_ID) ?: return@post
+                    flutterView.rootWindowInsets?.let { flutterView.dispatchApplyWindowInsets(it) }
+                }
+            }
+        })
+    }
+
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         setEngine(flutterEngine, this)
         super.configureFlutterEngine(flutterEngine)
@@ -99,6 +147,73 @@ class MainActivity : FlutterFragmentActivity() {
                 defaultHandler?.uncaughtException(thread, throwable)
             }
         }
+    }
+
+    fun configurePipAutoEnter(enabled: Boolean, aspectRatio: Rational?) {
+        pipAutoEnterEnabled = enabled
+        if (aspectRatio != null) pipAspectRatio = aspectRatio
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            val params = PictureInPictureParams.Builder().setAutoEnterEnabled(enabled)
+            if (aspectRatio != null) params.setAspectRatio(aspectRatio)
+            setPictureInPictureParams(params.build())
+        }
+    }
+
+    override fun onUserLeaveHint() {
+        super.onUserLeaveHint()
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S &&
+            pipAutoEnterEnabled &&
+            !isInPictureInPictureMode
+        ) {
+            val params = PictureInPictureParams.Builder()
+                .setAspectRatio(pipAspectRatio)
+                .build()
+            enterPictureInPictureMode(params)
+        }
+    }
+
+    override fun onPictureInPictureModeChanged(
+        isInPictureInPictureMode: Boolean,
+        newConfig: Configuration
+    ) {
+        super.onPictureInPictureModeChanged(isInPictureInPictureMode, newConfig)
+        val wasInPictureInPictureMode = pipModeActive
+        pipModeActive = isInPictureInPictureMode
+        if (isInPictureInPictureMode) {
+            pipExitPending = false
+            pipDismissedSent = false
+        } else if (wasInPictureInPictureMode && !pipActivityResumed) {
+            pipExitPending = true
+        } else if (pipActivityResumed) {
+            pipExitPending = false
+        }
+        MethodCallHandler.invokeMethod("pip-mode-changed", mapOf("active" to isInPictureInPictureMode))
+    }
+
+    override fun onResume() {
+        super.onResume()
+        pipExitPending = false
+        pipDismissedSent = false
+    }
+
+    override fun onStop() {
+        if (pipModeActive || isInPictureInPictureMode || pipExitPending) {
+            if (!getSystemService(PowerManager::class.java).isInteractive) {
+                super.onStop()
+                return
+            }
+            if (pipModeActive || isInPictureInPictureMode) {
+                MethodCallHandler.invokeMethod("pip-mode-changed", mapOf("active" to false))
+            }
+            pipModeActive = false
+            pipExitPending = false
+            if (!pipDismissedSent) {
+                pipDismissedSent = true
+                MethodCallHandler.invokeMethod("pip-dismissed", emptyMap())
+            }
+        }
+        super.onStop()
     }
 
     override fun onDestroy() {

@@ -28,8 +28,8 @@ Both dispatch on the attachment's mime type and render `FullscreenImage` or `Ful
 - Pinch-to-zoom (in `ConversationFullscreenHolder`) and standard image gestures — child widgets do not need to implement it themselves
 - Tap to toggle the overlay/system UI (hide/show status bar, navigation, and action bars) — handled inside `FullscreenImage`/`FullscreenVideo`, independent of `showInteractions`
 - `showInteractions` gates which action buttons are relevant (download/reply/share/etc.), not whether the overlay can be shown/hidden
-- Video player is disposed when the route is popped
-- Shares/saves to gallery are triggered from within the action bar
+- `FullscreenVideo` disposes only a player it created; a player borrowed from the inline chat video (`videoController`) is handed back with speed and loop reset
+- `FullscreenVideo` puts its actions (close, info, re-download, save, share, PiP, speed, loop, mute) inside media_kit's control overlay; `FullscreenImage` keeps its own action bar for shares/saves
 
 ## Related
 - Attachment models: `lib/database/io/attachment.dart`

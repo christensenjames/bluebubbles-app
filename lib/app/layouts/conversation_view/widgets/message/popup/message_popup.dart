@@ -23,6 +23,7 @@ import 'package:bluebubbles/app/layouts/conversation_view/widgets/message/shared
 import 'package:bluebubbles/app/state/message_state_scope.dart';
 import 'package:bluebubbles/services/services.dart';
 import 'package:collection/collection.dart';
+import 'package:emoji_picker_flutter/emoji_picker_flutter.dart' hide Emoji;
 import 'package:flutter/cupertino.dart' as cupertino;
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart' hide BackButton;
@@ -45,7 +46,7 @@ class MessagePopup extends StatefulWidget {
   final MessageState controller;
   final ConversationViewController cvController;
   final MessagePopupServerDetails serverDetails;
-  final Function([String? type, int? part]) sendTapback;
+  final Function([String? type, int? part, String? reactionEmoji]) sendTapback;
   final BuildContext? Function() widthContext;
 
   const MessagePopup({
@@ -85,6 +86,7 @@ class _MessagePopupState extends State<MessagePopup> with SingleTickerProviderSt
       !chat.isGroup &&
       chat.handles.firstWhereOrNull((handle) => handle.address == message.handleRelation.target?.address) != null);
   String? selfReaction;
+  String? selfReactionEmoji;
   String? currentlySelectedReaction = "init";
   final GlobalKey _childKey = GlobalKey();
   double? _measuredChildHeight;
@@ -146,12 +148,13 @@ class _MessagePopupState extends State<MessagePopup> with SingleTickerProviderSt
       currentlySelectedReaction = null;
       reactions = getUniqueReactionMessages(message.associatedMessages
           .where((e) =>
-              ReactionTypes.toList().contains(e.associatedMessageType?.replaceAll("-", "")) &&
+              ReactionTypes.isReaction(e.associatedMessageType) &&
               (e.associatedMessagePart ?? 0) == part.part)
           .toList());
-      final self = reactions.firstWhereOrNull((e) => e.isFromMe!)?.associatedMessageType;
-      if (!(self?.contains("-") ?? true)) {
-        selfReaction = self;
+      final self = reactions.firstWhereOrNull((e) => e.isFromMe!);
+      if (self != null) {
+        selfReaction = self.associatedMessageType;
+        selfReactionEmoji = self.associatedMessageEmoji;
         currentlySelectedReaction = selfReaction;
       }
       setState(() {
@@ -182,6 +185,124 @@ class _MessagePopupState extends State<MessagePopup> with SingleTickerProviderSt
     Navigator.of(context).pop(returnVal);
   }
 
+  Padding buildEmojiReactionPicker() {
+    final selected = currentlySelectedReaction == ReactionTypes.EMOJI;
+    return Padding(
+      padding: iOS ? const EdgeInsets.all(5.0) : const EdgeInsets.symmetric(horizontal: 5),
+      child: Material(
+        color: selected ? context.theme.colorScheme.primary : Colors.transparent,
+        borderRadius: BorderRadius.circular(20),
+        child: SizedBox(
+          width: iOS ? 35 : null,
+          height: iOS ? 35 : null,
+          child: InkWell(
+            borderRadius: BorderRadius.circular(20),
+            onTap: () {
+              if (selfReactionEmoji != null) {
+                sendEmojiReaction(selfReactionEmoji!);
+              } else {
+                HapticFeedback.lightImpact();
+                showEmojiReactionPicker();
+              }
+            },
+            child: Padding(
+              padding: const EdgeInsets.all(6.5),
+              child: Center(
+                child: selfReactionEmoji != null
+                    ? Text(
+                        selfReactionEmoji!,
+                        style: const TextStyle(fontSize: 18, fontFamily: 'Apple Color Emoji'),
+                        textAlign: TextAlign.center,
+                      )
+                    : Icon(
+                        iOS ? cupertino.CupertinoIcons.smiley : Icons.add_reaction_outlined,
+                        size: iOS ? 22 : 18,
+                        color: selected ? context.theme.colorScheme.onPrimary : context.theme.colorScheme.outline,
+                      ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Future<void> showEmojiReactionPicker() async {
+    // useRootNavigator: false puts the dialog on Navigator.of(context), so that same
+    // navigator pops it - and popDetails() can still reach it afterwards.
+    final emoji = await showBBDialog<String>(
+      useRootNavigator: false,
+      context: context,
+      content: SizedBox(
+        width: 300,
+        child: Theme(
+          data: context.theme.copyWith(canvasColor: Colors.transparent),
+          child: EmojiPicker(
+            onEmojiSelected: (_, emoji) => Navigator.of(context).pop(emoji.emoji),
+            config: Config(
+              height: 300,
+              emojiSet: (_) => emojiSetEnglish,
+              checkPlatformCompatibility: true,
+              emojiViewConfig: EmojiViewConfig(
+                emojiSizeMax: 28,
+                backgroundColor: Colors.transparent,
+                columns: 7,
+                noRecents: Text("No Recents",
+                    style: context.textTheme.headlineMedium!.copyWith(color: context.theme.colorScheme.outline)),
+              ),
+              viewOrderConfig: const ViewOrderConfig(
+                top: EmojiPickerItem.categoryBar,
+                middle: EmojiPickerItem.emojiView,
+                bottom: EmojiPickerItem.searchBar,
+              ),
+              skinToneConfig: const SkinToneConfig(enabled: false),
+              categoryViewConfig: const CategoryViewConfig(
+                backgroundColor: Colors.transparent,
+                dividerColor: Colors.transparent,
+              ),
+              bottomActionBarConfig: BottomActionBarConfig(
+                customBottomActionBar: (config, state, showSearchView) => Material(
+                  color: Colors.transparent,
+                  child: InkWell(
+                    onTap: showSearchView,
+                    child: Padding(
+                      padding: const EdgeInsets.all(12),
+                      child: Row(children: [
+                        Icon(iOS ? cupertino.CupertinoIcons.search : Icons.search,
+                            color: context.theme.colorScheme.outline),
+                        const SizedBox(width: 8),
+                        Text("Search...",
+                            style: context.theme.textTheme.bodyLarge!
+                                .copyWith(color: context.theme.colorScheme.outline)),
+                      ]),
+                    ),
+                  ),
+                ),
+              ),
+              searchViewConfig: SearchViewConfig(
+                backgroundColor: Colors.transparent,
+                buttonIconColor: context.theme.colorScheme.outline,
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+    if (emoji != null && mounted) sendEmojiReaction(emoji);
+  }
+
+  void sendEmojiReaction(String emoji) {
+    final removing = selfReaction == ReactionTypes.EMOJI && selfReactionEmoji == emoji;
+    setState(() {
+      selfReaction = removing ? null : ReactionTypes.EMOJI;
+      currentlySelectedReaction = removing ? null : ReactionTypes.EMOJI;
+      selfReactionEmoji = removing ? null : emoji;
+    });
+    HapticFeedback.lightImpact();
+    widget.sendTapback(removing ? "-${ReactionTypes.EMOJI}" : ReactionTypes.EMOJI, part.part, emoji);
+    popDetails();
+  }
+
   @override
   Widget build(BuildContext context) {
     // Decide whether the tapback row needs to wrap to a second line by comparing its actual
@@ -196,7 +317,7 @@ class _MessagePopupState extends State<MessagePopup> with SingleTickerProviderSt
         : screenWidth - (widget.childPosition.dx + 10) - reactionPickerEdgeMargin;
     final double reactionItemWidth = iOS ? 47.0 : 44.0; // icon/emoji + its fixed padding, see item build below
     // + container padding
-    final double reactionRowContentWidth = reactionItemWidth * ReactionTypes.toList().length + 10;
+    final double reactionRowContentWidth = reactionItemWidth * (ReactionTypes.toList().length + 1) + 10;
     bool narrowScreen = reactionRowContentWidth > reactionPickerAvailableWidth;
 
     return Theme(
@@ -272,14 +393,14 @@ class _MessagePopupState extends State<MessagePopup> with SingleTickerProviderSt
                   ),
                   if (iOS)
                     AnimatedPositioned(
-                      duration: const Duration(milliseconds: 250),
-                      curve: Curves.easeOutBack,
+                      duration: Durations.medium1,
+                      curve: Easing.emphasizedDecelerate,
                       left: widget.childPosition.dx,
                       bottom: messageOffset,
                       child: TweenAnimationBuilder<double>(
                         tween: Tween<double>(begin: 0.8, end: 1),
                         curve: Curves.easeOutBack,
-                        duration: const Duration(milliseconds: 500),
+                        duration: Durations.medium2,
                         child: NotificationListener<SizeChangedLayoutNotification>(
                           onNotification: (_) {
                             _remeasureChild();
@@ -364,10 +485,11 @@ class _MessagePopupState extends State<MessagePopup> with SingleTickerProviderSt
                                           return Row(
                                             mainAxisSize: MainAxisSize.min,
                                             mainAxisAlignment: MainAxisAlignment.start,
-                                            children: ReactionTypes.toList()
-                                                .slice(narrowScreen && index == 1 ? 3 : 0,
-                                                    narrowScreen && index == 0 ? 3 : null)
-                                                .map((e) {
+                                            children: [
+                                              ...ReactionTypes.toList()
+                                                  .slice(narrowScreen && index == 1 ? 3 : 0,
+                                                      narrowScreen && index == 0 ? 3 : null)
+                                                  .map((e) {
                                               return Padding(
                                                 padding: iOS
                                                     ? const EdgeInsets.all(5.0)
@@ -431,7 +553,9 @@ class _MessagePopupState extends State<MessagePopup> with SingleTickerProviderSt
                                                   ),
                                                 ),
                                               );
-                                            }).toList(),
+                                            }),
+                                              if (index == (narrowScreen ? 1 : 0)) buildEmojiReactionPicker(),
+                                            ],
                                           );
                                         })),
                                   ),
@@ -446,13 +570,13 @@ class _MessagePopupState extends State<MessagePopup> with SingleTickerProviderSt
                       bottom: 30,
                       child: TweenAnimationBuilder<double>(
                         tween: Tween<double>(begin: 0.8, end: 1),
-                        curve: Curves.easeOutBack,
-                        duration: const Duration(milliseconds: 400),
+                        curve: Easing.emphasizedDecelerate,
+                        duration: Durations.medium2,
                         child: FadeTransition(
                           opacity: CurvedAnimation(
                             parent: controller,
                             curve: const Interval(0.0, .9, curve: Curves.ease),
-                            reverseCurve: Curves.easeInCubic,
+                            reverseCurve: Easing.emphasizedAccelerate,
                           ),
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,

@@ -131,10 +131,11 @@ class _ReactionHolderState extends State<ReactionHolder> {
             .map((entry) {
               final i = entry.key;
               final e = entry.value;
-              // Use a stable key based on parent + reaction type + sender
-              // This prevents re-animation when temp GUID -> real GUID replacement happens
+              // Stable across the temp GUID -> real GUID swap, but distinct per emoji:
+              // an arbitrary-emoji tapback shares the "emoji" type with every other one.
               final sender = e.isFromMe! ? 0 : e.handleId ?? 0;
-              final stableKey = '${e.associatedMessageGuid}-${e.associatedMessageType}-$sender';
+              final stableKey =
+                  '${e.associatedMessageGuid}-${e.associatedMessageType}-${e.associatedMessageEmoji ?? ''}-$sender';
 
               // Check if this is a new reaction that should animate
               final shouldAnimate = !_seenReactionKeys.contains(stableKey);

@@ -26,7 +26,9 @@ class TypingIndicator extends StatefulWidget {
 
 class _TypingIndicatorState extends State<TypingIndicator> with SingleTickerProviderStateMixin, ThemeHelpers {
   late final AnimationController _scaleController;
+  late final CurvedAnimation _scaleCurve;
   late final Animation<double> _scaleAnimation;
+  late final CurvedAnimation _fadeAnimation;
 
   /// Whether the bubble content is present in the tree (false only after the
   /// hide animation has fully completed).
@@ -43,12 +45,17 @@ class _TypingIndicatorState extends State<TypingIndicator> with SingleTickerProv
     super.initState();
     _scaleController = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 280),
+      duration: Durations.short4,
     );
-    _scaleAnimation = CurvedAnimation(
+    _scaleCurve = CurvedAnimation(
       parent: _scaleController,
-      curve: Curves.easeOutBack,
-      reverseCurve: Curves.easeIn,
+      curve: Easing.emphasizedDecelerate,
+      reverseCurve: Easing.emphasizedAccelerate,
+    );
+    _scaleAnimation = Tween<double>(begin: 0.92, end: 1.0).animate(_scaleCurve);
+    _fadeAnimation = CurvedAnimation(
+      parent: _scaleController,
+      curve: Easing.emphasizedDecelerate,
     );
 
     // After the hide animation finishes, remove the content from the tree so
@@ -86,6 +93,8 @@ class _TypingIndicatorState extends State<TypingIndicator> with SingleTickerProv
   @override
   void dispose() {
     _visibilityWorker?.dispose();
+    _scaleCurve.dispose();
+    _fadeAnimation.dispose();
     _scaleController.dispose();
     super.dispose();
   }
@@ -139,18 +148,22 @@ class _TypingIndicatorState extends State<TypingIndicator> with SingleTickerProv
   @override
   Widget build(BuildContext context) {
     return AnimatedSize(
-      duration: const Duration(milliseconds: 200),
-      curve: Curves.easeOut,
+      duration: Durations.short4,
+      curve: Easing.emphasizedDecelerate,
       child: _isShowing
-          ? ScaleTransition(
-              scale: _scaleAnimation,
-              // Anchor the grow/shrink at the bottom-left — the tail of the
-              // speech bubble — so it feels like a real iMessage bubble.
-              alignment: Alignment.bottomLeft,
-              child: Padding(
-                padding: const EdgeInsets.only(top: 5),
-                child: _buildBubble(context),
-              ))
+          ? FadeTransition(
+              opacity: _fadeAnimation,
+              child: ScaleTransition(
+                scale: _scaleAnimation,
+                // Anchor the grow/shrink at the bottom-left — the tail of the
+                // speech bubble — so it feels like a real iMessage bubble.
+                alignment: Alignment.bottomLeft,
+                child: Padding(
+                  padding: const EdgeInsets.only(top: 5),
+                  child: _buildBubble(context),
+                ),
+              ),
+            )
           : const SizedBox.shrink(),
     );
   }
