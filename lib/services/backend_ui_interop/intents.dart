@@ -1,3 +1,5 @@
+import 'dart:math';
+
 import 'package:bluebubbles/app/layouts/chat_creator/new_chat_creator.dart';
 import 'package:bluebubbles/app/layouts/conversation_details/conversation_details.dart';
 import 'package:bluebubbles/app/layouts/conversation_view/pages/conversation_view.dart';
@@ -113,8 +115,8 @@ class ReplyRecentAction extends Action<ReplyRecentIntent> {
     if (service == null) return null;
     final message = service.mostRecentReceived;
     if (message != null && SettingsSvc.settings.enablePrivateAPI.value) {
-      final parts = service.getOrCreateState(message).parts;
-      cvc(chat).replyToMessage = MessageReplyContext(message, parts.lastOrNull?.part ?? 0);
+      final state = service.getOrCreateState(message);
+      cvc(chat).replyToMessage = MessageReplyContext(message, max(0, state.lastPartNumber));
     }
     return null;
   }

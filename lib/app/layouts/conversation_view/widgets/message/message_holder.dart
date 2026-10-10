@@ -174,7 +174,7 @@ class _MessageHolderState extends State<MessageHolder> with AutomaticKeepAliveCl
           attachments: groupedAttachments,
           // Use the last grouped raw part index (not the first) so downstream
           // "is this the last part of the message" checks (e.g. avatar, tail)
-          // still resolve correctly against controller.parts.length.
+          // still resolve correctly against the last part number.
           part: lastPart,
           shouldRedact: current.shouldRedact,
           mentions: const [],
@@ -390,7 +390,7 @@ class _MessageHolderState extends State<MessageHolder> with AutomaticKeepAliveCl
                                     children: [
                                       // avatar, if needed
                                       if (message.showTail(newerMessage) &&
-                                          e.part == controller.parts.length - 1 &&
+                                          e.part == controller.lastPartNumber &&
                                           (showAvatar || SettingsSvc.settings.alwaysShowAvatars.value) &&
                                           !message.isFromMe! &&
                                           !message.isGroupEvent)
@@ -416,7 +416,8 @@ class _MessageHolderState extends State<MessageHolder> with AutomaticKeepAliveCl
                                                           message.threadOriginatorGuid != null &&
                                                           olderMessage != null) ||
                                                       (index == messageParts.length - 1 &&
-                                                          service.struct.threads(message.guid!, index).isNotEmpty &&
+                                                          (e.attachmentPartIndices ?? [e.part]).any(
+                                                              (p) => service.struct.threads(message.guid!, p).isNotEmpty) &&
                                                           newerMessage != null))
                                               ? ReplyLineDecoration(
                                                   isFromMe: message.isFromMe!,
@@ -459,7 +460,7 @@ class _MessageHolderState extends State<MessageHolder> with AutomaticKeepAliveCl
                                                         if ((message.hasApplePayloadData ||
                                                                 message.isLegacyUrlPreview ||
                                                                 message.isInteractive ||
-                                                                (e.part == 0 &&
+                                                                (e.part == controller.firstPartNumber &&
                                                                     isNullOrEmpty(e.text) &&
                                                                     e.attachments.isNotEmpty)) &&
                                                             !isNullOrEmpty(message.subject))
@@ -471,10 +472,16 @@ class _MessageHolderState extends State<MessageHolder> with AutomaticKeepAliveCl
                                                                 showTail: false,
                                                                 connectLower: iOS
                                                                     ? false
-                                                                    : (e.part != 0 &&
-                                                                            e.part != controller.parts.length - 1) ||
-                                                                        (e.part == 0 && controller.parts.length > 1),
-                                                                connectUpper: iOS ? false : e.part != 0,
+                                                                    : (e.part !=
+                                                                        controller.firstPartNumber &&
+                                                                        e.part !=
+                                                                        controller.lastPartNumber) ||
+                                                                        (e.part ==
+                                                                            controller.firstPartNumber &&
+                                                                            controller.parts.length > 1),
+                                                                connectUpper: iOS
+                                                                    ? false
+                                                                    : e.part != controller.firstPartNumber,
                                                               ),
                                                               child: TextBubble(
                                                                 message: MessagePart(
@@ -504,7 +511,7 @@ class _MessageHolderState extends State<MessageHolder> with AutomaticKeepAliveCl
                                                                   part: e.part,
                                                                   globalKey: keys.length > index ? keys[index] : null,
                                                                   showTail: message.showTail(newerMessage) &&
-                                                                      e.part == controller.parts.length - 1,
+                                                                      e.part == controller.lastPartNumber,
                                                                   messageState: controller,
                                                                   child: MessagePopupHolder(
                                                                     key: keys.length > index ? keys[index] : null,
@@ -568,16 +575,19 @@ class _MessageHolderState extends State<MessageHolder> with AutomaticKeepAliveCl
                                                                               isFromMe: message.isFromMe!,
                                                                               showTail: !e.isPkPass &&
                                                                                   message.showTail(newerMessage) &&
-                                                                                  e.part == controller.parts.length - 1,
+                                                                                  e.part == controller.lastPartNumber,
                                                                               connectLower: iOS
                                                                                   ? false
-                                                                                  : (e.part != 0 &&
-                                                                                          e.part !=
-                                                                                              controller.parts.length -
-                                                                                                  1) ||
-                                                                                      (e.part == 0 &&
+                                                                                  : (e.part !=
+                                                                                      controller.firstPartNumber &&
+                                                                                      e.part !=
+                                                                                      controller.lastPartNumber) ||
+                                                                                      (e.part ==
+                                                                                          controller.firstPartNumber &&
                                                                                           controller.parts.length > 1),
-                                                                              connectUpper: iOS ? false : e.part != 0,
+                                                                              connectUpper: iOS
+                                                                                  ? false
+                                                                                  : e.part != controller.firstPartNumber,
                                                                             ),
                                                                             child: inner,
                                                                           );

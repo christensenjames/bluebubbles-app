@@ -711,10 +711,11 @@ class Message {
   bool connectToUpper() => threadOriginatorGuid != null;
 
   bool showUpperMessage(Message olderMessage) {
-    // find the part count of the older message
-    final olderPartCount = chat.target?.guid != null
-        ? maybeFindMessagesSvc(chat.target!.guid)?.getMessageStateIfExists(olderMessage.guid!)?.parts.length ?? 1
-        : 1;
+    final olderState = chat.target?.guid != null
+        ? maybeFindMessagesSvc(chat.target!.guid)?.getMessageStateIfExists(olderMessage.guid!)
+        : null;
+    final olderLastPart = olderState?.lastPartNumber ?? 0;
+    final olderPartCount = olderState?.parts.length ?? 1;
     // make sure the older message is none of the following:
     // 1) thread originator
     // 2) part of the thread with the same thread partIndex
@@ -724,16 +725,17 @@ class Message {
     return (olderMessage.guid != threadOriginatorGuid &&
             (olderMessage.threadOriginatorGuid != threadOriginatorGuid ||
                 olderMessage.normalizedThreadPart != normalizedThreadPart)) ||
-        (olderMessage.guid == threadOriginatorGuid && normalizedThreadPart != olderPartCount - 1) ||
+        (olderMessage.guid == threadOriginatorGuid && normalizedThreadPart != olderLastPart) ||
         (olderMessage.threadOriginatorGuid == threadOriginatorGuid && olderPartCount > 1);
   }
 
   bool connectToLower(Message newerMessage) {
-    final thisPartCount = chat.target?.guid != null
-        ? maybeFindMessagesSvc(chat.target!.guid)?.getMessageStateIfExists(guid!)?.parts.length ?? 1
-        : 1;
+    final thisState = chat.target?.guid != null
+        ? maybeFindMessagesSvc(chat.target!.guid)?.getMessageStateIfExists(guid!)
+        : null;
+    final thisLastPart = thisState?.lastPartNumber ?? 0;
     if (newerMessage.isFromMe != isFromMe) return false;
-    if (newerMessage.normalizedThreadPart != thisPartCount - 1) return false;
+    if (newerMessage.normalizedThreadPart != thisLastPart) return false;
     if (threadOriginatorGuid != null) {
       return newerMessage.threadOriginatorGuid == threadOriginatorGuid;
     } else {

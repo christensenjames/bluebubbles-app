@@ -644,6 +644,10 @@ class MessageState extends StatefulController {
   /// Indices of parts that have been unsent, derived from the live [parts] list.
   List<int> get retractedParts => parts.where((p) => p.isUnsent).map((p) => p.part).toList();
 
+  int get firstPartNumber => parts.firstOrNull?.part ?? 0;
+
+  int get lastPartNumber => parts.lastOrNull?.part ?? -1;
+
   /// True when at least one part has been retracted.
   bool get hasUnsentParts => dateEdited.value != null && retractedParts.isNotEmpty;
 
