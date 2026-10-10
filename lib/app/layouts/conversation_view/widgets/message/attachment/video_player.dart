@@ -289,9 +289,12 @@ class _VideoPlayerState extends State<VideoPlayer> with AutomaticKeepAliveClient
     }
   }
 
+  // The controller is cached on the conversation and outlives this row, so detach from it here.
   @override
   void dispose() {
     _evictionSubscription?.cancel();
+    _completedSub?.cancel();
+    if (_rectListener != null) videoController?.rect.removeListener(_rectListener!);
     super.dispose();
   }
 
@@ -440,14 +443,6 @@ class _VideoPlayerState extends State<VideoPlayer> with AutomaticKeepAliveClient
       }
     });
     hasListener = true;
-  }
-
-  // The controller is cached on the conversation and outlives this row, so detach from it here.
-  @override
-  void dispose() {
-    _completedSub?.cancel();
-    if (_rectListener != null) videoController?.rect.removeListener(_rectListener!);
-    super.dispose();
   }
 
   /// Renders the current [thumbnail] bytes, or a plain themed background when
