@@ -89,8 +89,11 @@ class _ChatSyncDialogState extends State<ChatSyncDialog> {
         if (batch.length < batchSize) break;
         offset += batchSize;
       }
-    } catch (_) {
-      onFinish(false);
+    } catch (error) {
+      if (!mounted) return;
+      setState(() {
+        errorCode = error.toString();
+      });
       return;
     }
 
@@ -100,12 +103,12 @@ class _ChatSyncDialogState extends State<ChatSyncDialog> {
       ChatsSvc.updateChatLatestMessage(widget.chat.guid, latestMessage);
     }
 
-    onFinish(true);
+    onFinish();
   }
 
-  void onFinish([bool success = true]) {
-    if (success) Navigator.of(context).pop();
-    if (!success) setState(() {});
+  void onFinish() {
+    if (!mounted) return;
+    NavigationSvc.closeRoute(ModalRoute.of(context)!);
   }
 
   @override
