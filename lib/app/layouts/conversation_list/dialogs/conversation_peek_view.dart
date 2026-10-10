@@ -57,6 +57,8 @@ class _ConversationPeekViewState extends State<ConversationPeekView>
     with SingleTickerProviderStateMixin, MessagesServiceMixin, ThemeHelpers {
   late final AnimationController controller;
   late final ConversationViewController cvController;
+  late final Chat? _previousChat;
+  late final bool _previousWasAlive;
   late final bool _ownsCvController;
   final double itemHeight = kIsDesktop || kIsWeb ? 56 : 48;
   bool disposed = false;
@@ -71,12 +73,26 @@ class _ConversationPeekViewState extends State<ConversationPeekView>
     }
   }
 
+  // The peek borrowed the active slot; hand it back unless another view has claimed it since.
+  void _restorePreviousChat() {
+    final previousChat = _previousChat;
+    if (previousChat == null) return;
+    final active = ChatsSvc.activeChat;
+    if (active != null && active.chat.guid != widget.chat.guid) return;
+    if (ChatsSvc.getChatState(previousChat.guid) == null) return;
+    ChatsSvc.setActiveChatSync(previousChat, clearNotifications: false, save: false);
+    ChatsSvc.activeChat!.updateAliveInternal(_previousWasAlive);
+  }
+
   @override
   void initState() {
     super.initState();
+    final previousChatState = ChatsSvc.activeChat;
+    _previousChat = previousChatState?.chat;
+    _previousWasAlive = previousChatState?.isAlive.value ?? false;
     _ownsCvController = !Get.isRegistered<ConversationViewController>(tag: widget.chat.guid);
     cvController = cvc(widget.chat);
-    ChatsSvc.setActiveChatSync(widget.chat, clearNotifications: false);
+    ChatsSvc.setActiveChatSync(widget.chat, clearNotifications: false, save: false);
     ChatsSvc.activeChat!.controller = cvController;
 
     if (maybeFindMessagesSvc(widget.chat.guid)?.owner != null) {
@@ -114,6 +130,7 @@ class _ConversationPeekViewState extends State<ConversationPeekView>
   void dispose() {
     if (!disposed) {
       _releaseCvController();
+      _restorePreviousChat();
       disposeMessagesService(force: true);
       controller.dispose();
     }
@@ -425,6 +442,8 @@ class _ConversationPeekViewState extends State<ConversationPeekView>
                   text: "Yes",
                   isDefault: true,
                   onPressed: () {
+                    // Before softDeleteChat, which closes every conversation view while the deleted chat is active.
+                    _restorePreviousChat();
                     ChatsSvc.removeChat(widget.chat);
                     ChatsSvc.softDeleteChat(widget.chat);
                     Navigator.of(context, rootNavigator: true).pop();
