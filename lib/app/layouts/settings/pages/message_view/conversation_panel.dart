@@ -440,6 +440,9 @@ class _ConversationPanelState extends State<ConversationPanel> with ThemeHelpers
                                 divisions: 100,
                                 formatValue: (val) => "${val.toInt()}",
                                 update: (val) => SettingsSvc.settings.soundVolume.value = val.toInt(),
+                                onChangeEnd: (val) async {
+                                  await SettingsSvc.settings.saveOneAsync('soundVolume');
+                                },
                               )),
                         ],
                       ),
