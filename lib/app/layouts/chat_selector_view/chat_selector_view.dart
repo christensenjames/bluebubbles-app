@@ -99,7 +99,7 @@ class ChatSelectorViewState extends State<ChatSelectorView> with ThemeHelpers {
             ? [
                 TextButton(
                   onPressed: () {
-                    final selected = filteredChats.where((c) => selectedGuids.contains(c.guid)).toList();
+                    final selected = ChatsSvc.allChats.where((c) => selectedGuids.contains(c.guid)).toList();
                     widget.onMultiSelect!(selected);
                     Navigator.of(context).pop(selected);
                   },
