@@ -114,37 +114,46 @@ class _BackgroundCropState extends State<BackgroundCrop> with ThemeHelpers {
   }
 
   Future<void> _saveImage() async {
-    _showSavingDialog();
-    final Uint8List capped = _capResolution(_croppedData!);
-    final Uint8List blurred = await _applyBlurToImage(capped, _blurSigma);
-    final Uint8List finalData = _encodeFinal(blurred);
-    final String sanitizedGuid = FilesystemService.sanitizeGuid(chat.guid);
-    final File file =
-        File(p.join(FilesystemSvc.customBackgroundsPath, sanitizedGuid, "background-${finalData.length}.jpg"));
+    final savingRoute = _showSavingDialog();
+    final nav = Navigator.of(context);
+    late String savedPath;
+    try {
+      final Uint8List capped = _capResolution(_croppedData!);
+      final Uint8List blurred = await _applyBlurToImage(capped, _blurSigma);
+      final Uint8List finalData = _encodeFinal(blurred);
+      final String sanitizedGuid = FilesystemService.sanitizeGuid(chat.guid);
+      final File file =
+          File(p.join(FilesystemSvc.customBackgroundsPath, sanitizedGuid, "background-${finalData.length}.jpg"));
 
-    if (!(await file.exists())) {
-      await file.create(recursive: true);
-    }
-
-    // Delete the old background file if one exists. `Chat.customBackgroundPath`
-    // is never populated for a locally-set background (only by server-synced
-    // data) -- the filesystem scan is the actual source of truth everywhere
-    // else in the app, so it's what's used here too, or every save just
-    // leaves the previous file orphaned on disk.
-    final existingPath = FilesystemSvc.getExistingChatBackgroundPath(chat.guid);
-    if (existingPath != null) {
-      final File oldFile = File(existingPath);
-      if (await oldFile.exists()) {
-        await oldFile.delete();
+      if (!(await file.exists())) {
+        await file.create(recursive: true);
       }
+
+      // Delete the old background file if one exists. `Chat.customBackgroundPath`
+      // is never populated for a locally-set background (only by server-synced
+      // data) -- the filesystem scan is the actual source of truth everywhere
+      // else in the app, so it's what's used here too, or every save just
+      // leaves the previous file orphaned on disk.
+      final existingPath = FilesystemSvc.getExistingChatBackgroundPath(chat.guid);
+      if (existingPath != null) {
+        final File oldFile = File(existingPath);
+        if (await oldFile.exists()) {
+          await oldFile.delete();
+        }
+      }
+
+      await file.writeAsBytes(finalData);
+      await ChatsSvc.setChatCustomBackgroundPath(chat, file.path);
+      savedPath = file.path;
+    } catch (e, s) {
+      Logger.error("Failed to save background", error: e, trace: s);
+      showSnackbar("Error", "Failed to save the background. Please try again.", type: SnackbarType.error);
+      return;
+    } finally {
+      NavigationSvc.closeRoute(savingRoute);
     }
 
-    await file.writeAsBytes(finalData);
-    await ChatsSvc.setChatCustomBackgroundPath(chat, file.path);
-
-    if (!mounted) return;
-    Navigator.of(context, rootNavigator: true).pop();
-    Navigator.of(context).pop(file.path);
+    if (mounted) nav.pop(savedPath);
   }
 
   @override
@@ -388,18 +397,25 @@ class _BackgroundCropState extends State<BackgroundCrop> with ThemeHelpers {
     ];
   }
 
-  void _showSavingDialog() {
-    showDialog(
+  DialogRoute _showSavingDialog() {
+    final route = DialogRoute(
       context: context,
-      builder: (context) => AlertDialog(
-        title: Text("Processing image...", style: context.theme.textTheme.titleLarge),
-        content: SizedBox(
-          height: 70,
-          child: Center(child: buildProgressIndicator(context)),
-        ),
-        backgroundColor: context.theme.colorScheme.surfaceContainerHighest,
-      ),
+      barrierColor: context.theme.dialogTheme.barrierColor ?? Colors.black54,
       barrierDismissible: false,
+      traversalEdgeBehavior: TraversalEdgeBehavior.closedLoop,
+      builder: (context) => PopScope(
+        canPop: false,
+        child: AlertDialog(
+          title: Text("Processing image...", style: context.theme.textTheme.titleLarge),
+          content: SizedBox(
+            height: 70,
+            child: Center(child: buildProgressIndicator(context)),
+          ),
+          backgroundColor: context.theme.colorScheme.surfaceContainerHighest,
+        ),
+      ),
     );
+    Navigator.of(context, rootNavigator: true).push(route);
+    return route;
   }
 }
