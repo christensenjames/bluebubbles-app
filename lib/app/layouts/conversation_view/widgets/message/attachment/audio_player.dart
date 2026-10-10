@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:audio_waveforms/audio_waveforms.dart';
@@ -40,6 +41,7 @@ class _AudioPlayerState extends State<AudioPlayer> with AutomaticKeepAliveClient
   ConversationViewController? get cvController => widget.controller;
 
   PlayerController? controller;
+  StreamSubscription<PlayerState>? _playerStateSubscription;
   late final animController = AnimationController(
       vsync: this, duration: const Duration(milliseconds: 400), animationBehavior: AnimationBehavior.preserve);
   final playerState = Rx<PlayerState?>(null);
@@ -54,6 +56,8 @@ class _AudioPlayerState extends State<AudioPlayer> with AutomaticKeepAliveClient
 
   @override
   void dispose() {
+    controller?.removeListener(_updateMaxDuration);
+    _playerStateSubscription?.cancel();
     if (attachment == null) {
       controller?.dispose();
     }
@@ -61,20 +65,23 @@ class _AudioPlayerState extends State<AudioPlayer> with AutomaticKeepAliveClient
     super.dispose();
   }
 
+  void _updateMaxDuration() {
+    maxDuration.value = controller!.maxDuration;
+  }
+
   void initBytes() async {
     if (attachment != null) controller = cvController?.audioPlayers[attachment!.guid];
-    if (controller == null) {
-      controller = PlayerController()
-        ..addListener(() {
-          maxDuration.value = controller!.maxDuration;
-        });
-      controller!.onPlayerStateChanged.listen((event) {
-        if ((controller!.playerState == PlayerState.paused || controller!.playerState == PlayerState.stopped) &&
-            animController.value > 0) {
-          animController.reverse();
-        }
-        playerState.value = controller!.playerState;
-      });
+    final isNewPlayer = controller == null;
+    controller ??= PlayerController();
+    controller!.addListener(_updateMaxDuration);
+    _playerStateSubscription = controller!.onPlayerStateChanged.listen((event) {
+      if ((controller!.playerState == PlayerState.paused || controller!.playerState == PlayerState.stopped) &&
+          animController.value > 0) {
+        animController.reverse();
+      }
+      playerState.value = controller!.playerState;
+    });
+    if (isNewPlayer) {
       await controller!.preparePlayer(path: file.path!);
       if (attachment != null) cvController?.audioPlayers[attachment!.guid!] = controller!;
     }
@@ -157,6 +164,10 @@ class _DesktopAudioPlayerState extends State<AudioPlayer>
   ConversationViewController? get cvController => widget.controller;
 
   Player? controller;
+  StreamSubscription<Duration>? _positionSubscription;
+  StreamSubscription<Duration>? _durationSubscription;
+  StreamSubscription<bool>? _playingSubscription;
+  StreamSubscription<bool>? _completedSubscription;
   late final animController = AnimationController(
       vsync: this, duration: const Duration(milliseconds: 400), animationBehavior: AnimationBehavior.preserve);
   final isPlaying = false.obs;
@@ -172,6 +183,10 @@ class _DesktopAudioPlayerState extends State<AudioPlayer>
 
   @override
   void dispose() {
+    _positionSubscription?.cancel();
+    _durationSubscription?.cancel();
+    _playingSubscription?.cancel();
+    _completedSubscription?.cancel();
     if (attachment == null) {
       controller?.dispose();
     }
@@ -181,23 +196,24 @@ class _DesktopAudioPlayerState extends State<AudioPlayer>
 
   void initBytes() async {
     if (attachment != null) controller = cvController?.audioPlayersDesktop[attachment!.guid];
-    if (controller == null) {
-      controller = Player()
-        ..stream.position.listen((pos) => position.value = pos)
-        ..stream.duration.listen((dur) => duration.value = dur)
-        ..stream.playing.listen((playing) => isPlaying.value = playing)
-        ..stream.completed.listen((bool completed) async {
-          if (completed) {
-            await controller!.seek(Duration.zero);
-            if (Platform.isLinux) {
-              await controller!.pause();
-            }
-            animController.reverse();
-          }
-        });
-      await controller!.setPlaylistMode(PlaylistMode.none);
-      await controller!.open(Media(file.path!), play: false);
-      if (attachment != null) cvController?.audioPlayersDesktop[attachment!.guid!] = controller!;
+    final isNewPlayer = controller == null;
+    final player = controller ??= Player();
+    _positionSubscription = player.stream.position.listen((pos) => position.value = pos);
+    _durationSubscription = player.stream.duration.listen((dur) => duration.value = dur);
+    _playingSubscription = player.stream.playing.listen((playing) => isPlaying.value = playing);
+    _completedSubscription = player.stream.completed.listen((completed) {
+      if (completed) animController.reverse();
+    });
+    if (isNewPlayer) {
+      // Rewinding is player state, so it lives with the cached player rather than any one row.
+      player.stream.completed.listen((completed) async {
+        if (!completed) return;
+        await player.seek(Duration.zero);
+        if (Platform.isLinux) await player.pause();
+      });
+      await player.setPlaylistMode(PlaylistMode.none);
+      await player.open(Media(file.path!), play: false);
+      if (attachment != null) cvController?.audioPlayersDesktop[attachment!.guid!] = player;
     }
     isPlaying.value = controller?.state.playing ?? false;
     position.value = controller?.state.position ?? Duration.zero;
