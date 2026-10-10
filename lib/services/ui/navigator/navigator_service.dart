@@ -197,7 +197,7 @@ class NavigatorService {
         return true;
       }, id: 1);
     } else {
-      final navigator = Navigator.of(context);
+      final navigator = key.currentState!;
       if (navigator.canPop()) navigator.maybePop();
     }
   }

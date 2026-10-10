@@ -344,14 +344,18 @@ class GoBackIntent extends Intent {
   const GoBackIntent();
 }
 
-class GoBackAction extends Action<GoBackIntent> {
+class GoBackAction extends ContextAction<GoBackIntent> {
   GoBackAction(this.context);
 
   final BuildContext context;
 
   @override
-  Object? invoke(covariant GoBackIntent intent) {
-    if (SettingsSvc.settings.finishedSetup.value && !(Get.isDialogOpen ?? true)) {
+  Object? invoke(covariant GoBackIntent intent, [BuildContext? focusContext]) {
+    // Popups get DismissIntent so the route's own action honors barrierDismissible.
+    if (focusContext != null && ModalRoute.of(focusContext) is PopupRoute) {
+      return Actions.maybeInvoke(focusContext, const DismissIntent());
+    }
+    if (SettingsSvc.settings.finishedSetup.value) {
       NavigationSvc.backConversationView(context);
     }
     return null;

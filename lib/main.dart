@@ -422,7 +422,7 @@ class Main extends StatelessWidget {
           // event, which breaks window close/hide once the app is past setup.
           // Bypass the secure wrapper entirely on Linux.
           child: Platform.isLinux
-              ? TitleBarWrapper(child: child ?? Container())
+              ? TitleBarWrapper(child: _withGoBack(context, child))
               : SecureApplication(
                   child: Builder(
                     builder: (context) {
@@ -508,7 +508,7 @@ class Main extends StatelessWidget {
                               ),
                             );
                           },
-                          child: child ?? Container(),
+                          child: _withGoBack(context, child),
                         ),
                       );
                     },
@@ -520,6 +520,10 @@ class Main extends StatelessWidget {
     );
   }
 }
+
+// Above the navigator so pages pushed on the root navigator (phone layout) inherit Escape-to-go-back.
+Widget _withGoBack(BuildContext context, Widget? child) =>
+    Actions(actions: {GoBackIntent: GoBackAction(context)}, child: child ?? Container());
 
 // The GTK embedder reports a lock mode that was already on as a held lock key, which LogicalKeySet counts as extra.
 class _NoLockKeySet extends LogicalKeySet {
@@ -720,7 +724,6 @@ class _HomeState extends State<Home> with WidgetsBindingObserver, TrayListener {
         OpenNextChatIntent: OpenNextChatAction(context),
         OpenPreviousChatIntent: OpenPreviousChatAction(context),
         StartIncrementalSyncIntent: StartIncrementalSyncAction(),
-        GoBackIntent: GoBackAction(context),
       },
       child: Obx(() => BBScaffold(
             backgroundColor: context.theme.colorScheme.surface.themeOpacity(context),
