@@ -279,7 +279,8 @@ class _RecordingButton extends StatelessWidget {
 
             if (isDesktop) {
               path = await audioRecorder.stop();
-              if (path == null) {
+              // Desktop record plugins can return the path after deleting or never writing the file.
+              if (path == null || !await File(path).exists()) {
                 showSnackbar("Error", "Failed to save voice memo. Please try again.", type: SnackbarType.error);
                 return;
               }
