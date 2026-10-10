@@ -12,6 +12,7 @@ import 'package:bluebubbles/app/layouts/conversation_details/pages/wallpaper_pic
 import 'package:bluebubbles/app/wrappers/theme_switcher.dart';
 import 'package:bluebubbles/database/models.dart';
 import 'package:bluebubbles/services/services.dart';
+import 'package:bluebubbles/utils/logger/logger.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
@@ -556,19 +557,26 @@ class ExpressiveChatOptions extends StatelessWidget {
       onNo: () => Navigator.of(context, rootNavigator: true).pop(),
       onYes: () async {
         Navigator.of(context, rootNavigator: true).pop();
-        showDialog(
+        final nav = Navigator.of(context, rootNavigator: true);
+        final progressRoute = DialogRoute<void>(
           context: context,
+          themes: InheritedTheme.capture(from: context, to: nav.context),
+          barrierColor: Theme.of(context).dialogTheme.barrierColor ?? Colors.black54,
+          traversalEdgeBehavior: TraversalEdgeBehavior.closedLoop,
           barrierDismissible: false,
           builder: (context) => const BBProgressDialog(title: "Leaving chat..."),
         );
-        final response = await HttpSvc.chat.leave(chat.guid);
-        if (!context.mounted) return;
-        Navigator.of(context, rootNavigator: true).pop();
-        if (response.statusCode == 200) {
-          showSnackbar("Notice", "Left chat successfully!");
-        } else {
+        nav.push(progressRoute);
+        try {
+          await HttpSvc.chat.leave(chat.guid);
+        } catch (e, s) {
+          Logger.error("Failed to leave chat ${chat.guid}", error: e, trace: s);
+          NavigationSvc.closeRoute(progressRoute);
           showSnackbar("Error", "Failed to leave chat!", type: SnackbarType.error);
+          return;
         }
+        NavigationSvc.closeRoute(progressRoute);
+        showSnackbar("Notice", "Left chat successfully!");
       },
     );
   }
@@ -576,107 +584,119 @@ class ExpressiveChatOptions extends StatelessWidget {
   Future<void> _downloadTranscript(BuildContext context, {required bool asPdf}) async {
     final date = await showTimeframePicker("Select Timeframe", context, additionalTimeframes: {"6 Hours": 6});
     if (date == null || !context.mounted) return;
-    showDialog(
+    final nav = Navigator.of(context, rootNavigator: true);
+    final progressRoute = DialogRoute<void>(
       context: context,
+      themes: InheritedTheme.capture(from: context, to: nav.context),
+      barrierColor: Theme.of(context).dialogTheme.barrierColor ?? Colors.black54,
+      traversalEdgeBehavior: TraversalEdgeBehavior.closedLoop,
       barrierDismissible: false,
       builder: (context) => BBProgressDialog(title: asPdf ? "Generating PDF..." : "Generating document..."),
     );
-    final messages =
-        (await Chat.getMessagesAsync(chat, limit: 0, includeDeleted: true)).reversed.where((e) => e.dateCreated!.isAfter(date));
-    if (messages.isEmpty) {
-      if (context.mounted) Navigator.of(context, rootNavigator: true).pop();
-      showSnackbar("Error", "No messages found!", type: SnackbarType.error);
-      return;
-    }
+    nav.push(progressRoute);
+    try {
+      final messages =
+          (await Chat.getMessagesAsync(chat, limit: 0, includeDeleted: true)).reversed.where((e) => e.dateCreated!.isAfter(date));
+      if (messages.isEmpty) {
+        NavigationSvc.closeRoute(progressRoute);
+        showSnackbar("Error", "No messages found!", type: SnackbarType.error);
+        return;
+      }
 
-    if (!asPdf) {
-      final List<String> lines = [];
+      if (!asPdf) {
+        final List<String> lines = [];
+        for (Message m in messages) {
+          final readStr = m.dateRead != null ? "Read: ${buildFullDate(m.dateRead!)}, " : "";
+          final deliveredStr = m.dateDelivered != null ? "Delivered: ${buildFullDate(m.dateDelivered!)}, " : "";
+          final sentStr = "Sent: ${buildFullDate(m.dateCreated!)}";
+          final text = m.getNotificationText(withSender: true);
+          final line = "($readStr$deliveredStr$sentStr) $text";
+          lines.add(line);
+        }
+        final now = DateTime.now().toLocal();
+        final filePath = p.join(await FilesystemSvc.downloadsDirectory,
+            "${chat.getTitle().replaceAll(RegExp(r'[<>:"/\\|?*]'), "")}-transcript-${now.year}${now.month}${now.day}_${now.hour}${now.minute}${now.second}.txt");
+        File file = File(filePath);
+        await file.create(recursive: true);
+        await file.writeAsString(lines.join('\n'));
+        NavigationSvc.closeRoute(progressRoute);
+        showSnackbar("Success", "Saved transcript to the downloads folder", type: SnackbarType.success);
+        return;
+      }
+
+      final doc = pw.Document();
+      final List<String> timestamps = [];
+      final List<dynamic> content = [];
+      final List<Size?> dimensions = [];
       for (Message m in messages) {
         final readStr = m.dateRead != null ? "Read: ${buildFullDate(m.dateRead!)}, " : "";
         final deliveredStr = m.dateDelivered != null ? "Delivered: ${buildFullDate(m.dateDelivered!)}, " : "";
         final sentStr = "Sent: ${buildFullDate(m.dateCreated!)}";
-        final text = m.getNotificationText(withSender: true);
-        final line = "($readStr$deliveredStr$sentStr) $text";
-        lines.add(line);
+        if (m.hasAttachments) {
+          final attachments =
+              m.dbAttachments.where((e) => e.guid != null && ["image/png", "image/jpg", "image/jpeg"].contains(e.mimeType));
+          final files = attachments.map((e) => AttachmentsSvc.getContent(e, autoDownload: false)).whereType<PlatformFile>();
+          if (files.isNotEmpty) {
+            for (PlatformFile f in files) {
+              final a = attachments.firstWhere((e) => e.transferName == f.name);
+              timestamps.add(readStr + deliveredStr + sentStr);
+              content.add(pw.MemoryImage(await File(f.path!).readAsBytes()));
+              final aspectRatio = (a.width ?? 150.0) / (a.height ?? 150.0);
+              dimensions.add(Size(400, aspectRatio * 400));
+            }
+          }
+          timestamps.add(readStr + deliveredStr + sentStr);
+          content.add(m.getNotificationText(withSender: true));
+          dimensions.add(null);
+        } else {
+          timestamps.add(readStr + deliveredStr + sentStr);
+          content.add(m.getNotificationText(withSender: true));
+          dimensions.add(null);
+        }
       }
+      final font = await PdfGoogleFonts.openSansRegular();
+      doc.addPage(pw.MultiPage(
+          maxPages: 1000,
+          header: (pw.Context context) => pw.Padding(
+              padding: const pw.EdgeInsets.only(bottom: 10),
+              child: pw.Text(chat.getTitle(),
+                  textScaleFactor: 2,
+                  style: pw.Theme.of(context).defaultTextStyle.copyWith(fontWeight: pw.FontWeight.bold, font: font))),
+          build: (pw.Context context) => [
+                pw.Partitions(children: [
+                  pw.Partition(
+                      child: pw.Table(
+                          children: List.generate(
+                              timestamps.length,
+                              (index) => pw.TableRow(children: [
+                                    pw.Padding(
+                                      padding: const pw.EdgeInsets.symmetric(horizontal: 3, vertical: 10),
+                                      child: pw.Text(timestamps[index],
+                                          style: pw.Theme.of(context).defaultTextStyle.copyWith(font: font)),
+                                    ),
+                                    pw.Container(
+                                        child: pw.Padding(
+                                            padding: const pw.EdgeInsets.symmetric(horizontal: 3, vertical: 10),
+                                            child: content[index] is pw.MemoryImage
+                                                ? pw.Image(content[index],
+                                                    width: dimensions[index]!.width, height: dimensions[index]!.height)
+                                                : pw.Text(content[index].toString(), style: pw.TextStyle(font: font))))
+                                  ])))),
+                ]),
+              ]));
       final now = DateTime.now().toLocal();
       final filePath = p.join(await FilesystemSvc.downloadsDirectory,
-          "${chat.getTitle().replaceAll(RegExp(r'[<>:"/\\|?*]'), "")}-transcript-${now.year}${now.month}${now.day}_${now.hour}${now.minute}${now.second}.txt");
+          "${chat.getTitle().replaceAll(RegExp(r'[<>:"/\\|?*]'), "")}-transcript-${now.year}${now.month}${now.day}_${now.hour}${now.minute}${now.second}.pdf");
       File file = File(filePath);
       await file.create(recursive: true);
-      await file.writeAsString(lines.join('\n'));
-      if (context.mounted) Navigator.of(context, rootNavigator: true).pop();
+      await file.writeAsBytes(await doc.save());
+      NavigationSvc.closeRoute(progressRoute);
       showSnackbar("Success", "Saved transcript to the downloads folder", type: SnackbarType.success);
-      return;
+    } catch (e, s) {
+      Logger.error("Failed to export transcript for ${chat.guid}", error: e, trace: s);
+      showSnackbar("Error", "Failed to save transcript!", type: SnackbarType.error);
+    } finally {
+      NavigationSvc.closeRoute(progressRoute);
     }
-
-    final doc = pw.Document();
-    final List<String> timestamps = [];
-    final List<dynamic> content = [];
-    final List<Size?> dimensions = [];
-    for (Message m in messages) {
-      final readStr = m.dateRead != null ? "Read: ${buildFullDate(m.dateRead!)}, " : "";
-      final deliveredStr = m.dateDelivered != null ? "Delivered: ${buildFullDate(m.dateDelivered!)}, " : "";
-      final sentStr = "Sent: ${buildFullDate(m.dateCreated!)}";
-      if (m.hasAttachments) {
-        final attachments =
-            m.dbAttachments.where((e) => e.guid != null && ["image/png", "image/jpg", "image/jpeg"].contains(e.mimeType));
-        final files = attachments.map((e) => AttachmentsSvc.getContent(e, autoDownload: false)).whereType<PlatformFile>();
-        if (files.isNotEmpty) {
-          for (PlatformFile f in files) {
-            final a = attachments.firstWhere((e) => e.transferName == f.name);
-            timestamps.add(readStr + deliveredStr + sentStr);
-            content.add(pw.MemoryImage(await File(f.path!).readAsBytes()));
-            final aspectRatio = (a.width ?? 150.0) / (a.height ?? 150.0);
-            dimensions.add(Size(400, aspectRatio * 400));
-          }
-        }
-        timestamps.add(readStr + deliveredStr + sentStr);
-        content.add(m.getNotificationText(withSender: true));
-        dimensions.add(null);
-      } else {
-        timestamps.add(readStr + deliveredStr + sentStr);
-        content.add(m.getNotificationText(withSender: true));
-        dimensions.add(null);
-      }
-    }
-    final font = await PdfGoogleFonts.openSansRegular();
-    doc.addPage(pw.MultiPage(
-        maxPages: 1000,
-        header: (pw.Context context) => pw.Padding(
-            padding: const pw.EdgeInsets.only(bottom: 10),
-            child: pw.Text(chat.getTitle(),
-                textScaleFactor: 2,
-                style: pw.Theme.of(context).defaultTextStyle.copyWith(fontWeight: pw.FontWeight.bold, font: font))),
-        build: (pw.Context context) => [
-              pw.Partitions(children: [
-                pw.Partition(
-                    child: pw.Table(
-                        children: List.generate(
-                            timestamps.length,
-                            (index) => pw.TableRow(children: [
-                                  pw.Padding(
-                                    padding: const pw.EdgeInsets.symmetric(horizontal: 3, vertical: 10),
-                                    child: pw.Text(timestamps[index],
-                                        style: pw.Theme.of(context).defaultTextStyle.copyWith(font: font)),
-                                  ),
-                                  pw.Container(
-                                      child: pw.Padding(
-                                          padding: const pw.EdgeInsets.symmetric(horizontal: 3, vertical: 10),
-                                          child: content[index] is pw.MemoryImage
-                                              ? pw.Image(content[index],
-                                                  width: dimensions[index]!.width, height: dimensions[index]!.height)
-                                              : pw.Text(content[index].toString(), style: pw.TextStyle(font: font))))
-                                ])))),
-              ]),
-            ]));
-    final now = DateTime.now().toLocal();
-    final filePath = p.join(await FilesystemSvc.downloadsDirectory,
-        "${chat.getTitle().replaceAll(RegExp(r'[<>:"/\\|?*]'), "")}-transcript-${now.year}${now.month}${now.day}_${now.hour}${now.minute}${now.second}.pdf");
-    File file = File(filePath);
-    await file.create(recursive: true);
-    await file.writeAsBytes(await doc.save());
-    if (context.mounted) Navigator.of(context, rootNavigator: true).pop();
-    showSnackbar("Success", "Saved transcript to the downloads folder", type: SnackbarType.success);
   }
 }
