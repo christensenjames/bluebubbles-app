@@ -660,7 +660,9 @@ class Settings {
         map['enablePrivateAPI'] ?? SettingsSvc.settings.enablePrivateAPI.value;
     SettingsSvc.settings.serverPrivateAPI.value =
         map['serverPrivateAPI'] ?? SettingsSvc.settings.serverPrivateAPI.value;
-    SettingsSvc.settings.iMessageStatsSource.value = (map['iMessageStatsSource'] == 'local') ? 'local' : 'server';
+    SettingsSvc.settings.iMessageStatsSource.value = map.containsKey('iMessageStatsSource')
+        ? (map['iMessageStatsSource'] == 'local' ? 'local' : 'server')
+        : SettingsSvc.settings.iMessageStatsSource.value;
     SettingsSvc.settings.cachePurgeBackgroundLevel.value =
         map['cachePurgeBackgroundLevel'] ?? SettingsSvc.settings.cachePurgeBackgroundLevel.value;
     SettingsSvc.settings.cachePurgeMemoryPressureLevel.value =
