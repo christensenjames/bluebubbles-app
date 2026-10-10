@@ -639,12 +639,14 @@ class _BackupRestorePanelState extends State<BackupRestorePanel> with ThemeHelpe
       content: const Text(
         "Are you sure you want to restore this backup, overwriting your current theme?",
       ),
-      onYes: () {
+      onYes: () async {
         Navigator.of(context, rootNavigator: true).pop();
         try {
           ThemeStruct object = ThemeStruct.fromMap(item);
           object.id = null;
           object.save();
+          if (mounted) await ThemeSvc.changeTheme(context);
+          EventDispatcherSvc.emit('theme-update', null);
           showSnackbar("Success", "Theme restored successfully", type: SnackbarType.success);
         } catch (e, s) {
           Logger.error("Failed to restore theme backup!", error: e, trace: s);
@@ -730,7 +732,7 @@ class _BackupRestorePanelState extends State<BackupRestorePanel> with ThemeHelpe
       content: const Text(
         "Are you sure you want to restore this backup, overwriting your current theme?",
       ),
-      onYes: () {
+      onYes: () async {
         Navigator.of(context, rootNavigator: true).pop();
         try {
           String jsonString = const Utf8Decoder().convert(res.files.first.bytes!);
@@ -741,6 +743,8 @@ class _BackupRestorePanelState extends State<BackupRestorePanel> with ThemeHelpe
             object.id = null;
             object.save();
           }
+          if (mounted) await ThemeSvc.changeTheme(context);
+          EventDispatcherSvc.emit('theme-update', null);
           showSnackbar("Success", "Theming restored successfully", type: SnackbarType.success);
         } catch (e, s) {
           Logger.error("Failed to restore theme backup!", error: e, trace: s);
