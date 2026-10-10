@@ -76,11 +76,17 @@ class ChatEvent extends StatelessWidget {
             final chatState = ChatStateScope.maybeOf(context);
             final hasBackground = chatState?.hasCustomWallpaper ?? false;
             final senderName = state.senderDisplayName;
+            final redact = SettingsSvc.settings.redactedMode.value && SettingsSvc.settings.hideContactInfo.value;
+            String? otherName;
+            if (redact && message.otherHandle != null && message.isParticipantEvent) {
+              final other = Handle.findOne(originalROWID: message.otherHandle);
+              otherName = (other == null ? null : HandleSvc.getOrCreateHandleState(other).displayName.value) ?? "someone";
+            }
             final text = part.isUnsent
                 ? (message.isFromMe!
                     ? "You unsent a message. Others may still see the message on devices where the software hasn't been updated"
                     : "$senderName unsent a message")
-                : message.buildGroupEventText(senderName);
+                : message.buildGroupEventText(senderName, otherName: otherName, hideGroupTitle: redact);
             final textColor =
                 hasBackground ? context.theme.colorScheme.onSurfaceVariant : context.theme.colorScheme.outline;
             final textWidget = Text(

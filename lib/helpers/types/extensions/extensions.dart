@@ -343,7 +343,11 @@ extension RandomListChoice<E> on List<E> {
 extension MessageNotificationExtension on Message {
   String getNotificationText({bool withSender = false, bool hideContactInfo = false, bool hideMessageContent = false}) {
     String compute() {
-      if (isGroupEvent) return groupEventText;
+      if (isGroupEvent) {
+        if (!hideContactInfo) return groupEventText;
+        return buildGroupEventText(isFromMe! || (handle ?? handleRelation.target) == null ? "You" : "Someone",
+            otherName: "someone", hideGroupTitle: true);
+      }
       if (expressiveSendStyleId == "com.apple.MobileSMS.expressivesend.invisibleink") {
         return "Message sent with Invisible Ink";
       }

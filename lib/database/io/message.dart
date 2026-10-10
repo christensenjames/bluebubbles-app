@@ -576,12 +576,14 @@ class Message {
   /// Build the group-event description string with a pre-resolved [senderName].
   /// Call this from the UI with a reactive name (e.g. from [HandleState.displayName])
   /// so that contact-sync updates are reflected without rebuilding the whole tree.
-  String buildGroupEventText(String senderName) {
+  String buildGroupEventText(String senderName, {String? otherName, bool hideGroupTitle = false}) {
     String text = "Unknown group event";
     final name = senderName;
 
     String? other = "someone";
-    if (otherHandle != null && isParticipantEvent) {
+    if (otherName != null) {
+      other = otherName;
+    } else if (otherHandle != null && isParticipantEvent) {
       // Keep the "someone" fallback if the handle isn't in the DB yet.
       other = Handle.findOne(originalROWID: otherHandle)?.displayName ?? other;
     }
@@ -593,7 +595,9 @@ class Message {
         text = "$name removed $other from the conversation.";
       }
     } else if (itemType == 2) {
-      if (groupTitle != null) {
+      if (groupTitle != null && hideGroupTitle) {
+        text = "$name named the conversation.";
+      } else if (groupTitle != null) {
         text = "$name named the conversation \"$groupTitle\".";
       } else {
         text = "$name removed the name from the conversation.";
