@@ -397,7 +397,6 @@ class _BackupRestorePanelState extends State<BackupRestorePanel> with ThemeHelpe
     final TextEditingController descController = TextEditingController();
 
     void onDone(BuildContext _context) async {
-      final onSecondary = context.theme.colorScheme.onSecondary;
       final rootNav = Navigator.of(_context, rootNavigator: true);
       String name = nameController.text;
       final desc = descController.text;
@@ -653,7 +652,6 @@ class _BackupRestorePanelState extends State<BackupRestorePanel> with ThemeHelpe
   Future<void> _createThemeBackup() async {
     final destination = await showMethodDialog();
     if (destination == null || !mounted) return;
-    final onSecondary = context.theme.colorScheme.onSecondary;
     List<ThemeStruct> allThemes = ThemeStruct.getThemes().where((element) => !element.isPreset).toList();
     if (allThemes.isEmpty) {
       return showSnackbar("Notice", "No custom themes found!", type: SnackbarType.error);
