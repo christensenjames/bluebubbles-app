@@ -281,10 +281,17 @@ class _RecordingButton extends StatelessWidget {
 
             try {
               if (isDesktop) {
+                // record_linux reports -160 until it has seen nonzero PCM, and stop() resets it, so read it first.
+                final capturedNoAudio = Platform.isLinux && (await audioRecorder.getAmplitude()).max <= -160;
                 path = await audioRecorder.stop();
                 // Desktop record plugins can return the path after deleting or never writing the file.
                 if (path == null || !await File(path).exists()) {
                   showSnackbar("Error", "Failed to save voice memo. Please try again.", type: SnackbarType.error);
+                  return;
+                }
+                if (capturedNoAudio) {
+                  onDeleteRecording(path);
+                  showSnackbar("Error", "No audio was captured. Try recording again.", type: SnackbarType.error);
                   return;
                 }
                 final _file = File(path);
