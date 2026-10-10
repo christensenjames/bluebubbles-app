@@ -61,6 +61,16 @@ class _ConversationPeekViewState extends State<ConversationPeekView>
   final double itemHeight = kIsDesktop || kIsWeb ? 56 : 48;
   bool disposed = false;
 
+  // close() resets the global active chat and deletes by tag; another view may own either by now.
+  void _releaseCvController() {
+    if (!_ownsCvController) return;
+    if (identical(ChatsSvc.activeChat?.controller, cvController)) ChatsSvc.setAllInactiveSync();
+    if (Get.isRegistered<ConversationViewController>(tag: widget.chat.guid) &&
+        identical(Get.find<ConversationViewController>(tag: widget.chat.guid), cvController)) {
+      Get.delete<ConversationViewController>(tag: widget.chat.guid);
+    }
+  }
+
   @override
   void initState() {
     super.initState();
@@ -103,7 +113,7 @@ class _ConversationPeekViewState extends State<ConversationPeekView>
   @override
   void dispose() {
     if (!disposed) {
-      if (_ownsCvController) cvController.close();
+      _releaseCvController();
       disposeMessagesService(force: true);
       controller.dispose();
     }
@@ -178,7 +188,7 @@ class _ConversationPeekViewState extends State<ConversationPeekView>
                           children: [
                             GestureDetector(
                               onTap: () async {
-                                if (_ownsCvController) cvController.close();
+                                _releaseCvController();
                                 disposeMessagesService(force: true);
                                 controller.dispose();
                                 disposed = true;
