@@ -777,9 +777,10 @@ class Settings {
         map['replaceEmoticonsWithEmoji'] ?? SettingsSvc.settings.replaceEmoticonsWithEmoji.value;
     SettingsSvc.settings.lastReviewRequestTimestamp.value =
         map['lastReviewRequestTimestamp'] ?? SettingsSvc.settings.lastReviewRequestTimestamp.value;
-    SettingsSvc.settings.save();
 
     if (!isIsolate) {
+      // Isolates hold a snapshot from spawn; a full save there would revert keys other engines wrote since.
+      SettingsSvc.settings.save();
       unawaited(PrefsInterface.syncAllSettings());
       EventDispatcherSvc.emit("theme-update", null);
     }
