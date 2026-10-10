@@ -185,8 +185,12 @@ class MaterialAvatarMenu extends StatelessWidget {
         final moveChatCreatorToHeader = SettingsSvc.settings.moveChatCreatorToHeader.value;
         final filterUnknownSenders = SettingsSvc.settings.filterUnknownSenders.value;
         final hasActiveChatFilter = ChatsSvc.chatListFilters.value.hasActiveFilter;
-        final userName = SettingsSvc.settings.userName.value;
-        final iCloudAccount = SettingsSvc.settings.iCloudAccount.value;
+        final userName = SettingsSvc.settings.redactedMode.value && SettingsSvc.settings.hideContactInfo.value
+            ? "User Name"
+            : SettingsSvc.settings.userName.value;
+        final iCloudAccount = SettingsSvc.settings.redactedMode.value && SettingsSvc.settings.hideContactInfo.value
+            ? "User iCloud"
+            : SettingsSvc.settings.iCloudAccount.value;
 
         return DropdownMenuCard(
           children: [
@@ -368,7 +372,9 @@ class CupertinoOverflowMenu extends StatelessWidget {
     // which only tracks the skin setting) so the "Filter Chats" icon reacts to
     // `chatListFilters` changes instead of only reflecting its value at first build.
     return Obx(() {
-      final userName = SettingsSvc.settings.userName.value;
+      final userName = SettingsSvc.settings.redactedMode.value && SettingsSvc.settings.hideContactInfo.value
+          ? "User Name"
+          : SettingsSvc.settings.userName.value;
       final moveChatCreatorToHeader = SettingsSvc.settings.moveChatCreatorToHeader.value;
       final filterUnknownSenders = SettingsSvc.settings.filterUnknownSenders.value;
       final hasActiveChatFilter = ChatsSvc.chatListFilters.value.hasActiveFilter;
