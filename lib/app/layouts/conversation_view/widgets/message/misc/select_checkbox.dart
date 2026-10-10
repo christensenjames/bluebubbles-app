@@ -40,7 +40,7 @@ class SelectCheckbox extends StatelessWidget {
                       ),
                       onTap: () {
                         if (controller.isSelected(message.guid!)) {
-                          controller.selected.remove(message);
+                          controller.selected.removeWhere((e) => e.guid == message.guid);
                         } else {
                           controller.selected.add(message);
                         }
@@ -51,7 +51,7 @@ class SelectCheckbox extends StatelessWidget {
                       visualDensity: VisualDensity.compact,
                       onChanged: (val) {
                         if (controller.isSelected(message.guid!)) {
-                          controller.selected.remove(message);
+                          controller.selected.removeWhere((e) => e.guid == message.guid);
                         } else {
                           controller.selected.add(message);
                         }

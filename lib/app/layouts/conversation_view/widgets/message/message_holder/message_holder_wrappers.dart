@@ -26,7 +26,7 @@ class SelectModeWrapper extends StatelessWidget {
           onTap: cvController.inSelectMode.value
               ? () {
                   if (cvController.isSelected(message.guid!)) {
-                    cvController.selected.remove(message);
+                    cvController.selected.removeWhere((e) => e.guid == message.guid);
                   } else {
                     cvController.selected.add(message);
                   }
