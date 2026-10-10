@@ -85,6 +85,7 @@ class ThemeStruct {
     final query = Database.themes.query(ThemeStruct_.name.equals(name ?? "Bright White")).build();
     query.limit = 1;
     final result = query.findFirst();
+    query.close();
     if (result == null) {
       final preset = ThemesService.defaultThemes.firstWhere((t) => t.name == "Bright White");
       return _clonePreset(preset);
@@ -97,6 +98,7 @@ class ThemeStruct {
     final query = Database.themes.query(ThemeStruct_.name.equals(name ?? "OLED Dark")).build();
     query.limit = 1;
     final result = query.findFirst();
+    query.close();
     if (result == null) {
       final preset = ThemesService.defaultThemes.firstWhere((t) => t.name == "OLED Dark");
       return _clonePreset(preset);

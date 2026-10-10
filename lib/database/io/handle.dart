@@ -364,7 +364,9 @@ class Handle {
   /// when no condition is specified
   static List<Handle> find({Condition<Handle>? cond}) {
     final query = Database.handles.query(cond).build();
-    return query.find();
+    final result = query.find();
+    query.close();
+    return result;
   }
 
   static Future<List<Handle>> findAsync({Condition<Handle>? cond}) async {

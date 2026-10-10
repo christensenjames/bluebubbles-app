@@ -465,7 +465,9 @@ class Message {
   /// when no condition is specified
   static List<Message> find({Condition<Message>? cond}) {
     final query = Database.messages.query(cond).build();
-    return query.find();
+    final result = query.find();
+    query.close();
+    return result;
   }
 
   static Future<List<Message>> findAsync({Condition<Message>? cond}) async {
