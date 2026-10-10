@@ -261,6 +261,9 @@ class ChatStatsController extends GetxController {
     final sinceMillis = _byParticipantTimeframe!.cutoffMillis();
     final attachments = await runAsync(() => ChatStatsQueries.attachmentMessageCount(chat, sinceMillis: sinceMillis));
     final unattributed = await runAsync(() => ChatStatsQueries.unattributedCount(chat, sinceMillis: sinceMillis));
+    final unattributedBounds = unattributed == 0
+        ? null
+        : await runAsync(() => ChatStatsQueries.unattributedBounds(chat, sinceMillis: sinceMillis));
     if (!_firstTrackedMessageMillisResolved) {
       _firstTrackedMessageMillis = await runAsync(() => ChatStatsQueries.firstMessageMillis(chat));
       _firstTrackedMessageMillisResolved = true;
@@ -270,6 +273,7 @@ class ChatStatsController extends GetxController {
       byParticipant: byParticipant,
       attachments: attachments,
       unattributedCount: unattributed,
+      unattributedBounds: unattributedBounds,
       firstTrackedMessageMillis: _firstTrackedMessageMillis,
     );
   }
@@ -458,12 +462,14 @@ class ChatStatsController extends GetxController {
     required Map<int, List<int>> byParticipant,
     required int attachments,
     required int unattributedCount,
+    ({int first, int last})? unattributedBounds,
     int? firstTrackedMessageMillis,
   }) {
     return Isolate.run(() => computeOverview(
           byParticipant: byParticipant,
           attachments: attachments,
           unattributedCount: unattributedCount,
+          unattributedBounds: unattributedBounds,
           firstTrackedMessageMillis: firstTrackedMessageMillis,
         ));
   }

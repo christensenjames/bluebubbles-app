@@ -87,13 +87,33 @@ class ChatStatsQueries {
     }
   }
 
+  static Condition<Message> _unattributed(int? sinceMillis) => realMessages(sinceMillis: sinceMillis)
+      .and(Message_.isFromMe.equals(false))
+      .and(Message_.handleRelation.isNull());
+
   /// Incoming messages whose sender could not be attributed to a handle.
   /// Non-zero means the leaderboard will under-report — surface it, never
   /// silently drop them (see Task 12).
-  static int unattributedCount(Chat chat, {int? sinceMillis}) => count(
-        chat,
-        realMessages(sinceMillis: sinceMillis).and(Message_.isFromMe.equals(false)).and(Message_.handleRelation.isNull()),
-      );
+  static int unattributedCount(Chat chat, {int? sinceMillis}) => count(chat, _unattributed(sinceMillis));
+
+  /// Earliest and latest `dateCreated` of [unattributedCount]'s messages, or null when there are none.
+  static ({int first, int last})? unattributedBounds(Chat chat, {int? sinceMillis}) {
+    int? edge(bool latest) {
+      final q = (_forChat(chat, _unattributed(sinceMillis))
+            ..order(Message_.dateCreated, flags: latest ? Order.descending : 0))
+          .build();
+      try {
+        q.limit = 1;
+        return q.find().firstOrNull?.dateCreated?.millisecondsSinceEpoch;
+      } finally {
+        q.close();
+      }
+    }
+
+    final first = edge(false);
+    final last = edge(true);
+    return first == null || last == null ? null : (first: first, last: last);
+  }
 
   /// Sorted in Dart. Hydrates entities rather than using `PropertyQuery` —
   /// objectbox-dart's property-query projection doesn't support `Date`-typed
