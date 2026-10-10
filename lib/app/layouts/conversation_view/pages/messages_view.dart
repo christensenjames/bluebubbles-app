@@ -321,7 +321,12 @@ class MessagesViewState extends State<MessagesView> with MessagesServiceMixin, T
           ..link(Message_.chat, Chat_.id.equals(chat.id!))
           ..order(Message_.dateCreated, flags: Order.descending))
         .build();
-    final ids = await query.findIdsAsync();
+    final List<int> ids;
+    try {
+      ids = await query.findIdsAsync();
+    } finally {
+      query.close();
+    }
     final pos = ids.indexOf(message.id!);
     await _loadMoreMessages(limit: pos + 10);
     index = _messages.indexWhere((element) => element.guid == guid);
