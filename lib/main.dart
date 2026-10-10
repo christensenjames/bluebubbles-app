@@ -208,8 +208,16 @@ Future<Null> initApp(bool bubble, List<String> arguments) async {
             final centered = await calcWindowPosition(Size(width, height), Alignment.center);
             double posX = PrefsSvc.desktop.getWindowX() ?? centered.dx;
             double posY = PrefsSvc.desktop.getWindowY() ?? centered.dy;
-            posX = posX.clamp(0, max(0, primary.size.width - width));
-            posY = posY.clamp(0, max(0, primary.size.height - height));
+            Rect visibleArea(Display d) => (d.visiblePosition ?? Offset.zero) & (d.visibleSize ?? d.size);
+            // setBounds scales by the primary's DPI, so a display at another scale would land off-screen.
+            final center = Rect.fromLTWH(posX, posY, width, height).center;
+            final area = (await ScreenRetriever.instance.getAllDisplays())
+                    .where((d) => d.scaleFactor == primary.scaleFactor)
+                    .map(visibleArea)
+                    .firstWhereOrNull((a) => a.contains(center)) ??
+                visibleArea(primary);
+            posX = posX.clamp(area.left, max(area.left, area.right - width));
+            posY = posY.clamp(area.top, max(area.top, area.bottom - height));
             await windowManager.setBounds(Rect.fromLTWH(posX, posY, width, height));
             await PrefsSvc.desktop.setWindowOffsets(x: posX, y: posY);
           }
