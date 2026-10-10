@@ -30,6 +30,7 @@ class ChatBackupIdentifier {
       "type": type,
       "displayName": chat.displayName,
       "participants": addresses,
+      "service": _service(chat),
     };
   }
 
@@ -37,10 +38,11 @@ class ChatBackupIdentifier {
     final type = entry["type"] as String?;
     final displayName = entry["displayName"] as String?;
     final participants = List<String>.from(entry["participants"] as List? ?? []);
+    final service = entry["service"] as String?;
 
     switch (type) {
       case "namedGroup":
-        final candidates = pool.where((c) => c.isGroup && c.displayName == displayName).toList();
+        final candidates = _narrow(pool.where((c) => c.isGroup && c.displayName == displayName).toList(), service);
         if (candidates.length == 1) {
           return ChatBackupMatch(match: candidates.first);
         }
@@ -52,19 +54,23 @@ class ChatBackupIdentifier {
           return const ChatBackupMatch(skipReason: "no participant address in backup");
         }
         final address = participants.first;
-        final candidates = pool
-            .where((c) => c.handles.length == 1 && ChatCreatorUtils.addressesMatch(address, c.handles.first.address))
-            .toList();
+        final candidates = _narrow(
+            pool
+                .where((c) => c.handles.length == 1 && ChatCreatorUtils.addressesMatch(address, c.handles.first.address))
+                .toList(),
+            service);
         if (candidates.length == 1) {
           return ChatBackupMatch(match: candidates.first);
         }
         return ChatBackupMatch(
             skipReason: candidates.isEmpty ? "no matching chat found" : "ambiguous: ${candidates.length} chats match");
       case "group":
-        final candidates = pool
-            .where((c) =>
-                c.isGroup && isNullOrEmpty(c.displayName) && ChatCreatorUtils.chatMatchesSelectedContacts(c, participants))
-            .toList();
+        final candidates = _narrow(
+            pool
+                .where((c) =>
+                    c.isGroup && isNullOrEmpty(c.displayName) && ChatCreatorUtils.chatMatchesSelectedContacts(c, participants))
+                .toList(),
+            service);
         if (candidates.length == 1) {
           return ChatBackupMatch(match: candidates.first);
         }
@@ -73,5 +79,14 @@ class ChatBackupIdentifier {
       default:
         return const ChatBackupMatch(skipReason: "unknown entry type");
     }
+  }
+
+  static String _service(Chat chat) => ChatServiceType.fromGuid(chat.guid).name;
+
+  // A contact can have separate chats per service; backups made before "service" was exported omit it.
+  static List<Chat> _narrow(List<Chat> candidates, String? service) {
+    if (candidates.length < 2 || service == null) return candidates;
+    final byService = candidates.where((c) => _service(c) == service).toList();
+    return byService.isEmpty ? candidates : byService;
   }
 }
