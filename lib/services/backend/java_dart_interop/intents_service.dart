@@ -248,13 +248,16 @@ class IntentsService {
       bool chatIsOpen = !isInitialIntent && ChatsSvc.activeChat?.chat.guid == guid;
       Logger.debug("Chat is active: $chatIsOpen", tag: "IntentsService");
 
+      // Also saved as the chat's draft, which ConversationTextField restores over the controller on first build.
       setPickedAttachments() {
         if (attachments.isNotEmpty) {
           cvc(chat).pickedAttachments.value = attachments;
+          unawaited(ChatsSvc.setChatTextFieldAttachments(chat, attachments.map((a) => a.path!).toList()));
         }
 
         if (text != null && text.isNotEmpty) {
           cvc(chat).textController.text = text;
+          unawaited(ChatsSvc.setChatTextFieldText(chat, text));
         }
       }
 
