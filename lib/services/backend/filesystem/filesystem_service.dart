@@ -244,9 +244,9 @@ class FilesystemService {
 
     // Get the extension
     if (filename.contains('.')) {
-      List<String> split = filename.split('.');
-      ext = split[1];
-      filename = split[0];
+      final dot = filename.lastIndexOf('.');
+      ext = filename.substring(dot + 1);
+      filename = filename.substring(0, dot);
     }
 
     // Slugify the filename
