@@ -117,6 +117,14 @@ class _ConversationAttachmentsState extends State<ConversationAttachments> with 
     }
   }
 
+  void onAttachmentsLoadFailed(Object error) {
+    if (!mounted) return;
+    setState(() {
+      isLoadingAttachments = false;
+    });
+    showSnackbar("Error", "Failed to load attachments: $error");
+  }
+
   @override
   Widget build(BuildContext context) {
     final chatState = ChatsSvc.getOrCreateChatState(widget.chat);
@@ -141,6 +149,7 @@ class _ConversationAttachmentsState extends State<ConversationAttachments> with 
                   child: AttachmentsLoader(
                     chat: widget.chat,
                     onAttachmentsLoaded: onAttachmentsLoaded,
+                    onAttachmentsLoadFailed: onAttachmentsLoadFailed,
                   ),
                 ),
               ..._buildSectionSlivers(),

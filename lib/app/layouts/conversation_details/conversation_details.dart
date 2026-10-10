@@ -66,6 +66,14 @@ class _ConversationDetailsState extends State<ConversationDetails> with WidgetsB
     }
   }
 
+  void onAttachmentsLoadFailed(Object error) {
+    if (!mounted) return;
+    setState(() {
+      isLoadingAttachments = false;
+    });
+    showSnackbar("Error", "Failed to load attachments: $error");
+  }
+
   @override
   Widget build(BuildContext context) {
     final chatState = ChatsSvc.getOrCreateChatState(chat);
@@ -130,7 +138,11 @@ class _ConversationDetailsState extends State<ConversationDetails> with WidgetsB
                   : ExpressiveParticipantsSection(chat: chat),
               // Hidden widget that loads attachments in the background
               SliverToBoxAdapter(
-                child: AttachmentsLoader(chat: chat, onAttachmentsLoaded: onAttachmentsLoaded),
+                child: AttachmentsLoader(
+                  chat: chat,
+                  onAttachmentsLoaded: onAttachmentsLoaded,
+                  onAttachmentsLoadFailed: onAttachmentsLoadFailed,
+                ),
               ),
               SliverPadding(padding: EdgeInsets.symmetric(vertical: SettingsSvc.settings.skin.value == Skins.iOS ? 0 : 5)),
               SettingsSvc.settings.skin.value == Skins.iOS
