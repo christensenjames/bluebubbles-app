@@ -26,14 +26,17 @@ class StorageAnalyzerController extends GetxController {
   final RxSet<StorageSegmentType> selectedSegments = <StorageSegmentType>{}.obs;
 
   String? _currentRunId;
+  // Filters changed while a run was in flight; that run is discarded and re-run once it finishes.
+  bool _rerunPending = false;
   late final void Function(dynamic) _onProgress = _handleProgressEvent;
 
   @override
   void onInit() {
     super.onInit();
     GetIt.I<GlobalIsolate>().addEventListener(IsolateEvent.storageAnalysisProgress, _onProgress);
-    // Re-run automatically once the user has already analyzed at least once —
-    // before that, the empty state's explicit "Analyze" button is the only
+    // Re-run automatically once the user has started an analysis — including
+    // one still running, which would otherwise publish the old filters' result.
+    // Before that, the empty state's explicit "Analyze" button is the only
     // trigger, per the plan's "both filters settable up front" requirement.
     //
     // `analyze()` is deferred to a microtask rather than called directly: this
@@ -43,7 +46,12 @@ class StorageAnalyzerController extends GetxController {
     // notifyChildren mid-dispatch and trips GetX's "improper use of
     // GetX/Obx" reentrancy warning. A microtask breaks out of that call stack.
     everAll([selectedChat, ageFilter], (_) {
-      if (result.value != null) Future.microtask(analyze);
+      if (progress.value.stage != null) {
+        _rerunPending = true;
+        Future.microtask(() => progress.value = _startingProgress);
+      } else if (_currentRunId != null) {
+        Future.microtask(analyze);
+      }
     });
   }
 
@@ -53,9 +61,17 @@ class StorageAnalyzerController extends GetxController {
     super.onClose();
   }
 
+  static const _startingProgress = StorageAnalysisProgress(
+    stage: StorageAnalysisStage.indexing,
+    processed: 0,
+    total: 0,
+    bytesSoFar: 0,
+  );
+
   Future<void> analyze() async {
     final runId = const Uuid().v4();
     _currentRunId = runId;
+    _rerunPending = false;
 
     selectedSegments.clear();
     error.value = null;
@@ -63,12 +79,7 @@ class StorageAnalyzerController extends GetxController {
     // priority in the UI while `stage != null`, but clearing this too means
     // a failed refresh can't fall through and silently re-show stale numbers.
     result.value = null;
-    progress.value = const StorageAnalysisProgress(
-      stage: StorageAnalysisStage.indexing,
-      processed: 0,
-      total: 0,
-      bytesSoFar: 0,
-    );
+    progress.value = _startingProgress;
 
     try {
       final r = await StorageInterface.analyze(
@@ -78,21 +89,25 @@ class StorageAnalyzerController extends GetxController {
       );
       // A newer run may have started (and completed, or errored) while this
       // one was in flight — a stale result must never clobber a fresher one.
-      if (_currentRunId != runId) return;
+      if (_currentRunId != runId || _rerunPending) return;
       result.value = r;
     } catch (e) {
-      if (_currentRunId != runId) return;
+      if (_currentRunId != runId || _rerunPending) return;
       error.value = e.toString();
     } finally {
       if (_currentRunId == runId) {
-        progress.value = const StorageAnalysisProgress.idle();
+        if (_rerunPending && !isClosed) {
+          Future.microtask(analyze);
+        } else {
+          progress.value = const StorageAnalysisProgress.idle();
+        }
       }
     }
   }
 
   void _handleProgressEvent(dynamic data) {
     final map = data as Map<String, dynamic>;
-    if (map['runId'] != _currentRunId) return; // superseded run — drop it
+    if (map['runId'] != _currentRunId || _rerunPending) return; // superseded run or old filters — drop it
 
     progress.value = StorageAnalysisProgress(
       stage: StorageAnalysisStage.values.byName(map['stage'] as String),
