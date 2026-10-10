@@ -317,7 +317,10 @@ class MethodChannelHandlers {
 
     try {
       if (arguments != null) {
-        final Chat? chat = Chat.findOne(guid: arguments['chatGuid']);
+        final String? guid = arguments['chatGuid'];
+        final Chat? chat =
+            (guid != null && GetIt.I.isRegistered<ChatsService>() ? ChatsSvc.findChatByGuid(guid) : null) ??
+                Chat.findOne(guid: guid);
         if (chat != null) {
           try {
             // force: a retry after a failed receipt finds the chat already read and would otherwise skip the receipt.
