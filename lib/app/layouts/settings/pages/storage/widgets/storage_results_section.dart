@@ -44,7 +44,7 @@ class StorageResultsSection extends StatelessWidget with StorageAnalyzerHelpersM
                 backgroundColor: context.tileColor,
                 shadow: true,
               ),
-              if (largest != null)
+              if (largest != null && largest.bytes > 0)
                 StatTile(
                   value: StorageAnalyzerHelpersMixin.segmentConfig[largest.type]!.label,
                   label: "Largest Segment",
