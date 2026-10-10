@@ -55,7 +55,6 @@ class HandleSelectorViewState extends State<HandleSelectorView> with ThemeHelper
         }, Priority.animation);
 
         if (!mounted) return;
-        _debounce = null;
         setState(() {
           filteredHandles = List<Handle>.from(searchHandles);
         });

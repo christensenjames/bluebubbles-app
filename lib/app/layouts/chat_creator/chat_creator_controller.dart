@@ -99,7 +99,6 @@ class ChatCreatorController extends StatefulController {
       final result = await SchedulerBinding.instance.scheduleTask(() async {
         return _computeSearchResults(text);
       }, Priority.animation);
-      _debounce = null;
       currentQuery.value = text;
       filteredChats.value = result.chats;
       filteredContacts.value = result.contacts;
