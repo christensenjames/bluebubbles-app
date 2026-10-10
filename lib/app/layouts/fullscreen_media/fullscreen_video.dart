@@ -61,6 +61,8 @@ class _FullscreenVideoState extends State<FullscreenVideo> with AutomaticKeepAli
   Offset _lastTapPosition = Offset.zero;
   Timer? _singleTapTimer;
   bool _secondTap = false;
+  Timer? _autoplayTimer;
+  bool _mediaReady = false;
   double? _volumeBeforeMute;
   StreamSubscription<double>? _volumeSub;
   StreamSubscription<bool>? _completedSub;
@@ -90,6 +92,7 @@ class _FullscreenVideoState extends State<FullscreenVideo> with AutomaticKeepAli
     super.didUpdateWidget(oldWidget);
     if (widget.isCurrentPage && !oldWidget.isCurrentPage) {
       if (kIsDesktop) _keyFocus.requestFocus();
+      if (!kIsDesktop && !kIsWeb && _mediaReady) _scheduleAutoplay();
       if (_pipSupported) {
         PipSvc.setAutoEnter(
           enabled: videoController.player.state.playing,
@@ -97,8 +100,17 @@ class _FullscreenVideoState extends State<FullscreenVideo> with AutomaticKeepAli
         );
       }
     } else if (!widget.isCurrentPage && oldWidget.isCurrentPage) {
+      _autoplayTimer?.cancel();
       videoController.player.pause();
     }
+  }
+
+  void _scheduleAutoplay() {
+    _autoplayTimer?.cancel();
+    // The delay lets the viewer finish appearing before playback starts.
+    _autoplayTimer = Timer(const Duration(milliseconds: 500), () {
+      if (!hasDisposed && widget.isCurrentPage) videoController.player.play();
+    });
   }
 
   void _setFullscreen(bool fullscreen) {
@@ -140,10 +152,8 @@ class _FullscreenVideoState extends State<FullscreenVideo> with AutomaticKeepAli
       // Start with all overlays hidden
       showPlayPauseOverlay.value = false;
       widget.onOverlayToggle?.call(false);
-      // Auto-play after a short delay so the viewer is fully visible first
-      Future.delayed(const Duration(milliseconds: 500), () {
-        if (!hasDisposed && widget.isCurrentPage) videoController.player.play();
-      });
+      _mediaReady = true;
+      _scheduleAutoplay();
     } else {
       showPlayPauseOverlay.value = true;
     }
@@ -391,6 +401,7 @@ class _FullscreenVideoState extends State<FullscreenVideo> with AutomaticKeepAli
     hasDisposed = true;
     _cancelHideTimer();
     _singleTapTimer?.cancel();
+    _autoplayTimer?.cancel();
     _detachPlayer();
     _pipDismissedSub?.cancel();
     _pipActiveWorker?.dispose();
@@ -419,6 +430,7 @@ class _FullscreenVideoState extends State<FullscreenVideo> with AutomaticKeepAli
   }
 
   Future<void> refreshAttachment() async {
+    _mediaReady = false;
     if (!_ownsPlayer) {
       _detachPlayer();
       widget.onPlayerDetached?.call();
@@ -446,6 +458,7 @@ class _FullscreenVideoState extends State<FullscreenVideo> with AutomaticKeepAli
       await videoController.player.setVolume(muted.value ? 0 : 100);
       if (hasDisposed) return;
       showPlayPauseOverlay.value = !videoController.player.state.playing;
+      _mediaReady = !kIsDesktop && !kIsWeb;
     }
     final message = widget.attachment.message.target;
     final chatGuid = message?.chat.target?.guid;
