@@ -135,8 +135,9 @@ abstract final class MetadataUrls {
   /// A stable key identifying the document a URL points at.
   ///
   /// Lowercases the scheme and host, drops the default port, drops the
-  /// fragment and sorts the query so that links which differ only in
-  /// parameter order share a cache entry.
+  /// fragment and sorts the query by key so that links which differ only in
+  /// parameter order share a cache entry. Repeated values of one key keep
+  /// their order, which servers may treat as meaningful.
   static String cacheKey(Uri uri) {
     final sortedQuery = uri.queryParametersAll.entries.toList()..sort((a, b) => a.key.compareTo(b.key));
     final buffer = StringBuffer()
@@ -153,8 +154,7 @@ abstract final class MetadataUrls {
     if (sortedQuery.isNotEmpty) {
       final parts = <String>[];
       for (final entry in sortedQuery) {
-        final values = [...entry.value]..sort();
-        for (final value in values) {
+        for (final value in entry.value) {
           parts.add('${Uri.encodeQueryComponent(entry.key)}=${Uri.encodeQueryComponent(value)}');
         }
       }
