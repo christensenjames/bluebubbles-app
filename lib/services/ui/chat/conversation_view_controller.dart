@@ -106,6 +106,7 @@ class ConversationViewController extends StatefulController with GetSingleTicker
 
   bool keyboardOpen = false;
   double _keyboardOffset = 0;
+  StreamSubscription<bool>? _keyboardSub;
   Timer? _scrollDownDebounce;
   Future<void> Function(SendData)? sendFunc;
 
@@ -153,7 +154,7 @@ class ConversationViewController extends StatefulController with GetSingleTicker
     super.onInit();
 
     textController.mentionables = mentionables;
-    KeyboardVisibilityController().onChange.listen((bool visible) async {
+    _keyboardSub = KeyboardVisibilityController().onChange.listen((bool visible) async {
       keyboardOpen = visible;
       if (scrollController.hasClients && scrollController.positions.length == 1) {
         _keyboardOffset = scrollController.offset;
@@ -198,6 +199,8 @@ class ConversationViewController extends StatefulController with GetSingleTicker
 
   @override
   void onClose() {
+    _keyboardSub?.cancel();
+    _scrollDownDebounce?.cancel();
     messageListGate.dispose();
     updateSmartReplyLayout(visible: false, height: 0);
     for (PlayerController a in audioPlayers.values) {
