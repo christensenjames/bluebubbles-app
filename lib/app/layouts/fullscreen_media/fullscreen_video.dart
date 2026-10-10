@@ -63,6 +63,7 @@ class _FullscreenVideoState extends State<FullscreenVideo> with AutomaticKeepAli
   bool _secondTap = false;
   Timer? _autoplayTimer;
   bool _mediaReady = false;
+  int _refreshCount = 0;
   double? _volumeBeforeMute;
   StreamSubscription<double>? _volumeSub;
   StreamSubscription<bool>? _completedSub;
@@ -109,7 +110,7 @@ class _FullscreenVideoState extends State<FullscreenVideo> with AutomaticKeepAli
     _autoplayTimer?.cancel();
     // The delay lets the viewer finish appearing before playback starts.
     _autoplayTimer = Timer(const Duration(milliseconds: 500), () {
-      if (!hasDisposed && widget.isCurrentPage) videoController.player.play();
+      if (!hasDisposed && widget.isCurrentPage && _mediaReady) videoController.player.play();
     });
   }
 
@@ -125,6 +126,7 @@ class _FullscreenVideoState extends State<FullscreenVideo> with AutomaticKeepAli
     _ownsPlayer = widget.videoController == null;
     videoController = widget.videoController ?? VideoController(Player());
     final controller = videoController;
+    final refreshCount = _refreshCount;
     if (!_ownsPlayer) {
       await controller.player.setVolume(muted.value ? 0 : 100);
     } else {
@@ -152,8 +154,11 @@ class _FullscreenVideoState extends State<FullscreenVideo> with AutomaticKeepAli
       // Start with all overlays hidden
       showPlayPauseOverlay.value = false;
       widget.onOverlayToggle?.call(false);
-      _mediaReady = true;
-      _scheduleAutoplay();
+      // A refresh during the awaits above leaves the old media open; its own completion marks the new media ready.
+      if (refreshCount == _refreshCount) {
+        _mediaReady = true;
+        _scheduleAutoplay();
+      }
     } else {
       showPlayPauseOverlay.value = true;
     }
@@ -430,7 +435,10 @@ class _FullscreenVideoState extends State<FullscreenVideo> with AutomaticKeepAli
   }
 
   Future<void> refreshAttachment() async {
+    // A pending autoplay would start the old media, which stays open in an owned player until the download finishes.
+    _autoplayTimer?.cancel();
     _mediaReady = false;
+    _refreshCount++;
     if (!_ownsPlayer) {
       _detachPlayer();
       widget.onPlayerDetached?.call();
