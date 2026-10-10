@@ -1,5 +1,16 @@
 # Changelog
 
+## 2026-10-10 — iPhone photos no longer rotated in Android notifications
+
+Photos sent from an iPhone showed sideways in the notification image. The notification asked
+the server for a copy resized to 1080 px wide (`?width=`). The server resizes with Electron's
+`nativeImage` and returns a PNG; `nativeImage` decodes JPEG without applying the EXIF
+Orientation tag and the PNG carries none, so the pixels arrived sideways with no tag left for
+`flutter_image_compress` to act on. The app now downloads the image as the chat view does,
+with its orientation tag intact, and the plugin's rotation correction and 1080 px scaling
+both happen on the phone. The download is full size now, so it is slower against the 10 s
+cap. Not yet checked on a device.
+
 ## 2026-10-05 — Overnight run 10-05, scheduling spinner, combined build on the Pixel
 
 Scheduling a message on Android no longer leaves the "Scheduling message..." dialog
@@ -27,8 +38,8 @@ installed on the Pixel 11 Pro and launches without a crash.
 
 A message notification on Android now shows the message's first image, on the phone and,
 through notification bridging, on a paired Wear OS watch (checked on a Pixel Watch 4). The
-app downloads a copy resized to 1080 px wide from the server, which also converts HEIC to
-JPEG, then re-encodes it with the EXIF rotation applied, because Android's bitmap decoder
+app downloads the image from the server, which also converts HEIC to JPEG, then re-encodes it
+at 1080 px with the EXIF rotation applied, because Android's bitmap decoder
 ignores the orientation tag. Preparing the image is capped at 10 s, because the background
 worker gives the whole message 120 s; a slow or failed download, or "hide content", leaves
 the usual text-only notification. Both image files are deleted once the notification is
