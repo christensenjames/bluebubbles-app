@@ -122,7 +122,7 @@ class _ConversationAttachmentsState extends State<ConversationAttachments> with 
     setState(() {
       isLoadingAttachments = false;
     });
-    showSnackbar("Error", "Failed to load attachments: $error");
+    showSnackbar("Error", "Failed to load attachments: $error", type: SnackbarType.error);
   }
 
   @override

@@ -71,7 +71,7 @@ class _ConversationDetailsState extends State<ConversationDetails> with WidgetsB
     setState(() {
       isLoadingAttachments = false;
     });
-    showSnackbar("Error", "Failed to load attachments: $error");
+    showSnackbar("Error", "Failed to load attachments: $error", type: SnackbarType.error);
   }
 
   @override

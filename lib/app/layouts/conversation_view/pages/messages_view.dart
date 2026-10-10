@@ -303,7 +303,7 @@ class MessagesViewState extends State<MessagesView> with MessagesServiceMixin, T
     // otherwise fetch until it is loaded
     final message = Message.findOne(guid: guid);
     if (message == null) {
-      showSnackbar("Error", "Failed to find message!");
+      showSnackbar("Error", "Failed to find message!", type: SnackbarType.error);
       return;
     }
     final query = (Database.messages.query(Message_.dateDeleted.isNull().and(Message_.dateCreated.notNull()))
