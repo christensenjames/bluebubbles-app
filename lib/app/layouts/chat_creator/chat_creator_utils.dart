@@ -34,17 +34,25 @@ class ChatCreatorUtils {
   static bool chatMatchesSelectedContacts(Chat chat, List<String> selectedAddresses) {
     if (chat.handles.length != selectedAddresses.length) return false;
 
-    int matches = 0;
-    for (final address in selectedAddresses) {
-      for (final participant in chat.handles) {
-        if (addressesMatch(address, participant.address)) {
-          matches += 1;
-          break;
+    // Bipartite match: one handle per selection (two aliases of a number can't fill a two-handle group), and a
+    // short suffix that fits several handles can't take the one another selection needs.
+    final owner = List<int?>.filled(chat.handles.length, null);
+    bool assign(int selection, List<bool> seen) {
+      for (int h = 0; h < chat.handles.length; h++) {
+        if (seen[h] || !addressesMatch(selectedAddresses[selection], chat.handles[h].address)) continue;
+        seen[h] = true;
+        if (owner[h] == null || assign(owner[h]!, seen)) {
+          owner[h] = selection;
+          return true;
         }
       }
+      return false;
     }
 
-    return matches == selectedAddresses.length;
+    for (int s = 0; s < selectedAddresses.length; s++) {
+      if (!assign(s, List<bool>.filled(chat.handles.length, false))) return false;
+    }
+    return true;
   }
 
   /// Compares two handle addresses (phone numbers or emails), tolerating
