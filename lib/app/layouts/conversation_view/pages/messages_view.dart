@@ -61,6 +61,8 @@ class MessagesViewState extends State<MessagesView> with MessagesServiceMixin, T
   // Debounce setState calls to prevent rapid rebuilds
   Timer? _setStateDebouncer;
   StreamSubscription? _eventSubscription;
+  // The service this view claimed but has not yet handed to the mixin (during its first load).
+  MessagesService? _loadingService;
 
   // Managers for different responsibilities
   late final SmartRepliesManager smartRepliesManager;
@@ -149,6 +151,7 @@ class MessagesViewState extends State<MessagesView> with MessagesServiceMixin, T
         );
         // Claim ownership before the await so a peek opened meanwhile borrows the service instead of re-initializing it.
         service.owner = this;
+        _loadingService = service;
 
         // Load messages if needed (check service flag to avoid redundant loads).
         // Wrap in try-catch: if loadChunk throws (e.g. server HTTP error for a
@@ -162,6 +165,10 @@ class MessagesViewState extends State<MessagesView> with MessagesServiceMixin, T
           Logger.error('MessagesView: loadChunk failed, continuing with empty state',
               error: e, trace: s, tag: 'MessagesView');
         }
+
+        _loadingService = null;
+        // dispose() already released the claim. Not closing: a peek may still be borrowing the service.
+        if (!mounted) return;
 
         _messages = service.struct.messages;
         _messages.sort(Message.sort);
@@ -215,6 +222,8 @@ class MessagesViewState extends State<MessagesView> with MessagesServiceMixin, T
     }();
   }
 
+  bool get _handsOffService => widget.customService != null && widget.initialScrollToGuid == null;
+
   @override
   void dispose() {
     // Clean up managers
@@ -226,6 +235,9 @@ class MessagesViewState extends State<MessagesView> with MessagesServiceMixin, T
     // Reset the ready-signal so a future pendingSend on the same CVC starts fresh.
     controller.resetMessagesViewReady();
 
+    // Disposed mid-load: drop the claim now so a peek opened before the load ends owns the service, not a dead view.
+    if (!_handsOffService && _loadingService?.owner == this) _loadingService!.owner = null;
+
     // When a customService is provided it is shared with (or transferred to) the
     // ConversationView we are navigating to.  Calling close() on it can delete
     // it from GetX's registry when lastReloadedChat differs from the chat's tag
@@ -235,8 +247,7 @@ class MessagesViewState extends State<MessagesView> with MessagesServiceMixin, T
     // only surfaces in release/AOT mode where the dispose races the send.
     // Solution: just detach our local reference and leave the service intact.
     // A search-result view is not a hand-off: detaching would leave a loaded service with a gapped search window.
-    final transfer = widget.customService != null && widget.initialScrollToGuid == null;
-    disposeMessagesService(force: !transfer, onlyDetach: transfer);
+    disposeMessagesService(force: !_handsOffService, onlyDetach: _handsOffService);
 
     // Controllers are now disposed by MessagesService.onClose()
     _setStateDebouncer?.cancel();
