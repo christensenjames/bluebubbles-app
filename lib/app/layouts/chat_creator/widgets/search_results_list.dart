@@ -47,13 +47,19 @@ class SearchResultsList extends StatelessWidget {
     }
     // Contact rows show emails only for iMessage and blank addresses when info is hidden; then keep the fallback
     final hideInfo = SettingsSvc.settings.redactedMode.value && SettingsSvc.settings.hideContactInfo.value;
-    if (query.isEmail && controller.selectedService.value.isIMessageService && !hideInfo) {
+    if (hideInfo) return true;
+    if (query.isEmail) {
+      if (!controller.selectedService.value.isIMessageService) return true;
       final q = query.toLowerCase();
-      if (contacts.any((contact) => contact.emailAddresses.any((email) => email.address.trim().toLowerCase() == q))) {
-        return false;
-      }
+      return !contacts.any((contact) => contact.emailAddresses.any((email) => email.address.trim().toLowerCase() == q));
     }
-    return true;
+    // Exact digits after E.164 normalisation: a suffix match could hide the only row for a different number
+    final digits = controller.normalizeToE164(query).numericOnly();
+    return !contacts.any((contact) => contact.phoneNumbers.any((p) {
+          final normalized = controller.normalizeToE164(p.number).numericOnly();
+          // E.164 drops an extension; such a row selects a different address than the typed number
+          return normalized == digits && normalized.endsWith(p.number.numericOnly());
+        }));
   }
 
   @override
