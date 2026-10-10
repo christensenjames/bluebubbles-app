@@ -278,12 +278,13 @@ class NotificationsService {
               messageImagePath = await () async {
                 await HttpSvc.attachment.download(
                   imageGuid,
-                  width: imageSize,
                   savePath: downloadPath,
                   cancelToken: cancelToken,
                 );
                 if (cancelToken.isCancelled) return null;
-                // Android's bitmap decoder ignores the EXIF orientation tag, so bake it into the pixels.
+                // Not the server's `width` resize: it re-encodes to PNG without applying the EXIF orientation,
+                // so the tag is gone and the pixels are still sideways. Android's bitmap decoder ignores the
+                // tag, so the plugin below bakes it into the pixels and scales.
                 final upright = await FlutterImageCompress.compressAndGetFile(
                   downloadPath,
                   '$downloadPath.jpg',

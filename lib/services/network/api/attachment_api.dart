@@ -28,12 +28,11 @@ class AttachmentApi {
     bool original = false,
     CancelToken? cancelToken,
     String? savePath,
-    int? width,
   }) async {
     return _svc.runApiGuarded(() async {
       final response = await _svc.dio.get(
         "${_svc.apiRoot}/attachment/$guid/download",
-        queryParameters: _svc.buildQueryParams({"original": original, "width": ?width}),
+        queryParameters: _svc.buildQueryParams({"original": original}),
         options: Options(
           responseType: savePath != null ? ResponseType.stream : ResponseType.bytes,
           receiveTimeout: _svc.dio.options.receiveTimeout! * 12,
