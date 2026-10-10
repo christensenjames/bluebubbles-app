@@ -45,8 +45,10 @@ class _WelcomePageState extends State<WelcomePage> with TickerProviderStateMixin
         Tween<double>(begin: 0, end: 1).animate(CurvedAnimation(parent: _subtitleController, curve: Curves.easeInOut));
 
     SchedulerBinding.instance.addPostFrameCallback((_) async {
+      if (!mounted) return;
       _titleController.forward();
       await Future.delayed(const Duration(milliseconds: 500));
+      if (!mounted) return;
       _subtitleController.forward();
     });
   }

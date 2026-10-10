@@ -83,6 +83,7 @@ class _ContactCardState extends State<ContactCard> with AutomaticKeepAliveClient
       } catch (_) {}
     }
 
+    if (!mounted) return;
     if (!kIsWeb && widget.file.path != null) setState(() {});
   }
 
