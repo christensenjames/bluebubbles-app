@@ -314,20 +314,25 @@ class _BackupRestorePanelState extends State<BackupRestorePanel> with ThemeHelpe
         "Are you sure you want to replace this backup with your current Settings?",
       ),
       onYes: () async {
-        Map<String, dynamic> json = SettingsSvc.settings.toMap(includeAll: false);
-        json["description"] = item["description"];
-        json["timestamp"] = DateTime.now().millisecondsSinceEpoch;
-        json["pinnedChats"] = PinnedChatsBackup.exportList();
-        json["customGroups"] = await CustomGroupsBackup.exportList();
-        Response response = await HttpSvc.backup.setSettings(item["name"], json);
-        if (!mounted) return;
         Navigator.of(context, rootNavigator: true).pop();
-        if (response.statusCode != 200) {
-          showSnackbar("Error", "Something went wrong", type: SnackbarType.error);
-        } else {
-          showSnackbar("Success", "Settings exported successfully to server", type: SnackbarType.success);
+        try {
+          Map<String, dynamic> json = SettingsSvc.settings.toMap(includeAll: false);
+          json["description"] = item["description"];
+          json["timestamp"] = DateTime.now().millisecondsSinceEpoch;
+          json["pinnedChats"] = PinnedChatsBackup.exportList();
+          json["customGroups"] = await CustomGroupsBackup.exportList();
+          Response response = await HttpSvc.backup.setSettings(item["name"], json);
+          if (!mounted) return;
+          if (response.statusCode != 200) {
+            showSnackbar("Error", "Something went wrong", type: SnackbarType.error);
+          } else {
+            showSnackbar("Success", "Settings exported successfully to server", type: SnackbarType.success);
+          }
+          refresh();
+        } catch (e, s) {
+          Logger.error("Failed to overwrite settings backup!", error: e, trace: s);
+          showSnackbar("Error", "Failed to overwrite settings backup! Error: ${e.toString()}", type: SnackbarType.error);
         }
-        refresh();
       },
     );
   }
