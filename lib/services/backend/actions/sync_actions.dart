@@ -269,6 +269,8 @@ class SyncActions {
       final inputMsg = inputMessages[i];
       final msgData = messagesData[i];
       final existing = existingMap[inputMsg.guid];
+      // The server never sends isBookmarked, so its false must not overwrite the local flag in merge.
+      if (existing != null) inputMsg.isBookmarked = existing.isBookmarked;
       final msgToSave = existing != null ? Message.merge(existing, inputMsg) : inputMsg;
 
       // Wire to chat.
