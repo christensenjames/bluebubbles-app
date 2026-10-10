@@ -167,7 +167,9 @@ class NotificationSettingsDialog extends StatelessWidget {
             if (chat.muteType == "text_detection") {
               controller.text = chat.muteArgs!;
             }
-            await showDialog(context: context, builder: (context) => TextDetectionDialog(controller));
+            final save =
+                await showDialog<bool>(context: context, builder: (context) => TextDetectionDialog(controller));
+            if (save != true) return;
             ChatsSvc.setChatMuted(chat, false);
             chat.muteType = "text_detection";
             chat.muteArgs = controller.text;
@@ -238,7 +240,7 @@ class TextDetectionDialog extends StatelessWidget {
               color: context.theme.colorScheme.primary,
             )),
           ),
-          onSubmitted: (value) => Navigator.of(context, rootNavigator: true).pop(),
+          onSubmitted: (value) => Navigator.of(context, rootNavigator: true).pop(true),
         ),
       ]),
       actions: [
@@ -246,7 +248,7 @@ class TextDetectionDialog extends StatelessWidget {
             child: Text("OK",
                 style: context.theme.textTheme.bodyLarge!.copyWith(color: context.theme.colorScheme.primary)),
             onPressed: () {
-              Navigator.of(context, rootNavigator: true).pop();
+              Navigator.of(context, rootNavigator: true).pop(true);
             }),
       ],
     );
