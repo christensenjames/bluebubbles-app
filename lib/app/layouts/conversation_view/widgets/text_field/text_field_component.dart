@@ -445,7 +445,12 @@ class TextFieldComponentState extends State<TextFieldComponent> {
                         onSubmitted: (String value) {
                           controller?.focusNode.requestFocus();
                           if (isNullOrEmpty(value) && (controller?.pickedAttachments.isEmpty ?? false)) return;
-                          sendMessage.call();
+                          final sendButton = controller?.sendButtonKey.currentState;
+                          if (sendButton != null && !controller!.showRecording.value) {
+                            sendButton.onSendPressed();
+                          } else {
+                            sendMessage.call();
+                          }
                         },
                         contentInsertionConfiguration:
                             ContentInsertionConfiguration(onContentInserted: onContentCommit),

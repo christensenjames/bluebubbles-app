@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:audio_waveforms/audio_waveforms.dart';
 import 'package:bluebubbles/app/components/custom_text_editing_controllers.dart';
+import 'package:bluebubbles/app/layouts/conversation_view/widgets/text_field/send_button.dart';
 import 'package:bluebubbles/app/wrappers/stateful_boilerplate.dart';
 import 'package:bluebubbles/database/models.dart';
 import 'package:bluebubbles/services/backend/interfaces/prefs_interface.dart';
@@ -78,6 +79,7 @@ class ConversationViewController extends StatefulController with GetTickerProvid
   final RxBool showAttachmentPicker = false.obs;
   RxBool showEmojiPicker = false.obs;
   final GlobalKey textFieldKey = GlobalKey();
+  final GlobalKey<SendButtonState> sendButtonKey = GlobalKey<SendButtonState>();
   final RxList<PlatformFile> pickedAttachments = <PlatformFile>[].obs;
   final focusNode = FocusNode();
   final subjectFocusNode = FocusNode();
