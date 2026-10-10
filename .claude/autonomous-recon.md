@@ -28,6 +28,14 @@
 - Not green. `origin` (`christensenjames/bluebubbles-app`) is a public fork: the GitHub API reports `"visibility": "public"`, and a branch page loads without a login (checked 2026-09-28). James's 2026-09-12 rule makes private repos green, so it does not cover this repo, and no other tier is declared.
 - `--push` runs therefore stay disk-only until James declares a tier for this repo. Anything pushed to `origin` is world-readable.
 
+## PR base and run conventions (2026-10-05)
+
+- PR base: `master`. `.claude/CLAUDE.md` says so, and `upstream/development` (`e4148c529`, last commit 2026-08-09) is a strict ancestor of `master` (`e2eaced6e`), 111 commits behind, so `CONTRIBUTING.md`'s `development` is stale.
+- Stacked base: autonomous runs build on a combined base branch, not on `master`. The 2026-10-05 run's base is `autonomous/base-2026-10-05`. It is `autonomous/combined-2026-09-27` (the 09-27 base plus its 42 reviewed branches) merged with `feat/send-emoji-tapbacks`. Every PR body names its base, and the base merges first.
+- Unit numbering continues across runs: 09-18 used U1-U27, 09-27 used U101+, and 10-05 used U201+. Each commit's last body line is `overnight(U<n>): <slug>`; find a run's work with `git log --all --grep='overnight(U'`.
+- Analyzer baseline differs by tree: 252 infos on `master`, 68 on `autonomous/base-2026-10-05` (all info, 0 errors, 0 warnings). Compare a unit's analyzer output against its own base, not against a fixed count.
+- Gradle, APK and any Kotlin compile are banned during unattended runs (one crushed the machine on 2026-09-19). Android-only verification goes to the morning queue. Every flutter command runs as `build-slot -- <cmd>`.
+
 ## Privacy band
 
 - `pwd` returned `/home/james/Projects/bluebubbles-app`.
@@ -44,9 +52,9 @@
 - Path convention: one unit worktree per sibling directory, `/home/james/Projects/bluebubbles-app-overnight/<unit>`.
 - Exact creation command:
   ```bash
-  git worktree add -b autonomous/<unit> /home/james/Projects/bluebubbles-app-overnight/<unit> master
+  git worktree add -b autonomous/<unit> /home/james/Projects/bluebubbles-app-overnight/<unit> <base>
   ```
-- The sibling location is outside the primary repository because neither the parent `.git/info/exclude` nor `.gitignore` ignores an in-repo worktree directory. It keeps generated worktree output and the primary's existing untracked archive out of the primary status view. The command uses local `master`, which is aligned with both remote `master` refs; the PR-base discrepancy is recorded above and again under unknowns.
+- The sibling location is outside the primary repository because neither the parent `.git/info/exclude` nor `.gitignore` ignores an in-repo worktree directory. It keeps generated worktree output and the primary's existing untracked archive out of the primary status view. `<base>` is the run's stacked base branch (see "PR base and run conventions"); use `master` only when a run starts from no prior base.
 - Gitignored input a worktree MUST inherit: `.env`. `pubspec.yaml:316` declares it as an
   asset, so a fresh worktree analyzes at 253 issues instead of the 252 baseline, with the
   extra one being `warning • The asset file '.env' doesn't exist • pubspec.yaml:316:7 •
@@ -127,6 +135,5 @@ Before any of these, take `.claude/next-run-queue.md`: units James has already a
 
 ## Unable to determine
 
-- The PR base branch is unresolved because `.claude/CLAUDE.md` says `master` while `CONTRIBUTING.md` says upstream `development`; both refs exist and `master` is each remote's HEAD.
 - Build success, manual target-platform behavior, and actual build duration are unverified because Flutter builds were intentionally not run. The repo documents no automated test suite.
 - The GitHub issue list command was capped at 100, so its total open-issue count and repo-specific issue mapping were not determined. No CHR issue matched the exhaustive 41-item query. No repo-defined quality/usage signal endpoint was determined.
