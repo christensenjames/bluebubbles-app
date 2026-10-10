@@ -443,8 +443,11 @@ class ChatsService {
 
   /// Set up listeners on a ChatState to track unread count changes
   void _setupChatStateListeners(ChatState chatState) {
-    // Listen to hasUnreadMessage changes to update global unread count
+    // Listen to hasUnreadMessage and muteType changes to update global unread count
     chatState.hasUnreadMessage.listen((hasUnread) {
+      _recalculateUnreadCount();
+    });
+    chatState.muteType.listen((_) {
       _recalculateUnreadCount();
     });
   }
@@ -591,9 +594,10 @@ class ChatsService {
     });
   }
 
-  /// Recalculate the global unread count based on all chat states
+  /// Recalculate the global unread count based on all chat states, leaving out fully muted chats
   void _recalculateUnreadCount() {
-    final count = chatStates.values.where((state) => state.hasUnreadMessage.value).length;
+    final count =
+        chatStates.values.where((state) => state.hasUnreadMessage.value && state.muteType.value != "mute").length;
     if (unreadCount.value != count) {
       unreadCount.value = count;
     }
