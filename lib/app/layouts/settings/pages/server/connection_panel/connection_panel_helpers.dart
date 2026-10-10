@@ -385,7 +385,7 @@ mixin ConnectionPanelHelpersMixin {
                           applicationID: fcmData[7],
                         );
                         SettingsSvc.settings.guidAuthKey.value = fcmData[0];
-                        await saveNewServerUrl(fcmData[1]);
+                        await saveNewServerUrl(fcmData[1], force: true, saveAdditionalSettings: ["guidAuthKey"]);
                         await SettingsSvc.saveFCMData(data);
                       }
                     },
