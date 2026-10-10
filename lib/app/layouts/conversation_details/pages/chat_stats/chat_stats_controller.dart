@@ -110,8 +110,7 @@ class ChatStatsController extends GetxController {
   bool get hasAnalyzedContent => _contentByComparison.isNotEmpty;
 
   /// Switches the comparison target and, if Content was already computed,
-  /// recomputes it scoped to the new target — reusing a cached result if
-  /// this target's already been viewed under the current cache key.
+  /// recomputes it scoped to the new target.
   Future<void> setComparisonParticipant(int? id) async {
     if (comparisonParticipantId.value == id) return;
     comparisonParticipantId.value = id;
@@ -212,11 +211,27 @@ class ChatStatsController extends GetxController {
           if (revision != _timeframeRevision) return;
           stats.value = _base().copyWith(engagement: engagement);
         case StatsStage.computingContent:
-          final contentCacheKey = '$_cacheEntryKey:${comparisonParticipantId.value}';
-          final content = (force ? null : _contentByComparison[contentCacheKey]) ?? await _computeContent();
-          if (revision != _timeframeRevision) return;
-          _contentByComparison[contentCacheKey] = content;
-          stats.value = _base().copyWith(content: content);
+          while (true) {
+            final comparisonId = comparisonParticipantId.value;
+            final contentCacheKey = '$_cacheEntryKey:$comparisonId';
+            final ContentStats content;
+            try {
+              content =
+                  (force ? null : _contentByComparison[contentCacheKey]) ?? await _computeContent(comparisonId);
+            } catch (e, s) {
+              if (revision != _timeframeRevision || comparisonId == comparisonParticipantId.value) rethrow;
+              Logger.warn('Content for comparison $comparisonId failed after a target switch',
+                  error: e, trace: s, tag: 'ChatStats');
+              continue;
+            }
+            if (revision != _timeframeRevision) return;
+            _contentByComparison[contentCacheKey] = content;
+            // A target switch mid-compute hits the _inFlight guard in ensureSection, so pick it up here.
+            if (comparisonId == comparisonParticipantId.value) {
+              stats.value = _base().copyWith(content: content);
+              break;
+            }
+          }
         default:
           break;
       }
@@ -323,8 +338,7 @@ class ChatStatsController extends GetxController {
     }
   }
 
-  Future<ContentStats> _computeContent() async {
-    final comparisonId = comparisonParticipantId.value;
+  Future<ContentStats> _computeContent(int? comparisonId) async {
     final coverage = await runAsync(() => ChatStatsQueries.textCoverage(chat));
     final cap = tier == StatsDetailTier.large ? kContentMessageCapLarge : kContentMessageCap;
     final myTexts = await runAsync(() => ChatStatsQueries.recentTexts(chat, fromMe: true, limit: cap));
