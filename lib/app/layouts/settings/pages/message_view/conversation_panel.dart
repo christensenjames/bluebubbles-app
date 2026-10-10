@@ -339,7 +339,8 @@ class _ConversationPanelState extends State<ConversationPanel> with ThemeHelpers
                                         : Icons.delete_outline),
                                     onPressed: () async {
                                       File file = File(SettingsSvc.settings.sendSoundPath.value!);
-                                      if (await file.exists()) {
+                                      // A restored settings file can point at the user's own file; only delete our copy.
+                                      if (isWithin(FilesystemSvc.soundsPath, file.path) && await file.exists()) {
                                         await file.delete();
                                       }
                                       SettingsSvc.settings.sendSoundPath.value = null;
@@ -415,7 +416,8 @@ class _ConversationPanelState extends State<ConversationPanel> with ThemeHelpers
                                         : Icons.delete_outline),
                                     onPressed: () async {
                                       File file = File(SettingsSvc.settings.receiveSoundPath.value!);
-                                      if (await file.exists()) {
+                                      // A restored settings file can point at the user's own file; only delete our copy.
+                                      if (isWithin(FilesystemSvc.soundsPath, file.path) && await file.exists()) {
                                         await file.delete();
                                       }
                                       SettingsSvc.settings.receiveSoundPath.value = null;
