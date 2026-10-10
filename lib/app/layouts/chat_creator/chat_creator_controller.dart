@@ -498,6 +498,8 @@ class ChatCreatorController extends StatefulController {
       }
 
       if (!context.mounted) return;
+      final rootNav = Navigator.of(context, rootNavigator: true);
+      if (!rootNav.mounted) return;
 
       if (!(_createCompleter?.isCompleted ?? true)) return;
       _createCompleter = Completer();
@@ -507,10 +509,12 @@ class ChatCreatorController extends StatefulController {
           selectedContacts.map((c) => c.address.isEmail ? c.address : cleansePhoneNumber(c.address)).toList();
       final method = selectedService.value.method;
 
-      bool dialogOpen = true;
-      showDialog(
+      final creationRoute = DialogRoute<void>(
         context: context,
+        themes: InheritedTheme.capture(from: context, to: rootNav.context),
+        traversalEdgeBehavior: TraversalEdgeBehavior.closedLoop,
         barrierDismissible: false,
+        barrierColor: context.theme.dialogTheme.barrierColor ?? Colors.black54,
         builder: (ctx) => AlertDialog(
           backgroundColor: ctx.theme.colorScheme.surfaceContainerHighest,
           title: Text(
@@ -524,9 +528,8 @@ class ChatCreatorController extends StatefulController {
             ),
           ),
         ),
-      ).then((_) => dialogOpen = false);
-
-      final rootNav = Navigator.of(context, rootNavigator: true);
+      );
+      rootNav.push(creationRoute);
 
       try {
         // For single-contact chats, try to find an existing chat on the server via a
@@ -578,9 +581,9 @@ class ChatCreatorController extends StatefulController {
 
         _createCompleter?.complete();
         isSending.value = false;
-        if (dialogOpen) rootNav.pop();
+        NavigationSvc.closeRoute(creationRoute);
       } catch (error) {
-        if (dialogOpen) rootNav.pop();
+        NavigationSvc.closeRoute(creationRoute);
 
         _createCompleter?.completeError(error);
         isSending.value = false;
