@@ -1,11 +1,29 @@
+import 'package:bluebubbles/helpers/helpers.dart';
 import 'package:bluebubbles/services/services.dart';
+import 'package:bluebubbles/utils/logger/logger.dart';
 import 'package:device_info_plus/device_info_plus.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart' show StringCharacters;
 import 'package:universal_io/io.dart';
+import 'package:window_manager/window_manager.dart';
 
 class BackupRestoreActions {
+  static Future<void> applyRestoredSettings() async {
+    HttpSvc.updateTimeouts();
+    Logger.currentLevel = SettingsSvc.settings.logLevel.value;
+    await SettingsSvc.updateDisplayMode();
+    if (!kIsDesktop) return;
+    await windowManager.setPreventClose(SettingsSvc.settings.closeToTray.value);
+    SettingsSvc.settings.launchAtStartup.value = await SettingsSvc.setupLaunchAtStartup(
+        SettingsSvc.settings.launchAtStartup.value, SettingsSvc.settings.launchAtStartupMinimized.value);
+    if (Platform.isLinux) {
+      await windowManager.setTitleBarStyle(SettingsSvc.settings.titleBarStyle.value == BBTitleBarStyle.native
+          ? TitleBarStyle.normal
+          : TitleBarStyle.hidden);
+    }
+  }
+
   static Future<bool> fetchBackups({
     required List<Map<String, dynamic>> settings,
     required List<Map<String, dynamic>> themes,
