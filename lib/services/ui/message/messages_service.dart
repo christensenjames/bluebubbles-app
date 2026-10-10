@@ -1287,12 +1287,13 @@ class MessagesService extends GetxController {
     await _updateLatestMessageAfterDeletion(deletedGuid);
   }
 
-  /// If [deletedGuid] was the chat's latest message, fetches the new latest from the
-  /// database and updates both [ChatState] and the [Chat] DB record.
+  /// If [deletedGuid] was the chat's latest message, or the target of a latest reaction, fetches the new
+  /// latest from the database and updates both [ChatState] and the [Chat] DB record.
   Future<void> _updateLatestMessageAfterDeletion(String deletedGuid) async {
     if (kIsWeb) return;
     final chatState = ChatsSvc.getChatState(tag);
-    if (chatState == null || chatState.latestMessage.value?.guid != deletedGuid) return;
+    final shown = chatState?.latestMessage.value;
+    if (shown?.guid != deletedGuid && shown?.associatedMessageGuid != deletedGuid) return;
     final chat = ChatsSvc.findChatByGuid(tag);
     if (chat == null) return;
     final latest = Chat.getMessages(chat, limit: 1);
