@@ -27,12 +27,10 @@ class _SettingsSearchBarState extends State<SettingsSearchBar> {
 
     _debounceTimer?.cancel();
 
-    if (query.trim().isEmpty) {
+    if (query.trim().length < 3) {
       widget.onChanged?.call('');
       return;
     }
-
-    if (query.trim().length < 3) return;
 
     _debounceTimer = Timer(const Duration(milliseconds: 500), () {
       widget.onChanged?.call(searchValue);
@@ -45,13 +43,6 @@ class _SettingsSearchBarState extends State<SettingsSearchBar> {
     _focusNode.dispose();
     _controller.dispose();
     super.dispose();
-  }
-
-  @override
-  void didUpdateWidget(covariant SettingsSearchBar oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    // sync the controller text when widget changes
-    _controller.text = searchValue;
   }
 
   @override

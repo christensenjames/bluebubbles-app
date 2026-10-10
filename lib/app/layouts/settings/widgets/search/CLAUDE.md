@@ -16,7 +16,7 @@ Implements the settings search feature — finding settings panels by keyword ac
 
 ## How It Works
 
-1. `SettingsSearchBar` fires `onChanged(String)` after a 500ms debounce when the query is ≥ 3 characters.
+1. `SettingsSearchBar` fires `onChanged(String)` after a 500ms debounce when the query is ≥ 3 characters; a shorter query immediately fires `onChanged('')`, so the page never keeps filtering on an older, longer query.
 2. The parent settings page filters its registered `SearchableSettingItem` list against the query.
 3. `SettingsItemsList` renders the filtered results with breadcrumb navigation.
 4. Tapping a result navigates to the relevant settings panel page.
