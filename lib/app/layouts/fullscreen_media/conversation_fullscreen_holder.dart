@@ -178,19 +178,19 @@ class ConversationFullscreenHolderState extends State<ConversationFullscreenHold
                     "Got device label ${event.deviceType.label}, physical key ${event.physicalKey.toString()}, logical key ${event.logicalKey.toString()}",
                     tag: "RawKeyboardListener");
                 if (event is KeyUpEvent) return KeyEventResult.ignored;
-                if (event.physicalKey.debugName == "Arrow Right") {
+                if (event.logicalKey == LogicalKeyboardKey.arrowRight) {
                   if (SettingsSvc.settings.fullscreenViewerSwipeDir.value == SwipeDirection.RIGHT) {
                     controller.previousPage(duration: Durations.medium2, curve: Easing.emphasizedDecelerate);
                   } else {
                     controller.nextPage(duration: Durations.medium2, curve: Easing.emphasizedDecelerate);
                   }
-                } else if (event.physicalKey.debugName == "Arrow Left") {
+                } else if (event.logicalKey == LogicalKeyboardKey.arrowLeft) {
                   if (SettingsSvc.settings.fullscreenViewerSwipeDir.value == SwipeDirection.LEFT) {
                     controller.previousPage(duration: Durations.medium2, curve: Easing.emphasizedDecelerate);
                   } else {
                     controller.nextPage(duration: Durations.medium2, curve: Easing.emphasizedDecelerate);
                   }
-                } else if (event.physicalKey.debugName == "Escape") {
+                } else if (event.logicalKey == LogicalKeyboardKey.escape) {
                   // Swallow repeats too, or they reach the app-wide Escape shortcut and close the chat.
                   if (event is KeyDownEvent && ModalRoute.of(context)?.isCurrent == true) Navigator.of(context).pop();
                   return KeyEventResult.handled;
