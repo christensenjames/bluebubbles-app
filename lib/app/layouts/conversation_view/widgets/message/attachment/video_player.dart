@@ -229,6 +229,8 @@ class _VideoPlayerState extends State<VideoPlayer> with AutomaticKeepAliveClient
   ConversationViewController? get cvController => widget.controller;
 
   bool hasListener = false;
+  // widget.controller can arrive after initialization, so ownership is fixed when caching is decided.
+  bool _ownsPlayer = false;
   VideoController? videoController;
   VoidCallback? _rectListener;
   StreamSubscription<bool>? _completedSub;
@@ -289,12 +291,14 @@ class _VideoPlayerState extends State<VideoPlayer> with AutomaticKeepAliveClient
     }
   }
 
-  // The controller is cached on the conversation and outlives this row, so detach from it here.
+  // A cached controller outlives this row, so only detach from it; an uncached one belongs to this row.
   @override
   void dispose() {
     _evictionSubscription?.cancel();
     _completedSub?.cancel();
     if (_rectListener != null) videoController?.rect.removeListener(_rectListener!);
+    // Before initialization finishes, initializeController disposes it instead: media_kit throws on a disposed player.
+    if (_ownsPlayer && hasListener) unawaited(videoController!.player.dispose());
     super.dispose();
   }
 
@@ -380,12 +384,16 @@ class _VideoPlayerState extends State<VideoPlayer> with AutomaticKeepAliveClient
     await videoController!.player.setVolume(muted.value ? 0 : 100);
 
     // Cache the controller for reuse
-    if (cvController != null) {
+    _ownsPlayer = cvController == null;
+    if (!_ownsPlayer) {
       cvController!.videoPlayers[attachment.guid!] = videoController!;
     }
 
     // dispose() already ran if the row went away during the awaits above; nothing would detach these listeners.
-    if (!mounted) return;
+    if (!mounted) {
+      if (_ownsPlayer) unawaited(videoController!.player.dispose());
+      return;
+    }
     createListener(videoController!);
     setState(() {});
   }
@@ -444,6 +452,7 @@ class _VideoPlayerState extends State<VideoPlayer> with AutomaticKeepAliveClient
     });
     hasListener = true;
   }
+
 
   /// Renders the current [thumbnail] bytes, or a plain themed background when
   /// thumbnail generation failed — the corresponding [MediaCornerBadge]
