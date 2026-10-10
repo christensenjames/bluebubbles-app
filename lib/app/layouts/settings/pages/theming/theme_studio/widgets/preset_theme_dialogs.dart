@@ -204,7 +204,7 @@ class PresetThemeDialogs {
   Future<void> _doRename(BuildContext context, BuildContext pageCtx, ThemeStruct theme, String newName) async {
     final err = PresetThemeActions.validateThemeName(newName);
     if (err != null) {
-      showSnackbar("Error", err);
+      showSnackbar("Error", err, type: SnackbarType.error);
       return;
     }
     Navigator.of(context, rootNavigator: true).pop();
