@@ -133,6 +133,7 @@ class _TextFieldSuffixState extends State<TextFieldSuffix> with ThemeHelpers {
               secondChild: SendButton(
                 key: widget.controller!.sendButtonKey,
                 sendMessage: widget.sendMessage,
+                visible: canSend && !showRecording,
                 onLongPress: () {
                   if (widget.controller!.scheduledDate.value != null) return;
                   sendEffectAction(
