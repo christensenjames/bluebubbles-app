@@ -19,6 +19,20 @@ import 'package:get/get.dart' hide Response;
 MessagesService? maybeFindMessagesSvc(String chatGuid) =>
     Get.isRegistered<MessagesService>(tag: chatGuid) ? Get.find<MessagesService>(tag: chatGuid) : null;
 
+/// Re-downloads [attachment] through its conversation's service when one is registered, so the conversation row
+/// resets and follows the new download; otherwise through [AttachmentsSvc] alone.
+Future<void> redownloadAttachmentFromViewer(Attachment attachment,
+    {Function(PlatformFile)? onComplete, Function()? onError}) {
+  final message = attachment.message.target;
+  final chatGuid = message?.chat.target?.guid;
+  final messageGuid = message?.guid;
+  final service = chatGuid == null ? null : maybeFindMessagesSvc(chatGuid);
+  if (service != null && messageGuid != null) {
+    return service.redownloadAttachment(messageGuid, attachment, onComplete: onComplete, onError: onError);
+  }
+  return AttachmentsSvc.redownloadAttachment(attachment, onComplete: onComplete, onError: onError);
+}
+
 MessagesService ensureMessagesSvc(String chatGuid) =>
     maybeFindMessagesSvc(chatGuid) ??
     Get.put(
@@ -573,13 +587,14 @@ class MessagesService extends GetxController {
   }
 
   /// Starts a download for [attachment] and wires it into [AttachmentState].
-  void _startAttachmentDownload(String messageGuid, Attachment attachment, {Function(PlatformFile)? onComplete}) {
+  void _startAttachmentDownload(String messageGuid, Attachment attachment,
+      {Function(PlatformFile)? onComplete, Function()? onError}) {
     final msgGuid = messageGuid;
     final attGuid = attachment.guid!;
     final ctrl = AttachmentDownloader.startDownload(attachment, onComplete: (PlatformFile file) {
       _onAttachmentDownloadComplete(msgGuid, attGuid, file);
       onComplete?.call(file);
-    });
+    }, onError: onError);
 
     final msgState = messageStates[messageGuid];
     if (msgState == null) return;
@@ -618,6 +633,7 @@ class MessagesService extends GetxController {
     String messageGuid,
     Attachment attachment, {
     Function(PlatformFile)? onComplete,
+    Function()? onError,
   }) async {
     if (attachment.guid == null || attachment.guid!.startsWith('temp')) {
       return;
@@ -639,7 +655,7 @@ class MessagesService extends GetxController {
 
     // 2. Delete local files, reset DB flag, and register a new controller.
     try {
-      await AttachmentsSvc.redownloadAttachment(attachment, onComplete: onComplete);
+      await AttachmentsSvc.redownloadAttachment(attachment, onComplete: onComplete, onError: onError);
     } catch (e, s) {
       Logger.error('redownloadAttachment failed for $attGuid', error: e, trace: s, tag: 'MessagesService');
     }
@@ -651,7 +667,7 @@ class MessagesService extends GetxController {
       notifyAttachmentDownloadStarted(messageGuid, attGuid, ctrl);
     } else {
       // Defensive fallback: ensure the re-download always starts.
-      _startAttachmentDownload(messageGuid, attachment, onComplete: onComplete);
+      _startAttachmentDownload(messageGuid, attachment, onComplete: onComplete, onError: onError);
     }
   }
 

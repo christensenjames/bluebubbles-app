@@ -76,7 +76,7 @@ class _FullscreenImageState extends State<FullscreenImage>
       } else {
         bytes = file.bytes;
       }
-      setState(() {});
+      if (mounted) setState(() {});
       return;
     }
 
@@ -99,23 +99,25 @@ class _FullscreenImageState extends State<FullscreenImage>
       compatiblePath = null;
       hasError = false;
     });
-    AttachmentsSvc.redownloadAttachment(
-      widget.attachment,
-      onComplete: (newFile) {
-        if (kIsWeb || newFile.path == null) {
-          setState(() {
-            bytes = newFile.bytes;
-          });
-        } else {
-          initBytes();
-        }
-      },
-      onError: () {
+    void onComplete(PlatformFile newFile) {
+      if (!mounted) return;
+      if (kIsWeb || newFile.path == null) {
         setState(() {
-          hasError = true;
+          bytes = newFile.bytes;
         });
-      },
-    );
+      } else {
+        initBytes();
+      }
+    }
+
+    void onError() {
+      if (!mounted) return;
+      setState(() {
+        hasError = true;
+      });
+    }
+
+    redownloadAttachmentFromViewer(attachment, onComplete: onComplete, onError: onError);
   }
 
   Widget _buildPhotoView(BuildContext context) {

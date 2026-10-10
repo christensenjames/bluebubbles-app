@@ -460,15 +460,7 @@ class _FullscreenVideoState extends State<FullscreenVideo> with AutomaticKeepAli
       showPlayPauseOverlay.value = !videoController.player.state.playing;
       _mediaReady = !kIsDesktop && !kIsWeb;
     }
-    final message = widget.attachment.message.target;
-    final chatGuid = message?.chat.target?.guid;
-    final messageGuid = message?.guid;
-    final messagesService = chatGuid == null ? null : maybeFindMessagesSvc(chatGuid);
-    if (messagesService != null && messageGuid != null) {
-      messagesService.redownloadAttachment(messageGuid, widget.attachment, onComplete: onComplete);
-    } else {
-      AttachmentsSvc.redownloadAttachment(widget.attachment, onComplete: onComplete);
-    }
+    redownloadAttachmentFromViewer(widget.attachment, onComplete: onComplete);
   }
 
   @override
