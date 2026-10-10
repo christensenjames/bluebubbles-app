@@ -129,9 +129,11 @@ class ChatInterface {
 
   static Future<void> unDeleteChat({
     required Map<String, dynamic> chatData,
+    bool restoreHistory = false,
   }) async {
     final data = {
       'chatData': chatData,
+      'restoreHistory': restoreHistory,
     };
 
     if (isIsolate) {

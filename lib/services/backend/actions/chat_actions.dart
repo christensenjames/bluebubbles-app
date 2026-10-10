@@ -219,6 +219,7 @@ class ChatActions {
 
   static Future<void> unDeleteChat(dynamic data) async {
     final chatData = data['chatData'] as Map<String, dynamic>;
+    final restoreHistory = data['restoreHistory'] as bool? ?? false;
     final inputChat = Chat.fromMap(chatData);
 
     Database.runInTransaction(TxMode.write, () {
@@ -231,6 +232,20 @@ class ChatActions {
       query.close();
 
       if (dbChat != null) {
+        final deletedAt = dbChat.dateDeleted;
+        if (restoreHistory && deletedAt != null && dbChat.id != null) {
+          // Only messages stamped at or after the chat's own delete time were hidden by that delete.
+          final messageQuery = (Database.messages
+                  .query(Message_.dateDeleted.greaterOrEqual(deletedAt.millisecondsSinceEpoch))
+                ..link(Message_.chat, Chat_.id.equals(dbChat.id!)))
+              .build();
+          final hidden = messageQuery.find();
+          messageQuery.close();
+          for (final message in hidden) {
+            message.dateDeleted = null;
+          }
+          Database.messages.putMany(hidden);
+        }
         dbChat.dateDeleted = null;
         chatBox.put(dbChat);
       }
@@ -826,7 +841,8 @@ class ChatActions {
 
       if (chat == null) return;
 
-      final toDelete = List<Message>.from(chat.messages);
+      // Keep earlier delete stamps; restoring a chat revives only messages stamped at or after the chat's delete.
+      final toDelete = chat.messages.where((m) => m.dateDeleted == null).toList();
       for (Message element in toDelete) {
         element.dateDeleted = DateTime.now().toUtc();
       }

@@ -44,7 +44,7 @@ class _SoftDeletedChatsPanelState extends State<SoftDeletedChatsPanel> with Them
   }
 
   Future<void> _restore(Chat chat) async {
-    await ChatsSvc.unDeleteChat(chat);
+    await ChatsSvc.unDeleteChat(chat, restoreHistory: true);
     await ChatsSvc.addChat(chat);
     if (mounted) setState(() => _deletedChats.removeWhere((c) => c.guid == chat.guid));
     showSnackbar("Chat Restored", "${chat.getTitle()} has been restored to your chat list.",
