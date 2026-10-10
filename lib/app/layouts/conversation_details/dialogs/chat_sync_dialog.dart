@@ -72,9 +72,10 @@ class _ChatSyncDialogState extends State<ChatSyncDialog> {
           });
         }
 
-        // Track the overall latest message across all batches.
-        if (result.messages.isNotEmpty) {
-          final batchLatest = result.messages.reduce((a, b) => (a.dateCreated ?? DateTime.fromMillisecondsSinceEpoch(0))
+        // Track the overall latest message across all batches, skipping soft-deleted ones.
+        final liveMessages = result.messages.where((m) => m.dateDeleted == null).toList();
+        if (liveMessages.isNotEmpty) {
+          final batchLatest = liveMessages.reduce((a, b) => (a.dateCreated ?? DateTime.fromMillisecondsSinceEpoch(0))
                   .isAfter(b.dateCreated ?? DateTime.fromMillisecondsSinceEpoch(0))
               ? a
               : b);

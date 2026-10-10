@@ -378,9 +378,12 @@ class IncrementalSyncManager extends SyncManager {
       messagesSynced += syncResult.messages.length;
       setProgress(messagesSynced, total);
 
+      // Soft-deleted messages stay deleted: a resync must not show them or pick one as the chat's latest.
+      final liveMessages = syncResult.messages.where((m) => m.dateDeleted == null);
+
       // Track the latest message per chat (highest dateCreated with a valid DB id)
       // so the action layer can return message IDs instead of chat IDs.
-      final latest = syncResult.messages
+      final latest = liveMessages
           .where((m) => m.id != null && m.dateCreated != null)
           .fold<Message?>(null, (prev, m) => prev == null || m.dateCreated!.isAfter(prev.dateCreated!) ? m : prev);
       if (latest != null) {
@@ -388,7 +391,7 @@ class IncrementalSyncManager extends SyncManager {
       }
 
       // Grouped by chat so the main thread can skip hydrating messages for closed chats.
-      final ids = syncResult.messages.where((m) => m.id != null).map((m) => m.id!).toList();
+      final ids = liveMessages.where((m) => m.id != null).map((m) => m.id!).toList();
       if (ids.isNotEmpty) {
         pageMessageIdsByChat[item.key] = ids;
       }
