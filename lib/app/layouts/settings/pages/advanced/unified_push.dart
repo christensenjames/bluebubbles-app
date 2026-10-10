@@ -1,5 +1,3 @@
-import 'dart:async';
-
 import 'package:animated_size_and_fade/animated_size_and_fade.dart';
 import 'package:bluebubbles/app/layouts/settings/widgets/settings_widgets.dart';
 import 'package:bluebubbles/app/wrappers/stateful_boilerplate.dart';
@@ -9,9 +7,7 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:url_launcher/url_launcher.dart';
 
-class UnifiedPushPanelController extends StatefulController {
-  final state = upr;
-}
+class UnifiedPushPanelController extends StatefulController {}
 
 class UnifiedPushPanel extends CustomStateful<UnifiedPushPanelController> {
   UnifiedPushPanel({super.key}) : super(parentController: Get.put(UnifiedPushPanelController()));
@@ -144,14 +140,6 @@ class _UnifiedPushPanelState extends CustomState<UnifiedPushPanel, void, Unified
   }
 
   void onChanged(bool val) async {
-    StreamSubscription<String>? sub;
-    sub = controller.state.endpoint.listen((val) {
-      setState(() {
-        endpoint.value = val;
-      });
-      sub?.cancel();
-      sub = null;
-    });
     SettingsSvc.settings.enableUnifiedPush.value = val;
     if (val) {
       await MethodChannelSvc.actions.updateUnifiedPushRegistration(enabled: true);
