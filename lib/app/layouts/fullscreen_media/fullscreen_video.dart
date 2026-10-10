@@ -25,6 +25,7 @@ class FullscreenVideo extends StatefulWidget {
     required this.attachment,
     required this.showInteractions,
     this.videoController,
+    this.onPlayerDetached,
     this.mute,
     this.onOverlayToggle,
     this.isCurrentPage = true,
@@ -35,6 +36,7 @@ class FullscreenVideo extends StatefulWidget {
   final bool showInteractions;
 
   final VideoController? videoController;
+  final VoidCallback? onPlayerDetached;
   final RxBool? mute;
   final Function(bool)? onOverlayToggle;
   final bool isCurrentPage;
@@ -419,6 +421,7 @@ class _FullscreenVideoState extends State<FullscreenVideo> with AutomaticKeepAli
   Future<void> refreshAttachment() async {
     if (!_ownsPlayer) {
       _detachPlayer();
+      widget.onPlayerDetached?.call();
       videoController = VideoController(Player());
       _ownsPlayer = true;
       await videoController.player.setPlaylistMode(PlaylistMode.none);
@@ -428,7 +431,7 @@ class _FullscreenVideoState extends State<FullscreenVideo> with AutomaticKeepAli
       // Video binds its player streams in initState, so it must remount for the new controller.
       setState(() => _videoKey = GlobalKey<VideoState>());
     }
-    AttachmentsSvc.redownloadAttachment(widget.attachment, onComplete: (file) async {
+    Future<void> onComplete(PlatformFile file) async {
       if (hasDisposed) return;
       late final Media media;
       if (file.path == null) {
@@ -443,7 +446,16 @@ class _FullscreenVideoState extends State<FullscreenVideo> with AutomaticKeepAli
       await videoController.player.setVolume(muted.value ? 0 : 100);
       if (hasDisposed) return;
       showPlayPauseOverlay.value = !videoController.player.state.playing;
-    });
+    }
+    final message = widget.attachment.message.target;
+    final chatGuid = message?.chat.target?.guid;
+    final messageGuid = message?.guid;
+    final messagesService = chatGuid == null ? null : maybeFindMessagesSvc(chatGuid);
+    if (messagesService != null && messageGuid != null) {
+      messagesService.redownloadAttachment(messageGuid, widget.attachment, onComplete: onComplete);
+    } else {
+      AttachmentsSvc.redownloadAttachment(widget.attachment, onComplete: onComplete);
+    }
   }
 
   @override
