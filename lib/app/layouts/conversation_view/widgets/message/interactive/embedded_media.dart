@@ -66,10 +66,10 @@ class _EmbeddedMediaState extends State<EmbeddedMedia> with AutomaticKeepAliveCl
         size: bytes.length,
         bytes: bytes,
       );
-      setState(() {});
+      if (mounted) setState(() {});
     } else {
       content = Rx<_DownloadProgress>(const _DownloadProgress(0, 0));
-      setState(() {});
+      if (mounted) setState(() {});
       HttpSvc.message.downloadEmbeddedMedia(message.guid!, onReceiveProgress: (current, total) {
         if (content is Rx) {
           (content as Rx<_DownloadProgress>).value = _DownloadProgress(current, total);
@@ -83,10 +83,10 @@ class _EmbeddedMediaState extends State<EmbeddedMedia> with AutomaticKeepAliveCl
           size: response.data.length,
           bytes: response.data,
         );
-        setState(() {});
+        if (mounted) setState(() {});
       }).catchError((err) {
         content = "failed";
-        setState(() {});
+        if (mounted) setState(() {});
       });
     }
   }
