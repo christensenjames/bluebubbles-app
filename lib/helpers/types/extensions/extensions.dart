@@ -407,6 +407,10 @@ extension MessageNotificationExtension on Message {
         if (associatedMessage != null) {
           final String verb = ReactionTypes.verbFor(associatedMessageType, associatedMessageEmoji);
           if (associatedMessage.dateDeleted != null) return "$reactionSender $verb a message";
+          if (associatedMessage.hasUnsentParts &&
+              associatedMessage.retractedParts.contains(associatedMessagePart ?? 0)) {
+            return "$reactionSender $verb an unsent message";
+          }
           // we need to check balloonBundleId first because for some reason
           // game pigeon messages have the text "�"
           if (associatedMessage.isInteractive) {
