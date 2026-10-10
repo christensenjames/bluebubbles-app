@@ -428,7 +428,11 @@ class AttachmentDownloadController extends GetxController {
         !kIsWeb &&
         !kIsDesktop &&
         !(attachment.isOutgoing ?? false) &&
-        !(attachment.message.target?.isInteractive ?? false)) {
+        !(attachment.message.target?.isInteractive ?? false) &&
+        (await Attachment.findOneAsync(attachment.guid!))?.metadata?['_autoSaved'] != true) {
+      // Set before saving: a re-download must never add a second gallery copy, even if this save fails.
+      attachment.metadata = {...?attachment.metadata, '_autoSaved': true};
+      await attachment.saveAsync(attachment.message.target);
       final mime = attachment.mimeType ?? '';
       await AttachmentsSvc.saveToDisk(
         file.value!,

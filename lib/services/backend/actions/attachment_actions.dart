@@ -49,6 +49,10 @@ class AttachmentActions {
       Attachment? existing = AttachmentActions.findOne(attachment.guid!);
       if (existing != null) {
         attachment.id = existing.id;
+        // Older in-memory copies of this attachment lack the flag; a save from one must not cause a second gallery save.
+        if (existing.metadata?['_autoSaved'] == true) {
+          attachment.metadata = {...?attachment.metadata, '_autoSaved': true};
+        }
 
         // Always preserve the existing message relationship unless explicitly overridden
         if (existing.message.hasValue) {
