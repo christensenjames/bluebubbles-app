@@ -1,6 +1,26 @@
 # Changelog
 
-## 2026-10-10 — iPhone photos no longer rotated in Android notifications
+## 2026-10-10 — Fork integration on upstream master, three decided fixes, notification photo rotation
+
+`land/2026-10-10` (pushed to the fork, `5947e9a7e`) rebuilds all overnight work on today's
+`upstream/master` (`41dacc23d`, 75 commits past the old base): `feat/send-emoji-tapbacks`,
+`autonomous/base-2026-10-05` (with the 09-27 combined base) and 152 of the 156 r1005 units.
+Left out: U227 recorder-start (upstream #3265 does the same), and U242 / U321 date hardening
+(dropped by James; no visible effect with today's server). U230 came in as its own commit
+only. U371, U379 and U333 were trimmed where upstream #3269, #3291 and #3290 already fixed
+part of the bug. U306 (Escape goes back in phone layout) is in, by James's call. Eleven merges
+were resolved by hand and are unreviewed; the least mechanical are U306, U230 and U308.
+Analyze: 0 errors, 0 warnings, 71 infos; Linux debug build passes. No APK built yet.
+
+Three fixes follow James's decisions on the 10-05 queue: both delete buttons now soft-delete
+and resync never brings a deleted message back (`autonomous/r1010-delete-permanent`);
+Settings > Soft-Deleted Chats > Restore brings back messages deleted at or after the chat
+(`autonomous/r1010-restore-chat-history`, which also stops clearing a transcript from
+restamping already-deleted messages); fully muted chats leave the unread badges and group
+chip counts (`autonomous/r1010-muted-unread`). Kept as is: muted chats in the "unread only"
+filter, unthreaded notification replies. U205 and U226 are parked for a device session. The
+connect-dialog route fix in `server_credentials.dart` is not done: the credential gate blocks
+agents from that file.
 
 Photos sent from an iPhone showed sideways in the notification image. The notification asked
 the server for a copy resized to 1080 px wide (`?width=`). The server resizes with Electron's
