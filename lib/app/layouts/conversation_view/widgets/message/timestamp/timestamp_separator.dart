@@ -25,9 +25,12 @@ class TimestampSeparator extends StatelessWidget {
   }
 
   _TimestampParts? buildTimeStamp(Message message) {
+    final date = message.dateCreated;
+    final olderDate = olderMessage?.dateCreated;
     if (SettingsSvc.settings.skin.value == Skins.Samsung &&
-        message.dateCreated?.day != olderMessage?.dateCreated?.day) {
-      return _TimestampParts(time: buildSeparatorDateSamsung(message.dateCreated!));
+        date != null &&
+        (date.day != olderDate?.day || date.month != olderDate?.month || date.year != olderDate?.year)) {
+      return _TimestampParts(time: buildSeparatorDateSamsung(date));
     } else if (SettingsSvc.settings.skin.value != Skins.Samsung && withinTimeThreshold(message, olderMessage)) {
       final time = message.dateCreated!;
       if (SettingsSvc.settings.skin.value == Skins.iOS) {
