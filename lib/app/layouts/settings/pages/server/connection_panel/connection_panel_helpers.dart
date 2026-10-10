@@ -416,24 +416,27 @@ mixin ConnectionPanelHelpersMixin {
                       final nav = Navigator.of(context, rootNavigator: true);
                       final date = await showTimeframePicker("How Far Back?", context, showHourPicker: false);
                       if (date == null) return;
-                      bool dialogShown = false;
+                      DialogRoute<void>? syncRoute;
                       try {
                         SyncSvc.isIncrementalSyncing.value = true;
                         final newMgr = IncrementalSyncManager(startTimestamp: date.millisecondsSinceEpoch);
                         setManager(newMgr);
-                        if (context.mounted) {
-                          dialogShown = true;
-                          showDialog(
+                        if (context.mounted && nav.mounted) {
+                          syncRoute = DialogRoute<void>(
                             context: context,
                             builder: (context) => SyncDialog(manager: newMgr),
-                          ).then((_) => dialogShown = false);
+                            themes: InheritedTheme.capture(from: context, to: nav.context),
+                            barrierColor: context.theme.dialogTheme.barrierColor ?? Colors.black54,
+                            traversalEdgeBehavior: TraversalEdgeBehavior.closedLoop,
+                          );
+                          nav.push(syncRoute);
                         }
                         await newMgr.start();
                       } catch (e, s) {
                         Logger.warn("Incremental sync failed", error: e, trace: s, tag: 'ConnectionPanel');
                       }
-                      if (dialogShown) {
-                        nav.pop();
+                      if (syncRoute != null) {
+                        NavigationSvc.closeRoute(syncRoute);
                       }
                       setManager(null);
                       SyncSvc.isIncrementalSyncing.value = false;
