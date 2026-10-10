@@ -700,11 +700,14 @@ mixin ConnectionPanelHelpersMixin {
                     }
                     controller.isRestartingMessages.value = true;
                     controller.lastRestartMessages = now;
-                    HttpSvc.server.restartImessage().then((_) {
+                    try {
+                      await HttpSvc.server.restartImessage();
+                    } catch (e, s) {
+                      Logger.error("Failed to restart iMessage!", error: e, trace: s);
+                      showSnackbar("Error", "Failed to restart iMessage!");
+                    } finally {
                       controller.isRestartingMessages.value = false;
-                    }).catchError((_) {
-                      controller.isRestartingMessages.value = false;
-                    });
+                    }
                   },
                   trailing: Obx(() => (!controller.isRestartingMessages.value)
                       ? Icon(Icons.refresh, color: context.theme.colorScheme.outline)
@@ -748,11 +751,14 @@ mixin ConnectionPanelHelpersMixin {
                           }
                           controller.isRestartingPrivateAPI.value = true;
                           controller.lastRestartPrivateAPI = now;
-                          HttpSvc.server.softRestart().then((_) {
+                          try {
+                            await HttpSvc.server.softRestart();
+                          } catch (e, s) {
+                            Logger.error("Failed to restart Private API!", error: e, trace: s);
+                            showSnackbar("Error", "Failed to restart Private API!");
+                          } finally {
                             controller.isRestartingPrivateAPI.value = false;
-                          }).catchError((_) {
-                            controller.isRestartingPrivateAPI.value = false;
-                          });
+                          }
                         },
                         trailing: (!controller.isRestartingPrivateAPI.value)
                             ? Icon(Icons.refresh, color: context.theme.colorScheme.outline)
