@@ -273,7 +273,8 @@ extension HostMatching on Uri {
 extension ShortenString on String {
   String shorten(int length) {
     if (this.length <= length) return this;
-    return "${substring(0, length)}...";
+    final cut = characters.take(length).string;
+    return cut.length == this.length ? this : "$cut...";
   }
 }
 
