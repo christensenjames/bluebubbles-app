@@ -44,6 +44,7 @@ class FindMyDeviceListTile extends StatelessWidget {
                 final marker = controller.markers[item.id];
                 if (marker == null) return;
                 controller.popupController.showPopupsOnlyFor([marker]);
+                controller.hasMovedToCurrentLocation.value = true;
                 controller.mapController.move(markerPoint, 10);
               }
             : null,

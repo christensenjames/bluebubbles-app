@@ -80,6 +80,7 @@ class FindMyFriendListTile extends StatelessWidget {
                 final marker = controller.markers[item.stableId];
                 if (marker == null) return;
                 controller.popupController.showPopupsOnlyFor([marker]);
+                controller.hasMovedToCurrentLocation.value = true;
                 controller.mapController.move(markerPoint, 10);
               }
             : null,
