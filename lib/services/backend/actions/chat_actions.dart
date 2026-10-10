@@ -1,6 +1,7 @@
 import 'package:bluebubbles/database/database.dart';
 import 'package:bluebubbles/database/models.dart';
 import 'package:bluebubbles/helpers/helpers.dart';
+import 'package:bluebubbles/services/backend/actions/attachment_actions.dart';
 import 'package:bluebubbles/services/backend/interfaces/contact_v2_interface.dart';
 import 'package:bluebubbles/services/services.dart';
 import 'package:bluebubbles/utils/logger/logger.dart';
@@ -170,21 +171,29 @@ class ChatActions {
 
   static Future<void> deleteChat(dynamic data) async {
     final chatId = data['chatId'] as int;
-    final messageIds = (data['messageIds'] as List).cast<int>();
+    final attachmentsPath = data['attachmentsPath'] as String;
     final handleIds = (data['handleIds'] as List? ?? []).cast<int>();
+    final purgeGuids = <String>[];
 
     Database.runInTransaction(TxMode.write, () {
-      final chatBox = Database.chats;
-      final messageBox = Database.messages;
-      final handleBox = Database.handles;
+      final messageQuery = (Database.messages.query()..link(Message_.chat, Chat_.id.equals(chatId))).build();
+      final messageIds = messageQuery.findIds();
+      messageQuery.close();
 
-      /// Remove all references of chat and its messages
-      chatBox.remove(chatId);
-      messageBox.removeMany(messageIds);
-      if (handleIds.isNotEmpty) {
-        handleBox.removeMany(handleIds);
-      }
+      final attachmentQb = Database.attachments.query();
+      attachmentQb.link(Attachment_.message).link(Message_.chat, Chat_.id.equals(chatId));
+      final attachmentQuery = attachmentQb.build();
+      final attachmentIds = attachmentQuery.findIds();
+      purgeGuids.addAll(attachmentQuery.property(Attachment_.guid).find(replaceNullWith: ''));
+      attachmentQuery.close();
+
+      Database.attachments.removeMany(attachmentIds);
+      Database.messages.removeMany(messageIds);
+      Database.chats.remove(chatId);
+      if (handleIds.isNotEmpty) Database.handles.removeMany(handleIds);
     });
+
+    await AttachmentActions.deleteAttachmentDirs(attachmentsPath, purgeGuids);
   }
 
   static Future<void> softDeleteChat(dynamic data) async {

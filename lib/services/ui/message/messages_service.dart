@@ -1272,7 +1272,10 @@ class MessagesService extends GetxController {
   /// in both the database and reactive state.
   Future<void> deleteMessage(Message message) async {
     final deletedGuid = message.guid!;
-    await Message.delete(deletedGuid);
+    for (final a in message.dbAttachments) {
+      if (a.guid != null) AttachmentDownloader.clearControllerForGuid(a.guid!);
+    }
+    await Message.delete(deletedGuid, deleteAttachments: true);
     removeMessage(message);
     await _updateLatestMessageAfterDeletion(deletedGuid);
   }

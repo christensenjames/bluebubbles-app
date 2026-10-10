@@ -1112,11 +1112,10 @@ class ChatsService {
     }
 
     // Perform the actual DB deletion
-    List<Message> messages = Chat.getMessages(chat);
     await ChatInterface.deleteChat(
       chatId: chat.id!,
-      messageIds: messages.map((e) => e.id!).toList(),
       handleIds: handleIds,
+      attachmentsPath: FilesystemSvc.attachmentsPath,
     );
 
     // Remove from service state

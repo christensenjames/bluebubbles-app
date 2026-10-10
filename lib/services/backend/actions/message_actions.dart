@@ -1,6 +1,7 @@
 import 'package:bluebubbles/database/database.dart';
 import 'package:bluebubbles/database/models.dart';
 import 'package:bluebubbles/helpers/types/helpers/message_helper.dart';
+import 'package:bluebubbles/services/backend/actions/attachment_actions.dart';
 import 'package:bluebubbles/utils/logger/logger.dart';
 
 class MessageActions {
@@ -75,6 +76,8 @@ class MessageActions {
 
   static Future<void> deleteMessage(dynamic data) async {
     final guid = data['guid'] as String;
+    final attachmentsPath = data['attachmentsPath'] as String?;
+    final purgeGuids = <String>[];
 
     Database.runInTransaction(TxMode.write, () {
       final messageBox = Database.messages;
@@ -83,9 +86,18 @@ class MessageActions {
       final result = query.findFirst();
       query.close();
       if (result?.id != null) {
+        if (attachmentsPath != null) {
+          final attachments = result!.dbAttachments.toList();
+          Database.attachments.removeMany(attachments.map((a) => a.id).whereType<int>().toList());
+          purgeGuids.addAll(attachments.map((a) => a.guid).whereType<String>());
+        }
         messageBox.remove(result!.id!);
       }
     });
+
+    if (attachmentsPath != null) {
+      await AttachmentActions.deleteAttachmentDirs(attachmentsPath, purgeGuids);
+    }
   }
 
   static Future<void> softDeleteMessage(dynamic data) async {
