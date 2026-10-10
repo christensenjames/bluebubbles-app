@@ -35,7 +35,7 @@ mixin LivePhotoMixin<T extends StatefulWidget> on State<T> {
     // Store in same directory as attachment: {appDocDir}/attachments/{guid}/{name}.mov
     final nameSplit = livePhotoAttachment.transferName!.split(".");
     final fileName = "${nameSplit.take(nameSplit.length - 1).join(".")}.mov";
-    return "${livePhotoAttachment.directory}/$fileName";
+    return "${livePhotoAttachment.directory}/${Attachment.safeFileName(fileName)}";
   }
 
   Future<void> handleLivePhotoTap() async {

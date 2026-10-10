@@ -433,7 +433,8 @@ class AttachmentDownloadController extends GetxController {
       if (attachment.mimeType?.startsWith("image") ?? false) {
         await AttachmentsSvc.saveToDisk(file.value!, isAutoDownload: true);
       } else if (file.value?.bytes != null) {
-        await File(join(await FilesystemSvc.downloadsDirectory, file.value!.name)).writeAsBytes(file.value!.bytes!);
+        final target = join(await FilesystemSvc.downloadsDirectory, basename(file.value!.name));
+        await File(target).writeAsBytes(file.value!.bytes!);
       }
     }
   }
