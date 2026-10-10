@@ -767,7 +767,8 @@ class Chat {
   void clearTranscript() {
     if (kIsWeb) return;
     Database.runInTransaction(TxMode.write, () {
-      final toDelete = List<Message>.from(messages);
+      // Keep earlier delete stamps; restoring a chat revives only messages stamped at or after the chat's delete.
+      final toDelete = messages.where((m) => m.dateDeleted == null).toList();
       for (Message element in toDelete) {
         element.dateDeleted = DateTime.now().toUtc();
       }

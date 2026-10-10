@@ -1195,10 +1195,14 @@ class ChatsService {
     }
   }
 
-  /// Undelete a chat
-  Future<void> unDeleteChat(Chat chat) async {
+  /// Undelete a chat. [restoreHistory] also revives the messages hidden by the chat's delete.
+  Future<void> unDeleteChat(Chat chat, {bool restoreHistory = false}) async {
     if (kIsWeb) return;
-    await ChatInterface.unDeleteChat(chatData: chat.toMap());
+    await ChatInterface.unDeleteChat(chatData: chat.toMap(), restoreHistory: restoreHistory);
+    if (restoreHistory) {
+      final latest = Chat.getMessages(chat, limit: 1);
+      if (latest.isNotEmpty) chat.setLatestMessage(latest.first);
+    }
   }
 
   /// Toggle chat pin status with service updates
