@@ -56,22 +56,29 @@ class ConversationPeekView extends StatefulWidget {
 class _ConversationPeekViewState extends State<ConversationPeekView>
     with SingleTickerProviderStateMixin, MessagesServiceMixin, ThemeHelpers {
   late final AnimationController controller;
-  late final ConversationViewController cvController = cvc(widget.chat);
+  late final ConversationViewController cvController;
+  late final bool _ownsCvController;
   final double itemHeight = kIsDesktop || kIsWeb ? 56 : 48;
   bool disposed = false;
 
   @override
   void initState() {
     super.initState();
+    _ownsCvController = !Get.isRegistered<ConversationViewController>(tag: widget.chat.guid);
+    cvController = cvc(widget.chat);
     ChatsSvc.setActiveChatSync(widget.chat, clearNotifications: false);
     ChatsSvc.activeChat!.controller = cvController;
 
-    // Initialize messages service with message states for proper reactivity
-    initializeMessagesService(
-      widget.chat,
-      widget.messages,
-      cvController,
-    );
+    if (maybeFindMessagesSvc(widget.chat.guid)?.owner != null) {
+      attachMessagesService(widget.chat, widget.messages, cvController);
+    } else {
+      // Initialize messages service with message states for proper reactivity
+      initializeMessagesService(
+        widget.chat,
+        widget.messages,
+        cvController,
+      );
+    }
 
     controller = AnimationController(
       vsync: this,
@@ -96,8 +103,8 @@ class _ConversationPeekViewState extends State<ConversationPeekView>
   @override
   void dispose() {
     if (!disposed) {
-      cvController.close();
-      disposeMessagesService();
+      if (_ownsCvController) cvController.close();
+      disposeMessagesService(force: true);
       controller.dispose();
     }
     super.dispose();
@@ -171,9 +178,8 @@ class _ConversationPeekViewState extends State<ConversationPeekView>
                           children: [
                             GestureDetector(
                               onTap: () async {
-                                cvController.close();
-                                MessagesSvc(widget.chat.guid).close();
-                                // Controllers are disposed by MessagesService.onClose()
+                                if (_ownsCvController) cvController.close();
+                                disposeMessagesService(force: true);
                                 controller.dispose();
                                 disposed = true;
                                 Navigator.of(context).pop();

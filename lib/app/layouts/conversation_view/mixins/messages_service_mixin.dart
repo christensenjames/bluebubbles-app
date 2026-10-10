@@ -79,6 +79,16 @@ mixin MessagesServiceMixin<T extends StatefulWidget> on State<T> {
       _messageService!.messagesRef = messagesRef ?? messages;
     }
 
+    _seedMessages(messages, cvController);
+  }
+
+  /// Use when borrowing a service owned by another mounted view.
+  void attachMessagesService(Chat chat, List<Message> messages, ConversationViewController cvController) {
+    _messageService = ensureMessagesSvc(chat.guid);
+    _seedMessages(messages, cvController);
+  }
+
+  void _seedMessages(List<Message> messages, ConversationViewController cvController) {
     // Add messages to struct (required for MessageState creation)
     final messagesToAdd =
         messages.where((m) => m.guid != null && _messageService!.struct.getMessage(m.guid!) == null).toList();
