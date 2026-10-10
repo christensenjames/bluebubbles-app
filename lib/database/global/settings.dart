@@ -864,11 +864,10 @@ class Settings {
     s.privateSubjectLine.value = map['privateSubjectLine'] ?? false;
     s.editLastSentMessageOnUpArrow.value = map['editLastSentMessageOnUpArrow'] ?? false;
     s.redactedMode.value = map['redactedMode'] ?? false;
-    s.hideMessageContent.value = map['hideMessageContent'] ?? true;
     s.hideAttachments.value = map['hideAttachments'] ?? true;
     s.hideContactInfo.value = map['hideContactInfo'] ?? true;
     s.generateFakeAvatars.value = map['generateFakeAvatars'] ?? false;
-    s.hideMessageContent.value = map['generateFakeMessageContent'] ?? false;
+    s.hideMessageContent.value = map['generateFakeMessageContent'] ?? map['hideMessageContent'] ?? false;
     s.enableUnifiedPush.value = map['enableUnifiedPush'] ?? false;
     s.endpointUnifiedPush.value = map['endpointUnifiedPush'] ?? "";
     s.enableFcm.value = map['enableFcm'] ?? true;
