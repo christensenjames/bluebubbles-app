@@ -119,6 +119,7 @@ class _SettingsPageState extends State<SettingsPage> with ThemeHelpers {
 
                             // Build widgets list dynamically
                             final List<Widget> widgets = [];
+                            var hasSearchResult = false;
 
                             for (int i = 0; i < settingsItemList.length; i++) {
                               final item = settingsItemList[i];
@@ -129,8 +130,7 @@ class _SettingsPageState extends State<SettingsPage> with ThemeHelpers {
                                   (tag) => tag.toLowerCase().contains(lowerQuery),
                                 );
 
-                                // Check if this is a header (contains SettingsHeader widget)
-                                final isHeader = item.child.runtimeType.toString().contains('SettingsHeader');
+                                final isHeader = item.child is SettingsHeader;
 
                                 // If it's a header and we're searching, check if the next section has matches
                                 bool shouldShowHeader = true;
@@ -150,6 +150,10 @@ class _SettingsPageState extends State<SettingsPage> with ThemeHelpers {
 
                                 if (searchQuery.isEmpty || (shouldShowHeader && (titleMatches || tagMatches))) {
                                   widgets.add(item);
+                                  // App Version's child is an empty Container, reachable only via its breadcrumb.
+                                  if (searchQuery.isNotEmpty && !isHeader && item.child is! Container) {
+                                    hasSearchResult = true;
+                                  }
 
                                   if (searchQuery.isNotEmpty) {
                                     final matchingTags = item.searchTags.where(
@@ -162,6 +166,7 @@ class _SettingsPageState extends State<SettingsPage> with ThemeHelpers {
                                         destination: tag,
                                         onTap: item.onTap,
                                       ));
+                                      hasSearchResult = true;
                                     }
                                   }
                                 }
@@ -188,6 +193,7 @@ class _SettingsPageState extends State<SettingsPage> with ThemeHelpers {
                                       searchableSettingsItems: matchingItems,
                                       children: null, // Only show matching searchable children
                                     ));
+                                    hasSearchResult = true;
 
                                     // Add breadcrumbs for matching child tags
                                     for (final matchingItem in matchingItems) {
@@ -220,8 +226,7 @@ class _SettingsPageState extends State<SettingsPage> with ThemeHelpers {
                             }
 
                             // If searching and no results → show EmptySearchResult
-                            final visibleWidgetsCount = widgets.length;
-                            if (searchQuery.isNotEmpty && visibleWidgetsCount <= 1) {
+                            if (searchQuery.isNotEmpty && !hasSearchResult) {
                               return [EmptySearchResult(searchQuery: searchQuery)];
                             }
 
