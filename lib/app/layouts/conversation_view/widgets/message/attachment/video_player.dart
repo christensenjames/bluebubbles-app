@@ -230,6 +230,8 @@ class _VideoPlayerState extends State<VideoPlayer> with AutomaticKeepAliveClient
 
   bool hasListener = false;
   VideoController? videoController;
+  VoidCallback? _rectListener;
+  StreamSubscription<bool>? _completedSub;
 
   final RxBool showPlayPauseOverlay = true.obs;
   final RxBool muted = SettingsSvc.settings.startVideosMuted.value.obs;
@@ -373,16 +375,16 @@ class _VideoPlayerState extends State<VideoPlayer> with AutomaticKeepAliveClient
     await videoController!.player.open(media, play: false);
     await _configureAndroidVideoColorPipeline(videoController!.player);
     await videoController!.player.setVolume(muted.value ? 0 : 100);
-    createListener(videoController!);
 
     // Cache the controller for reuse
     if (cvController != null) {
       cvController!.videoPlayers[attachment.guid!] = videoController!;
     }
 
-    if (mounted) {
-      setState(() {});
-    }
+    // dispose() already ran if the row went away during the awaits above; nothing would detach these listeners.
+    if (!mounted) return;
+    createListener(videoController!);
+    setState(() {});
   }
 
   Future<void> _configureAndroidVideoColorPipeline(Player player) async {
@@ -407,12 +409,13 @@ class _VideoPlayerState extends State<VideoPlayer> with AutomaticKeepAliveClient
   void createListener(VideoController controller) {
     if (hasListener) return;
 
-    controller.rect.addListener(() {
+    _rectListener = () {
       // A null rect reports a 1.0 aspect ratio; don't clobber the DB-seeded value with it
       if (controller.rect.value == null) return;
       final ratio = controller.aspectRatio;
       if (aspectRatio.value != ratio) aspectRatio.value = ratio;
-    });
+    };
+    controller.rect.addListener(_rectListener!);
 
     // `waitUntilFirstFrameRendered` sounds like the right signal, but on Android (and
     // desktop) media_kit_video actually completes it from the same native video-geometry
@@ -426,7 +429,7 @@ class _VideoPlayerState extends State<VideoPlayer> with AutomaticKeepAliveClient
       if (mounted && !firstFrameReady.value) firstFrameReady.value = true;
     });
 
-    controller.player.stream.completed.listen((completed) async {
+    _completedSub = controller.player.stream.completed.listen((completed) async {
       // If the status is ended, restart
       if (completed) {
         await controller.player.pause();
@@ -437,6 +440,14 @@ class _VideoPlayerState extends State<VideoPlayer> with AutomaticKeepAliveClient
       }
     });
     hasListener = true;
+  }
+
+  // The controller is cached on the conversation and outlives this row, so detach from it here.
+  @override
+  void dispose() {
+    _completedSub?.cancel();
+    if (_rectListener != null) videoController?.rect.removeListener(_rectListener!);
+    super.dispose();
   }
 
   /// Renders the current [thumbnail] bytes, or a plain themed background when
