@@ -351,6 +351,7 @@ class ThemeStruct {
         id: json["ROWID"],
         name: json["name"],
         gradientBg: json["gradientBg"] == 1,
+        googleFont: (map["textTheme"]["font"] as String?) ?? 'Default',
         themeData: baseTheme.copyWith(splashFactory: InkSparkle.splashFactory, extensions: [
           BubbleColors(
             iMessageBubbleColor:
