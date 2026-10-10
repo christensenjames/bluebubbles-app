@@ -109,7 +109,6 @@ class PresetThemeDialogs {
   }
 
   void showRenameDialog(BuildContext context, ThemeStruct theme) {
-    controller.applyTheme(context, theme);
     final textController = TextEditingController(text: theme.name);
     showBBDialog(
       context: context,
@@ -122,7 +121,7 @@ class PresetThemeDialogs {
           enabledBorder: OutlineInputBorder(borderSide: BorderSide(color: Theme.of(context).colorScheme.outline)),
           focusedBorder: OutlineInputBorder(borderSide: BorderSide(color: Theme.of(context).colorScheme.primary)),
         ),
-        onSubmitted: (_) => _doRename(context, context, textController.text),
+        onSubmitted: (_) => _doRename(context, context, theme, textController.text),
       ),
       actions: [
         BBDialogAction(
@@ -132,7 +131,7 @@ class PresetThemeDialogs {
         BBDialogAction(
           text: "Rename",
           isDefault: true,
-          onPressed: () => _doRename(context, context, textController.text),
+          onPressed: () => _doRename(context, context, theme, textController.text),
         ),
       ],
     );
@@ -202,8 +201,14 @@ class PresetThemeDialogs {
     controller.cloneTheme(name.trim(), source);
   }
 
-  Future<void> _doRename(BuildContext context, BuildContext pageCtx, String newName) async {
+  Future<void> _doRename(BuildContext context, BuildContext pageCtx, ThemeStruct theme, String newName) async {
+    final err = PresetThemeActions.validateThemeName(newName);
+    if (err != null) {
+      showSnackbar("Error", err);
+      return;
+    }
     Navigator.of(context, rootNavigator: true).pop();
+    controller.applyTheme(pageCtx, theme);
     final ok = await controller.renameTheme(pageCtx, newName.trim());
     if (!ok) showSnackbar("Error", "Could not rename — name is empty or already taken", type: SnackbarType.error);
   }
