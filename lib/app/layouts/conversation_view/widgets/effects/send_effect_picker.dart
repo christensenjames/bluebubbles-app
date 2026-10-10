@@ -129,9 +129,10 @@ void sendEffectAction(
   final capturedTheme = context.theme;
   final capturedIsM3 = ThemeSvc.isMaterialYouActive(context);
   final capturedBubbleExt = capturedTheme.extensions[BubbleColors] as BubbleColors?;
+  final PageRouteBuilder route;
   Navigator.push(
     context,
-    PageRouteBuilder(
+    route = PageRouteBuilder(
       transitionDuration: const Duration(milliseconds: 150),
       pageBuilder: (context, animation, secondaryAnimation) {
         return FadeTransition(
@@ -493,5 +494,14 @@ void sendEffectAction(
       fullscreenDialog: true,
       opaque: false,
     ),
-  );
+  ).then((_) {
+    // Ticker only, at pop: the chat may close mid-fade, and render objects still need their listeners until unmount.
+    if (fireworkController.isPlaying) fireworkController.ticker.dispose();
+    if (celebrationController.isPlaying) celebrationController.ticker.dispose();
+    if (balloonController.isPlaying) balloonController.ticker.dispose();
+    if (loveController.isPlaying) loveController.ticker.dispose();
+    if (spotlightController.isPlaying) spotlightController.ticker.dispose();
+    if (laserController.isPlaying) laserController.ticker.dispose();
+  });
+  route.completed.then((_) => confettiController.dispose());
 }
