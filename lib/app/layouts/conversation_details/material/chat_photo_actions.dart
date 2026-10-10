@@ -2,6 +2,7 @@ import 'package:bluebubbles/app/layouts/settings/pages/theming/avatar/avatar_cro
 import 'package:bluebubbles/app/wrappers/theme_switcher.dart';
 import 'package:bluebubbles/helpers/helpers.dart';
 import 'package:bluebubbles/database/models.dart';
+import 'package:bluebubbles/utils/logger/logger.dart';
 import 'package:bluebubbles/services/services.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
@@ -59,9 +60,13 @@ Future<void> updatePhoto(BuildContext context, Chat chat) async {
       SettingsSvc.serverDetails.isMinBigSur &&
       SettingsSvc.serverDetails.supportsGroupChatManagement) {
     if (!context.mounted) return;
-    showDialog(
-        context: context,
-        builder: (BuildContext context) {
+    final nav = Navigator.of(context, rootNavigator: true);
+    final progressRoute = DialogRoute<void>(
+      context: context,
+      themes: InheritedTheme.capture(from: context, to: nav.context),
+      barrierColor: Theme.of(context).dialogTheme.barrierColor ?? Colors.black54,
+      traversalEdgeBehavior: TraversalEdgeBehavior.closedLoop,
+      builder: (BuildContext context) {
           return AlertDialog(
             backgroundColor: context.theme.colorScheme.surfaceContainerHighest,
             title: Text(
@@ -79,17 +84,20 @@ Future<void> updatePhoto(BuildContext context, Chat chat) async {
             ),
           );
         });
-    final response = await HttpSvc.chat.setIcon(chat.guid, result);
-    if (response.statusCode == 200) {
-      await ChatsSvc.setChatCustomAvatarPath(chat, result);
-      if (context.mounted) Navigator.of(context, rootNavigator: true).pop();
-    } else {
+    nav.push(progressRoute);
+    try {
+      await HttpSvc.chat.setIcon(chat.guid, result);
+    } catch (e, s) {
+      Logger.error("Failed to update group photo of ${chat.guid}", error: e, trace: s);
       try {
         await File(result).delete();
       } catch (_) {}
-      if (context.mounted) Navigator.of(context, rootNavigator: true).pop();
+      NavigationSvc.closeRoute(progressRoute);
       showSnackbar("Error", "Failed to update group photo!", type: SnackbarType.error);
+      return;
     }
+    await ChatsSvc.setChatCustomAvatarPath(chat, result);
+    NavigationSvc.closeRoute(progressRoute);
   } else if (usePrivateApi) {
     try {
       await File(result).delete();

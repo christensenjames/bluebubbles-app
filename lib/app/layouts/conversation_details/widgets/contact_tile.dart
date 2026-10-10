@@ -38,8 +38,11 @@ class ContactTile extends StatelessWidget {
 
   void _removeParticipant(BuildContext context) {
     final navigator = Navigator.of(context, rootNavigator: true);
-    showDialog(
+    final progressRoute = DialogRoute<void>(
       context: context,
+      themes: InheritedTheme.capture(from: context, to: navigator.context),
+      barrierColor: Theme.of(context).dialogTheme.barrierColor ?? Colors.black54,
+      traversalEdgeBehavior: TraversalEdgeBehavior.closedLoop,
       builder: (BuildContext context) {
         return AlertDialog(
           backgroundColor: context.theme.colorScheme.surfaceContainerHighest,
@@ -54,9 +57,10 @@ class ContactTile extends StatelessWidget {
         );
       },
     );
+    navigator.push(progressRoute);
 
     HttpSvc.chat.modifyParticipant("remove", chat.guid, handle.address).then((response) async {
-      navigator.pop();
+      NavigationSvc.closeRoute(progressRoute);
       if (response.statusCode == 200 && response.data != null && response.data['data'] != null) {
         final result = await ChatInterface.bulkSyncChats(
           chatsData: [response.data['data'] as Map<String, dynamic>],
@@ -67,6 +71,7 @@ class ContactTile extends StatelessWidget {
       }
       Logger.info("Removed participant ${handle.address}");
     }).catchError((err, stack) {
+      NavigationSvc.closeRoute(progressRoute);
       Logger.error("Failed to remove participant ${handle.address}", error: err, trace: stack);
       late final String error;
       if (err is Response) {

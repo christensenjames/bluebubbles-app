@@ -2,9 +2,11 @@ import 'package:bluebubbles/helpers/helpers.dart';
 import 'package:bluebubbles/database/models.dart';
 import 'package:bluebubbles/services/services.dart';
 import 'package:bluebubbles/services/backend/interfaces/chat_interface.dart';
+import 'package:bluebubbles/utils/logger/logger.dart';
 import 'package:bluebubbles/utils/string_utils.dart';
 import 'package:flutter/material.dart';
-import 'package:get/get.dart';
+import 'package:dio/dio.dart' show Response;
+import 'package:get/get.dart' hide Response;
 import 'package:slugify/slugify.dart';
 
 class _ParticipantContact {
@@ -17,7 +19,8 @@ void showAddParticipant(BuildContext context, Chat chat) {
   final TextEditingController participantController = TextEditingController();
   showDialog(
       context: context,
-      builder: (_) {
+      builder: (dialogContext) {
+        final editorRoute = ModalRoute.of(dialogContext)!;
         return AlertDialog(
           actions: [
             TextButton(
@@ -112,9 +115,12 @@ void showAddParticipant(BuildContext context, Chat chat) {
                   return;
                 }
                 final nav = Navigator.of(context, rootNavigator: true);
-                showDialog(
-                    context: context,
-                    builder: (BuildContext context) {
+                final progressRoute = DialogRoute<void>(
+                  context: context,
+                  themes: InheritedTheme.capture(from: context, to: nav.context),
+                  barrierColor: Theme.of(context).dialogTheme.barrierColor ?? Colors.black54,
+                  traversalEdgeBehavior: TraversalEdgeBehavior.closedLoop,
+                  builder: (BuildContext context) {
                       return AlertDialog(
                         backgroundColor: context.theme.colorScheme.surfaceContainerHighest,
                         title: Text(
@@ -132,24 +138,28 @@ void showAddParticipant(BuildContext context, Chat chat) {
                         ),
                       );
                     });
-                final response = await HttpSvc.chat.modifyParticipant("add", chat.guid, participantController.text);
-                if (response.statusCode == 200) {
-                  // Sync the updated chat (with the new participant) to the DB
-                  // and propagate the changes to ChatState so the UI updates.
-                  if (response.data != null && response.data['data'] != null) {
-                    final result = await ChatInterface.bulkSyncChats(
-                      chatsData: [response.data['data'] as Map<String, dynamic>],
-                    );
-                    if (result.chats.isNotEmpty) {
-                      ChatsSvc.updateChat(result.chats.first, override: true);
-                    }
-                  }
-                  nav.pop();
-                  nav.pop();
-                } else {
-                  nav.pop();
+                nav.push(progressRoute);
+                final Response response;
+                try {
+                  response = await HttpSvc.chat.modifyParticipant("add", chat.guid, participantController.text);
+                } catch (e, s) {
+                  Logger.error("Failed to add participant ${participantController.text}", error: e, trace: s);
+                  NavigationSvc.closeRoute(progressRoute);
                   showSnackbar("Error", "Failed to add ${participantController.text}!", type: SnackbarType.error);
+                  return;
                 }
+                // Sync the updated chat (with the new participant) to the DB
+                // and propagate the changes to ChatState so the UI updates.
+                if (response.data != null && response.data['data'] != null) {
+                  final result = await ChatInterface.bulkSyncChats(
+                    chatsData: [response.data['data'] as Map<String, dynamic>],
+                  );
+                  if (result.chats.isNotEmpty) {
+                    ChatsSvc.updateChat(result.chats.first, override: true);
+                  }
+                }
+                NavigationSvc.closeRoute(progressRoute);
+                NavigationSvc.closeRoute(editorRoute);
               },
             ),
           ],
