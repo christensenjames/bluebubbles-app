@@ -73,7 +73,7 @@ void edit(MessagePopupActionContext ctx) {
 }
 
 Future<void> delete(MessagePopupActionContext ctx) async {
-  await ctx.service.deleteMessage(ctx.message);
+  await ctx.service.softDeleteMessage(ctx.message);
   ctx.popDetails();
 }
 

@@ -455,11 +455,10 @@ extension MessageNotificationExtension on Message {
             return '$reactionSender $verb ${attachment ? "" : "“"}$messageText${attachment ? "" : "”"}';
           }
         }
-        // if we can't fetch the associated message for some reason
-        // (or none of the above conditions about it are true)
-        // then we should fallback to unparsed reaction messages
+        // The reacted-to message is missing locally (hard-deleted or older than the synced window);
+        // don't fall back to the server text, which quotes it.
         Logger.info("Couldn't fetch associated message for message: $guid");
-        return "$reactionSender $text";
+        return "$reactionSender ${ReactionTypes.verbFor(associatedMessageType, associatedMessageEmoji)} a message";
       } else {
         // It's all other message types
         return sender + fullText;
