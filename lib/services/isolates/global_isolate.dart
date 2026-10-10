@@ -375,7 +375,7 @@ class GlobalIsolate {
           if (!requestInfo.completer.isCompleted) {
             requestInfo.completer.completeError('Request timeout after ${customTimeout ?? taskTimeout}');
           }
-          _maybeStopAfterDrain();
+          _onRequestSettled();
         }
       });
     }
@@ -448,14 +448,7 @@ class GlobalIsolate {
           requestInfo.completer.completeError(isolateResponse.error ?? 'Unknown error');
         }
 
-        // Check drain first: if a stop was requested and this was the last in-flight
-        // request, stop now rather than scheduling an idle timer that would be
-        // immediately cancelled.
-        if (_shutdownPending) {
-          _maybeStopAfterDrain();
-        } else {
-          _scheduleIdleShutdown();
-        }
+        _onRequestSettled();
       } else if (isolateResponse.data != null) {
         // Broadcast the response data
         _controller.add(isolateResponse.data);
@@ -508,6 +501,16 @@ class GlobalIsolate {
     }
   }
 
+  // Every path that drops a pending request while the isolate keeps running must call this: the idle timer does not
+  // re-arm itself while requests are pending, so this arms the next idle check.
+  void _onRequestSettled() {
+    if (_shutdownPending) {
+      _maybeStopAfterDrain();
+    } else {
+      _scheduleIdleShutdown();
+    }
+  }
+
   void _maybeStopAfterDrain() {
     if (!_shutdownPending) return;
     if (_pendingRequests.isNotEmpty) return;
@@ -524,11 +527,9 @@ class GlobalIsolate {
     _idleTimer = Timer(idleTimeout!, () async {
       if (!_isRunning) return;
 
-      // Never stop while work is in flight. Re-schedule from "now" and check again.
-      if (_pendingRequests.isNotEmpty) {
-        _scheduleIdleShutdown();
-        return;
-      }
+      // Never stop while work is in flight. The last reply or timeout schedules the next check; re-scheduling
+      // here would spin when idleTimeout is zero.
+      if (_pendingRequests.isNotEmpty) return;
 
       // Nor while services are still initialising — the isolate looks idle here but
       // has plugin calls in flight, and killing it aborts the process.
