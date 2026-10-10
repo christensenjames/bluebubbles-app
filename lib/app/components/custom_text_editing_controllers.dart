@@ -509,15 +509,18 @@ class MentionTextEditingController extends SpellCheckTextEditingController {
     final atIndex = text.substring(0, indexSelection).lastIndexOf("@");
     final index = mentionables.indexOf(mentionable);
     if (index == -1 || atIndex == -1) return;
+    // The picker also offers matches with the caret inside the word, so replace the whole candidate.
+    final splitIndex =
+        text.startsWith(candidate, atIndex) ? max(indexSelection, atIndex + candidate.length) : indexSelection;
     List<String> textParts = [
       text.substring(0, atIndex),
-      text.substring(atIndex, indexSelection),
-      text.substring(indexSelection)
+      text.substring(atIndex, splitIndex),
+      text.substring(splitIndex)
     ];
     final addSpace = !textParts[2].startsWith(" ");
     final replacement = "$escapingChar$index$escapingChar${addSpace ? " " : ""}";
     text = textParts[0] + textParts[1].replaceFirst(candidate, replacement) + textParts[2];
-    selection = TextSelection.collapsed(offset: indexSelection - candidate.length + replacement.length);
+    selection = TextSelection.collapsed(offset: splitIndex - candidate.length + replacement.length);
     processMentions();
   }
 
