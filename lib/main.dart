@@ -404,7 +404,7 @@ class Main extends StatelessWidget {
             _NoLockKeySet(LogicalKeyboardKey.control, LogicalKeyboardKey.shift, LogicalKeyboardKey.tab):
                 const OpenPreviousChatIntent(),
           _NoLockKeySet(LogicalKeyboardKey.control, LogicalKeyboardKey.keyI): const OpenChatDetailsIntent(),
-          _NoLockKeySet(LogicalKeyboardKey.escape): const GoBackIntent(),
+          _NoLockKeySet.noRepeat(LogicalKeyboardKey.escape): const GoBackIntent(),
         },
         builder: (context, child) => SafeArea(
           top: false,
@@ -515,7 +515,12 @@ class Main extends StatelessWidget {
 
 // The GTK embedder reports a lock mode that was already on as a held lock key, which LogicalKeySet counts as extra.
 class _NoLockKeySet extends LogicalKeySet {
-  _NoLockKeySet(super.key1, [super.key2, super.key3]);
+  _NoLockKeySet(super.key1, [super.key2, super.key3]) : includeRepeats = true;
+
+  // Repeats of a held Escape would otherwise slip past the composer's KeyDown-only handlers and close the chat.
+  _NoLockKeySet.noRepeat(super.key1) : includeRepeats = false;
+
+  final bool includeRepeats;
 
   static final Set<LogicalKeyboardKey> _lockKeys = {
     LogicalKeyboardKey.capsLock,
@@ -525,7 +530,7 @@ class _NoLockKeySet extends LogicalKeySet {
 
   @override
   bool accepts(KeyEvent event, HardwareKeyboard state) {
-    if (event is! KeyDownEvent && event is! KeyRepeatEvent) return false;
+    if (event is! KeyDownEvent && !(includeRepeats && event is KeyRepeatEvent)) return false;
     final pressed = state.logicalKeysPressed.difference(_lockKeys);
     return triggers.contains(event.logicalKey) &&
         setEquals(LogicalKeyboardKey.collapseSynonyms(keys), LogicalKeyboardKey.collapseSynonyms(pressed));

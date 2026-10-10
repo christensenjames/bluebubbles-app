@@ -173,6 +173,7 @@ class ConversationViewState extends State<ConversationView> with ThemeHelpers<Co
   void _buildActionsMap() {
     _actionsMap = {
       OpenChatDetailsIntent: OpenChatDetailsAction(context, widget.chat.guid),
+      GoBackIntent: GoBackAction(context),
     };
 
     if (SettingsSvc.settings.enablePrivateAPI.value) {
@@ -271,13 +272,17 @@ class ConversationViewState extends State<ConversationView> with ThemeHelpers<Co
               if (LifecycleSvc.isBubble) return;
               return Navigator.of(context).pop();
             },
-            child: BBScaffold(
-              backgroundColor: windowEffect != WindowEffect.disabled ? Colors.transparent : colorScheme.surface,
-              extendBodyBehindAppBar: true,
-              appBar: _appBar,
-              body: Actions(
-                actions: _actionsMap,
-                child: _bodyContent,
+            child: Actions(
+              actions: _actionsMap,
+              // Focus lands inside these Actions even before the composer is focused, so Escape resolves GoBackIntent.
+              child: FocusScope(
+                autofocus: true,
+                child: BBScaffold(
+                  backgroundColor: windowEffect != WindowEffect.disabled ? Colors.transparent : colorScheme.surface,
+                  extendBodyBehindAppBar: true,
+                  appBar: _appBar,
+                  body: _bodyContent,
+                ),
               ),
             ),
           ),
