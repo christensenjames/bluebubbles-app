@@ -221,7 +221,7 @@ class _MaterialScheduledMessagesPanelState extends State<MaterialScheduledMessag
             padding: EdgeInsets.zero,
             physics: const NeverScrollableScrollPhysics(),
             shrinkWrap: true,
-            findChildIndexCallback: (key) => findChildIndexByKey(items, key, (item) => item.id.toString()),
+            findItemIndexCallback: (key) => findChildIndexByKey(items, key, (item) => item.id.toString()),
             itemCount: items.length,
             separatorBuilder: (context, _) => const Divider(height: 1, indent: 72),
             itemBuilder: (context, index) {

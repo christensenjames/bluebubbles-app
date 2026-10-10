@@ -120,7 +120,7 @@ class _ContactAvatarWidgetState extends State<ContactAvatarWidget> with ThemeHel
     if (!isNullOrEmpty(gradient) && gradient[0] == color) {
       widget.handle!.color = null;
     } else {
-      widget.handle!.color = color.value.toRadixString(16);
+      widget.handle!.color = color.toARGB32().toRadixString(16);
     }
 
     await widget.handle!.saveAsync(updateColor: true);
@@ -194,7 +194,7 @@ class _ContactAvatarWidgetState extends State<ContactAvatarWidget> with ThemeHel
         child: InkWell(
           customBorder: const CircleBorder(),
           splashColor: Colors.black,
-          onTap: (!widget.editable || (!kIsDesktop && widget.handle == null && contactV2 == null))
+          onTap: (!widget.editable || (widget.handle == null && (kIsDesktop || contactV2 == null)))
               ? null
               : () async {
                   if (kIsDesktop) {

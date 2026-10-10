@@ -22,7 +22,7 @@ String encryptAESCryptoJS(String plainText, String passphrase) {
     final encrypter = encrypt.Encrypter(encrypt.AES(key, mode: encrypt.AESMode.cbc, padding: "PKCS7"));
     final encrypted = encrypter.encrypt(plainText, iv: iv);
     Uint8List encryptedBytesWithSalt =
-        Uint8List.fromList(createUint8ListFromString("Salted__") + salt + encrypted.bytes);
+        Uint8List.fromList(ascii.encode("Salted__") + salt + encrypted.bytes);
     return base64.encode(encryptedBytesWithSalt);
   } catch (error) {
     rethrow;
@@ -48,7 +48,7 @@ String decryptAESCryptoJS(String encrypted, String passphrase) {
 }
 
 DerivedKeyAndIV deriveKeyAndIV(String passphrase, Uint8List salt) {
-  var password = createUint8ListFromString(passphrase);
+  var password = utf8.encode(passphrase);
   Uint8List concatenatedHashes = Uint8List(0);
   Uint8List currentHash = Uint8List(0);
   bool enoughBytesForKey = false;
@@ -70,14 +70,6 @@ DerivedKeyAndIV deriveKeyAndIV(String passphrase, Uint8List salt) {
   var keyBtyes = concatenatedHashes.sublist(0, 32);
   var ivBtyes = concatenatedHashes.sublist(32, 48);
   return DerivedKeyAndIV(keyBtyes, ivBtyes);
-}
-
-Uint8List createUint8ListFromString(String s) {
-  var ret = Uint8List(s.length);
-  for (var i = 0; i < s.length; i++) {
-    ret[i] = s.codeUnitAt(i);
-  }
-  return ret;
 }
 
 Uint8List genRandomWithNonZero(int seedLength) {

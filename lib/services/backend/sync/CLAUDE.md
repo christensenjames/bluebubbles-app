@@ -7,7 +7,6 @@
 | `sync_service.dart` | Entry point — decides full vs incremental; tracks `lastIncrementalSync` timestamp |
 | `full_sync_manager.dart` | Bulk fetch all chats + messages (initial setup or full resync); batches 25–100 msgs/chat |
 | `incremental_sync_manager.dart` | Delta sync since last run; paginated by timestamp/rowId; saves resume markers |
-| `chat_sync_manager.dart` | Syncs chat list only (no messages); tracks per-chat progress |
 | `handle_sync_manager.dart` | Syncs phone/email handles; requires server v1.5.2+; supports rollback |
 | `sync_manager_impl.dart` | Abstract base: `SyncStatus` enum, progress `double`, log output `RxList` |
 

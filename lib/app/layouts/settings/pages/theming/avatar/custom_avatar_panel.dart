@@ -86,8 +86,9 @@ class _CustomAvatarPanelState extends State<CustomAvatarPanel> with ThemeHelpers
                               text: "Reset",
                               isDestructive: true,
                               onPressed: () async {
+                                final nav = Navigator.of(context, rootNavigator: true);
                                 await ChatsSvc.setChatCustomAvatarPath(chat, null);
-                                Navigator.of(context, rootNavigator: true).pop();
+                                nav.pop();
                               },
                             ),
                             BBDialogAction(

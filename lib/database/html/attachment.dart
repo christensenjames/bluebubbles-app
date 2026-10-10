@@ -23,6 +23,7 @@ class Attachment {
   Map<String, dynamic>? metadata;
   Map<String, dynamic>? exif;
   bool hasLivePhoto;
+  bool isDownloaded;
 
   final message = ToOne<Message>();
 
@@ -42,6 +43,7 @@ class Attachment {
     this.bytes,
     this.webUrl,
     this.hasLivePhoto = false,
+    this.isDownloaded = false,
   });
 
   factory Attachment.fromMap(Map<String, dynamic> json) {
@@ -80,6 +82,7 @@ class Attachment {
       metadata: metadata is String ? null : metadata,
       exif: exif is String ? null : exif,
       hasLivePhoto: json["hasLivePhoto"] ?? false,
+      isDownloaded: json["isDownloaded"] ?? false,
     );
   }
 
@@ -165,6 +168,9 @@ class Attachment {
     if (attachment2.hasLivePhoto) {
       attachment1.hasLivePhoto = attachment2.hasLivePhoto;
     }
+    if (!attachment1.isDownloaded && attachment2.isDownloaded) {
+      attachment1.isDownloaded = attachment2.isDownloaded;
+    }
     return attachment1;
   }
 
@@ -182,6 +188,7 @@ class Attachment {
         "metadata": jsonEncode(metadata),
         "exif": jsonEncode(exif),
         "hasLivePhoto": hasLivePhoto,
+        "isDownloaded": isDownloaded,
       };
 
   bool get _isPortrait {

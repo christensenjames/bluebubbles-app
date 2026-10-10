@@ -48,7 +48,6 @@ class _PinnedOrderPanelState extends State<PinnedOrderPanel> {
 
   void _onReorder(int oldIndex, int newIndex) {
     setState(() {
-      if (oldIndex < newIndex) newIndex -= 1;
       final item = _pinnedChats.removeAt(oldIndex);
       _pinnedChats.insert(newIndex, item);
     });
@@ -112,7 +111,7 @@ class _PinnedOrderPanelState extends State<PinnedOrderPanel> {
               : ReorderableListView.builder(
                   buildDefaultDragHandles: false,
                   padding: const EdgeInsets.symmetric(vertical: 8),
-                  onReorder: _onReorder,
+                  onReorderItem: _onReorder,
                   header: Padding(
                     padding: const EdgeInsets.fromLTRB(15, 5, 15, 8),
                     child: Text(

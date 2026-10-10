@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:math';
 
 import 'package:bluebubbles/database/models.dart';
@@ -37,18 +38,26 @@ class CupertinoConversationListState extends State<CupertinoConversationList> wi
 
   ConversationListController get controller => widget.parentController;
 
+  StreamSubscription? _windowEffectSub;
+
   @override
   void initState() {
     super.initState();
 
     // update widget when background color changes
     if (kIsDesktop) {
-      SettingsSvc.settings.windowEffect.listen((WindowEffect effect) {
+      _windowEffectSub = SettingsSvc.settings.windowEffect.listen((WindowEffect effect) {
         if (mounted) {
           setState(() {});
         }
       });
     }
+  }
+
+  @override
+  void dispose() {
+    _windowEffectSub?.cancel();
+    super.dispose();
   }
 
   @override

@@ -181,20 +181,20 @@ class LaserBeam {
     required this.globalAngleVelocity,
   }) {
     if (originalGlobalAngle >= 0 && originalGlobalAngle < pi / 2) {
-      globalAngleStops = const _AngleRange(0, pi / 2);
+      _globalAngleStops = const _AngleRange(0, pi / 2);
     } else if (originalGlobalAngle >= pi / 2 && originalGlobalAngle < pi) {
-      globalAngleStops = const _AngleRange(pi / 2, pi);
+      _globalAngleStops = const _AngleRange(pi / 2, pi);
     } else if (originalGlobalAngle >= pi && originalGlobalAngle < 3 * pi / 2) {
-      globalAngleStops = const _AngleRange(pi, 3 * pi / 2);
+      _globalAngleStops = const _AngleRange(pi, 3 * pi / 2);
     } else {
-      globalAngleStops = const _AngleRange(3 * pi / 2, 2 * pi);
+      _globalAngleStops = const _AngleRange(3 * pi / 2, 2 * pi);
     }
     if (internalWidth > originalInternalWidth) {
       internalWidthDirection = Direction.down;
     } else {
       internalWidthDirection = Direction.up;
     }
-    if (globalAngle > globalAngleStops.max) {
+    if (globalAngle > _globalAngleStops.max) {
       globalAngleDirection = Direction.down;
     } else {
       globalAngleDirection = Direction.up;
@@ -205,7 +205,7 @@ class LaserBeam {
   final Point<double> position;
   final double originalInternalWidth;
   final double originalGlobalAngle;
-  late final _AngleRange globalAngleStops;
+  late final _AngleRange _globalAngleStops;
   double internalWidth;
   double globalAngle;
   final double internalWidthVelocity;
@@ -222,13 +222,13 @@ class LaserBeam {
       internalWidthDirection = Direction.up;
       internalWidth = internalWidth + internalWidthVelocity;
     }
-    if (globalAngle >= globalAngleStops.max ||
-        (globalAngleDirection == Direction.down && globalAngle >= globalAngleStops.min)) {
+    if (globalAngle >= _globalAngleStops.max ||
+        (globalAngleDirection == Direction.down && globalAngle >= _globalAngleStops.min)) {
       globalAngleDirection = Direction.down;
       globalAngle = globalAngle - globalAngleVelocity;
     }
-    if (globalAngle <= globalAngleStops.min ||
-        (globalAngleDirection == Direction.up && globalAngle <= globalAngleStops.max)) {
+    if (globalAngle <= _globalAngleStops.min ||
+        (globalAngleDirection == Direction.up && globalAngle <= _globalAngleStops.max)) {
       globalAngleDirection = Direction.up;
       globalAngle = globalAngle + globalAngleVelocity;
     }

@@ -109,6 +109,8 @@ All Flutter builds below are long and were intentionally not run for this recon;
 
 Ranked sources, with paths and rationale; ledger content is not copied here:
 
+Before any of these, take `.claude/next-run-queue.md`: units James has already approved for a future run, in order.
+
 1. `/home/james/Projects/bluebubbles-app/handoff.md` — highest priority because its `Continue` and `Waiting On` sections contain the current session's open work and external dependencies.
 2. `/home/james/Projects/bluebubbles-app/plans/` (`README.md`, `001-shorten-received-message-insertion.md`, `002-typing-indicator-scale-from-zero.md`, `003-ease-in-on-text-field-pickers.md`, `004-reaction-details-route-duration.md`) — dedicated animation ledger; the README table marks all four plans `DONE`, so it is primarily a stale-gap check rather than an open queue.
 3. `/home/james/Projects/bluebubbles-app/CHANGELOG.md` — current decisions and recently landed work; useful for avoiding duplicate proposals and preserving deliberate non-changes.

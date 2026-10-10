@@ -548,6 +548,7 @@ class ChatCreatorState extends State<ChatCreator> with ThemeHelpers {
                               );
                             } else {
                               if (!(createCompleter?.isCompleted ?? true)) return;
+                              if (!context.mounted) return;
 
                               // Attachments cannot be sent when creating a brand-new chat because
                               // the server's createChat API only accepts a text body. Show an error
@@ -613,7 +614,10 @@ class ChatCreatorState extends State<ChatCreator> with ThemeHelpers {
                                 // Let awaiters know we completed
                                 createCompleter?.complete();
 
-                                if (createDialogCtx != null) Navigator.of(createDialogCtx!).pop();
+                                final createDialogCtxNow = createDialogCtx;
+                                if (createDialogCtxNow != null && createDialogCtxNow.mounted) {
+                                  Navigator.of(createDialogCtxNow).pop();
+                                }
                                 if (!mounted) return;
                                 NavigationSvc.pushAndRemoveUntil(
                                   Get.context!,
@@ -630,8 +634,11 @@ class ChatCreatorState extends State<ChatCreator> with ThemeHelpers {
                                   ),
                                 );
                               }).catchError((error) {
-                                if (createDialogCtx != null) Navigator.of(createDialogCtx!).pop();
-                                if (!mounted) {
+                                final createDialogCtxNow = createDialogCtx;
+                                if (createDialogCtxNow != null && createDialogCtxNow.mounted) {
+                                  Navigator.of(createDialogCtxNow).pop();
+                                }
+                                if (!context.mounted) {
                                   if (!createCompleter!.isCompleted) createCompleter?.completeError(error);
                                   return;
                                 }

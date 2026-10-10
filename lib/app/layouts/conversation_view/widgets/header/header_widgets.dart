@@ -124,7 +124,8 @@ class ManualMarkState extends State<ManualMark> with ThemeHelpers {
                   await ChatsSvc.setChatHasUnread(chat, wasRead, force: true, privateMark: false);
                 } catch (e) {
                   final detail = e is Response ? e.data?["error"]?["message"]?.toString() : null;
-                  showSnackbar("Error", "Failed to mark ${wasRead ? "unread" : "read"}: ${detail ?? e}");
+                  showSnackbar("Error", "Failed to mark ${wasRead ? "unread" : "read"}: ${detail ?? e}",
+                      type: SnackbarType.error);
                 } finally {
                   if (mounted) setState(() => marking = false);
                 }
@@ -164,6 +165,7 @@ class ManualMarkState extends State<ManualMark> with ThemeHelpers {
                 }
                 widget.controller.inSelectMode.value = false;
                 widget.controller.selected.clear();
+                if (!context.mounted) return;
                 NavigationSvc.pushAndRemoveUntil(
                   context,
                   NewChatCreator(

@@ -209,11 +209,13 @@ class ChatCreatorController extends StatefulController {
   // Contact selection
   // ---------------------------------------------------------------------------
 
-  Future<void> addSelected(SelectedContact contact) async {
+  /// Returns false when the server can't add [contact] to the current selection.
+  Future<bool> addSelected(SelectedContact contact) async {
+    if (selectedContacts.any((s) => s.address == contact.address)) return true;
     // Guard: server doesn't support group chats
-    if (selectedContacts.length > 1 && !canCreateGroupChats) {
+    if (selectedContacts.isNotEmpty && !canCreateGroupChats) {
       showSnackbar('Not Supported', 'Your server does not support creating group chats', type: SnackbarType.error);
-      return;
+      return false;
     }
 
     selectedContacts.add(contact);
@@ -232,6 +234,7 @@ class ChatCreatorController extends StatefulController {
 
     // Keep focus on the address field so the user can keep adding recipients.
     addressNode.requestFocus();
+    return true;
   }
 
   Future<void> _fetchIMessageState(SelectedContact contact) async {
@@ -446,23 +449,26 @@ class ChatCreatorController extends StatefulController {
     return phone;
   }
 
-  void addressOnSubmitted() {
+  Future<bool> addressOnSubmitted() {
     final text = addressController.text.trim();
     if (text.isEmail || text.isPhoneNumber) {
       final address = text.isEmail ? text : normalizeToE164(text);
-      addSelected(SelectedContact(displayName: address, address: address));
+      return addSelected(SelectedContact(displayName: address, address: address));
     } else if (filteredContacts.length == 1) {
       final possibleAddresses = [
         ...filteredContacts.first.phoneNumbers.map((p) => p.number),
         ...filteredContacts.first.emailAddresses.map((e) => e.address),
       ];
       if (possibleAddresses.length == 1) {
-        addSelected(SelectedContact(
+        return addSelected(SelectedContact(
           displayName: filteredContacts.first.computedDisplayName,
           address: possibleAddresses.first,
         ));
       }
     }
+    if (text.isEmpty) return Future.value(true);
+    showSnackbar('Error', 'Choose a recipient for "$text" from the list', type: SnackbarType.error);
+    return Future.value(false);
   }
 
   // ---------------------------------------------------------------------------
@@ -473,7 +479,8 @@ class ChatCreatorController extends StatefulController {
   /// [context] is needed for showing dialogs and navigating.
   Future<void> sendMessage(BuildContext context, {String? effectId}) async {
     // Auto-submit any typed address before proceeding.
-    addressOnSubmitted();
+    final typed = addressController.text.trim().isNotEmpty;
+    if (!await addressOnSubmitted()) return;
 
     // Guard: if nothing is selected and no chat is resolved there is no
     // recipient — do nothing instead of crashing trying to create a chat
@@ -481,7 +488,8 @@ class ChatCreatorController extends StatefulController {
     if (selectedContacts.isEmpty && activeController.value == null) return;
 
     // Re-check for an existing chat in case the debounce hasn't fired yet.
-    Chat? resolvedChat = activeController.value?.chat ?? await findExistingChat(checkDeleted: true, update: false);
+    Chat? resolvedChat =
+        (typed ? null : activeController.value?.chat) ?? await findExistingChat(checkDeleted: true, update: false);
     bool messageSentWithChat = false;
     // Messages already synced to the DB during the new-chat creation flow.
     // Pre-seeded into messagesService.struct before navigation so MessagesView's
@@ -504,6 +512,8 @@ class ChatCreatorController extends StatefulController {
         return;
       }
 
+      if (!context.mounted) return;
+
       if (!(_createCompleter?.isCompleted ?? true)) return;
       _createCompleter = Completer();
       isSending.value = true;
@@ -512,6 +522,7 @@ class ChatCreatorController extends StatefulController {
           selectedContacts.map((c) => c.address.isEmail ? c.address : cleansePhoneNumber(c.address)).toList();
       final method = selectedService.value.method;
 
+      bool dialogOpen = true;
       showDialog(
         context: context,
         barrierDismissible: false,
@@ -528,7 +539,9 @@ class ChatCreatorController extends StatefulController {
             ),
           ),
         ),
-      );
+      ).then((_) => dialogOpen = false);
+
+      final rootNav = Navigator.of(context, rootNavigator: true);
 
       try {
         // For single-contact chats, try to find an existing chat on the server via a
@@ -580,12 +593,14 @@ class ChatCreatorController extends StatefulController {
 
         _createCompleter?.complete();
         isSending.value = false;
-        Navigator.of(context, rootNavigator: true).pop(); // dismiss loading dialog
+        if (dialogOpen) rootNav.pop();
       } catch (error) {
-        Navigator.of(context, rootNavigator: true).pop(); // dismiss loading dialog
+        if (dialogOpen) rootNav.pop();
 
         _createCompleter?.completeError(error);
         isSending.value = false;
+
+        if (!context.mounted) return;
 
         showBBDialog(
           barrierDismissible: false,

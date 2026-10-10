@@ -505,10 +505,7 @@ class StartupTasks {
 
       final activeChat = ChatsSvc.activeChat;
       if (activeChat != null) {
-        // Skip marking the active chat as read when we know a notification-tap
-        // is about to redirect us to a *different* chat.  pendingOpenChatGuid is
-        // set synchronously in IntentsService.openChat before the first await, so
-        // it is always visible here even though we are inside an async callback.
+        // A notification tap may be switching to another chat; don't mark the one being left as read.
         final pendingGuid = (!kIsWeb && !kIsDesktop && GetIt.I.isRegistered<IntentsService>())
             ? GetIt.I<IntentsService>().pendingOpenChatGuid
             : null;

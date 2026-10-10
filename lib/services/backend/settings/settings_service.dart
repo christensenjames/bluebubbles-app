@@ -173,6 +173,9 @@ class SettingsService {
             !settings.enablePrivateAPI.value &&
             settings.serverPrivateAPI.value == true &&
             !PrefsSvc.server.hasSeenPrivateApiEnableTip(),
+        'privateApi': response.data['data']['private_api'] is bool ? response.data['data']['private_api'] : null,
+        'detectedICloud':
+            response.data['data']['detected_icloud'] is String ? response.data['data']['detected_icloud'] : null,
       };
     }
 
@@ -213,6 +216,12 @@ class SettingsService {
     try {
       final details = await ServerInterface.getServerDetails();
       _serverDetails.value = details;
+      if (details.privateApiEnabled != null) {
+        settings.serverPrivateAPI.value = details.privateApiEnabled;
+      }
+      if (settings.iCloudAccount.isEmpty && details.iCloudAccount != null) {
+        settings.iCloudAccount.value = details.iCloudAccount!;
+      }
 
       await PrefsSvc.server.setServerDetails(
         macOSVersion: details.macOSVersion,

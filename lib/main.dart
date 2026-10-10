@@ -65,12 +65,22 @@ Future<Null> bubble() async {
 
 //ignore: prefer_void_to_null
 Future<Null> initApp(bool bubble, List<String> arguments) async {
+  // Startup failures can reach the error handlers before BaseLogger is registered.
+  bool loggerReady() => GetIt.I.isRegistered<BaseLogger>() && GetIt.I.isReadySync<BaseLogger>();
+
   runZonedGuarded<Future<void>>(() async {
     WidgetsFlutterBinding.ensureInitialized();
 
     /* ----- DESKTOP NATIVE SPLASH STATUS ----- */
     // Pushes startup status to the native splash; detached once it's dismissed.
     void Function()? detachSplashStatus;
+    Future<void> dismissSplash() async {
+      try {
+        await const MethodChannel('bluebubbles/splash').invokeMethod('closeSplash');
+      } catch (_) {}
+      detachSplashStatus?.call();
+    }
+
     if (kIsDesktop && !bubble && arguments.firstOrNull != "minimized") {
       const splashChannel = MethodChannel('bluebubbles/splash');
       bool titleBarApplied = false;
@@ -103,18 +113,22 @@ Future<Null> initApp(bool bubble, List<String> arguments) async {
       };
     }
 
-    await StartupTasks.initStartupServices(isBubble: bubble);
-
     /* ----- RANDOM STUFF INITIALIZATION ----- */
     HttpOverrides.global = CustomHttpContext();
     dynamic exception;
     StackTrace? stacktrace;
 
     FlutterError.onError = (details) {
-      Logger.error("Rendering Error: ${details.exceptionAsString()}", error: details.exception, trace: details.stack);
+      if (loggerReady()) {
+        Logger.error("Rendering Error: ${details.exceptionAsString()}", error: details.exception, trace: details.stack);
+      } else {
+        FlutterError.presentError(details);
+      }
     };
 
     try {
+      await StartupTasks.initStartupServices(isBubble: bubble);
+
       // Once all the services are initialized, we need to perform some
       // startup tasks to ensure that the app has the information it needs.
       StartupTasks.onStartup().then((_) {
@@ -207,10 +221,7 @@ Future<Null> initApp(bool bubble, List<String> arguments) async {
           } else {
             await windowManager.hide();
           }
-          try {
-            await const MethodChannel('bluebubbles/splash').invokeMethod('closeSplash');
-          } catch (_) {}
-          detachSplashStatus?.call();
+          await dismissSplash();
           unawaited(ThemeSvc.initDynamicColorsDeferred()); // Linux: deferred past splash
           bool shouldAuthenticate =
               !Platform.isLinux && SettingsSvc.canAuthenticate && SettingsSvc.settings.shouldSecure.value;
@@ -226,8 +237,6 @@ Future<Null> initApp(bool bubble, List<String> arguments) async {
       /* ----- EMOJI FONT INITIALIZATION ----- */
       Future.microtask(() => FilesystemSvc.checkFont());
     } catch (e, s) {
-      print(s.toString());
-      Logger.error("Failure during app initialization!", error: e, trace: s);
       exception = e;
       stacktrace = s;
     }
@@ -249,12 +258,22 @@ Future<Null> initApp(bool bubble, List<String> arguments) async {
       )));
     } else {
       runApp(FailureToStart(e: exception, s: stacktrace));
+      if (kIsDesktop) {
+        // Windows (BDW_HIDE_ON_STARTUP) ignores show() until bitsdojo's window-ready callback has fired.
+        doWhenWindowReady(() async {
+          await windowManager.ensureInitialized();
+          await windowManager.show();
+          await dismissSplash();
+        });
+      }
       throw Exception("$exception $stacktrace");
     }
   }, (dynamic error, StackTrace stackTrace) {
     print("Failure during app initialization: $error");
     print(stackTrace);
-    Logger.error("Unhandled Exception", trace: stackTrace, error: error);
+    if (loggerReady()) {
+      Logger.error("Unhandled Exception", trace: stackTrace, error: error);
+    }
   });
 }
 
@@ -353,39 +372,39 @@ class Main extends StatelessWidget {
         ),
         home: const Home(),
         shortcuts: {
-          LogicalKeySet(LogicalKeyboardKey.control, LogicalKeyboardKey.comma): const OpenSettingsIntent(),
-          LogicalKeySet(LogicalKeyboardKey.alt, LogicalKeyboardKey.keyN): const OpenNewChatCreatorIntent(),
+          _NoLockKeySet(LogicalKeyboardKey.control, LogicalKeyboardKey.comma): const OpenSettingsIntent(),
+          _NoLockKeySet(LogicalKeyboardKey.alt, LogicalKeyboardKey.keyN): const OpenNewChatCreatorIntent(),
           if (kIsDesktop)
-            LogicalKeySet(LogicalKeyboardKey.control, LogicalKeyboardKey.keyN): const OpenNewChatCreatorIntent(),
-          LogicalKeySet(LogicalKeyboardKey.control, LogicalKeyboardKey.keyF): const OpenSearchIntent(),
-          LogicalKeySet(LogicalKeyboardKey.alt, LogicalKeyboardKey.keyR): const ReplyRecentIntent(),
-          if (kIsDesktop) LogicalKeySet(LogicalKeyboardKey.control, LogicalKeyboardKey.keyR): const ReplyRecentIntent(),
-          LogicalKeySet(LogicalKeyboardKey.alt, LogicalKeyboardKey.keyG): const StartIncrementalSyncIntent(),
+            _NoLockKeySet(LogicalKeyboardKey.control, LogicalKeyboardKey.keyN): const OpenNewChatCreatorIntent(),
+          _NoLockKeySet(LogicalKeyboardKey.control, LogicalKeyboardKey.keyF): const OpenSearchIntent(),
+          _NoLockKeySet(LogicalKeyboardKey.alt, LogicalKeyboardKey.keyR): const ReplyRecentIntent(),
+          if (kIsDesktop) _NoLockKeySet(LogicalKeyboardKey.control, LogicalKeyboardKey.keyR): const ReplyRecentIntent(),
+          _NoLockKeySet(LogicalKeyboardKey.alt, LogicalKeyboardKey.keyG): const StartIncrementalSyncIntent(),
           if (kIsDesktop)
-            LogicalKeySet(LogicalKeyboardKey.control, LogicalKeyboardKey.shift, LogicalKeyboardKey.keyR):
+            _NoLockKeySet(LogicalKeyboardKey.control, LogicalKeyboardKey.shift, LogicalKeyboardKey.keyR):
                 const StartIncrementalSyncIntent(),
           if (kIsDesktop)
-            LogicalKeySet(LogicalKeyboardKey.control, LogicalKeyboardKey.keyG): const StartIncrementalSyncIntent(),
-          LogicalKeySet(LogicalKeyboardKey.control, LogicalKeyboardKey.shift, LogicalKeyboardKey.exclamation):
+            _NoLockKeySet(LogicalKeyboardKey.control, LogicalKeyboardKey.keyG): const StartIncrementalSyncIntent(),
+          _NoLockKeySet(LogicalKeyboardKey.control, LogicalKeyboardKey.shift, LogicalKeyboardKey.exclamation):
               const HeartRecentIntent(),
-          LogicalKeySet(LogicalKeyboardKey.control, LogicalKeyboardKey.shift, LogicalKeyboardKey.at):
+          _NoLockKeySet(LogicalKeyboardKey.control, LogicalKeyboardKey.shift, LogicalKeyboardKey.at):
               const LikeRecentIntent(),
-          LogicalKeySet(LogicalKeyboardKey.control, LogicalKeyboardKey.shift, LogicalKeyboardKey.numberSign):
+          _NoLockKeySet(LogicalKeyboardKey.control, LogicalKeyboardKey.shift, LogicalKeyboardKey.numberSign):
               const DislikeRecentIntent(),
-          LogicalKeySet(LogicalKeyboardKey.control, LogicalKeyboardKey.shift, LogicalKeyboardKey.dollar):
+          _NoLockKeySet(LogicalKeyboardKey.control, LogicalKeyboardKey.shift, LogicalKeyboardKey.dollar):
               const LaughRecentIntent(),
-          LogicalKeySet(LogicalKeyboardKey.control, LogicalKeyboardKey.shift, LogicalKeyboardKey.percent):
+          _NoLockKeySet(LogicalKeyboardKey.control, LogicalKeyboardKey.shift, LogicalKeyboardKey.percent):
               const EmphasizeRecentIntent(),
-          LogicalKeySet(LogicalKeyboardKey.control, LogicalKeyboardKey.shift, LogicalKeyboardKey.caret):
+          _NoLockKeySet(LogicalKeyboardKey.control, LogicalKeyboardKey.shift, LogicalKeyboardKey.caret):
               const QuestionRecentIntent(),
-          LogicalKeySet(LogicalKeyboardKey.control, LogicalKeyboardKey.arrowDown): const OpenNextChatIntent(),
-          if (kIsDesktop) LogicalKeySet(LogicalKeyboardKey.control, LogicalKeyboardKey.tab): const OpenNextChatIntent(),
-          LogicalKeySet(LogicalKeyboardKey.control, LogicalKeyboardKey.arrowUp): const OpenPreviousChatIntent(),
+          _NoLockKeySet(LogicalKeyboardKey.control, LogicalKeyboardKey.arrowDown): const OpenNextChatIntent(),
+          if (kIsDesktop) _NoLockKeySet(LogicalKeyboardKey.control, LogicalKeyboardKey.tab): const OpenNextChatIntent(),
+          _NoLockKeySet(LogicalKeyboardKey.control, LogicalKeyboardKey.arrowUp): const OpenPreviousChatIntent(),
           if (kIsDesktop)
-            LogicalKeySet(LogicalKeyboardKey.control, LogicalKeyboardKey.shift, LogicalKeyboardKey.tab):
+            _NoLockKeySet(LogicalKeyboardKey.control, LogicalKeyboardKey.shift, LogicalKeyboardKey.tab):
                 const OpenPreviousChatIntent(),
-          LogicalKeySet(LogicalKeyboardKey.control, LogicalKeyboardKey.keyI): const OpenChatDetailsIntent(),
-          LogicalKeySet(LogicalKeyboardKey.escape): const GoBackIntent(),
+          _NoLockKeySet(LogicalKeyboardKey.control, LogicalKeyboardKey.keyI): const OpenChatDetailsIntent(),
+          _NoLockKeySet(LogicalKeyboardKey.escape): const GoBackIntent(),
         },
         builder: (context, child) => SafeArea(
           top: false,
@@ -491,6 +510,25 @@ class Main extends StatelessWidget {
         defaultTransition: Transition.cupertino,
       ),
     );
+  }
+}
+
+// The GTK embedder reports a lock mode that was already on as a held lock key, which LogicalKeySet counts as extra.
+class _NoLockKeySet extends LogicalKeySet {
+  _NoLockKeySet(super.key1, [super.key2, super.key3]);
+
+  static final Set<LogicalKeyboardKey> _lockKeys = {
+    LogicalKeyboardKey.capsLock,
+    LogicalKeyboardKey.numLock,
+    LogicalKeyboardKey.scrollLock,
+  };
+
+  @override
+  bool accepts(KeyEvent event, HardwareKeyboard state) {
+    if (event is! KeyDownEvent && event is! KeyRepeatEvent) return false;
+    final pressed = state.logicalKeysPressed.difference(_lockKeys);
+    return triggers.contains(event.logicalKey) &&
+        setEquals(LogicalKeyboardKey.collapseSynonyms(keys), LogicalKeyboardKey.collapseSynonyms(pressed));
   }
 }
 

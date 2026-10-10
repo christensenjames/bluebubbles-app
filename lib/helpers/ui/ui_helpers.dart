@@ -1011,3 +1011,7 @@ int? findChildIndexByKey<T>(List<T> input, Key key, Function(T) getField) {
 
   return index == -1 ? null : index;
 }
+
+extension EnterKey on LogicalKeyboardKey {
+  bool get isEnter => this == LogicalKeyboardKey.enter || this == LogicalKeyboardKey.numpadEnter;
+}

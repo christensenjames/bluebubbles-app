@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:bluebubbles/helpers/helpers.dart';
 import 'package:bluebubbles/app/layouts/conversation_list/pages/conversation_list.dart';
 import 'package:bluebubbles/app/layouts/conversation_list/widgets/conversation_list_fab.dart';
@@ -28,18 +30,25 @@ class _MaterialConversationListState extends State<MaterialConversationList> {
       ? context.theme.colorScheme.surface
       : Colors.transparent;
   ConversationListController get controller => widget.parentController;
+  StreamSubscription? _windowEffectSub;
 
   @override
   void initState() {
     super.initState();
     // update widget when background color changes
     if (kIsDesktop) {
-      SettingsSvc.settings.windowEffect.listen((WindowEffect effect) {
+      _windowEffectSub = SettingsSvc.settings.windowEffect.listen((WindowEffect effect) {
         if (mounted) {
           setState(() {});
         }
       });
     }
+  }
+
+  @override
+  void dispose() {
+    _windowEffectSub?.cancel();
+    super.dispose();
   }
 
   @override

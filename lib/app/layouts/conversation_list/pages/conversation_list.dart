@@ -80,12 +80,16 @@ class ConversationListController extends StatefulController {
     final XFile? file = await ImagePicker().pickImage(source: ImageSource.camera);
     if (file == null) return;
 
+    final bytes = await file.readAsBytes();
+    final size = await file.length();
+    if (!context.mounted) return;
+
     openNewChatCreator(context, existing: [
       PlatformFile(
         name: basename(file.path),
         path: file.path,
-        bytes: await file.readAsBytes(),
-        size: await file.length(),
+        bytes: bytes,
+        size: size,
       )
     ]);
   }
@@ -165,10 +169,11 @@ class _ConversationListState extends CustomState<ConversationList, void, Convers
           if (kIsWeb) {
             await ChatsSvc.loadedAllChats.future;
           }
+          final chat = kIsWeb ? (await Chat.findOneWeb(guid: lastOpenedChat))! : Chat.findOne(guid: lastOpenedChat)!;
+          if (!mounted) return;
           NavigationSvc.pushAndRemoveUntil(
             context,
-            ConversationView(
-                chat: kIsWeb ? (await Chat.findOneWeb(guid: lastOpenedChat))! : Chat.findOne(guid: lastOpenedChat)!),
+            ConversationView(chat: chat),
             (route) => route.isFirst,
           );
         });

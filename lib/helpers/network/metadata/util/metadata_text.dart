@@ -1,4 +1,5 @@
 import 'package:bluebubbles/helpers/types/extensions/extensions.dart';
+import 'package:characters/characters.dart';
 
 /// Cleanup routines applied to every string that comes out of a parser.
 ///
@@ -79,13 +80,15 @@ abstract final class MetadataText {
     if (value.isEmpty) return null;
     if (_placeholders.contains(value.toLowerCase())) return null;
 
-    if (value.length > maxLength) {
+    final graphemes = value.characters;
+    if (graphemes.length > maxLength) {
       // Cut on a word boundary when there is one nearby so the ellipsis does
-      // not land mid-word.
-      final hardCut = value.substring(0, maxLength);
+      // not land mid-word. Grapheme clusters, so the cut can never split a
+      // surrogate pair, a combining mark or a ZWJ emoji sequence.
+      final hardCut = graphemes.take(maxLength).toList();
       final lastSpace = hardCut.lastIndexOf(' ');
-      final body = lastSpace > maxLength - 40 ? hardCut.substring(0, lastSpace) : hardCut;
-      value = '${body.trimRight()}\u{2026}';
+      final body = lastSpace > maxLength - 40 ? hardCut.take(lastSpace) : hardCut;
+      value = '${body.join().trimRight()}\u{2026}';
     }
 
     return value;

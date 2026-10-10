@@ -171,8 +171,7 @@ class ThemeStudioController extends StatefulController {
     if (config?.onApply != null) {
       await config!.onApply!(lightTheme, darkTheme);
     } else {
-      await ThemeSvc.changeTheme(context, light: lightTheme);
-      await ThemeSvc.changeTheme(context, dark: darkTheme);
+      await ThemeSvc.changeTheme(context, light: lightTheme, dark: darkTheme);
       EventDispatcherSvc.emit('theme-update', null);
     }
     pendingChanges.value = false;
@@ -319,7 +318,7 @@ class ThemeStudioController extends StatefulController {
     pendingChanges.value = true;
   }
 
-  Future<void> deleteTheme(BuildContext context) async {
+  Future<void> deleteTheme() async {
     if (activeTheme.isPreset) return;
     activeTheme.delete();
     if (isChatScoped) {
@@ -327,10 +326,10 @@ class ThemeStudioController extends StatefulController {
       lightTheme = ThemeStruct.resolveByName(_sourceLightThemeName, Brightness.light);
     } else if (isDark.value) {
       darkTheme = await ThemeSvc.revertToPreviousDarkTheme();
-      await ThemeSvc.changeTheme(context, dark: darkTheme);
+      await ThemeSvc.changeTheme(Get.context!, dark: darkTheme);
     } else {
       lightTheme = await ThemeSvc.revertToPreviousLightTheme();
-      await ThemeSvc.changeTheme(context, light: lightTheme);
+      await ThemeSvc.changeTheme(Get.context!, light: lightTheme);
     }
     _reload();
     EventDispatcherSvc.emit('theme-update', null);

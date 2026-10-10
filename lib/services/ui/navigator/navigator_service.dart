@@ -46,6 +46,16 @@ class NavigatorService {
       SettingsSvc.settings.tabletMode.value &&
       context.width > 600;
 
+  /// Closes [route] without touching routes above it. Pops when [route] is on top, because only a pop reaches
+  /// [routeObserver] subscribers' didPopNext; removeRoute does not.
+  void closeRoute(Route route) {
+    if (route.isCurrent) {
+      route.navigator!.pop();
+    } else if (route.isActive) {
+      route.navigator!.removeRoute(route);
+    }
+  }
+
   /// grab the available screen width, returning the split screen width if applicable
   /// this should *always* be used in place of context.width or similar
   double width(BuildContext context) {

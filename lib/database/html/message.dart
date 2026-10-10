@@ -59,6 +59,8 @@ class Message {
   int get error => _error.value;
   set error(int i) => _error.value = i;
 
+  String? errorMessage;
+
   final Rxn<DateTime> _dateRead = Rxn<DateTime>();
   DateTime? get dateRead => _dateRead.value;
   set dateRead(DateTime? d) => _dateRead.value = d;
@@ -84,6 +86,7 @@ class Message {
     this.subject,
     this.country,
     int? error,
+    this.errorMessage,
     this.dateCreated,
     DateTime? dateRead,
     DateTime? dateDelivered,
@@ -173,10 +176,11 @@ class Message {
       guid: json["guid"],
       handleId: json["handleId"] ?? 0,
       otherHandle: json["otherHandle"],
-      text: sanitizeString(json["text"] ?? attributedBody.firstOrNull?.string),
+      text: sanitizeString(attributedBody.firstOrNull?.string ?? json["text"]),
       subject: json["subject"],
       country: json["country"],
       error: json["_error"] ?? 0,
+      errorMessage: json['errorMessage'] as String?,
       dateCreated: parseDate(json["dateCreated"]),
       dateRead: parseDate(json["dateRead"]),
       dateDelivered: parseDate(json["dateDelivered"]),
@@ -635,6 +639,7 @@ class Message {
       "subject": subject,
       "country": country,
       "_error": _error.value,
+      "errorMessage": errorMessage,
       "dateCreated": dateCreated?.millisecondsSinceEpoch,
       "dateRead": _dateRead.value?.millisecondsSinceEpoch,
       "dateDelivered": _dateDelivered.value?.millisecondsSinceEpoch,

@@ -36,6 +36,25 @@ class _OutgoingEntry {
   _OutgoingEntry(this.item);
 }
 
+class _PartOutcome {
+  Object? failure;
+  bool anySent = false;
+  bool canceledByUser = false;
+}
+
+/// What an [OutgoingQueueItem.completer] completes with when one of the item's parts failed to send or the user
+/// canceled it.
+class OutgoingPartFailure implements Exception {
+  OutgoingPartFailure(this.cause, {required this.anySent, required this.canceledByUser});
+
+  final Object cause;
+  final bool anySent;
+  final bool canceledByUser;
+
+  @override
+  String toString() => 'OutgoingPartFailure(anySent: $anySent, canceledByUser: $canceledByUser): $cause';
+}
+
 // ─── Handler ─────────────────────────────────────────────────────────────────
 
 /// Processes all outgoing message events — text, multipart, and attachments.
@@ -168,6 +187,8 @@ class OutgoingMessageHandler {
 
   final Queue<_OutgoingEntry> _queue = Queue();
   bool _isProcessing = false;
+  Completer<void>? _dispatchingCompleter;
+  final _partOutcomes = Expando<_PartOutcome>();
 
   /// Reactive set of chat GUIDs that currently have one or more items waiting
   /// in the queue.  Widgets can wrap reads of this inside [Obx] to show or
@@ -354,36 +375,63 @@ class OutgoingMessageHandler {
     if (_isProcessing) return;
     _isProcessing = true;
 
-    while (_queue.isNotEmpty) {
-      final entry = _queue.removeFirst();
-      final item = entry.item;
+    try {
+      while (_queue.isNotEmpty) {
+        final entry = _queue.removeFirst();
+        final item = entry.item;
+        final completer = item.completer;
+        _dispatchingCompleter = completer;
 
-      try {
-        await _handleSend(() => _dispatchItem(item), item.chat).catchError((err) async {
-          if (SettingsSvc.settings.cancelQueuedMessages.value) {
-            // Cancel all subsequent messages for the same chat.
-            final toCancel = _queue.where((e) => e.item.chat.guid == item.chat.guid).map((e) => e.item).toList();
-            for (final pending in toCancel) {
-              _queue.removeWhere((e) => e.item == pending);
-              final m = pending.message;
-              final tempGuid = m.guid!;
-              m.error = MessageError.BAD_REQUEST.code;
-              m.errorMessage = 'Canceled due to previous failure';
-              await _finalizeOutgoingFailure(pending.chat, m, tempGuid);
+        var sent = true;
+        try {
+          await _handleSend(() => _dispatchItem(item), item.chat).catchError((err) async {
+            sent = false;
+            _settlePart(completer, failure: err);
+            if (SettingsSvc.settings.cancelQueuedMessages.value) {
+              // Cancel all subsequent messages for the same chat.
+              final toCancel = _queue.where((e) => e.item.chat.guid == item.chat.guid).map((e) => e.item).toList();
+              for (final pending in toCancel) {
+                _queue.removeWhere((e) => e.item == pending);
+                final m = pending.message;
+                final tempGuid = m.guid!;
+                m.error = MessageError.BAD_REQUEST.code;
+                m.errorMessage = 'Canceled due to previous failure';
+                _settlePart(pending.completer, failure: m.errorMessage!);
+                await _finalizeOutgoingFailure(pending.chat, m, tempGuid);
+              }
             }
-          }
-        });
-        item.completer?.complete();
-      } catch (ex, st) {
-        Logger.error('Failed to handle outgoing queue item', error: ex, trace: st, tag: _tag);
-        item.completer?.completeError(ex);
+          });
+        } catch (ex, st) {
+          Logger.error('Failed to handle outgoing queue item', error: ex, trace: st, tag: _tag);
+          sent = false;
+          _settlePart(completer, failure: ex);
+        }
+        _dispatchingCompleter = null;
+        _settlePart(completer, sent: sent);
+
+        // Recompute the reactive pending set after each item is fully processed.
+        pendingChatGuids.assignAll(_queue.map((e) => e.item.chat.guid).toSet());
       }
-
-      // Recompute the reactive pending set after each item is fully processed.
-      pendingChatGuids.assignAll(_queue.map((e) => e.item.chat.guid).toSet());
+    } finally {
+      _isProcessing = false;
     }
+  }
 
-    _isProcessing = false;
+  /// Split parts of one queued item share its completer, so it resolves only once no part is queued or dispatching.
+  void _settlePart(Completer<void>? completer, {Object? failure, bool sent = false, bool canceledByUser = false}) {
+    if (completer == null || completer.isCompleted) return;
+    final outcome = _partOutcomes[completer] ??= _PartOutcome();
+    outcome.failure ??= failure;
+    outcome.anySent |= sent;
+    outcome.canceledByUser |= canceledByUser;
+    if (completer == _dispatchingCompleter || _queue.any((e) => e.item.completer == completer)) return;
+    final failed = outcome.failure;
+    if (failed == null) {
+      completer.complete();
+    } else {
+      completer.completeError(
+          OutgoingPartFailure(failed, anySent: outcome.anySent, canceledByUser: outcome.canceledByUser));
+    }
   }
 
   /// Returns `true` if the message with [tempGuid] is currently waiting in the
@@ -403,6 +451,7 @@ class OutgoingMessageHandler {
       final m = pending.message;
       m.error = ClientMessageError.userCanceled.code;
       m.errorMessage = 'Canceled by user';
+      _settlePart(pending.completer, failure: m.errorMessage!, canceledByUser: true);
       await _finalizeOutgoingFailure(pending.chat, m, m.guid!);
     }
     if (toCancel.isNotEmpty) {
@@ -1187,10 +1236,10 @@ class OutgoingMessageHandler {
     _sendProgressTrackers.clear();
 
     while (_queue.isNotEmpty) {
-      final entry = _queue.removeFirst();
-      entry.item.completer?.completeError(
-        StateError('OutgoingMessageHandler disposed before item was processed'),
-      );
+      final completer = _queue.removeFirst().item.completer;
+      if (completer != null && !completer.isCompleted) {
+        completer.completeError(StateError('OutgoingMessageHandler disposed before item was processed'));
+      }
     }
 
     _isProcessing = false;

@@ -136,9 +136,8 @@ class DesktopNotifications {
   /// as active — including toasts dismissed to Action Center and ones shown by
   /// a previous run of the app, plus the ones this session posted.
   ///
-  /// The second half is what keeps this working on Linux, where [activeIds] is
-  /// always empty: toasts from an earlier run are unreachable there, but a chat
-  /// read while the app is up still clears.
+  /// On Linux this cancels nothing ([activeIds] is empty and message toasts
+  /// register no callbacks); callers must cancel a message toast by its tracked id.
   static Future<void> cancelGroup(String group) async {
     final int base = groupBase(group);
     for (final int id in {...await activeIds(), ..._callbacks.keys}) {

@@ -17,7 +17,6 @@ Interfaces are the **only** public API for triggering backend operations. They r
 | `send_message_interface.dart` | Outgoing message send pipeline entry point |
 | `server_interface.dart` | Server version check, server details |
 | `sync_interface.dart` | Incremental sync trigger |
-| `test_interface.dart` | Dev/debug test calls |
 
 ## Routing Pattern (every interface method follows this)
 ```dart

@@ -199,13 +199,13 @@ If adding a new service, place it at the correct position in `startup_tasks.dart
 
 ## Sync System
 
-`lib/services/backend/sync/` (`sync/CLAUDE.md`) coordinates bringing the local DB up to date with the server: `SyncService` is the single entry point and picks between a `FullSyncManager` (bulk fetch on first setup or full resync) and `IncrementalSyncManager` (resumable delta sync since the last run), plus dedicated `ChatSyncManager` and `HandleSyncManager` for narrower syncs. All managers share a `SyncStatus` lifecycle (`IDLE → IN_PROGRESS → COMPLETED_SUCCESS`/`COMPLETED_ERROR`, with a `STOPPING` state for user cancellation) exposed as `Rx` fields for UI progress display. Incremental sync normally runs inside `IncrementalSyncIsolate` (see Background Isolate System above) rather than blocking the main thread.
+`lib/services/backend/sync/` (`sync/CLAUDE.md`) coordinates bringing the local DB up to date with the server: `SyncService` is the single entry point and picks between a `FullSyncManager` (bulk fetch on first setup or full resync) and `IncrementalSyncManager` (resumable delta sync since the last run), plus a dedicated `HandleSyncManager` for narrower handle syncs. All managers share a `SyncStatus` lifecycle (`IDLE → IN_PROGRESS → COMPLETED_SUCCESS`/`COMPLETED_ERROR`, with a `STOPPING` state for user cancellation) exposed as `Rx` fields for UI progress display. Incremental sync normally runs inside `IncrementalSyncIsolate` (see Background Isolate System above) rather than blocking the main thread.
 
 ---
 
 ## Event Bus
 
-`lib/services/backend_ui_interop/event_dispatcher.dart` is a broadcast `StreamController<Tuple2<String, dynamic>>`. Backend services emit named events; UI widgets subscribe in `initState()` and cancel in `dispose()`. This decouples the backend from the UI without needing shared observable state for one-off cross-cutting events (e.g., "chat-updated"). Use sparingly, only when absolutely necessary.
+`lib/services/backend_ui_interop/event_dispatcher.dart` is a broadcast `StreamController<DispatchedEvent>`. Each event has `.type` and `.data` fields (`lib/models/dispatched_event.dart`). Backend services emit named events; UI widgets subscribe in `initState()` and cancel in `dispose()`. This decouples the backend from the UI without needing shared observable state for one-off cross-cutting events (e.g., "chat-updated"). Use sparingly, only when absolutely necessary.
 
 ---
 

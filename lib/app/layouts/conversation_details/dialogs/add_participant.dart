@@ -49,6 +49,7 @@ void showAddParticipant(BuildContext context, Chat chat) {
                 }
                 contacts.sort((c1, c2) => c1.displayName.compareTo(c2.displayName));
                 _ParticipantContact? selected;
+                if (!context.mounted) return;
                 await showDialog(
                     context: context,
                     builder: (context) => AlertDialog(
@@ -110,6 +111,7 @@ void showAddParticipant(BuildContext context, Chat chat) {
                   showSnackbar("Error", "Enter a valid address!", type: SnackbarType.error);
                   return;
                 }
+                final nav = Navigator.of(context, rootNavigator: true);
                 showDialog(
                     context: context,
                     builder: (BuildContext context) {
@@ -142,10 +144,10 @@ void showAddParticipant(BuildContext context, Chat chat) {
                       ChatsSvc.updateChat(result.chats.first, override: true);
                     }
                   }
-                  Navigator.of(context, rootNavigator: true).pop();
-                  Navigator.of(context, rootNavigator: true).pop();
+                  nav.pop();
+                  nav.pop();
                 } else {
-                  Navigator.of(context, rootNavigator: true).pop();
+                  nav.pop();
                   showSnackbar("Error", "Failed to add ${participantController.text}!", type: SnackbarType.error);
                 }
               },

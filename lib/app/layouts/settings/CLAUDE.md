@@ -26,8 +26,6 @@
 
 ## Dialogs (`dialogs/`)
 - `sync_dialog.dart` — manual settings/theme sync progress dialog
-- `create_new_theme_dialog.dart` — name + create a new custom theme
-- `old_themes_dialog.dart` — browse/restore legacy theme format entries
 - `custom_headers_dialog.dart` — edit custom HTTP headers sent to the server
 - `notification_settings_dialog.dart` — OS-level notification permission prompt/redirect
 

@@ -97,7 +97,6 @@ class _CupertinoCustomGroupsPanelState extends State<CupertinoCustomGroupsPanel>
   }
 
   void _onReorder(int oldIndex, int newIndex) {
-    if (oldIndex < newIndex) newIndex -= 1;
     final newOrder = controller.groups.toList();
     final group = newOrder.removeAt(oldIndex);
     newOrder.insert(newIndex, group);
@@ -206,7 +205,7 @@ class _CupertinoCustomGroupsPanelState extends State<CupertinoCustomGroupsPanel>
                           shrinkWrap: true,
                           physics: const NeverScrollableScrollPhysics(),
                           buildDefaultDragHandles: false,
-                          onReorder: _onReorder,
+                          onReorderItem: _onReorder,
                           itemCount: groups.length,
                           itemBuilder: (context, index) => Column(
                             key: ValueKey(groups[index].id),

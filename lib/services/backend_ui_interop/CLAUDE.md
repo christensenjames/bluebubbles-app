@@ -8,7 +8,7 @@ Two files. This subsystem decouples backend services from UI widgets for one-off
 
 ## EventDispatcher
 
-A singleton `StreamController<Tuple2<String, dynamic>>.broadcast()`. Any backend service can emit a named event; any widget can subscribe.
+`EventDispatcher` owns a singleton `StreamController<DispatchedEvent>.broadcast()`. Any backend service can emit a named event; any widget can subscribe. Events expose `.type` and `.data`.
 
 **Emit (from service/backend):**
 ```dart
@@ -18,8 +18,8 @@ EventDispatcherSvc.emit("chat-updated", chatGuid);
 **Subscribe (in a widget's `initState`):**
 ```dart
 _sub = EventDispatcherSvc.stream.listen((event) {
-  if (event.item1 == "chat-updated") {
-    final guid = event.item2 as String;
+  if (event.type == "chat-updated") {
+    final guid = event.data as String;
     // handle update
   }
 });

@@ -12,6 +12,8 @@ class Constants {
         const val foregroundServiceNotificationChannel = "com.bluebubbles.messaging.foreground_service"
         const val foregroundServiceNotificationId = 1
         const val dartWorkerTag = "DartWorker"
+        // Keep in sync with Dart's MethodChannelErrorCodes.noRetry.
+        const val dartNoRetryErrorCode = "no-retry"
         const val pendingIntentOpenChatOffset = 0
         const val pendingIntentMarkReadOffset = 100000
         const val pendingIntentOpenBubbleOffset = 200000

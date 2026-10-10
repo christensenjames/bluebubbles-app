@@ -152,7 +152,7 @@ class ThemeManagementSection extends StatelessWidget {
                             "Are you sure you want to delete \"${controller.activeTheme.name}\"? This cannot be undone.",
                         confirmLabel: "Delete",
                         isDestructive: true,
-                        onConfirm: () => controller.deleteTheme(context),
+                        onConfirm: () => controller.deleteTheme(),
                       ),
                     ),
                   ],
@@ -236,6 +236,7 @@ class ThemeManagementSection extends StatelessWidget {
 
   Future<void> _generateFromSeed(BuildContext context) async {
     final picked = await showColorPickerDialog(context, context.theme.colorScheme.primary);
+    if (!context.mounted) return;
     if (picked != null) {
       controller.generateFromSeed(context, picked);
     }

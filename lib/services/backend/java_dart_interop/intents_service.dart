@@ -74,22 +74,19 @@ class IntentsService {
         final id = intent.extra?["android.intent.extra.shortcut.ID"];
         final text = intent.extra?["android.intent.extra.TEXT"];
         final files = <PlatformFile>[];
-        if (intent.extra?["android.intent.extra.STREAM"] != null) {
-          final data = intent.extra!["android.intent.extra.STREAM"];
-          if (data is List) {
-            for (String? s in data) {
-              if (s == null) continue;
-              final path = await MethodChannelSvc.actions.getContentUriPath(uri: s);
-              final bytes = await File(path).readAsBytes();
-              files.add(PlatformFile(
-                path: path,
-                name: basename(path),
-                bytes: bytes,
-                size: bytes.length,
-              ));
+        final data = intent.extra?["android.intent.extra.STREAM"];
+        final uris = data == null ? const [] : (data is List ? data : [data.toString()]);
+        for (final uri in uris) {
+          if (uri is! String) {
+            Logger.warn("Unreadable shared STREAM entry $uri", tag: "IntentsService");
+            continue;
+          }
+          try {
+            final path = await MethodChannelSvc.actions.getContentUriPath(uri: uri);
+            if (path == null) {
+              Logger.warn("Could not resolve path for shared URI $uri", tag: "IntentsService");
+              continue;
             }
-          } else if (data != null) {
-            final path = await MethodChannelSvc.actions.getContentUriPath(uri: data.toString());
             final bytes = await File(path).readAsBytes();
             files.add(PlatformFile(
               path: path,
@@ -97,15 +94,28 @@ class IntentsService {
               bytes: bytes,
               size: bytes.length,
             ));
+          } catch (e, s) {
+            Logger.warn("Failed to read shared URI $uri", tag: "IntentsService", error: e, trace: s);
           }
+        }
+        final failed = uris.length - files.length;
+        if (failed > 0) {
+          // showSnackbar needs the UI, and openChat's push may not complete until the route is popped.
+          unawaited(StartupTasks.waitForUI().then(
+              (_) => showSnackbar("Error", "Failed to load $failed shared file(s)!", type: SnackbarType.error)));
         }
         await openChat(id, text: text, attachments: files, isInitialIntent: isInitialIntent);
         return;
       default:
         if (intent.data?.startsWith("imessage://") ?? false) {
+          if (!SettingsSvc.settings.finishedSetup.value) {
+            Logger.info("Ignoring imessage link until setup finishes", tag: "IntentsService");
+            return;
+          }
           final uri =
               Uri.tryParse(intent.data!.replaceFirst("imessage://", "imessage:").replaceFirst("&body=", "?body="));
           if (uri != null) {
+            await StartupTasks.waitForUI();
             final address = uri.path;
             final handle = Handle.findOne(addressAndService: HandleLookupKey(address, "iMessage"));
             NavigationSvc.pushAndRemoveUntil(
@@ -132,9 +142,13 @@ class IntentsService {
   }
 
   Future<void> answerFaceTime(String callUuid) async {
+    DialogRoute? route;
     if (Get.context != null) {
-      showDialog(
+      final nav = Navigator.of(Get.context!, rootNavigator: true);
+      route = DialogRoute(
           context: Get.context!,
+          barrierColor: Get.context!.theme.dialogTheme.barrierColor ?? Colors.black54,
+          traversalEdgeBehavior: TraversalEdgeBehavior.closedLoop,
           builder: (BuildContext context) {
             return AlertDialog(
               backgroundColor: context.theme.colorScheme.surfaceContainerHighest,
@@ -153,6 +167,7 @@ class IntentsService {
               ),
             );
           });
+      nav.push(route);
       hideFaceTimeOverlay(callUuid);
     }
 
@@ -163,9 +178,7 @@ class IntentsService {
     } catch (e, s) {
       Logger.warn("Failed to fetch FaceTime answer link", error: e, trace: s, tag: 'IntentsService');
     }
-    if (Get.context != null) {
-      Navigator.of(Get.context!, rootNavigator: true).pop();
-    }
+    if (route != null) NavigationSvc.closeRoute(route);
     if (link == null) {
       return showSnackbar("Failed to answer FaceTime", "Unable to generate FaceTime link!", type: SnackbarType.error);
     }
@@ -224,6 +237,8 @@ class IntentsService {
         return;
       }
 
+      // Must precede the first await: onAppResume can run while we're suspended and reads this.
+      pendingOpenChatGuid = guid;
       await StartupTasks.waitForUI();
 
       // On the initial-intent path the widget tree is starting fresh (see the
@@ -243,12 +258,12 @@ class IntentsService {
         }
       }
 
+      // A newer openChat may have replaced the guid while this one was suspended.
+      clearPendingOpenChat() {
+        if (pendingOpenChatGuid == guid) pendingOpenChatGuid = null;
+      }
+
       if (!chatIsOpen) {
-        // Mark the navigation as pending BEFORE any await so that onAppResume,
-        // which fires while we are suspended at waitForUI / Future.delayed, can
-        // see that we are about to switch chats and must not mark the current
-        // active chat as read prematurely.
-        pendingOpenChatGuid = guid;
         Logger.debug("Navigating to conversation view...", tag: "IntentsService");
 
         // Rather than waiting for paging to eventually reach this chat,
@@ -260,14 +275,16 @@ class IntentsService {
         // Pre-populate text/attachments on the controller before navigating so
         // the ConversationView text field is pre-filled on first build.
         setPickedAttachments();
-        pendingOpenChatGuid = null;
 
+        // Clear once ConversationView makes this chat active; clearing on route pop would skip chats pushed on top.
+        WidgetsBinding.instance.addPostFrameCallback((_) => clearPendingOpenChat());
         await NavigationSvc.pushAndRemoveUntil(
           Get.context!,
           ConversationView(chat: chat),
           (route) => route.isFirst,
         );
       } else {
+        clearPendingOpenChat();
         Logger.debug("Chat is already open, not navigating", tag: "IntentsService");
         setPickedAttachments();
       }

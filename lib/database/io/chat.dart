@@ -335,10 +335,12 @@ class Chat {
         ReactionTypes.isAddedReaction(message?.associatedMessageType);
   }
 
-  /// Toggle unread status - pure DB operation
   /// Note: For full unread toggle with active chat awareness, use ChatsSvc.toggleChatHasUnread
   Future<Chat> toggleHasUnreadAsync(bool hasUnread,
-      {bool force = false, bool clearLocalNotifications = true, bool privateMark = true}) async {
+      {bool force = false,
+      bool clearLocalNotifications = true,
+      bool privateMark = true,
+      bool awaitReadReceipt = false}) async {
     if (kIsDesktop && !hasUnread) {
       NotificationsSvc.clearDesktopNotificationsForChat(guid);
     }
@@ -355,14 +357,20 @@ class Chat {
         );
       }
       if (privateMark && (autoSendReadReceipts ?? SettingsSvc.settings.privateMarkChatAsRead.value)) {
-        ChatInterface.markChatReadUnread(
+        final receipt = ChatInterface.markChatReadUnread(
           chatGuid: guid,
           markAsRead: !hasUnread,
           shouldMarkOnServer: true,
         );
+        if (awaitReadReceipt) {
+          await receipt;
+        } else {
+          unawaited(receipt);
+        }
       }
     } catch (e, s) {
       Logger.warn("Failed to mark chat as read on message add", error: e, trace: s, tag: 'Chat');
+      if (awaitReadReceipt) rethrow;
     }
 
     return this;

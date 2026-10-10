@@ -2,7 +2,6 @@ import 'package:bluebubbles/helpers/types/classes/language_codes.dart';
 import 'package:bluebubbles/services/services.dart';
 import 'package:bluebubbles/helpers/helpers.dart';
 import 'package:bluebubbles/app/layouts/settings/widgets/settings_widgets.dart';
-import 'package:dio/dio.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -40,6 +39,7 @@ class _MiscPanelState extends State<MiscPanel> with ThemeHelpers {
                     if (SettingsSvc.canAuthenticate)
                       Obx(() => SettingsSwitch(
                             onChanged: (bool val) async {
+                              final secureController = SecureApplicationProvider.of(context, listen: false);
                               var localAuth = LocalAuthentication();
                               bool didAuthenticate = await localAuth.authenticate(
                                 localizedReason:
@@ -49,10 +49,10 @@ class _MiscPanelState extends State<MiscPanel> with ThemeHelpers {
                               if (didAuthenticate) {
                                 SettingsSvc.settings.shouldSecure.value = val;
                                 if (val == false) {
-                                  SecureApplicationProvider.of(context, listen: false)!.open();
+                                  secureController!.open();
                                 } else if (SettingsSvc.settings.securityLevel.value ==
                                     SecurityLevel.locked_and_secured) {
-                                  SecureApplicationProvider.of(context, listen: false)!.secure();
+                                  secureController!.secure();
                                 }
                                 await SettingsSvc.settings.saveOneAsync('shouldSecure');
                               }
@@ -117,6 +117,7 @@ class _MiscPanelState extends State<MiscPanel> with ThemeHelpers {
                           return SettingsOptions<SecurityLevel>(
                             initial: SettingsSvc.settings.securityLevel.value,
                             onChanged: (val) async {
+                              final secureController = SecureApplicationProvider.of(context, listen: false);
                               var localAuth = LocalAuthentication();
                               bool didAuthenticate = await localAuth.authenticate(
                                 localizedReason: 'Please authenticate to change your security level',
@@ -126,9 +127,9 @@ class _MiscPanelState extends State<MiscPanel> with ThemeHelpers {
                                 if (val != null) {
                                   SettingsSvc.settings.securityLevel.value = val;
                                   if (val == SecurityLevel.locked_and_secured) {
-                                    SecureApplicationProvider.of(context, listen: false)!.secure();
+                                    secureController!.secure();
                                   } else {
-                                    SecureApplicationProvider.of(context, listen: false)!.open();
+                                    secureController!.open();
                                   }
                                 }
                                 await SettingsSvc.settings.saveOneAsync('securityLevel');
@@ -248,6 +249,7 @@ class _MiscPanelState extends State<MiscPanel> with ThemeHelpers {
                                     onPressed: () async {
                                       SettingsSvc.settings.apiTimeout.value = 30000;
                                       await SettingsSvc.settings.saveOneAsync('apiTimeout');
+                                      HttpSvc.updateTimeouts();
                                     },
                                     child: const Text("Reset"),
                                   )
@@ -260,12 +262,7 @@ class _MiscPanelState extends State<MiscPanel> with ThemeHelpers {
                           },
                           onChangeEnd: (double val) async {
                             await SettingsSvc.settings.saveOneAsync('apiTimeout');
-                            HttpSvc.dio = Dio(BaseOptions(
-                              connectTimeout: Duration(milliseconds: SettingsSvc.settings.apiTimeout.value),
-                              receiveTimeout: Duration(milliseconds: SettingsSvc.settings.apiTimeout.value),
-                              sendTimeout: Duration(milliseconds: SettingsSvc.settings.apiTimeout.value),
-                            ));
-                            HttpSvc.dio.interceptors.add(ApiInterceptor());
+                            HttpSvc.updateTimeouts();
                           },
                           backgroundColor: tileColor,
                           min: 5,

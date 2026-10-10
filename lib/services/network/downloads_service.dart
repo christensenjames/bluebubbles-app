@@ -140,11 +140,15 @@ class AttachmentDownloadService extends GetxService {
   }
 
   void _removeFromQueue(AttachmentDownloadController downloader) {
-    downloaders.remove(downloader.attachment.guid!);
+    final guid = downloader.attachment.guid!;
     final chatGuid = downloader.attachment.message.target?.chat.target?.guid ?? "unknown";
-    _downloaders[chatGuid]?.removeWhere((e) => e.attachment.guid == downloader.attachment.guid);
+    _downloaders[chatGuid]?.removeWhere((e) => identical(e, downloader));
     if (_downloaders[chatGuid]?.isEmpty ?? false) _downloaders.remove(chatGuid);
-    Get.delete<AttachmentDownloadController>(tag: downloader.attachment.guid!);
+    if (!_downloaders.values.flattened.any((e) => e.attachment.guid == guid)) downloaders.remove(guid);
+    if (Get.isRegistered<AttachmentDownloadController>(tag: guid) &&
+        identical(Get.find<AttachmentDownloadController>(tag: guid), downloader)) {
+      Get.delete<AttachmentDownloadController>(tag: guid);
+    }
     _fetchNext();
   }
 
@@ -213,16 +217,7 @@ class AttachmentDownloadController extends GetxController {
     if (_cancelToken?.isCancelled == false) _cancelToken?.cancel('superseded');
   }
 
-  /// Fails this download: drops any partial file, notifies the error callbacks,
-  /// moves to [AttachmentDownloadState.error], and frees the queue slot.
-  ///
-  /// Every abnormal exit from [fetchAttachment] must come through here. A path
-  /// that returns without it leaves the controller parked in a non-terminal
-  /// state forever: the UI keeps rendering the downloading widget, the tap
-  /// handler refuses to retry (it only retries from `error`), and — because
-  /// [AttachmentDownloadService._fetchNext] counts `downloading` controllers
-  /// against `maxConcurrentDownloads` (default 2) — the slot is never released,
-  /// so two stranded downloads deadlock the queue for the whole session.
+  /// Every abnormal exit from [fetchAttachment] must come here, or its queue slot is never freed and the queue stalls.
   Future<void> _failDownload(String? tempPath, String reason, {Object? error, StackTrace? trace}) async {
     if (_failed) return;
     _failed = true;
@@ -233,7 +228,10 @@ class AttachmentDownloadController extends GetxController {
       trace: trace,
     );
 
-    if (!kIsWeb && tempPath != null) {
+    // A newer controller for this guid streams into the same `.part` path, so leave it alone.
+    final superseded = Get.isRegistered<AttachmentDownloadController>(tag: attachment.guid) &&
+        !identical(Get.find<AttachmentDownloadController>(tag: attachment.guid), this);
+    if (!kIsWeb && tempPath != null && !superseded) {
       try {
         final tempFile = File(tempPath);
         if (await tempFile.exists()) await tempFile.delete();
@@ -253,7 +251,12 @@ class AttachmentDownloadController extends GetxController {
   }
 
   Future<void> fetchAttachment() async {
-    if (attachment.guid == null || attachment.guid!.contains("temp")) return;
+    if (attachment.guid == null || attachment.guid!.contains("temp")) {
+      // First call runs inside Get.put -> onInit; failing synchronously would Get.delete mid-registration.
+      await Future.microtask(() {});
+      await _failDownload(null, "attachment has no server GUID");
+      return;
+    }
     if (_fetchStarted) return;
     _fetchStarted = true;
     state.value = AttachmentDownloadState.downloading;

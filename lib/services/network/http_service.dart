@@ -175,6 +175,13 @@ class HttpService implements BaseApi {
     dio.options.headers = headers;
   }
 
+  void updateTimeouts() {
+    final timeout = Duration(milliseconds: SettingsSvc.settings.apiTimeout.value);
+    dio.options.connectTimeout = timeout;
+    dio.options.receiveTimeout = timeout;
+    dio.options.sendTimeout = timeout;
+  }
+
   Future<Response> downloadFromUrl(String url, {Function(int, int)? progress, CancelToken? cancelToken}) async {
     return runApiGuarded(() async {
       final response = await dio.get(
@@ -190,12 +197,12 @@ class HttpService implements BaseApi {
 
   Future<void> downloadAppleEmojiFont() async {
     if (downloadingFont.value) return;
+    downloadingFont.value = true;
 
     final response = await downloadFromUrl(
         "https://github.com/BlueBubblesApp/bluebubbles-fonts/releases/latest/download/AppleColorEmoji.ttf",
         progress: (current, total) {
       if (current <= total) {
-        downloadingFont.value = true;
         fontDownloadProgress.value = current / total;
         fontDownloadTotalSize.value = total;
       }
@@ -203,6 +210,8 @@ class HttpService implements BaseApi {
       downloadingFont.value = false;
       fontDownloadProgress.value = null;
       fontDownloadTotalSize.value = null;
+      Logger.error("Failed to download font", error: error, tag: "HTTP Service");
+      showSnackbar("Error", "Failed to download font!", type: SnackbarType.error);
 
       return Response(requestOptions: RequestOptions(path: ''));
     });
@@ -378,10 +387,8 @@ class ApiInterceptor extends Interceptor {
 
   @override
   void onError(DioException err, ErrorInterceptorHandler handler) {
-    // Get params without sensitive info
-    final params = err.requestOptions.queryParameters;
-    params.remove("guid");
-    params.remove("password");
+    final params = Map.of(err.requestOptions.queryParameters)
+      ..removeWhere((key, _) => const {"guid", "password", "token", "access_token"}.contains(key));
 
     // Make a nice log of what failed
     Logger.error("""Failed Request: [${err.requestOptions.method}] ${err.requestOptions.path}
@@ -424,7 +431,8 @@ class ApiInterceptor extends Interceptor {
         }
       }, requestOptions: err.requestOptions, statusCode: err.response!.statusCode));
     }
-    if (err.type.name.contains("Timeout")) {
+    // The server never saw a request that timed out while connecting.
+    if (err.type == DioExceptionType.sendTimeout || err.type == DioExceptionType.receiveTimeout) {
       return handler.resolve(Response(data: {
         'status': 500,
         'error': {

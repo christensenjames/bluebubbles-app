@@ -14,10 +14,10 @@ class SyncActions {
   /// atomic write transaction.
   ///
   /// [data] keys:
-  ///   - `chatData`               Map<String,dynamic>?  — top-level chat (optional)
-  ///   - `messagesData`           List<Map<String,dynamic>> — raw server message maps
+  ///   - `chatData`               `Map<String,dynamic>?`  — top-level chat (optional)
+  ///   - `messagesData`           `List<Map<String,dynamic>>` — raw server message maps
   ///
-  /// Returns a map with `messageIds` (List<int>) and `chatIds` (List<int>) of updated chats.
+  /// Returns a map with `messageIds` (`List<int>`) and `chatIds` (`List<int>`) of updated chats.
   static Future<Map<String, dynamic>> bulkSyncData(dynamic data) async {
     if (kIsWeb) return {'messageIds': <int>[], 'chatIds': <int>[]};
 
@@ -42,6 +42,9 @@ class SyncActions {
       collectParticipants(chatData['participants'] as List?);
     }
 
+    // Backfill source is message handle maps only: chatData participants carry the local id under "ROWID".
+    final Map<String, int> rowIdByKey = {};
+
     for (final msgData in messagesData) {
       // Persist each message's own sender handle. For multi-handle iMessage
       // contacts (e.g. phone + email both registered), a received message can
@@ -49,6 +52,12 @@ class SyncActions {
       // the message's handle is unresolvable and it gets culled at display
       // time by the participant-match filter in ChatActions.getMessagesAsync.
       collectParticipants([msgData['handle']]);
+      final handleMap = msgData['handle'];
+      if (handleMap is Map) {
+        final h = handleMap.cast<String, dynamic>();
+        final rowId = h['originalROWID'];
+        if (rowId is int && rowId > 0) rowIdByKey[_handleKey(h)] ??= rowId;
+      }
       for (final chat in (msgData['chats'] as List? ?? const []).whereType<Map>()) {
         collectParticipants(chat.cast<String, dynamic>()['participants'] as List?);
       }
@@ -68,7 +77,7 @@ class SyncActions {
     }
 
     // Sync handles (async: address formatting cannot run inside a DB transaction).
-    final handlesMap = await _syncHandles(uniqueHandleMapsByKey.values.toList());
+    final handlesMap = await _syncHandles(uniqueHandleMapsByKey.values.toList(), rowIdByKey);
 
     // -------------------------------------------------------------------------
     // Single write transaction
@@ -122,6 +131,7 @@ class SyncActions {
   /// upserts in its own write transaction.
   static Future<Map<String, Handle>> _syncHandles(
     List<Map<String, dynamic>> rawHandleMaps,
+    Map<String, int> rowIdByKey,
   ) async {
     if (rawHandleMaps.isEmpty) return {};
 
@@ -142,8 +152,16 @@ class SyncActions {
       };
 
       final newHandles = inputHandles.where((h) => !existingMap.containsKey(h.uniqueAddressAndService)).toList();
-      if (newHandles.isNotEmpty) {
-        handleBox.putMany(newHandles);
+      final backfilled = <Handle>[];
+      for (final h in existingHandles) {
+        final rowId = rowIdByKey[h.uniqueAddressAndService];
+        if (h.originalROWID == null && rowId != null) {
+          h.originalROWID = rowId;
+          backfilled.add(h);
+        }
+      }
+      if (newHandles.isNotEmpty || backfilled.isNotEmpty) {
+        handleBox.putMany([...newHandles, ...backfilled]);
       }
 
       return {

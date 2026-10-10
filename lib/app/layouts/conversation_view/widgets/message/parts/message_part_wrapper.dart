@@ -282,7 +282,8 @@ class _EditModeTextField extends StatelessWidget {
                 }
                 return KeyEventResult.ignored;
               }
-              if (ev.logicalKey == LogicalKeyboardKey.enter && !HardwareKeyboard.instance.isShiftPressed) {
+              if (ev.logicalKey.isEnter &&
+                  !HardwareKeyboard.instance.isShiftPressed) {
                 onComplete(editStuff.controller.text);
                 return KeyEventResult.handled;
               }

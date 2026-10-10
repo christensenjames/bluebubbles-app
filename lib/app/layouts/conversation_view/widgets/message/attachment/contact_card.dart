@@ -129,6 +129,7 @@ class _ContactCardState extends State<ContactCard> with AutomaticKeepAliveClient
                         handle: Handle(),
                         contact: contact,
                         borderThickness: 0.5,
+                        editable: false,
                       ),
                       Padding(
                         padding: const EdgeInsets.only(left: 5.0),

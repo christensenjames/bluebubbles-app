@@ -479,7 +479,7 @@ class NotificationsService {
     oldTimer?.cancel();
     debounceTimers[guid] = Timer(
       const Duration(milliseconds: 300),
-      () async => await _buildAndShowToast(chat, title, message),
+      () => _lock.synchronized(() => _buildAndShowToast(chat, title, message)),
     );
   }
 
@@ -724,7 +724,11 @@ class NotificationsService {
         : "The following aliases have been deregistered:\n${aliases.join("\n")}";
 
     if (kIsDesktop) {
-      if (aliasesToastText == text) {
+      final int? live = aliasesToast;
+      if (aliasesToastText == text &&
+          live != null &&
+          DesktopNotifications.isLive(live) &&
+          (Platform.isLinux || (await DesktopNotifications.activeIds()).contains(live))) {
         return;
       }
       final int? existing = aliasesToast;
@@ -803,7 +807,7 @@ class NotificationsService {
       return;
     }
     await flnp.show(
-      id: (chat.id! + 75000) * (scheduled ? -1 : 1),
+      id: _failedToSendId(chat.id!, scheduled: scheduled),
       title: title,
       body: subtitle,
       notificationDetails: NotificationDetails(
@@ -820,15 +824,17 @@ class NotificationsService {
     );
   }
 
-  Future<void> clearFailedToSend(int id) async {
+  Future<void> clearFailedToSend(int chatId) async {
     if (kIsDesktop) {
       final int? toastId = failedToast;
       failedToast = null;
       if (toastId != null) await DesktopNotifications.cancel(toastId);
       return;
     }
-    await flnp.cancel(id: id);
+    await flnp.cancel(id: _failedToSendId(chatId));
   }
+
+  int _failedToSendId(int chatId, {bool scheduled = false}) => (chatId + 75000) * (scheduled ? -1 : 1);
 
   Future<void> clearDesktopNotificationsForChat(String chatGuid) async {
     await _lock.synchronized(() async {

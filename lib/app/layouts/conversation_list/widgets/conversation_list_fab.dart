@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:bluebubbles/app/layouts/conversation_list/pages/conversation_list.dart';
 import 'package:bluebubbles/app/wrappers/stateful_boilerplate.dart';
 import 'package:bluebubbles/app/wrappers/theme_switcher.dart';
@@ -20,6 +22,7 @@ class _ConversationListFABState extends CustomState<ConversationListFAB, void, C
   // Cache these values to prevent rebuild on every scroll event
   double _lastScrollOffset = 0;
   ScrollDirection _lastScrollDirection = ScrollDirection.idle;
+  StreamSubscription? _navigationSub;
 
   @override
   void initState() {
@@ -28,7 +31,7 @@ class _ConversationListFABState extends CustomState<ConversationListFAB, void, C
     // Optimize scroll listener to reduce setState calls
     controller.materialScrollController.addListener(_handleScroll);
 
-    NavigationSvc.listener.stream.listen((event) {
+    _navigationSub = NavigationSvc.listener.stream.listen((event) {
       if (!mounted) return;
       if (NavigationSvc.isAvatarOnly(context) && controller.showMaterialFABText) {
         setState(() {
@@ -68,6 +71,7 @@ class _ConversationListFABState extends CustomState<ConversationListFAB, void, C
   @override
   void dispose() {
     controller.materialScrollController.removeListener(_handleScroll);
+    _navigationSub?.cancel();
     super.dispose();
   }
 

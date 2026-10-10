@@ -12,7 +12,6 @@
 - `layouts/fullscreen_media/` — full-screen image/video viewer → `CLAUDE.md` inside
 - `layouts/camera/camera_screen.dart` — in-app camera capture for attachments
 - `layouts/chat_selector_view/` — pick an existing chat (e.g. for forwarding/sharing)
-- `layouts/contact_selector_view/` — pick a contact
 - `layouts/handle_selector_view/` — pick a specific handle/address for a contact
 - `components/` — reusable widgets → `CLAUDE.md` inside
 - `animations/` — send effects → `CLAUDE.md` inside

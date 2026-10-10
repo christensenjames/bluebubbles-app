@@ -58,6 +58,7 @@ void newConvo(MessagePopupActionContext ctx) {
 }
 
 Future<void> forward(MessagePopupActionContext ctx) async {
+  final navigator = Navigator.of(ctx.context);
   ctx.popDetails();
   final List<PlatformFile> attachments = [];
   final _attachments = ctx.message.dbAttachments
@@ -74,12 +75,13 @@ Future<void> forward(MessagePopupActionContext ctx) async {
     ));
   }
 
+  if (!navigator.mounted) return;
   if (attachments.isNotEmpty || !isNullOrEmpty(ctx.message.text)) {
     // This route replacement bypasses ConversationView's back-handler, so
     // explicitly close the active controller first.
     ctx.cvController.close();
     NavigationSvc.pushAndRemoveUntil(
-      ctx.context,
+      navigator.context,
       NewChatCreator(
         initialText: ctx.message.text,
         initialAttachments: attachments,

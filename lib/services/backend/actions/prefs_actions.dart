@@ -1,6 +1,8 @@
 import 'package:bluebubbles/services/backend/settings/shared_preferences_service.dart';
 import 'package:bluebubbles/services/backend/settings/settings_service.dart';
 import 'package:bluebubbles/database/global/settings.dart';
+import 'package:bluebubbles/services/network/http_service.dart';
+import 'package:get_it/get_it.dart';
 
 class PrefsActions {
   static Future<void> saveReplyToMessageState(dynamic data) async {
@@ -39,9 +41,17 @@ class PrefsActions {
 
     // Replace the settings in the SettingsService
     SettingsSvc.settings = newSettings;
+    if (GetIt.I.isRegistered<HttpService>()) {
+      HttpSvc.updateTimeouts();
+      HttpSvc.updateHeaders();
+    }
   }
 
   static Future<void> syncSettings(dynamic data) async {
     Settings.updateFromMap(data);
+    if (GetIt.I.isRegistered<HttpService>()) {
+      if (data.containsKey('apiTimeout')) HttpSvc.updateTimeouts();
+      if (data.containsKey('customHeaders')) HttpSvc.updateHeaders();
+    }
   }
 }

@@ -237,8 +237,8 @@ class _SendAnimationState extends CustomState<SendAnimation, SendData, Conversat
         for (String word in textSplit) {
           if (word == MentionTextEditingController.escapingChar) flag = !flag;
           int? index = flag ? int.tryParse(word) : null;
-          if (index != null) {
-            final mention = controller.textController.mentionables[index];
+          final mention = index != null ? controller.textController.mentionables.elementAtOrNull(index) : null;
+          if (mention != null) {
             newText.add(mention);
             continue;
           }

@@ -173,7 +173,7 @@ class _MessagePopupHolderState extends State<MessagePopupHolder> with ThemeHelpe
         // This delay is necessary because there is a second instance of the focus node in the popup which gets focused otherwise
         // The autofocus doesn't seem to work on desktop
         Future.delayed(const Duration(milliseconds: 500),
-            () => widget.cvController.editing.last.controller.focusNode?.requestFocus());
+            () => widget.cvController.editing.lastOrNull?.controller.focusNode?.requestFocus());
       }
     }
   }

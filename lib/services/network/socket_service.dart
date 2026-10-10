@@ -583,11 +583,14 @@ class SocketService {
         // leaving us pinned to a dead local address.
         Logger.info(tag: _tag, "Server URL unchanged — re-probing the local address override");
         await NetworkTasks.detectLocalhost().timeout(_urlDiscoveryTimeout);
+
       } else {
         Logger.debug(tag: _tag, "Server URL unchanged — leaving socket.io to keep retrying");
       }
     } catch (e, stack) {
       Logger.warn("Failed to check for a new server URL", error: e, trace: stack, tag: _tag);
+      // A timeout can land after the persisted URL or the override already changed.
+      rebuild = _socketGaveUp || serverAddress != _dialedOrigin;
     } finally {
       _urlDiscoveryInProgress = false;
     }

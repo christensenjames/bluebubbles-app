@@ -220,10 +220,10 @@ class ChatApi {
     void Function(int, int)? onSendProgress,
     CancelToken? cancelToken,
   }) async {
-    final formData = FormData.fromMap({
-      "icon": await MultipartFile.fromFile(path),
-    });
     return _svc.runApiGuarded(() async {
+      final formData = FormData.fromMap({
+        "icon": await MultipartFile.fromFile(path),
+      });
       final response = await _svc.dio.post(
         "${_svc.apiRoot}/chat/$guid/icon",
         queryParameters: _svc.buildQueryParams(),

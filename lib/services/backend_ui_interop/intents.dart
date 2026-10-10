@@ -35,13 +35,15 @@ class OpenSettingsAction extends Action<OpenSettingsIntent> {
       );
       if (currentChat != null) {
         if (SettingsSvc.settings.tabletMode.value) {
-          NavigationSvc.pushAndRemoveUntil(
-            context,
-            ConversationView(
-              chat: currentChat,
-            ),
-            (route) => route.isFirst,
-          );
+          if (context.mounted) {
+            NavigationSvc.pushAndRemoveUntil(
+              context,
+              ConversationView(
+                chat: currentChat,
+              ),
+              (route) => route.isFirst,
+            );
+          }
         } else {
           cvc(currentChat).close();
         }

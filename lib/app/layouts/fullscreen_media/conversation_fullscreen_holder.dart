@@ -348,7 +348,6 @@ class ConversationFullscreenHolderState extends State<ConversationFullscreenHold
                       onTap: () {
                         final AttachmentDownloadController _content = content;
                         if (_content.state.value != AttachmentDownloadState.error) return;
-                        Get.delete<AttachmentDownloadController>(tag: _content.attachment.guid);
                         content = AttachmentDownloader.startDownload(_content.attachment, onComplete: (file) {
                           setState(() {
                             content = file;

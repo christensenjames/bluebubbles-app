@@ -17,8 +17,6 @@ import 'method_channel_constants.dart';
 abstract class MethodChannelServiceDelegate {
   bool get headless;
   bool get shouldIgnoreMessage;
-  bool get isRunning;
-  set isRunning(bool value);
   Uint8List? get previousArt;
   set previousArt(Uint8List? value);
 }
@@ -61,6 +59,12 @@ class MethodChannelHandlers {
 
   static Future<bool> _ok() => Future.value(true);
   static Future<bool> _retry() => Future.value(false);
+  static Future<bool> _failNoRetry(String reason) =>
+      Future.error(PlatformException(code: MethodChannelErrorCodes.noRetry, message: reason));
+
+  // The socket also subscribes the read-status and FaceTime-status events; SocketService registers late in startup.
+  bool get _socketWillDeliver =>
+      !service.headless && GetIt.I.isRegistered<SocketService>() && (SocketSvc.socket?.connected ?? false);
 
   Future<bool> _handleNewServerUrl(MethodCall _, Map<String, dynamic>? arguments) async {
     if (arguments == null) return _retry();
@@ -266,37 +270,32 @@ class MethodChannelHandlers {
     final Chat? chat = Chat.findOne(guid: data['chatGuid']);
     if (chat == null) return _retry();
 
-    // Held so the temp GUID assigned during queueing can be used to check the
-    // send outcome below.
-    final replyMessage = Message(
-      text: data['text'],
-      dateCreated: DateTime.now(),
-      hasAttachments: false,
-      isFromMe: true,
-      handleId: 0,
-    );
-
     final Completer<void> completer = Completer();
     OutgoingMsgHandler.queue(
       OutgoingMessage(
         completer: completer,
         chat: chat,
-        message: replyMessage,
+        message: Message(
+          text: data['text'],
+          dateCreated: DateTime.now(),
+          hasAttachments: false,
+          isFromMe: true,
+          handleId: 0,
+        ),
         clearNotificationsIfFromMe: false,
       ),
     );
 
-    await completer.future;
-
-    // A failed send is finalized inside the handler — the message is persisted with
-    // an error code — and the completer still completes *normally*, so waiting on it
-    // says nothing about success. Re-read the queued message to find out. On success
-    // the temp GUID is swapped for the real one and this lookup finds nothing.
-    final tempGuid = replyMessage.guid;
-    final sent = tempGuid == null ? null : Message.findOne(guid: tempGuid);
-    if (sent != null && sent.error != 0) {
-      Logger.error('Reply failed to send (error ${sent.error}); requesting retry');
-      return _retry();
+    try {
+      await completer.future;
+    } on OutgoingPartFailure catch (e) {
+      // Kotlin retries re-send every part, so retry only when the server received none of it.
+      if (!e.anySent && !e.canceledByUser && failedBeforeReachingServer(e.cause)) {
+        Logger.warn('Reply never reached the server; requesting retry', error: e);
+        return _retry();
+      }
+      Logger.error('Reply failed; not retrying', error: e);
+      return _failNoRetry('Reply failed: $e');
     }
 
     // Only now that the send has actually resolved is it safe to record this reply
@@ -313,7 +312,6 @@ class MethodChannelHandlers {
   }
 
   Future<bool> _handleMarkChatRead(MethodCall _, Map<String, dynamic>? arguments) async {
-    if (!service.headless && LifecycleSvc.isAlive) return _ok();
     await Database.waitForInit();
     Logger.info('Received markAsRead from Kotlin');
 
@@ -321,8 +319,12 @@ class MethodChannelHandlers {
       if (arguments != null) {
         final Chat? chat = Chat.findOne(guid: arguments['chatGuid']);
         if (chat != null) {
-          await chat.toggleHasUnreadAsync(false, clearLocalNotifications: false);
-          ChatsSvc.getChatState(chat.guid)?.updateHasUnreadInternal(false);
+          try {
+            // force: a retry after a failed receipt finds the chat already read and would otherwise skip the receipt.
+            await chat.toggleHasUnreadAsync(false, clearLocalNotifications: false, force: true, awaitReadReceipt: true);
+          } finally {
+            if (GetIt.I.isRegistered<ChatsService>()) ChatsSvc.getChatState(chat.guid)?.updateHasUnreadInternal(false);
+          }
           return await _ok();
         }
       }
@@ -334,7 +336,7 @@ class MethodChannelHandlers {
   }
 
   Future<bool> _handleChatReadStatusChanged(MethodCall _, Map<String, dynamic>? arguments) async {
-    if (!service.headless && LifecycleSvc.isAlive) return _ok();
+    if (_socketWillDeliver) return _ok();
     await Database.waitForInit();
     Logger.info('Received chat status change from FCM');
 
@@ -362,9 +364,13 @@ class MethodChannelHandlers {
     if (!SettingsSvc.settings.colorsFromMedia.value) return _ok();
 
     final Uint8List art = call.arguments['albumArt'];
-    if (Get.context != null && (!service.isRunning || art != service.previousArt)) {
-      ThemeSvc.updateMusicTheme(Get.context!, art);
-      service.isRunning = false;
+    if (Get.context != null && !listEquals(art, service.previousArt)) {
+      try {
+        await ThemeSvc.updateMusicTheme(Get.context!, art);
+        service.previousArt = art;
+      } catch (e, s) {
+        Logger.warn("Failed to update music theme", error: e, trace: s);
+      }
     }
 
     return _ok();
@@ -387,7 +393,7 @@ class MethodChannelHandlers {
   }
 
   Future<bool> _handleFtCallStatusChanged(MethodCall _, Map<String, dynamic>? arguments) async {
-    if (!service.headless && LifecycleSvc.isAlive) return _ok();
+    if (_socketWillDeliver) return _ok();
     await Database.waitForInit();
     Logger.info('Received facetime call status change from FCM');
 

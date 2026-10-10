@@ -13,7 +13,6 @@ These are the **primary building blocks** for all settings pages. Assemble setti
 | `SettingsLeadingIcon` | `settings_leading_icon.dart` | Styled leading icon (colored rounded square) |
 | `SettingsSubtitle` | `settings_subtitle.dart` | Section subtitle / description text |
 | `NextButton` | `next_button.dart` | Navigation arrow button for settings flows |
-| `AdvancedThemingTile` | `advanced_theming_tile.dart` | Specialized color-picker tile for theme settings |
 | `LogLevelSelector` | `log_level_selector.dart` | Specialized dropdown for log verbosity |
 
 ## Usage Examples

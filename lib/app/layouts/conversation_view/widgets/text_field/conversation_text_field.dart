@@ -354,9 +354,11 @@ class ConversationTextFieldState extends CustomState<ConversationTextField, void
       if (text.contains(MentionTextEditingController.escapingChar)) {
         return showSnackbar("Error", "Mentions are not allowed in scheduled messages!", type: SnackbarType.error);
       }
+      ModalRoute? dialogRoute;
       showDialog(
         context: context,
         builder: (BuildContext context) {
+          dialogRoute = ModalRoute.of(context);
           return AlertDialog(
             backgroundColor: context.theme.colorScheme.surfaceContainerHighest,
             title: Text(
@@ -376,7 +378,10 @@ class ConversationTextFieldState extends CustomState<ConversationTextField, void
         },
       );
       final response = await HttpSvc.message.createScheduled(chat.guid, text, date.toUtc(), {"type": "once"});
-      Navigator.of(context).pop();
+      // The builder that captures the route runs on the frame after the push, which a fast server can beat.
+      if (dialogRoute == null) await WidgetsBinding.instance.endOfFrame;
+      final route = dialogRoute;
+      if (route != null) NavigationSvc.closeRoute(route);
       if (response.statusCode == 200 && response.data != null) {
         showSnackbar("Notice", "Message scheduled successfully for ${buildFullDate(date)}");
       } else {

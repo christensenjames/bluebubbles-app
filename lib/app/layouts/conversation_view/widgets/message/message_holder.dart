@@ -137,7 +137,7 @@ class _MessageHolderState extends State<MessageHolder> with AutomaticKeepAliveCl
   }
 
   void completeEdit(String newEdit, int part) async {
-    widget.cvController.editing.removeWhere((e2) => e2.message.guid == message.guid! && e2.part.part == part);
+    widget.cvController.endEdit(message.guid!, part);
     if (newEdit.isNotEmpty && newEdit != controller.parts.firstWhere((element) => element.part == part).text) {
       await service.editMessage(message, part, newEdit);
     }
@@ -500,7 +500,7 @@ class _MessageHolderState extends State<MessageHolder> with AutomaticKeepAliveCl
                                                               children: [
                                                                 // actual message content
                                                                 BubbleEffects(
-                                                                  part: index,
+                                                                  part: e.part,
                                                                   globalKey: keys.length > index ? keys[index] : null,
                                                                   showTail: message.showTail(newerMessage) &&
                                                                       e.part == controller.parts.length - 1,
@@ -519,7 +519,7 @@ class _MessageHolderState extends State<MessageHolder> with AutomaticKeepAliveCl
                                                                       enabled: canSwipeToReply &&
                                                                           !isEditing(e.part) &&
                                                                           !(iOS && e.isMediaGallery),
-                                                                      partIndex: index,
+                                                                      partIndex: e.part,
                                                                       replyOffset: replyOffsets[index],
                                                                       cvController: widget.cvController,
                                                                       child: Builder(

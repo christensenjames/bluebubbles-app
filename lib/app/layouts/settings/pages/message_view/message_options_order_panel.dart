@@ -55,10 +55,10 @@ class _MessageOptionsOrderPanelState extends State<MessageOptionsOrderPanel> wit
                 style: context.theme.textTheme.bodyMedium!.copyWith(color: context.theme.colorScheme.outline),
               ),
             ),
-            onReorder: (start, end) {
+            onReorderItem: (start, end) {
               if (start == end) return;
-              actionList.insert(end, actionList.elementAt(start));
-              actionList.removeAt(start + (end < start ? 1 : 0));
+              final action = actionList.removeAt(start);
+              actionList.insert(end, action);
               SettingsSvc.settings.setDetailsMenuActions(actionList.toList());
             },
             buildDefaultDragHandles: false,

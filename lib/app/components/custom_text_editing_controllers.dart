@@ -76,6 +76,8 @@ class SpellCheckTextEditingController extends TextEditingController {
   /// Mistake tooltip
   OverlayEntry? _mistakeTooltip;
 
+  bool _disposed = false;
+
   @override
   set value(TextEditingValue newValue) {
     String origText = newValue.text;
@@ -111,9 +113,8 @@ class SpellCheckTextEditingController extends TextEditingController {
     }
 
     final regExp = RegExp(r"(?<=^|[^a-zA-Z\d]):[^: \n]{2,}:", multiLine: true);
-    final matches = regExp.allMatches(newText);
-    if (matches.isNotEmpty) {
-      RegExpMatch match = matches.lastWhere((m) => m.start < newOffset);
+    final match = regExp.allMatches(newText).lastWhereOrNull((m) => m.start < newOffset);
+    if (match != null) {
       // Full emoji text (do not search for partial matches)
       String emojiName = newText.substring(match.start + 1, match.end - 1).toLowerCase();
       if (shortNameToEmoji.keys.contains(emojiName) || shortNameToSkinToneEmoji.keys.contains(emojiName)) {
@@ -151,6 +152,7 @@ class SpellCheckTextEditingController extends TextEditingController {
 
   @override
   void dispose() {
+    _disposed = true;
     _languageCheckService.dispose();
     _mistakeTooltip?.remove();
     _mistakeTooltip = null;
@@ -208,6 +210,7 @@ class SpellCheckTextEditingController extends TextEditingController {
     final mistakesWrapper = await _latestResponseService.processLatestOperation(
       () => _languageCheckService.findMistakes(newText),
     );
+    if (_disposed) return;
     if (mistakesWrapper == null || !mistakesWrapper.hasResult) return;
 
     final mistakes = mistakesWrapper.result();
@@ -545,8 +548,8 @@ class MentionTextEditingController extends SpellCheckTextEditingController {
         return "";
       }
       int? index = flag ? int.tryParse(word) : null;
-      if (index != null) {
-        final mention = mentionables[index];
+      final mention = index != null ? mentionables.elementAtOrNull(index) : null;
+      if (mention != null) {
         return mention.displayName;
       }
       return word;
@@ -583,8 +586,7 @@ class MentionTextEditingController extends SpellCheckTextEditingController {
 
     // Need fewer chars for anything bad to happen
     if (newText.length < text.length) {
-      // Search for the new state in the old state starting from the old selection's end
-      String textSearchPart = text.substring(selection.end);
+      String textSearchPart = text.substring(selection.isValid ? selection.end : text.length);
       int indexInNew = textSearchPart == "" || newValue.selection.end == -1
           ? newText.length
           : newText.indexOf(textSearchPart, newValue.selection.end);
@@ -646,8 +648,8 @@ class MentionTextEditingController extends SpellCheckTextEditingController {
 
         if (word == escapingChar) flag = !flag;
         int? index = flag ? int.tryParse(word) : null;
-        if (index != null) {
-          final mention = mentionables[index];
+        final mention = index != null ? mentionables.elementAtOrNull(index) : null;
+        if (mention != null) {
           mentionIndexLength = "$index".length;
           // Mandatory WidgetSpan so that it takes the appropriate char number.
           return WidgetSpan(
