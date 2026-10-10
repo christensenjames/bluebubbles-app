@@ -67,13 +67,14 @@ mixin CreateScheduledMixin<T extends StatefulWidget> on State<T> {
       return;
     }
     final nav = Navigator.of(context);
-    Route<dynamic>? dialogRoute;
-
-    showDialog(
+    final rootNav = Navigator.of(context, rootNavigator: true);
+    final route = DialogRoute(
       context: context,
+      themes: InheritedTheme.capture(from: context, to: rootNav.context),
+      traversalEdgeBehavior: TraversalEdgeBehavior.closedLoop,
       barrierDismissible: false,
+      barrierColor: context.theme.dialogTheme.barrierColor ?? Colors.black54,
       builder: (BuildContext context) {
-        dialogRoute = ModalRoute.of(context);
         return AlertDialog(
           backgroundColor: context.theme.colorScheme.surfaceContainerHighest,
           title: Text(
@@ -92,36 +93,39 @@ mixin CreateScheduledMixin<T extends StatefulWidget> on State<T> {
         );
       },
     );
-
+    rootNav.push(route);
     final scheduleMap = schedule.value == "once"
         ? {"type": "once"}
         : {"type": "recurring", "interval": repeatInterval.value, "intervalType": frequency.value};
 
-    Response response;
-    if (existingMessage != null) {
-      response = await HttpSvc.message.updateScheduled(
-        existingMessage!.id,
-        selectedChat.value,
-        messageController.text,
-        date.value.toUtc(),
-        scheduleMap,
-      );
-    } else {
-      response = await HttpSvc.message.createScheduled(
-        selectedChat.value,
-        messageController.text,
-        date.value.toUtc(),
-        scheduleMap,
-      );
+    Response? response;
+    try {
+      if (existingMessage != null) {
+        response = await HttpSvc.message.updateScheduled(
+          existingMessage!.id,
+          selectedChat.value,
+          messageController.text,
+          date.value.toUtc(),
+          scheduleMap,
+        );
+      } else {
+        response = await HttpSvc.message.createScheduled(
+          selectedChat.value,
+          messageController.text,
+          date.value.toUtc(),
+          scheduleMap,
+        );
+      }
+    } catch (e, s) {
+      if (e is Response) {
+        response = e;
+      } else {
+        Logger.error("Scheduled message error", error: e, trace: s);
+      }
     }
+    NavigationSvc.closeRoute(route);
 
-    if (kIsDesktop) {
-      Get.close(1);
-    } else if (dialogRoute?.isActive ?? false) {
-      nav.removeRoute(dialogRoute!);
-    }
-
-    if (response.statusCode == 200 && response.data != null) {
+    if (response != null && response.statusCode == 200 && response.data != null) {
       final data = existingMessage != null ? existingMessage!.toJson() : response.data['data'];
       if (existingMessage != null) {
         for (String k in response.data['data'].keys) {
@@ -135,8 +139,10 @@ mixin CreateScheduledMixin<T extends StatefulWidget> on State<T> {
       }
       nav.pop(message);
     } else {
-      Logger.error("Scheduled message error: ${response.statusCode}");
-      Logger.error(response.data);
+      if (response != null) {
+        Logger.error("Scheduled message error: ${response.statusCode}");
+        Logger.error(response.data);
+      }
       showSnackbar("Error", "Something went wrong!", type: SnackbarType.error);
     }
   }

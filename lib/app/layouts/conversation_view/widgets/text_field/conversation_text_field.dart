@@ -19,9 +19,10 @@ import 'package:bluebubbles/services/services.dart';
 import 'package:bluebubbles/services/ui/chat/send_data.dart';
 import 'package:bluebubbles/utils/logger/logger.dart';
 import 'package:collection/collection.dart';
+import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:get/get.dart';
+import 'package:get/get.dart' hide Response;
 import 'package:image_picker/image_picker.dart';
 import 'package:path/path.dart' hide context;
 import 'package:permission_handler/permission_handler.dart';
@@ -354,11 +355,14 @@ class ConversationTextFieldState extends CustomState<ConversationTextField, void
       if (text.contains(MentionTextEditingController.escapingChar)) {
         return showSnackbar("Error", "Mentions are not allowed in scheduled messages!", type: SnackbarType.error);
       }
-      ModalRoute? dialogRoute;
-      showDialog(
+      final rootNav = Navigator.of(context, rootNavigator: true);
+      final route = DialogRoute(
         context: context,
+        themes: InheritedTheme.capture(from: context, to: rootNav.context),
+        traversalEdgeBehavior: TraversalEdgeBehavior.closedLoop,
+        barrierDismissible: true,
+        barrierColor: context.theme.dialogTheme.barrierColor ?? Colors.black54,
         builder: (BuildContext context) {
-          dialogRoute = ModalRoute.of(context);
           return AlertDialog(
             backgroundColor: context.theme.colorScheme.surfaceContainerHighest,
             title: Text(
@@ -377,16 +381,25 @@ class ConversationTextFieldState extends CustomState<ConversationTextField, void
           );
         },
       );
-      final response = await HttpSvc.message.createScheduled(chat.guid, text, date.toUtc(), {"type": "once"});
-      // The builder that captures the route runs on the frame after the push, which a fast server can beat.
-      if (dialogRoute == null) await WidgetsBinding.instance.endOfFrame;
-      final route = dialogRoute;
-      if (route != null) NavigationSvc.closeRoute(route);
-      if (response.statusCode == 200 && response.data != null) {
+      rootNav.push(route);
+      Response? response;
+      try {
+        response = await HttpSvc.message.createScheduled(chat.guid, text, date.toUtc(), {"type": "once"});
+      } catch (e, s) {
+        if (e is Response) {
+          response = e;
+        } else {
+          Logger.error("Scheduled message error", error: e, trace: s);
+        }
+      }
+      NavigationSvc.closeRoute(route);
+      if (response != null && response.statusCode == 200 && response.data != null) {
         showSnackbar("Notice", "Message scheduled successfully for ${buildFullDate(date)}");
       } else {
-        Logger.error("Scheduled message error: ${response.statusCode}");
-        Logger.error(response.data);
+        if (response != null) {
+          Logger.error("Scheduled message error: ${response.statusCode}");
+          Logger.error(response.data);
+        }
         showSnackbar("Error", "Something went wrong!", type: SnackbarType.error);
       }
     } else {
