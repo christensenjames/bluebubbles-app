@@ -77,86 +77,98 @@ class _ConversationDetailsState extends State<ConversationDetails> with WidgetsB
   @override
   Widget build(BuildContext context) {
     final chatState = ChatsSvc.getOrCreateChatState(chat);
-    return ChatStateScope(
-      chatState: chatState,
-      child: Obx(() {
-        final chatDetailTheme = ChatDetailTheme.resolve(context, chat);
+    return Actions(
+      actions: {GoBackIntent: GoBackAction(context)},
+      child: Focus(
+        // Without a focused node below Actions, primary focus sits on the route scope and Escape misses GoBackAction.
+        autofocus: true,
+        child: ChatStateScope(
+          chatState: chatState,
+          child: Obx(() {
+            final chatDetailTheme = ChatDetailTheme.resolve(context, chat);
 
-        return Theme(
-          data: chatDetailTheme.theme,
-          child: SettingsScaffold(
-            headerColor: chatDetailTheme.headerColor,
-            title: "Details",
-            tileColor: chatDetailTheme.tileColor,
-            initialHeader: null,
-            iosSubtitle: iosSubtitle,
-            materialSubtitle: materialSubtitle,
-            minimalAppBar: true,
-            actions: [
-              Obx(() {
-                if (selected.isNotEmpty) {
-                  return IconButton(
-                    icon: Icon(iOS ? CupertinoIcons.xmark : Icons.close, color: context.theme.colorScheme.onSurface),
-                    onPressed: () {
-                      selected.clear();
-                    },
-                  );
-                } else {
-                  return const SizedBox.shrink();
-                }
-              }),
-              Obx(() {
-                if (selected.isNotEmpty) {
-                  return IconButton(
-                    icon: Icon(
-                      iOS ? CupertinoIcons.cloud_download : Icons.file_download,
-                      color: context.theme.colorScheme.onSurface,
+            return Theme(
+              data: chatDetailTheme.theme,
+              child: SettingsScaffold(
+                headerColor: chatDetailTheme.headerColor,
+                title: "Details",
+                tileColor: chatDetailTheme.tileColor,
+                initialHeader: null,
+                iosSubtitle: iosSubtitle,
+                materialSubtitle: materialSubtitle,
+                minimalAppBar: true,
+                actions: [
+                  Obx(() {
+                    if (selected.isNotEmpty) {
+                      return IconButton(
+                        icon: Icon(
+                          iOS ? CupertinoIcons.xmark : Icons.close,
+                          color: context.theme.colorScheme.onSurface,
+                        ),
+                        onPressed: () {
+                          selected.clear();
+                        },
+                      );
+                    } else {
+                      return const SizedBox.shrink();
+                    }
+                  }),
+                  Obx(() {
+                    if (selected.isNotEmpty) {
+                      return IconButton(
+                        icon: Icon(
+                          iOS ? CupertinoIcons.cloud_download : Icons.file_download,
+                          color: context.theme.colorScheme.onSurface,
+                        ),
+                        onPressed: () {
+                          final attachments = media.where((e) => selected.contains(e.guid!));
+                          for (Attachment a in attachments) {
+                            final file = AttachmentsSvc.getContent(a, autoDownload: false);
+                            if (file is PlatformFile) {
+                              AttachmentsSvc.saveToDisk(file);
+                            }
+                          }
+                        },
+                      );
+                    } else {
+                      return const SizedBox.shrink();
+                    }
+                  }),
+                ],
+                bodySlivers: [
+                  SliverToBoxAdapter(
+                    child: SettingsSvc.settings.skin.value == Skins.iOS
+                        ? ChatInfo(chat: chat)
+                        : ExpressiveChatHeader(chat: chat),
+                  ),
+                  SettingsSvc.settings.skin.value == Skins.iOS
+                      ? ParticipantsList(chat: chat)
+                      : ExpressiveParticipantsSection(chat: chat),
+                  // Hidden widget that loads attachments in the background
+                  SliverToBoxAdapter(
+                    child: AttachmentsLoader(
+                      chat: chat,
+                      onAttachmentsLoaded: onAttachmentsLoaded,
+                      onAttachmentsLoadFailed: onAttachmentsLoadFailed,
                     ),
-                    onPressed: () {
-                      final attachments = media.where((e) => selected.contains(e.guid!));
-                      for (Attachment a in attachments) {
-                        final file = AttachmentsSvc.getContent(a, autoDownload: false);
-                        if (file is PlatformFile) {
-                          AttachmentsSvc.saveToDisk(file);
-                        }
-                      }
-                    },
-                  );
-                } else {
-                  return const SizedBox.shrink();
-                }
-              }),
-            ],
-            bodySlivers: [
-              SliverToBoxAdapter(
-                child: SettingsSvc.settings.skin.value == Skins.iOS
-                    ? ChatInfo(chat: chat)
-                    : ExpressiveChatHeader(chat: chat),
+                  ),
+                  SliverPadding(
+                    padding: EdgeInsets.symmetric(vertical: SettingsSvc.settings.skin.value == Skins.iOS ? 0 : 5),
+                  ),
+                  SettingsSvc.settings.skin.value == Skins.iOS
+                      ? ChatOptions(chat: chat)
+                      : ExpressiveChatOptions(chat: chat),
+                  MediaGridSection(chat: chat, media: media, selected: selected, isLoading: isLoadingAttachments),
+                  LinksSection(chat: chat),
+                  LocationsSection(chat: chat, locations: locations, isLoading: isLoadingAttachments),
+                  DocumentsSection(chat: chat, docs: docs, isLoading: isLoadingAttachments),
+                  const SliverPadding(padding: EdgeInsets.only(top: 50)),
+                ],
               ),
-              SettingsSvc.settings.skin.value == Skins.iOS
-                  ? ParticipantsList(chat: chat)
-                  : ExpressiveParticipantsSection(chat: chat),
-              // Hidden widget that loads attachments in the background
-              SliverToBoxAdapter(
-                child: AttachmentsLoader(
-                  chat: chat,
-                  onAttachmentsLoaded: onAttachmentsLoaded,
-                  onAttachmentsLoadFailed: onAttachmentsLoadFailed,
-                ),
-              ),
-              SliverPadding(padding: EdgeInsets.symmetric(vertical: SettingsSvc.settings.skin.value == Skins.iOS ? 0 : 5)),
-              SettingsSvc.settings.skin.value == Skins.iOS
-                  ? ChatOptions(chat: chat)
-                  : ExpressiveChatOptions(chat: chat),
-              MediaGridSection(chat: chat, media: media, selected: selected, isLoading: isLoadingAttachments),
-              LinksSection(chat: chat),
-              LocationsSection(chat: chat, locations: locations, isLoading: isLoadingAttachments),
-              DocumentsSection(chat: chat, docs: docs, isLoading: isLoadingAttachments),
-              const SliverPadding(padding: EdgeInsets.only(top: 50)),
-            ],
-          ),
-        );
-      }),
+            );
+          }),
+        ),
+      ),
     );
   }
 }

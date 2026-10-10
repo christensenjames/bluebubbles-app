@@ -356,7 +356,11 @@ class GoBackAction extends ContextAction<GoBackIntent> {
       return Actions.maybeInvoke(focusContext, const DismissIntent());
     }
     if (SettingsSvc.settings.finishedSetup.value) {
-      NavigationSvc.backConversationView(context);
+      if (NavigationSvc.isTabletMode(context)) {
+        NavigationSvc.backConversationView(context);
+      } else {
+        Navigator.of(context).maybePop();
+      }
     }
     return null;
   }
