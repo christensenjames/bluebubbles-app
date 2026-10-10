@@ -346,7 +346,8 @@ Future<DateTime?> showBBDateTimePicker({
 }) async {
   final first = firstDate ?? DateTime.now();
   final last = lastDate ?? first.add(const Duration(days: 365 * 5));
-  final initial = (initialDate?.isAfter(first) ?? false) ? initialDate! : first.add(const Duration(minutes: 1));
+  final candidate = (initialDate?.isAfter(first) ?? false) ? initialDate! : first.add(const Duration(minutes: 1));
+  final initial = candidate.isAfter(last) ? last : candidate;
 
   if (SettingsSvc.settings.skin.value == Skins.iOS) {
     var picked = initial;
