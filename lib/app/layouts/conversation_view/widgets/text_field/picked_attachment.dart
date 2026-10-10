@@ -52,6 +52,7 @@ class _PickedAttachmentState extends State<PickedAttachment> with AutomaticKeepA
       } catch (ex) {
         thumbnailFailed = true;
       }
+      if (!mounted) return;
       setState(() {
         isLoading = false;
       });
@@ -74,6 +75,7 @@ class _PickedAttachmentState extends State<PickedAttachment> with AutomaticKeepA
         // Fallback to bytes if conversion fails
         imageBytes = file.bytes;
       }
+      if (!mounted) return;
       setState(() {
         isLoading = false;
       });
