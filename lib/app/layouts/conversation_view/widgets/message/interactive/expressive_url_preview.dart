@@ -361,7 +361,7 @@ class ExpressiveUrlPreview extends StatelessWidget {
 
     return SizeTransition(
       sizeFactor: CurvedAnimation(parent: controller.imageAnimation, curve: Curves.easeOutCubic),
-      axisAlignment: -1.0,
+      alignment: AlignmentDirectional.topStart,
       child: container,
     );
   }
