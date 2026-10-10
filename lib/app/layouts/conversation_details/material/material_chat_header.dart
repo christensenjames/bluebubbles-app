@@ -184,7 +184,7 @@ class ExpressiveChatHeader extends StatelessWidget {
     return Padding(
       padding: const EdgeInsets.only(top: 4),
       child: Text(
-        "${chat.handles.length} members · ${chat.isIMessage ? "iMessage" : "SMS"}",
+        "${chat.handles.length} members · ${chat.service.label}",
         textAlign: TextAlign.center,
         style: context.theme.textTheme.bodyMedium!.copyWith(
           color: context.theme.colorScheme.onSurfaceVariant,
