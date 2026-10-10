@@ -234,7 +234,7 @@ Future<void> downloadLivePhoto(MessagePopupActionContext ctx) async {
         size: response.data.length,
         bytes: response.data,
       );
-      await AttachmentsSvc.saveToDisk(file, isDocument: true);
+      await AttachmentsSvc.saveToDisk(file, isDocument: false);
     }
     downloadingAttachments.value = false;
   } catch (ex, trace) {

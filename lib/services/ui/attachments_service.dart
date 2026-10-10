@@ -289,34 +289,43 @@ class AttachmentsService extends GetxService {
           lockParentWindow: true,
         );
       } else {
-        if (file.name.toLowerCase().endsWith(".mov")) {
-          savePath = join(FilesystemService.androidDownloadsPath, SettingsSvc.settings.autoSavePicsLocation.value);
-        } else {
-          if (!isDocument) {
-            try {
-              if (file.path == null && file.bytes != null) {
-                await SaverGallery.saveImage(
-                  file.bytes!,
-                  quality: 100,
-                  fileName: file.name,
-                  androidRelativePath: SettingsSvc.settings.autoSavePicsLocation.value,
-                  skipIfExists: false,
-                );
-              } else {
-                await SaverGallery.saveFile(
-                  filePath: file.path!,
-                  fileName: file.name,
-                  androidRelativePath: SettingsSvc.settings.autoSavePicsLocation.value,
-                  skipIfExists: false,
-                );
-              }
+        if (!isDocument) {
+          File? tempFile;
+          try {
+            final String path;
+            if (file.path == null && file.bytes != null) {
+              tempFile = File(join(FilesystemSvc.appTempPath, '${randomString(8)}${extension(file.name)}'));
+              await tempFile.create(recursive: true);
+              await tempFile.writeAsBytes(file.bytes!);
+              path = tempFile.path;
+            } else {
+              path = file.path!;
+            }
+            final result = await SaverGallery.saveFile(
+              filePath: path,
+              fileName: file.name,
+              androidRelativePath: SettingsSvc.settings.autoSavePicsLocation.value,
+              skipIfExists: false,
+            );
+            if (result.isSuccess) {
               // Auto-download saves every incoming attachment, so only confirm saves the user asked for.
               if (!isAutoDownload) showSnackbar('Success', 'Saved attachment to gallery!', type: SnackbarType.success);
               return;
-            } catch (_) {}
+            }
+            Logger.warn('Gallery save failed: ${result.errorMessage}');
+          } catch (ex, stack) {
+            Logger.warn('Gallery save failed', error: ex, trace: stack);
+          } finally {
+            if (tempFile != null) {
+              try {
+                if (await tempFile.exists()) await tempFile.delete();
+              } catch (ex, stack) {
+                Logger.error('Failed to delete temporary attachment!', error: ex, trace: stack);
+              }
+            }
           }
-          savePath = SettingsSvc.settings.autoSaveDocsLocation.value;
         }
+        savePath = SettingsSvc.settings.autoSaveDocsLocation.value;
       }
 
       if (savePath != null) {
@@ -337,7 +346,6 @@ class AttachmentsService extends GetxService {
           showSnackbar('Success', 'Saved ${basename(target.path)} to ${FilesystemSvc.toDisplayPath(savePath)} folder!',
               type: SnackbarType.success);
         }
-
       }
     }
   }

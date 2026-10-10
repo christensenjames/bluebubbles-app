@@ -7,7 +7,6 @@ import 'package:collection/collection.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 import 'package:get/get.dart' hide Response;
-import 'package:path/path.dart';
 import 'package:universal_io/io.dart';
 
 /// Download state for attachments
@@ -430,12 +429,12 @@ class AttachmentDownloadController extends GetxController {
         !kIsDesktop &&
         !(attachment.isOutgoing ?? false) &&
         !(attachment.message.target?.isInteractive ?? false)) {
-      if (attachment.mimeType?.startsWith("image") ?? false) {
-        await AttachmentsSvc.saveToDisk(file.value!, isAutoDownload: true);
-      } else if (file.value?.bytes != null) {
-        final target = join(await FilesystemSvc.downloadsDirectory, basename(file.value!.name));
-        await File(target).writeAsBytes(file.value!.bytes!);
-      }
+      final mime = attachment.mimeType ?? '';
+      await AttachmentsSvc.saveToDisk(
+        file.value!,
+        isAutoDownload: true,
+        isDocument: !mime.startsWith('image/') && !mime.startsWith('video/'),
+      );
     }
   }
 
