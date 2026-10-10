@@ -30,7 +30,7 @@ class _ChatInfoState extends State<ChatInfo> with ThemeHelpers {
 
     bool canCall = !kIsWeb &&
         !kIsDesktop &&
-        !chat.chatIdentifier!.startsWith("urn:biz") &&
+        chat.chatIdentifier?.startsWith("urn:biz") != true &&
         (chat.handles.isNotEmpty &&
             ((chat.handles.first.contactsV2.firstOrNull?.phoneNumbers.isNotEmpty ?? false) ||
                 !chat.handles.first.address.contains("@")));
