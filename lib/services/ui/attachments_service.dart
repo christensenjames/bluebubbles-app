@@ -320,8 +320,14 @@ class AttachmentsService extends GetxService {
       }
 
       if (savePath != null) {
-        final bytes = file.bytes != null && file.bytes!.isNotEmpty ? file.bytes! : await File(file.path!).readAsBytes();
-        await File(join(savePath, basename(file.name))).writeAsBytes(bytes);
+        try {
+          final bytes =
+              file.bytes != null && file.bytes!.isNotEmpty ? file.bytes! : await File(file.path!).readAsBytes();
+          await File(join(savePath, basename(file.name))).writeAsBytes(bytes);
+        } catch (ex, stack) {
+          Logger.error('Failed to save attachment!', error: ex, trace: stack);
+          return showSnackbar('Error', 'Failed to save attachment!', type: SnackbarType.error);
+        }
         if (!isAutoDownload) {
           showSnackbar('Success', 'Saved attachment to ${FilesystemSvc.toDisplayPath(savePath)} folder!',
               type: SnackbarType.success);
