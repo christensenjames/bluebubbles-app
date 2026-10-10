@@ -400,13 +400,8 @@ class _ThemingPanelState extends CustomState<ThemingPanel, void, ThemingPanelCon
                                         type: SnackbarType.error);
                                   }
                                 } else {
-                                  var allThemes = ThemeStruct.getThemes();
-                                  final lightName = PrefsSvc.theme.getPreviousLightTheme();
-                                  final darkName = PrefsSvc.theme.getPreviousDarkTheme();
-                                  var previousLight = allThemes.firstWhere((e) => e.name == lightName);
-                                  var previousDark = allThemes.firstWhere((e) => e.name == darkName);
-                                  await PrefsSvc.theme.clearPreviousLightTheme();
-                                  await PrefsSvc.theme.clearPreviousDarkTheme();
+                                  final previousLight = await ThemeSvc.revertToPreviousLightTheme();
+                                  final previousDark = await ThemeSvc.revertToPreviousDarkTheme();
                                   await ThemeSvc.changeTheme(Get.context!, light: previousLight, dark: previousDark);
                                   SettingsSvc.settings.colorsFromMedia.value = val;
                                   await SettingsSvc.settings.saveOneAsync('colorsFromMedia');
