@@ -153,7 +153,7 @@ class ActionHandler extends GetxService {
           // Route through ChatsService so the ChatState the conversation list
           // renders from is updated too. Writing only to the DB row leaves the
           // unread dot stale until the state is rebuilt (open chat / restart).
-          await ChatsSvc.setChatHasUnread(chat, !data["read"]!, privateMark: false);
+          await ChatsSvc.setChatHasUnread(chat, !data["read"]!, force: data["read"] == true, privateMark: false);
         }
         return;
       case "typing-indicator":
