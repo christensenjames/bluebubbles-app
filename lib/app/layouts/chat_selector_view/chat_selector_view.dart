@@ -41,7 +41,6 @@ class ChatSelectorView extends StatefulWidget {
 class ChatSelectorViewState extends State<ChatSelectorView> with ThemeHelpers {
   final TextEditingController searchController = TextEditingController();
   final FocusNode searchNode = FocusNode();
-  final ScrollController addressScrollController = ScrollController();
 
   List<Chat> filteredChats = [];
   String? oldSearch;
@@ -62,6 +61,7 @@ class ChatSelectorViewState extends State<ChatSelectorView> with ThemeHelpers {
           return ChatsSvc.searchChats(query);
         }, Priority.animation);
 
+        if (!mounted) return;
         _debounce = null;
         setState(() {
           filteredChats = List<Chat>.from(searchChats);
@@ -84,6 +84,14 @@ class ChatSelectorViewState extends State<ChatSelectorView> with ThemeHelpers {
         }
       });
     }
+  }
+
+  @override
+  void dispose() {
+    _debounce?.cancel();
+    searchController.dispose();
+    searchNode.dispose();
+    super.dispose();
   }
 
   @override

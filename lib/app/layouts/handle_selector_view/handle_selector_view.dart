@@ -31,7 +31,6 @@ class HandleSelectorView extends StatefulWidget {
 class HandleSelectorViewState extends State<HandleSelectorView> with ThemeHelpers {
   final TextEditingController searchController = TextEditingController();
   final FocusNode searchNode = FocusNode();
-  final ScrollController addressScrollController = ScrollController();
 
   Completer<void> loadedAllHandles = Completer<void>();
   List<Handle> handles = [];
@@ -55,6 +54,7 @@ class HandleSelectorViewState extends State<HandleSelectorView> with ThemeHelper
               .toList();
         }, Priority.animation);
 
+        if (!mounted) return;
         _debounce = null;
         setState(() {
           filteredHandles = List<Handle>.from(searchHandles);
@@ -79,6 +79,14 @@ class HandleSelectorViewState extends State<HandleSelectorView> with ThemeHelper
     }
 
     loadHandles();
+  }
+
+  @override
+  void dispose() {
+    _debounce?.cancel();
+    searchController.dispose();
+    searchNode.dispose();
+    super.dispose();
   }
 
   Future<void> loadHandles() async {
