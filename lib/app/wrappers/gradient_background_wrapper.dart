@@ -46,6 +46,7 @@ class _GradientBackgroundState extends CustomState<GradientBackground, void, Con
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _resizeDebounce?.cancel();
     super.dispose();
   }
@@ -87,12 +88,6 @@ class _GradientBackgroundState extends CustomState<GradientBackground, void, Con
   void didChangePlatformBrightness() {
     super.didChangePlatformBrightness();
     adjustBackground.value = ThemeSvc.isGradientBg(Get.context!);
-  }
-
-  @override
-  void dispose() {
-    WidgetsBinding.instance.removeObserver(this);
-    super.dispose();
   }
 
   @override
