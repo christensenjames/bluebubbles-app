@@ -1,5 +1,23 @@
 # Changelog
 
+## 2026-10-12 — Upstream 2.1.3 merged, dev builds on the Surface and Pixel
+
+- Merged `upstream/master` (`9aaabfbfd`, 2.1.3, 23 commits) as `2c697f665`. Conflicts:
+  `lib/services/isolates/global_isolate.dart` `_scheduleIdleShutdown`, where both sides had
+  fixed the same idle-timer spin, so it takes upstream's version (#3321) and keeps land's
+  `_onRequestSettled()` helper; and `lib/helpers/network/CLAUDE.md`, where both sides' notes are
+  combined.
+- `bd289ef0d`: git merged two `dispose()` overrides in
+  `lib/app/wrappers/gradient_background_wrapper.dart` without a conflict (upstream's removes
+  the brightness observer, land's cancels the resize debounce), leaving a
+  `duplicate_definition` error. They are now one override.
+- Analyze: 0 errors, 0 warnings, 69 infos. The local `flutter build linux` fails on
+  `fl_dart_project_set_enable_impeller`, because upstream #3325 needs Flutter 3.47 and the
+  local SDK is 3.44.4; fork CI on 3.47.4 built Windows and both Linux targets (run 38332694572).
+- Installed on the Surface (Windows, `BlueBubbles version 2.1.3.0`) and on the Pixel (release
+  prod APK, `versionName` 2.1.2, since upstream's bump only changed the desktop
+  `msix_version`). The Pixel feel checks are still pending.
+
 ## 2026-10-10 — Fork integration on upstream master, three decided fixes, notification photo rotation
 
 `land/2026-10-10` (pushed to the fork, `5947e9a7e`) rebuilds all overnight work on today's
