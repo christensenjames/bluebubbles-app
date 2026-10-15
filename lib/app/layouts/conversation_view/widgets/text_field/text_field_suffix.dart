@@ -1,8 +1,8 @@
 import 'package:audio_waveforms/audio_waveforms.dart';
 import 'package:bluebubbles/app/components/custom_text_editing_controllers.dart';
-import 'package:bluebubbles/app/layouts/conversation_view/widgets/effects/send_effect_picker.dart';
 import 'package:bluebubbles/app/layouts/conversation_view/widgets/message/attachment/audio_player.dart';
 import 'package:bluebubbles/app/layouts/conversation_view/widgets/text_field/send_button.dart';
+import 'package:bluebubbles/app/layouts/conversation_view/widgets/text_field/helpers/schedule_message_helper.dart';
 import 'package:bluebubbles/app/wrappers/cupertino_icon_wrapper.dart';
 import 'package:bluebubbles/helpers/helpers.dart';
 import 'package:bluebubbles/database/models.dart';
@@ -27,6 +27,7 @@ class TextFieldSuffix extends StatefulWidget {
     required this.recorderController,
     required this.sendMessage,
     this.isChatCreator = false,
+    this.materialComposer = false,
     this.alwaysShowSend = false,
     this.hasInitialAttachments = false,
   });
@@ -37,6 +38,7 @@ class TextFieldSuffix extends StatefulWidget {
   final RecorderController? recorderController;
   final Future<void> Function({String? effect}) sendMessage;
   final bool isChatCreator;
+  final bool materialComposer;
 
   /// When true the send button is always shown, regardless of whether there
   /// is text or attachments. Used in the chat creator when an existing chat
@@ -68,6 +70,12 @@ class _TextFieldSuffixState extends State<TextFieldSuffix> with ThemeHelpers {
 
   @override
   Widget build(BuildContext context) {
+    if (widget.materialComposer) {
+      return Padding(
+        padding: const EdgeInsets.all(3.0),
+        child: _MaterialComposerPhotoButton(controller: widget.controller!),
+      );
+    }
     return MultiValueListenableBuilder(
       valueListenables: [widget.textController, widget.subjectTextController].nonNulls.toList(),
       builder: (context, values, _) {
@@ -134,22 +142,16 @@ class _TextFieldSuffixState extends State<TextFieldSuffix> with ThemeHelpers {
                 key: widget.controller!.sendButtonKey,
                 sendMessage: widget.sendMessage,
                 visible: canSend && !showRecording,
-                onLongPress: () {
-                  if (widget.controller!.scheduledDate.value != null) return;
-                  sendEffectAction(
-                    context,
-                    widget.controller!,
-                    widget.textController.text.trim(),
-                    widget.subjectTextController?.text.trim() ?? "",
-                    widget.controller!.replyToMessage?.message.guid,
-                    widget.controller!.replyToMessage?.partIndex,
-                    widget.controller!.chat.guid,
-                    widget.sendMessage,
-                    widget.textController is MentionTextEditingController
-                        ? (widget.textController as MentionTextEditingController).mentionables
-                        : [],
-                  );
-                },
+                onLongPress: () => sendTextFieldEffects(
+                  context,
+                  widget.controller!,
+                  widget.textController.text.trim(),
+                  widget.subjectTextController?.text.trim() ?? "",
+                  widget.sendMessage,
+                  widget.textController is MentionTextEditingController
+                      ? (widget.textController as MentionTextEditingController).mentionables
+                      : [],
+                ),
               ),
             ),
           );
@@ -164,6 +166,59 @@ class _TextFieldSuffixState extends State<TextFieldSuffix> with ThemeHelpers {
 
     super.dispose();
   }
+}
+
+class TextFieldMaterialSendButton extends StatelessWidget {
+  const TextFieldMaterialSendButton({
+    super.key,
+    required this.subjectTextController,
+    required this.textController,
+    required this.controller,
+    required this.sendMessage,
+  });
+
+  final TextEditingController? subjectTextController;
+  final TextEditingController textController;
+  final ConversationViewController controller;
+  final Future<void> Function({String? effect}) sendMessage;
+
+  @override
+  Widget build(BuildContext context) {
+    return MultiValueListenableBuilder(
+      valueListenables: [textController, subjectTextController].nonNulls.toList(),
+      builder: (context, values, _) => Obx(() {
+        final hasAttachments = controller.pickedAttachments.isNotEmpty;
+        final canSend =
+            hasAttachments || textController.text.isNotEmpty || (subjectTextController?.text.isNotEmpty ?? false);
+        return SendButton(
+          key: controller.sendButtonKey,
+          sendMessage: sendMessage,
+          onLongPress: () => scheduleMessage(context, controller),
+          enabled: canSend,
+          materialComposer: true,
+        );
+      }),
+    );
+  }
+}
+
+class _MaterialComposerPhotoButton extends StatelessWidget {
+  const _MaterialComposerPhotoButton({required this.controller});
+
+  final ConversationViewController controller;
+
+  @override
+  Widget build(BuildContext context) => IconButton(
+        tooltip: "Photos",
+        style: IconButton.styleFrom(
+          shape: const CircleBorder(),
+          padding: EdgeInsets.zero,
+          minimumSize: const Size(48, 48),
+          fixedSize: const Size(48, 48),
+        ),
+        icon: const Icon(Icons.photo_library_outlined, size: 22),
+        onPressed: () => pickImagesIntoAttachments(controller),
+      );
 }
 
 /// Extracted recording button to reduce Obx rebuild scope and prevent

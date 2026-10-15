@@ -21,7 +21,10 @@ class MaterialHeader extends StatelessWidget implements PreferredSizeWidget {
 
   @override
   Widget build(BuildContext context) {
-    final Rx<Color> _backgroundColor = context.theme.colorScheme.surfaceContainerHighest
+    final headerColor = context.material
+        ? context.theme.colorScheme.surfaceContainer
+        : context.theme.colorScheme.surfaceContainerHighest;
+    final Rx<Color> _backgroundColor = headerColor
         .withValues(alpha: (kIsDesktop && SettingsSvc.settings.windowEffect.value != WindowEffect.disabled) ? 0.4 : 1)
         .obs;
     final Color _foregroundColor = context.theme.colorScheme.onSurfaceVariant;

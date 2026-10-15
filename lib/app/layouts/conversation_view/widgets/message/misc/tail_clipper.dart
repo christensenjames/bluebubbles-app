@@ -20,6 +20,26 @@ class TailClipper extends CustomClipper<Path> {
   @override
   Path getClip(Size size) {
     final path = Path();
+    if (SettingsSvc.settings.skin.value == Skins.Material) {
+      final double r = min(size.height / 2, 20.0);
+      final double smallR = min(size.height / 2, 4.0);
+      final double tlR = (!isFromMe && connectUpper) ? smallR : r;
+      final double blR = (!isFromMe && connectLower) ? smallR : r;
+      final double brR = (isFromMe && connectLower) ? smallR : r;
+      final double trR = (isFromMe && connectUpper) ? smallR : r;
+
+      path.moveTo(0, tlR);
+      path.lineTo(0, size.height - blR);
+      path.arcToPoint(Offset(blR, size.height), radius: Radius.circular(blR), clockwise: false);
+      path.lineTo(size.width - brR, size.height);
+      path.arcToPoint(Offset(size.width, size.height - brR), radius: Radius.circular(brR), clockwise: false);
+      path.lineTo(size.width, trR);
+      path.arcToPoint(Offset(size.width - trR, 0), radius: Radius.circular(trR), clockwise: false);
+      path.lineTo(tlR, 0);
+      path.arcToPoint(Offset(0, tlR), radius: Radius.circular(tlR), clockwise: false);
+      path.close();
+      return path;
+    }
     final double r = min(size.height / 2, 22.0);
     final double start = isFromMe ? 0 : 10;
     final double end = isFromMe ? size.width - 10 : size.width;

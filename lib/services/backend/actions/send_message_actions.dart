@@ -63,16 +63,43 @@ class SendMessageActions {
     final chatGuid = map['chatGuid'] as String;
     final tempGuid = map['tempGuid'] as String;
     final parts = (map['parts'] as List).cast<Map<String, dynamic>>();
+    final attachments = (map['attachments'] as List? ?? []).cast<Map<String, dynamic>>();
     final effectId = map['effectId'] as String?;
     final subject = map['subject'] as String?;
     final selectedMessageGuid = map['selectedMessageGuid'] as String?;
     final partIndex = map['partIndex'] as int?;
     final ddScan = map['ddScan'] as bool?;
 
+    final attachmentParts = <Map<String, dynamic>>[];
+    for (int i = 0; i < attachments.length; i++) {
+      final attachment = attachments[i];
+      final path = await HttpSvc.attachment.upload(
+        PlatformFile(
+          path: attachment['filePath'] as String,
+          name: attachment['fileName'] as String,
+          size: attachment['fileSize'] as int,
+        ),
+        onSendProgress: (count, total) {
+          if (total <= 0) return;
+          IsolateEventEmitter.emit(IsolateEvent.attachmentUploadProgress, {
+            'chatGuid': chatGuid,
+            'messageGuid': tempGuid,
+            'attachmentGuid': attachment['guid'] as String,
+            'progress': count / total,
+          });
+        },
+      );
+      attachmentParts.add({
+        'partIndex': i,
+        'attachment': path,
+        'name': attachment['fileName'] as String,
+      });
+    }
+
     final response = await HttpSvc.message.sendMultipart(
       chatGuid,
       tempGuid,
-      parts,
+      [...attachmentParts, ...parts],
       effectId: effectId,
       subject: subject,
       selectedMessageGuid: selectedMessageGuid,

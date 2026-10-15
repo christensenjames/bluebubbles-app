@@ -5,6 +5,7 @@ import 'package:bluebubbles/app/state/attachment_state.dart';
 import 'package:bluebubbles/app/state/message_state.dart';
 import 'package:bluebubbles/helpers/types/extensions/extensions.dart';
 import 'package:bluebubbles/helpers/types/constants.dart';
+import 'package:bluebubbles/helpers/types/helpers/string_helpers.dart';
 import 'package:bluebubbles/database/models.dart';
 import 'package:bluebubbles/services/services.dart';
 import 'package:bluebubbles/services/backend/interfaces/sync_interface.dart';
@@ -861,6 +862,10 @@ class MessagesService extends GetxController {
     }
     toUpdate ??= struct.getMessage(updated.guid!);
     if (toUpdate == null) return;
+    if (oldGuid != null && oldGuid != updated.guid && toUpdate.guid == oldGuid) {
+      final duplicate = struct.getMessage(updated.guid!);
+      if (duplicate != null) removeMessage(duplicate);
+    }
 
     // Capture the previous edit date BEFORE the merge/updateFromMessage below.
     // toUpdate is the *same* Message instance held by messageState.message, so
@@ -1143,6 +1148,12 @@ class MessagesService extends GetxController {
   /// Generates new temp GUID, clears error state, and updates both DB and MessageState
   Future<void> retryFailedMessage(Message message, {String? oldGuid}) async {
     final guidToDelete = oldGuid ?? message.guid!;
+    final attachments = List<Attachment>.from(message.dbAttachments);
+    final isBatch = !kIsWeb && message.itemType != 5 &&
+        (attachments.length >= 2 ||
+            (attachments.isNotEmpty &&
+                (!isNullOrEmptyString(message.text) || !isNullOrEmptyString(message.subject))));
+    final attachmentGuids = <String, String>{};
 
     // Generate new temp GUID for retry
     message.generateTempGuid();
@@ -1203,34 +1214,26 @@ class MessagesService extends GetxController {
     // Clear notification
     await NotificationsSvc.clearFailedToSend(chat.id!);
 
-    // Reload attachment bytes and synchronise the attachment GUID with the
-    // new message GUID so that:
-    //   (a) the server's socket echo carries a tempGuid that exists in the DB
-    //       (preventing a spurious duplicate message in the list), and
-    //   (b) the attachment progress / state map keys stay consistent across
-    //       prepAttachment → sendAttachment → onSuccess/onError.
-    // The attachment.guid == message.guid invariant is established in
-    // send_animation.dart for initial sends; we must restore it on retry.
-    for (Attachment? a in message.dbAttachments) {
-      if (a == null) continue;
+    for (int i = 0; i < attachments.length; i++) {
+      final a = attachments[i];
       final oldAttGuid = a.guid!;
+      final attachmentGuid = isBatch ? '${message.guid}-$i' : message.guid!;
+      attachmentGuids[oldAttGuid] = attachmentGuid;
 
-      // Read bytes while the file is still at the old (pre-rename) path.
-      a.bytes = await File(a.path).readAsBytes();
+      if (!isBatch) a.bytes = await File(a.path).readAsBytes();
 
       // Move the attachment directory so the file is immediately accessible
       // at the new guid-based path.  This lets _restoreInFlightAttachmentStates
       // populate uploadPreviewFile even before prepAttachment runs.
       if (!kIsWeb) {
         final oldDir = Directory("${Attachment.baseDirectory}/$oldAttGuid");
-        final newDir = Directory("${Attachment.baseDirectory}/${message.guid}");
+        final newDir = Directory("${Attachment.baseDirectory}/$attachmentGuid");
         if (oldDir.existsSync() && !newDir.existsSync()) {
           oldDir.renameSync(newDir.path);
         }
       }
 
-      // Sync attachment GUID with the new temp message GUID.
-      a.guid = message.guid;
+      a.guid = attachmentGuid;
 
       // Persist the updated GUID to DB immediately (in-place update via
       // existing ObjectBox ID).  Without this there is a window between
@@ -1243,21 +1246,53 @@ class MessagesService extends GetxController {
       // finds the entry the moment the user re-enters, even before prepAttachment
       // runs its own add.  prepAttachment will add a second entry for the same
       // guid; both are cleaned up together by the removeWhere in onSuccess/onError.
-      if (!OutgoingMsgHandler.attachmentProgress.any((e) => e.guid == message.guid)) {
-        OutgoingMsgHandler.attachmentProgress.add(AttachmentUploadProgress(message.guid!, 0.0.obs));
+      if (!OutgoingMsgHandler.attachmentProgress.any((e) => e.guid == attachmentGuid)) {
+        OutgoingMsgHandler.attachmentProgress.add(AttachmentUploadProgress(attachmentGuid, 0.0.obs));
       }
 
       // Reset the existing AttachmentState in-place (re-key + uploading transition)
       // so the widget's Obx sees isSending=true without needing a full rebuild.
       final attState = messageState.attachmentStates.remove(oldAttGuid);
       if (attState != null) {
-        attState.resetForRetryInternal(message.guid!);
-        messageState.attachmentStates[message.guid!] = attState;
+        attState.resetForRetryInternal(attachmentGuid);
+        messageState.attachmentStates[attachmentGuid] = attState;
       }
     }
 
+    if (isBatch) {
+      message.attributedBody = message.attributedBody
+          .map((body) => AttributedBody(
+                string: body.string,
+                runs: body.runs.map((run) {
+                  final attributes = run.attributes;
+                  return Run(
+                    range: run.range,
+                    attributes: attributes == null
+                        ? null
+                        : Attributes(
+                            messagePart: attributes.messagePart,
+                            attachmentGuid: attachmentGuids[attributes.attachmentGuid] ?? attributes.attachmentGuid,
+                            mention: attributes.mention,
+                            audioTranscript: attributes.audioTranscript,
+                          ),
+                  );
+                }).toList(),
+              ))
+          .toList();
+      await Message.replaceMessage(message.guid, message);
+      messageState.updateFromMessage(message);
+      messageState.buildMessageParts(force: true);
+    }
+
     // Queue for sending (message already in UI, just updated)
-    if (message.dbAttachments.isNotEmpty) {
+    if (isBatch) {
+      OutgoingMsgHandler.queue(OutgoingMultipartMessage(
+        chat: chat,
+        message: message,
+        attachments: attachments,
+        isRetry: true,
+      ));
+    } else if (message.dbAttachments.isNotEmpty) {
       OutgoingMsgHandler.queue(
         OutgoingAttachment(
           chat: chat,

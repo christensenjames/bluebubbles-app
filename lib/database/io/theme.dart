@@ -208,6 +208,13 @@ class ThemeStruct {
             "onInverseSurface": data.colorScheme.onInverseSurface.toARGB32(),
             "inversePrimary": data.colorScheme.inversePrimary.toARGB32(),
             "surfaceContainerHighest": data.colorScheme.surfaceContainerHighest.toARGB32(),
+            "surfaceContainerHigh": data.colorScheme.surfaceContainerHigh.toARGB32(),
+            "surfaceContainer": data.colorScheme.surfaceContainer.toARGB32(),
+            "surfaceContainerLow": data.colorScheme.surfaceContainerLow.toARGB32(),
+            "surfaceContainerLowest": data.colorScheme.surfaceContainerLowest.toARGB32(),
+            "surfaceDim": data.colorScheme.surfaceDim.toARGB32(),
+            "surfaceBright": data.colorScheme.surfaceBright.toARGB32(),
+            "outlineVariant": data.colorScheme.outlineVariant.toARGB32(),
             "iMessageBubble": (data.extensions[BubbleColors] as BubbleColors?)?.iMessageBubbleColor?.toARGB32(),
             "oniMessageBubble": (data.extensions[BubbleColors] as BubbleColors?)?.oniMessageBubbleColor?.toARGB32(),
             "smsBubble": (data.extensions[BubbleColors] as BubbleColors?)?.smsBubbleColor?.toARGB32(),
@@ -340,13 +347,19 @@ class ThemeStruct {
       ),
       useMaterial3: true,
     ).toTheme;
-    final baseTheme = map["colorScheme"]["surfaceContainerHighest"] != null
-        ? baseFlexTheme.copyWith(
-            colorScheme: baseFlexTheme.colorScheme.copyWith(
-              surfaceContainerHighest: Color(map["colorScheme"]["surfaceContainerHighest"]),
-            ),
-          )
-        : baseFlexTheme;
+    Color? stored(String key) => map["colorScheme"][key] == null ? null : Color(map["colorScheme"][key]);
+    final baseTheme = baseFlexTheme.copyWith(
+      colorScheme: baseFlexTheme.colorScheme.copyWith(
+        surfaceContainerHighest: stored("surfaceContainerHighest"),
+        surfaceContainerHigh: stored("surfaceContainerHigh"),
+        surfaceContainer: stored("surfaceContainer"),
+        surfaceContainerLow: stored("surfaceContainerLow"),
+        surfaceContainerLowest: stored("surfaceContainerLowest"),
+        surfaceDim: stored("surfaceDim"),
+        surfaceBright: stored("surfaceBright"),
+        outlineVariant: stored("outlineVariant"),
+      ),
+    );
     return ThemeStruct(
         id: json["ROWID"],
         name: json["name"],

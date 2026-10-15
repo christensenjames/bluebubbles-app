@@ -8,6 +8,8 @@ import 'package:bluebubbles/app/layouts/conversation_view/dialogs/custom_mention
 import 'package:bluebubbles/app/layouts/conversation_view/widgets/media_picker/text_field_attachment_picker.dart';
 import 'package:bluebubbles/app/layouts/conversation_view/widgets/text_field/picked_attachments_holder.dart';
 import 'package:bluebubbles/app/layouts/conversation_view/widgets/text_field/reply_holder.dart';
+import 'package:bluebubbles/app/layouts/conversation_view/widgets/text_field/conversation_text_field_local_controller.dart';
+import 'package:bluebubbles/app/layouts/conversation_view/widgets/text_field/text_field_icon_bar.dart';
 import 'package:bluebubbles/app/layouts/conversation_view/widgets/text_field/text_field_suffix.dart';
 import 'package:bluebubbles/database/models.dart';
 import 'package:bluebubbles/helpers/helpers.dart';
@@ -32,6 +34,7 @@ class TextFieldComponent extends StatefulWidget {
     required this.recorderController,
     required this.sendMessage,
     this.focusNode,
+    this.localController,
     this.initialAttachments = const [],
     this.alwaysShowSend = false,
     this.hideMediaPicker = false,
@@ -42,6 +45,7 @@ class TextFieldComponent extends StatefulWidget {
   final ConversationViewController? controller;
   final RecorderController? recorderController;
   final Future<void> Function({String? effect}) sendMessage;
+  final ConversationTextFieldLocalController? localController;
   final FocusNode? focusNode;
 
   final List<PlatformFile> initialAttachments;
@@ -147,6 +151,7 @@ class TextFieldComponentState extends State<TextFieldComponent> {
   Chat? get chat => controller?.chat;
 
   bool get isChatCreator => focusNode != null;
+  bool get materialComposer => Platform.isAndroid && material && !isChatCreator;
 
   bool _showAttachmentPickerLocal = false;
   bool _pasteHandledOnKeyDown = false;
@@ -183,8 +188,12 @@ class TextFieldComponentState extends State<TextFieldComponent> {
                     )
                   : null,
               decoration: BoxDecoration(
-                color: (!iOS || hasBackground) ? context.theme.colorScheme.surfaceContainerHighest : null,
-                borderRadius: BorderRadius.circular(20),
+                color: (!iOS || hasBackground)
+                    ? (material
+                        ? context.theme.colorScheme.surfaceContainer
+                        : context.theme.colorScheme.surfaceContainerHighest)
+                    : null,
+                borderRadius: BorderRadius.circular(material ? 28 : 20),
               ),
               clipBehavior: Clip.antiAlias,
               child: AnimatedSize(
@@ -271,7 +280,12 @@ class TextFieldComponentState extends State<TextFieldComponent> {
                     Obx(() {
                       final chatTitle =
                           chat == null ? null : (ChatsSvc.getChatState(chat!.guid)?.title.value ?? chat!.getTitle());
-                      return TextField(
+                      final contentPadding = materialComposer
+                          ? const EdgeInsets.fromLTRB(0, 18, 20, 18)
+                          : material
+                              ? const EdgeInsets.symmetric(horizontal: 20, vertical: 18)
+                              : EdgeInsets.all(iOS && !kIsDesktop && !kIsWeb ? 10 : 12.5);
+                      final messageInput = TextField(
                         textCapitalization: TextCapitalization.sentences,
                         focusNode: controller?.focusNode ?? focusNode,
                         autocorrect: true,
@@ -289,7 +303,7 @@ class TextFieldComponentState extends State<TextFieldComponent> {
                         cursorColor: context.theme.colorScheme.primary,
                         cursorHeight: context.theme.extension<BubbleText>()!.bubbleText.fontSize! * 1.25,
                         decoration: InputDecoration(
-                          contentPadding: EdgeInsets.all(iOS && !kIsDesktop && !kIsWeb ? 10 : 12.5),
+                          contentPadding: contentPadding,
                           isDense: true,
                           isCollapsed: true,
                           hintText: isChatCreator
@@ -328,6 +342,7 @@ class TextFieldComponentState extends State<TextFieldComponent> {
                                     isChatCreator: isChatCreator,
                                     alwaysShowSend: widget.alwaysShowSend,
                                     hasInitialAttachments: initialAttachments.isNotEmpty,
+                                    materialComposer: materialComposer,
                                   ),
                                 ),
                         ),
@@ -455,6 +470,22 @@ class TextFieldComponentState extends State<TextFieldComponent> {
                         contentInsertionConfiguration:
                             ContentInsertionConfiguration(onContentInserted: onContentCommit),
                       );
+                      if (!materialComposer) return messageInput;
+                      return Row(
+                        crossAxisAlignment: CrossAxisAlignment.end,
+                        children: [
+                          // The pill is 54 dp for one line; 3 dp under the 48 dp button centres it on that line.
+                          Padding(
+                            padding: const EdgeInsets.only(left: 4, bottom: 3),
+                            child: TextFieldIconBar(
+                              controller: controller!,
+                              localController: widget.localController!,
+                              materialComposer: true,
+                            ),
+                          ),
+                          Expanded(child: messageInput),
+                        ],
+                      );
                     }),
                   ],
                 ),
@@ -539,7 +570,7 @@ class TextFieldComponentState extends State<TextFieldComponent> {
           curve: Easing.emphasizedDecelerate,
           alignment: Alignment.bottomCenter,
           child: _showAttachmentPickerLocal
-              ? AttachmentPicker(controller: controller!)
+              ? AttachmentPicker(controller: controller!, sendMessage: sendMessage)
               : SizedBox(width: NavigationSvc.width(context)),
         ),
       ],

@@ -3,6 +3,7 @@ import 'package:bluebubbles/app/layouts/conversation_view/widgets/header/cuperti
 import 'package:bluebubbles/app/layouts/conversation_view/widgets/header/material_header.dart';
 import 'package:bluebubbles/app/layouts/conversation_view/widgets/messages_view_components.dart';
 import 'package:bluebubbles/app/layouts/conversation_view/widgets/text_field/conversation_text_field.dart';
+import 'package:bluebubbles/app/layouts/conversation_view/widgets/text_field/emoji_row.dart';
 import 'package:bluebubbles/app/state/chat_state_scope.dart';
 import 'package:bluebubbles/app/wrappers/bb_scaffold.dart';
 import 'package:bluebubbles/app/wrappers/gradient_background_wrapper.dart';
@@ -136,7 +137,7 @@ class ConversationViewState extends State<ConversationView> with ThemeHelpers<Co
           Builder(
             builder: (context) {
               final bottomInset = MediaQuery.paddingOf(context).bottom;
-              return Padding(
+              final body = Padding(
                 padding: EdgeInsets.only(bottom: bottomInset),
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.end,
@@ -160,9 +161,26 @@ class ConversationViewState extends State<ConversationView> with ThemeHelpers<Co
                         parentController: controller,
                       ),
                     ),
+                    EmojiRow(parentController: controller),
                   ],
                 ),
               );
+              if (!context.material) return body;
+              return Obx(() {
+                final chatState = ChatsSvc.getChatState(chat.guid);
+                final hasCustomBg = (chatState?.customBackgroundPath.value != null) ||
+                    (chatState?.wallpaperType.value == ChatWallpaperType.dynamic);
+                final windowEffect = SettingsSvc.settings.windowEffect.value;
+                return ClipRRect(
+                  borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
+                  child: ColoredBox(
+                    color: (windowEffect != WindowEffect.disabled || hasCustomBg)
+                        ? Colors.transparent
+                        : context.theme.colorScheme.surface,
+                    child: body,
+                  ),
+                );
+              });
             },
           ),
         ],
@@ -243,14 +261,15 @@ class ConversationViewState extends State<ConversationView> with ThemeHelpers<Co
             : colorScheme.onBubble(context, chat.isIMessage);
 
         return Theme(
-          data: baseTheme.copyWith(
-            // Override primary color with our custom bubble color.
-            primaryColor: bubbleColor,
-            colorScheme: colorScheme.copyWith(
-              primary: bubbleColor,
-              onPrimary: onBubbleColor,
-            ),
-          ),
+          data: material
+              ? baseTheme
+              : baseTheme.copyWith(
+                  primaryColor: bubbleColor,
+                  colorScheme: colorScheme.copyWith(
+                    primary: bubbleColor,
+                    onPrimary: onBubbleColor,
+                  ),
+                ),
           child: PopScope(
             canPop: false,
             onPopInvokedWithResult: <T>(bool didPop, T? result) async {
@@ -278,8 +297,10 @@ class ConversationViewState extends State<ConversationView> with ThemeHelpers<Co
               child: FocusScope(
                 autofocus: true,
                 child: BBScaffold(
-                  backgroundColor: windowEffect != WindowEffect.disabled ? Colors.transparent : colorScheme.surface,
-                  extendBodyBehindAppBar: true,
+                  backgroundColor: windowEffect != WindowEffect.disabled
+                      ? Colors.transparent
+                      : (material ? colorScheme.surfaceContainer : colorScheme.surface),
+                  extendBodyBehindAppBar: !material,
                   appBar: _appBar,
                   body: _bodyContent,
                 ),

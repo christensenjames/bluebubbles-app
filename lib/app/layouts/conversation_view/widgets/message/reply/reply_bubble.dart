@@ -41,8 +41,10 @@ class _ReplyBubbleState extends State<ReplyBubble> with ThemeHelpers {
   }
 
   Color getBubbleColor() {
-    Color bubbleColor = (context.theme.extensions[BubbleColors] as BubbleColors?)?.receivedBubbleColor ??
-        context.theme.colorScheme.surfaceContainerHighest;
+    Color bubbleColor = (context.material
+        ? context.theme.colorScheme.surfaceContainer
+        : (context.theme.extensions[BubbleColors] as BubbleColors?)?.receivedBubbleColor ??
+            context.theme.colorScheme.surfaceContainerHighest);
     if (SettingsSvc.settings.colorfulBubbles.value && !message.isFromMe!) {
       final colorStr = controller.sender?.color.value;
       final address = controller.sender?.handle.address;
@@ -79,7 +81,9 @@ class _ReplyBubbleState extends State<ReplyBubble> with ThemeHelpers {
               padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 15),
               decoration: hasBackground
                   ? BoxDecoration(
-                      color: context.theme.colorScheme.surfaceContainerHighest,
+                      color: context.material
+                          ? context.theme.colorScheme.surfaceContainer
+                          : context.theme.colorScheme.surfaceContainerHighest,
                       borderRadius: BorderRadius.circular(12),
                     )
                   : null,

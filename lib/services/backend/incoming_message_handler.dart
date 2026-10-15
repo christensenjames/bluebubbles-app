@@ -583,25 +583,7 @@ class IncomingMessageHandler {
     }
   }
 
-  /// Swaps attachment GUIDs on the replacement message's attachments.
-  ///
-  /// ### Why this is needed
-  ///
-  /// When an attachment is sent, the local attachment record is created with
-  /// the same temp GUID as its parent message (`temp-XXXXXXXX`).  The server
-  /// then assigns a real GUID.  This method resolves which local GUID to
-  /// replace by index, using the following priority:
-  ///
-  /// * If [existingGuid] starts with `temp-`, it was the attachment GUID
-  ///   (they are set equal at send time in `send_animation.dart`).
-  /// * Otherwise look up the DB GUID via [existing.dbAttachments] by index —
-  ///   this handles socket events that omit `tempGuid` (e.g. keyboard GIFs).
-  ///
-  /// ### Parallel-delivery
-  ///
-  /// If the real attachment GUID is already in the DB (because two delivery
-  /// paths raced — e.g. HTTP response and socket both arrived), the existing
-  /// real record is updated in place and the stale temp record is deleted.
+  // Match by equal GUID first, then the temp batch slot, then the attachment index.
   Future<void> _replaceAttachments(
     Chat chat,
     String existingGuid,
@@ -615,7 +597,12 @@ class IncomingMessageHandler {
 
       // Resolve which local GUID currently owns this attachment slot.
       final String attachmentExistingGuid;
-      if (existingGuid.startsWith('temp-')) {
+      if (existing.dbAttachments.any((attachment) => attachment.guid == newAttachment.guid)) {
+        attachmentExistingGuid = newAttachment.guid!;
+      } else if (i < existing.dbAttachments.length &&
+          existing.dbAttachments[i].guid?.startsWith('$existingGuid-') == true) {
+        attachmentExistingGuid = existing.dbAttachments[i].guid!;
+      } else if (existingGuid.startsWith('temp-')) {
         attachmentExistingGuid = existingGuid;
       } else if (existing.dbAttachments.isNotEmpty && i < existing.dbAttachments.length) {
         attachmentExistingGuid = existing.dbAttachments[i].guid ?? existingGuid;

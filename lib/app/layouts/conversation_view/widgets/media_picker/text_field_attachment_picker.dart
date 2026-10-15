@@ -1,10 +1,10 @@
 import 'dart:async';
 
-import 'package:bluebubbles/app/layouts/conversation_details/dialogs/timeframe_picker.dart';
 import 'package:bluebubbles/utils/logger/logger.dart';
 import 'package:bluebubbles/utils/share.dart';
 import 'package:bluebubbles/helpers/helpers.dart';
 import 'package:bluebubbles/app/layouts/conversation_view/widgets/media_picker/attachment_picker_file.dart';
+import 'package:bluebubbles/app/layouts/conversation_view/widgets/text_field/helpers/schedule_message_helper.dart';
 import 'package:bluebubbles/app/wrappers/theme_switcher.dart';
 import 'package:bluebubbles/database/global/platform_file.dart';
 import 'package:bluebubbles/services/services.dart';
@@ -27,9 +27,11 @@ class AttachmentPicker extends StatefulWidget {
   const AttachmentPicker({
     super.key,
     required this.controller,
+    required this.sendMessage,
   });
 
   final ConversationViewController controller;
+  final Future<void> Function({String? effect}) sendMessage;
 
   @override
   State<AttachmentPicker> createState() => _AttachmentPickerState();
@@ -242,8 +244,17 @@ class _AttachmentPickerState extends State<AttachmentPicker> with ThemeHelpers {
                 icon: Icons.schedule_rounded,
                 label: 'Schedule',
                 color: const Color(0xFFFF9500),
-                onTap: () => _handleSchedule(context),
+                onTap: () => scheduleMessage(context, controller),
               ),
+              Obx(() {
+                if (!SettingsSvc.settings.enablePrivateAPI.value) return const SizedBox.shrink();
+                return _QuickActionItem(
+                  icon: Icons.auto_awesome_rounded,
+                  label: 'Effects',
+                  color: const Color(0xFFFF2D55),
+                  onTap: () => _handleEffects(context),
+                );
+              }),
               _QuickActionItem(
                 icon: Icons.draw_rounded,
                 label: 'Handwritten',
@@ -259,20 +270,7 @@ class _AttachmentPickerState extends State<AttachmentPicker> with ThemeHelpers {
 
   Future<void> _handleGallery() async {
     if (kIsDesktop || kIsWeb) return;
-    final List<XFile> files = await ImagePicker().pickMultiImage();
-    for (final file in files) {
-      final size = await file.length();
-      if (size / 1024000 > 1000) {
-        showSnackbar("Error", "This file is over 1 GB! Please compress it before sending.", type: SnackbarType.error);
-        continue;
-      }
-      controller.pickedAttachments.add(PlatformFile(
-        path: file.path,
-        name: file.path.split('/').last,
-        size: size,
-        bytes: null,
-      ));
-    }
+    await pickImagesIntoAttachments(controller);
   }
 
   Future<void> _handleFilePicker() async {
@@ -300,17 +298,14 @@ class _AttachmentPickerState extends State<AttachmentPicker> with ThemeHelpers {
     await Share.location(controller.chat);
   }
 
-  Future<void> _handleSchedule(BuildContext context) async {
-    if (controller.pickedAttachments.isNotEmpty) {
-      return showSnackbar("Error", "Remove all attachments before scheduling!", type: SnackbarType.error);
-    } else if (controller.replyToMessage != null || controller.subjectTextController.text.isNotEmpty) {
-      return showSnackbar("Error", "Private API features are not supported when scheduling!", type: SnackbarType.error);
+  void _handleEffects(BuildContext context) {
+    final text = controller.textController.text.trim();
+    final subjectText = controller.subjectTextController.text.trim();
+    if (text.isEmpty && subjectText.isEmpty && controller.pickedAttachments.isEmpty) {
+      showSnackbar("Error", "Nothing to send!", type: SnackbarType.error);
+      return;
     }
-
-    final date = await showTimeframePicker("Pick date and time", context, presetsAhead: true);
-    if (date != null && date.isAfter(DateTime.now())) {
-      controller.scheduledDate.value = date;
-    }
+    sendTextFieldEffects(context, controller, text, subjectText, widget.sendMessage, controller.mentionables);
   }
 
   Future<void> _handleHandwritten(BuildContext context) async {

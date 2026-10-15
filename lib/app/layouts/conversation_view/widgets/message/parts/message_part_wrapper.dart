@@ -269,7 +269,9 @@ class _EditModeTextField extends StatelessWidget {
         child: Container(
           decoration: BoxDecoration(
             color: !message.isBigEmoji
-                ? context.theme.colorScheme.primary.darkenAmount(isTempMessage ? 0.2 : 0)
+                ? context.theme.colorScheme
+                    .bubble(context, message.chat.target?.isIMessage ?? true)
+                    .darkenAmount(isTempMessage ? 0.2 : 0)
                 : context.theme.colorScheme.surface,
           ),
           constraints: BoxConstraints(
@@ -311,6 +313,7 @@ class _EditModeTextField extends StatelessWidget {
               controller: editStuff.controller,
               scrollPhysics: const CustomBouncingScrollPhysics(),
               style: context.theme.extension<BubbleText>()!.bubbleText.apply(
+                    color: context.theme.colorScheme.onBubble(context, message.chat.target?.isIMessage ?? true),
                     fontSizeFactor: message.isBigEmoji ? 3 : 1,
                   ),
               keyboardType: TextInputType.multiline,
@@ -321,7 +324,7 @@ class _EditModeTextField extends StatelessWidget {
               textInputAction: SettingsSvc.settings.sendWithReturn.value && !kIsWeb && !kIsDesktop
                   ? TextInputAction.send
                   : TextInputAction.newline,
-              cursorColor: context.theme.extension<BubbleText>()!.bubbleText.color,
+              cursorColor: context.theme.colorScheme.onBubble(context, message.chat.target?.isIMessage ?? true),
               cursorHeight:
                   context.theme.extension<BubbleText>()!.bubbleText.fontSize! * 1.25 * (message.isBigEmoji ? 3 : 1),
               decoration: InputDecoration(

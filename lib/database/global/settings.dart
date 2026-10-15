@@ -237,6 +237,8 @@ class Settings {
   // Text field buttons — enabled buttons, in display order. Absent = hidden.
   final RxList<TextFieldButton> textFieldButtons = RxList.from(TextFieldButton.values);
 
+  final RxList<String> recentEmojis = RxList<String>([]);
+
   // Message options order
   final RxList<DetailsMenuAction> _detailsMenuActions = RxList.from(DetailsMenuAction.values);
 
@@ -398,6 +400,7 @@ class Settings {
       'actionList': List<String>.from(actionList),
       'detailsMenuActions': detailsMenuActions.map((action) => action.name).toList(),
       'textFieldButtons': textFieldButtons.map((button) => button.name).toList(),
+      'recentEmojis': List<String>.from(recentEmojis),
       'askWhereToSave': askWhereToSave.value,
       'statusIndicatorsOnChats': statusIndicatorsOnChats.value,
       'apiTimeout': apiTimeout.value,
@@ -748,6 +751,9 @@ class Settings {
     if (map.containsKey('textFieldButtons')) {
       SettingsSvc.settings.textFieldButtons.value = _processTextFieldButtons(map['textFieldButtons']);
     }
+    if (map.containsKey('recentEmojis')) {
+      SettingsSvc.settings.recentEmojis.value = _processRecentEmojis(map['recentEmojis']);
+    }
 
     SettingsSvc.settings.windowEffect.value = kIsDesktop && Platform.isWindows
         ? WindowEffect.values.firstWhereOrNull((e) => e.name == map['windowEffect']) ??
@@ -930,6 +936,7 @@ class Settings {
     s.actionList.value = _processActionList(map['actionList']);
     s._detailsMenuActions.value = _processDetailsMenuActions(map['detailsMenuActions'], DetailsMenuAction.values);
     s.textFieldButtons.value = _processTextFieldButtons(map['textFieldButtons']);
+    s.recentEmojis.value = _processRecentEmojis(map['recentEmojis']);
 
     s.windowEffect.value = (kIsDesktop && Platform.isWindows)
         ? WindowEffect.values.firstWhereOrNull((e) => e.name == map['windowEffect']) ?? WindowEffect.disabled
@@ -973,6 +980,20 @@ class Settings {
   void resetDetailsMenuActions() {
     SettingsSvc.settings._detailsMenuActions.value = DetailsMenuAction.values;
     unawaited(SettingsSvc.settings.saveOneAsync('detailsMenuActions'));
+  }
+
+  void addRecentEmojis(Iterable<String> emojis) {
+    if (emojis.isEmpty) return;
+    final list = List<String>.from(recentEmojis);
+    for (final emoji in emojis) {
+      list.remove(emoji);
+      list.insert(0, emoji);
+    }
+    if (list.length > 10) {
+      list.removeRange(10, list.length);
+    }
+    recentEmojis.value = list;
+    unawaited(saveOneAsync('recentEmojis'));
   }
 }
 
@@ -1035,6 +1056,15 @@ List<TextFieldButton> _processTextFieldButtons(dynamic rawJson) {
   } catch (e) {
     debugPrint("Using default textFieldButtons");
     return TextFieldButton.values;
+  }
+}
+List<String> _processRecentEmojis(dynamic rawJson) {
+  try {
+    return (rawJson is List ? rawJson : jsonDecode(rawJson) as List)
+        .whereType<String>()
+        .toList();
+  } catch (e) {
+    return [];
   }
 }
 

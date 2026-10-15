@@ -9,12 +9,20 @@ import android.os.Build
 import android.os.Bundle
 import android.os.PowerManager
 import android.util.Rational
+import android.view.KeyEvent
+import android.view.View
+import android.view.ViewGroup
 import android.view.WindowInsets
 import android.view.WindowInsetsAnimation
+import android.view.inputmethod.EditorInfo
+import android.view.inputmethod.InputConnection
 import androidx.activity.ComponentActivity
 import androidx.annotation.RequiresApi
+import androidx.core.view.ViewCompat
+import androidx.core.view.WindowInsetsCompat
 import androidx.lifecycle.Lifecycle
 import com.bluebubbles.messaging.services.backend_ui_interop.MethodCallHandler
+import com.bluebubbles.messaging.services.filesystem.PickImagesHandler
 import com.bluebubbles.messaging.services.foreground.ForegroundServiceBroadcastReceiver
 import com.bluebubbles.messaging.Constants
 import com.bluebubbles.messaging.utils.PersistentLog
@@ -104,6 +112,57 @@ class MainActivity : FlutterFragmentActivity() {
                 }
             }
         })
+    }
+
+    private var imeFocusProxy: ImeFocusProxy? = null
+    private var imeVisibleOnFocusLoss = false
+
+    override fun onWindowFocusChanged(hasFocus: Boolean) {
+        super.onWindowFocusChanged(hasFocus)
+        val flutterView = findViewById<FlutterView>(FlutterFragment.FLUTTER_VIEW_ID) ?: return
+        if (!hasFocus) {
+            imeVisibleOnFocusLoss =
+                ViewCompat.getRootWindowInsets(flutterView)?.isVisible(WindowInsetsCompat.Type.ime()) == true
+            return
+        }
+        if (!imeVisibleOnFocusLoss) return
+        imeVisibleOnFocusLoss = false
+        // The IMM reads the focused view right after this callback returns; FlutterView takes focus back a frame later.
+        val proxy = imeFocusProxyFor(flutterView)
+        proxy.isFocusable = true
+        proxy.isFocusableInTouchMode = true
+        proxy.requestFocus()
+        window.decorView.post {
+            flutterView.requestFocus()
+            proxy.isFocusable = false
+            proxy.isFocusableInTouchMode = false
+        }
+    }
+
+    private fun imeFocusProxyFor(flutterView: FlutterView): ImeFocusProxy {
+        imeFocusProxy?.takeIf { it.flutterView === flutterView }?.let { return it }
+        imeFocusProxy?.let { (it.parent as? ViewGroup)?.removeView(it) }
+        return ImeFocusProxy(this, flutterView).also {
+            // Laid-out zero-size views cannot take focus (API 28+).
+            (flutterView.parent as ViewGroup).addView(it, ViewGroup.LayoutParams(1, 1))
+            imeFocusProxy = it
+        }
+    }
+
+    // IME hides on refocus unless the focused view is a text editor; FlutterView never claims to be one.
+    private class ImeFocusProxy(context: Context, val flutterView: FlutterView) : View(context) {
+        init {
+            isFocusable = false
+            isFocusableInTouchMode = false
+            importantForAccessibility = IMPORTANT_FOR_ACCESSIBILITY_NO
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) importantForAutofill = IMPORTANT_FOR_AUTOFILL_NO
+        }
+
+        override fun onCheckIsTextEditor() = true
+        override fun onCreateInputConnection(outAttrs: EditorInfo): InputConnection? =
+            flutterView.onCreateInputConnection(outAttrs)
+        override fun checkInputConnectionProxy(view: View) = view === flutterView
+        override fun dispatchKeyEvent(event: KeyEvent) = flutterView.dispatchKeyEvent(event)
     }
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
@@ -219,6 +278,7 @@ class MainActivity : FlutterFragmentActivity() {
     override fun onDestroy() {
         PersistentLog.d(this, Constants.logTag, "BlueBubbles MainActivity is being destroyed")
         MethodCallHandler.clearNotificationListenerResult()
+        MethodCallHandler.clearPickImagesResult()
         setEngine(null, this)
 
         // If we are finishing "gracefully", the dart code would have started the foreground service.
@@ -254,6 +314,8 @@ class MainActivity : FlutterFragmentActivity() {
         super.onActivityResult(requestCode, resultCode, data)
         if (requestCode == Constants.notificationListenerRequestCode) {
             MethodCallHandler.consumeNotificationListenerResult()?.success(resultCode == Activity.RESULT_OK)
+        } else if (requestCode == Constants.pickImagesRequestCode) {
+            PickImagesHandler.onActivityResult(this, resultCode, data)
         }
     }
 }

@@ -117,16 +117,17 @@ class OutgoingMessageHandler {
       Logger.warn('Ignoring malformed attachment upload progress event: $data', tag: _tag);
       return;
     }
+    final attachmentGuid = data['attachmentGuid'] as String? ?? messageGuid;
 
-    final inFlight = attachmentProgress.firstWhereOrNull((entry) => entry.guid == messageGuid);
+    final inFlight = attachmentProgress.firstWhereOrNull((entry) => entry.guid == attachmentGuid);
     if (inFlight != null) {
       inFlight.progress.value = progress;
     } else {
-      attachmentProgress.add(AttachmentUploadProgress(messageGuid, progress.obs));
+      attachmentProgress.add(AttachmentUploadProgress(attachmentGuid, progress.obs));
     }
 
     if (Get.isRegistered<MessagesService>(tag: chatGuid)) {
-      MessagesSvc(chatGuid).notifyAttachmentUploadProgress(messageGuid, messageGuid, progress);
+      MessagesSvc(chatGuid).notifyAttachmentUploadProgress(messageGuid, attachmentGuid, progress);
     }
   }
 
@@ -264,10 +265,13 @@ class OutgoingMessageHandler {
   /// should stop).
   Future<({bool ok, dynamic result})> _prepItemWithRetry(OutgoingQueueItem item) async {
     final isAttachment = item is OutgoingAttachment;
+    final multipartAttachments = item is OutgoingMultipartMessage ? item.attachments : <Attachment>[];
 
     List<Message>? built;
     if (!isAttachment) {
-      built = _buildOutgoingMessages(item.chat, item.message, item.reaction, isRetry: item.isRetry);
+      built = multipartAttachments.isNotEmpty
+          ? [item.message]
+          : _buildOutgoingMessages(item.chat, item.message, item.reaction, isRetry: item.isRetry);
       if (built.isEmpty) return (ok: true, result: <Message>[]);
     }
 
@@ -277,6 +281,10 @@ class OutgoingMessageHandler {
     for (int attempt = 1; attempt <= _maxPrepAttempts; attempt++) {
       attempts = attempt;
       try {
+        if (multipartAttachments.isNotEmpty) {
+          final saved = await _prepMultipartAttachments(item.chat, item.message, multipartAttachments);
+          return (ok: true, result: <Message>[saved]);
+        }
         if (isAttachment) {
           await prepAttachment(item.chat, item.message, item.attachment);
           return (ok: true, result: null);
@@ -320,6 +328,7 @@ class OutgoingMessageHandler {
         logMessage: 'Failed to prepare outgoing message after $attempts attempt(s)',
         error: lastError,
         stack: lastStack,
+        attachments: multipartAttachments,
       );
     }
     item.completer?.completeError(lastError ?? StateError('Outgoing prep failed'));
@@ -342,6 +351,7 @@ class OutgoingMessageHandler {
       return OutgoingMultipartMessage(
         chat: item.chat,
         message: message,
+        attachments: item.attachments,
         isRetry: item.isRetry,
         clearNotificationsIfFromMe: item.clearNotificationsIfFromMe,
         completer: item.completer,
@@ -395,7 +405,12 @@ class OutgoingMessageHandler {
                 m.error = MessageError.BAD_REQUEST.code;
                 m.errorMessage = 'Canceled due to previous failure';
                 _settlePart(pending.completer, failure: m.errorMessage!);
-                await _finalizeOutgoingFailure(pending.chat, m, tempGuid);
+                await _finalizeOutgoingFailure(
+                  pending.chat,
+                  m,
+                  tempGuid,
+                  attachments: pending is OutgoingMultipartMessage ? pending.attachments : const [],
+                );
               }
             }
           });
@@ -450,7 +465,12 @@ class OutgoingMessageHandler {
       m.error = ClientMessageError.userCanceled.code;
       m.errorMessage = 'Canceled by user';
       _settlePart(pending.completer, failure: m.errorMessage!, canceledByUser: true);
-      await _finalizeOutgoingFailure(pending.chat, m, m.guid!);
+      await _finalizeOutgoingFailure(
+        pending.chat,
+        m,
+        m.guid!,
+        attachments: pending is OutgoingMultipartMessage ? pending.attachments : const [],
+      );
     }
     if (toCancel.isNotEmpty) {
       pendingChatGuids.assignAll(_queue.map((e) => e.item.chat.guid).toSet());
@@ -553,7 +573,7 @@ class OutgoingMessageHandler {
         return sendMessage(typed.chat, typed.message, typed.selectedMessage, typed.reaction);
       case QueueType.sendMultipart:
         final typed = item as OutgoingMultipartMessage;
-        return sendMultipart(typed.chat, typed.message, null, null);
+        return sendMultipart(typed.chat, typed.message, null, null, attachments: typed.attachments);
       case QueueType.sendAttachment:
         final typed = item as OutgoingAttachment;
         return sendAttachment(
@@ -675,6 +695,41 @@ class OutgoingMessageHandler {
       throw StateError('Missing attachment for sendAttachment prep on message ${m.guid}');
     }
 
+    await _stageAttachment(m, attachment);
+
+    // Use the main-Store message so attachment reload follows the isolate commit.
+    final savedMessage = (await c.addMessage(m, attachments: [attachment])).message;
+
+    // The main-isolate ObjectBox watch misses writes committed by the GlobalIsolate.
+    if (Get.isRegistered<MessagesService>(tag: c.guid)) {
+      await MessagesSvc(c.guid).addNewMessage(savedMessage);
+      // Register upload-in-progress state.  Must come after addNewMessage so the
+      // MessageState already exists.
+      MessagesSvc(c.guid).notifyAttachmentUploadStarted(savedMessage, attachment);
+    }
+    ChatsSvc.updateChatLatestMessage(c.guid, savedMessage);
+  }
+
+  Future<Message> _prepMultipartAttachments(Chat c, Message m, List<Attachment> attachments) async {
+    for (final attachment in attachments) {
+      if (!attachment.isDownloaded) {
+        await _stageAttachment(m, attachment);
+      } else if (!attachmentProgress.any((entry) => entry.guid == attachment.guid)) {
+        attachmentProgress.add(AttachmentUploadProgress(attachment.guid!, 0.0.obs));
+      }
+    }
+    final saved = (await c.addMessage(m, attachments: attachments)).message;
+    if (Get.isRegistered<MessagesService>(tag: c.guid)) {
+      await MessagesSvc(c.guid).addNewMessage(saved);
+      for (final attachment in attachments) {
+        MessagesSvc(c.guid).notifyAttachmentUploadStarted(saved, attachment);
+      }
+    }
+    ChatsSvc.updateChatLatestMessage(c.guid, saved);
+    return saved;
+  }
+
+  Future<void> _stageAttachment(Message m, Attachment attachment) async {
     final progress = AttachmentUploadProgress(attachment.guid!, 0.0.obs);
     attachmentProgress.add(progress);
 
@@ -736,26 +791,6 @@ class OutgoingMessageHandler {
 
       attachment.isDownloaded = true;
     }
-
-    // ChatInterface.addMessageToChat returns a DB-hydrated Message loaded from
-    // the main isolate's Store (Database.messages.get(id)) after the
-    // GlobalIsolate transaction commits.  This object has its id set and its
-    // dbAttachments ToMany linked to the main Store, so _handleNewMessage can
-    // reload attachments from DB without racing against cross-isolate write timing.
-    final savedMessage = (await c.addMessage(m, attachments: [attachment])).message;
-
-    // The DB write goes through the GlobalIsolate, so the main-isolate OB watch
-    // subscription won't fire for it.  Explicitly push the message into the view
-    // using the Store-hydrated object so _handleNewMessage can load dbAttachments.
-    if (Get.isRegistered<MessagesService>(tag: c.guid)) {
-      await MessagesSvc(c.guid).addNewMessage(savedMessage);
-      // Register upload-in-progress state.  Must come after addNewMessage so the
-      // MessageState already exists.
-      MessagesSvc(c.guid).notifyAttachmentUploadStarted(savedMessage, attachment);
-    }
-    // Update ChatState immediately so the tile reflects the outgoing attachment
-    // before the queue dispatches the HTTP call.
-    ChatsSvc.updateChatLatestMessage(c.guid, savedMessage);
   }
 
   // ── Send methods ─────────────────────────────────────────────────────────
@@ -858,7 +893,8 @@ class OutgoingMessageHandler {
   }
 
   /// Sends a multipart (mention / mixed-content) message.
-  Future<void> sendMultipart(Chat c, Message m, Message? selected, String? r) {
+  Future<void> sendMultipart(Chat c, Message m, Message? selected, String? r,
+      {List<Attachment> attachments = const []}) {
     ChatsSvc.updateChat(c);
 
     // Only update latest message if the failed message is the current latest message.
@@ -869,6 +905,7 @@ class OutgoingMessageHandler {
 
     final tempGuid = m.guid!;
     final parts = m.attributedBody.first.runs
+        .where((e) => !e.isAttachment)
         .map((e) => {
               'text': m.attributedBody.first.string.substring(e.range.first, e.range.first + e.range.last),
               'mention': e.attributes!.mention,
@@ -883,13 +920,51 @@ class OutgoingMessageHandler {
         chatGuid: c.guid,
         tempGuid: tempGuid,
         parts: parts,
+        attachments: attachments
+            .map((attachment) => <String, dynamic>{
+                  'guid': attachment.guid!,
+                  'filePath': attachment.path,
+                  'fileName': attachment.transferName!,
+                  'fileSize': attachment.totalBytes ?? 0,
+                })
+            .toList(),
         subject: m.subject,
         selectedMessageGuid: m.threadOriginatorGuid,
         effectId: m.expressiveSendStyleId,
         partIndex: int.tryParse(m.threadOriginatorPart?.split(':').firstOrNull ?? ''),
         ddScan: !SettingsSvc.serverDetails.isMinSonoma && parts.any((e) => e['text'].toString().hasUrl),
       ),
-      onSuccess: (data) => _finalizeOutgoingSuccess(c, tempGuid, data),
+      onSuccess: (data) async {
+        if (attachments.isEmpty) {
+          await _finalizeOutgoingSuccess(c, tempGuid, data);
+          return;
+        }
+        final confirmed = Message.fromMap(data['data']);
+        final responseAttachments = ((data['data']?['attachments'] as List?) ?? <dynamic>[])
+            .whereType<Map>()
+            .map((e) => Attachment.fromMap(e.cast<String, dynamic>()))
+            .toList();
+        final attachmentRuns = confirmed.attributedBody
+            .expand((body) => body.runs)
+            .where((run) => run.isAttachment)
+            .toList()
+          ..sort((a, b) => a.attributes!.messagePart!.compareTo(b.attributes!.messagePart!));
+        for (int i = 0; i < attachments.length; i++) {
+          final responseGuid = attachmentRuns.elementAtOrNull(i)?.attributes?.attachmentGuid ??
+              responseAttachments.elementAtOrNull(i)?.guid;
+          if (responseGuid == null) continue;
+          final replacement = responseAttachments.firstWhereOrNull((attachment) => attachment.guid == responseGuid) ??
+              Attachment.fromMap({...attachments[i].toMap(), 'guid': responseGuid});
+          final attachmentGuid = attachments[i].guid!;
+          await _matchAttachmentWithExisting(c, attachmentGuid, replacement);
+          confirmed.dbAttachments.add(replacement);
+          if (Get.isRegistered<MessagesService>(tag: c.guid)) {
+            MessagesSvc(c.guid).notifyAttachmentSendComplete(tempGuid, confirmed.guid!, attachmentGuid, replacement);
+          }
+          attachmentProgress.removeWhere((entry) => entry.guid == attachmentGuid);
+        }
+        await _matchMessageWithExisting(c, tempGuid, confirmed);
+      },
       onError: (error, stack) => _finalizeOutgoingFailure(
         c,
         m,
@@ -897,6 +972,7 @@ class OutgoingMessageHandler {
         logMessage: 'Failed to send multipart message',
         error: error,
         stack: stack,
+        attachments: attachments,
       ),
     );
   }
@@ -1032,6 +1108,7 @@ class OutgoingMessageHandler {
     String? logMessage,
     Object? error,
     StackTrace? stack,
+    List<Attachment> attachments = const [],
     Future<void> Function(Message errorMsg)? onExtra,
   }) async {
     if (logMessage != null) {
@@ -1042,6 +1119,12 @@ class OutgoingMessageHandler {
       if (!LifecycleSvc.isAlive || !(ChatsSvc.getChatController(c.guid)?.isAlive.value ?? false)) {
         await NotificationsSvc.createFailedToSend(c);
       }
+    }
+    for (final attachment in attachments) {
+      if (Get.isRegistered<MessagesService>(tag: c.guid)) {
+        MessagesSvc(c.guid).notifyAttachmentTransferError(tempGuid, attachment.guid!);
+      }
+      attachmentProgress.removeWhere((entry) => entry.guid == attachment.guid);
     }
 
     try {
@@ -1108,7 +1191,7 @@ class OutgoingMessageHandler {
       if (existingGuid != replacement.guid) {
         final stale = Message.findOne(guid: existingGuid);
         if (stale != null) {
-          Message.delete(stale.guid!);
+          await Message.delete(stale.guid!);
           if (Get.isRegistered<MessagesService>(tag: chat.guid)) {
             MessagesSvc(chat.guid).updateMessage(replacement, oldGuid: existingGuid);
           }

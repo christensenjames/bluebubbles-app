@@ -301,7 +301,7 @@ class ThemesService {
     Color onTertiary = tone(Color(resolvedPalette.tertiary.get(isDark ? 20 : 100)));
     Color tertiaryContainer = tone(Color(resolvedPalette.tertiary.get(isDark ? 30 : 90)));
     Color onTertiaryContainer = tone(Color(resolvedPalette.tertiary.get(isDark ? 90 : 10)));
-    Color surface = Color(resolvedPalette.neutral.get(isDark ? 10 : 99));
+    Color surface = Color(resolvedPalette.neutral.get(isDark ? 6 : 98));
     Color onSurface = Color(resolvedPalette.neutral.get(isDark ? 90 : 10));
     Color surfaceVariant = Color(resolvedPalette.neutralVariant.get(isDark ? 30 : 90));
     Color onSurfaceVariant = Color(resolvedPalette.neutralVariant.get(isDark ? 80 : 30));
@@ -419,6 +419,12 @@ class ThemesService {
         errorContainer: Color(resolvedPalette.error.get(isDark ? 30 : 90)),
         onErrorContainer: Color(resolvedPalette.error.get(isDark ? 80 : 10)),
         surface: surface,
+        surfaceDim: Color(resolvedPalette.neutral.get(isDark ? 6 : 87)),
+        surfaceBright: Color(resolvedPalette.neutral.get(isDark ? 24 : 98)),
+        surfaceContainerLowest: Color(resolvedPalette.neutral.get(isDark ? 4 : 100)),
+        surfaceContainerLow: Color(resolvedPalette.neutral.get(isDark ? 10 : 96)),
+        surfaceContainer: Color(resolvedPalette.neutral.get(isDark ? 12 : 94)),
+        surfaceContainerHigh: Color(resolvedPalette.neutral.get(isDark ? 17 : 92)),
         onSurface: onSurface,
         surfaceContainerHighest: surfaceVariant,
         surfaceVariant: surfaceVariant,

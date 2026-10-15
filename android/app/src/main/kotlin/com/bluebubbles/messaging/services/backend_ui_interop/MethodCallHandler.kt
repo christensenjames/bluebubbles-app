@@ -6,6 +6,7 @@ import com.bluebubbles.messaging.Constants
 import com.bluebubbles.messaging.utils.PersistentLog
 import com.bluebubbles.messaging.MainActivity
 import com.bluebubbles.messaging.services.filesystem.GetContentUriPathHandler
+import com.bluebubbles.messaging.services.filesystem.PickImagesHandler
 import com.bluebubbles.messaging.services.firebase.FirebaseAuthHandler
 import com.bluebubbles.messaging.services.firebase.FirebaseDeleteTokenHandler
 import com.bluebubbles.messaging.services.firebase.ServerUrlRequestHandler
@@ -38,6 +39,7 @@ class MethodCallHandler {
     companion object {
         private val notificationResultLock = Any()
         private var notificationListenerResult: MethodChannel.Result? = null
+        private var pickImagesResult: MethodChannel.Result? = null
         private val fireAndForgetResult = object : MethodChannel.Result {
             override fun success(result: Any?) {
                 // Intentionally ignored. Fire-and-forget calls are acknowledged immediately.
@@ -90,6 +92,27 @@ class MethodCallHandler {
                 notificationListenerResult = null
             }
         }
+        fun setPickImagesResult(result: MethodChannel.Result) {
+            synchronized(notificationResultLock) {
+                pickImagesResult?.success(emptyList<String>())
+                pickImagesResult = result
+            }
+        }
+
+        fun consumePickImagesResult(): MethodChannel.Result? {
+            synchronized(notificationResultLock) {
+                val result = pickImagesResult
+                pickImagesResult = null
+                return result
+            }
+        }
+
+        fun clearPickImagesResult() {
+            synchronized(notificationResultLock) {
+                pickImagesResult?.success(emptyList<String>())
+                pickImagesResult = null
+            }
+        }
 
         /// Send a method call back to Dart (app must be launched, otherwise use the DartWorker!)
         fun invokeMethod(method: String, arguments: Map<String, Any>) {
@@ -129,6 +152,7 @@ class MethodCallHandler {
             StartNotificationListenerHandler.tag -> StartNotificationListenerHandler().handleMethodCall(call, result, context)
             OpenConversationNotificationSettingsHandler.tag -> OpenConversationNotificationSettingsHandler().handleMethodCall(call, result, context)
             GetContentUriPathHandler.tag -> GetContentUriPathHandler().handleMethodCall(call, result, context)
+            PickImagesHandler.tag -> PickImagesHandler().handleMethodCall(call, result, context)
             CreateIncomingMessageNotification.tag -> CreateIncomingMessageNotification().handleMethodCall(call, result, context)
             CreateIncomingFaceTimeNotification.tag -> CreateIncomingFaceTimeNotification().handleMethodCall(call, result, context)
             DeleteNotificationHandler.tag -> DeleteNotificationHandler().handleMethodCall(call, result, context)

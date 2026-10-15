@@ -141,9 +141,13 @@ class ReactionWidgetState extends State<ReactionWidget> with ThemeHelpers {
             height: 30,
             decoration: BoxDecoration(
               color: reactionIsFromMe
-                  ? context.theme.colorScheme.primary
-                  : ((context.theme.extensions[BubbleColors] as BubbleColors?)?.receivedBubbleColor ??
-                      context.theme.colorScheme.surfaceContainerHighest),
+                  ? (context.material
+                      ? context.theme.colorScheme.primaryContainer
+                      : context.theme.colorScheme.primary)
+                  : (context.material
+                      ? context.theme.colorScheme.surfaceContainer
+                      : ((context.theme.extensions[BubbleColors] as BubbleColors?)?.receivedBubbleColor ??
+                          context.theme.colorScheme.surfaceContainerHighest)),
               border: Border.all(color: context.theme.colorScheme.surface),
               shape: BoxShape.circle,
             ),

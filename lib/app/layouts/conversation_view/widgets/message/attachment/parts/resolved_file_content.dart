@@ -10,6 +10,7 @@ import 'package:bluebubbles/app/state/chat_state_scope.dart';
 import 'package:bluebubbles/app/state/message_state_scope.dart';
 import 'package:bluebubbles/app/layouts/fullscreen_media/conversation_fullscreen_holder.dart';
 import 'package:bluebubbles/database/models.dart';
+import 'package:bluebubbles/helpers/ui/theme_helpers.dart';
 import 'package:bluebubbles/services/services.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
@@ -44,10 +45,12 @@ class ResolvedFileContent extends StatelessWidget {
     final message = MessageStateScope.messageOf(context);
     final attachment = AttachmentStateScope.attachmentOf(context);
     final currentChat = ChatStateScope.maybeChatOf(context);
-    final tailPadding = EdgeInsets.only(
-      left: message.isFromMe! ? 0 : 10,
-      right: message.isFromMe! ? 10 : 0,
-    );
+    final tailPadding = context.material
+        ? EdgeInsets.zero
+        : EdgeInsets.only(
+            left: message.isFromMe! ? 0 : 10,
+            right: message.isFromMe! ? 10 : 0,
+          );
     if (attachment.mimeStart == "image" && !SettingsSvc.settings.highPerfMode.value) {
       return OpenContainer(
         tappable: false,
@@ -67,7 +70,9 @@ class ResolvedFileContent extends StatelessWidget {
                       : (!message.isFromMe! ? const Radius.circular(20.0) : Radius.zero),
                 ),
               )
-            : const RoundedRectangleBorder(borderRadius: BorderRadius.all(Radius.circular(5.0))),
+            : (context.material
+                ? const RoundedRectangleBorder(borderRadius: BorderRadius.zero)
+                : const RoundedRectangleBorder(borderRadius: BorderRadius.all(Radius.circular(5.0)))),
         useRootNavigator: false,
         openBuilder: (context, _) => ConversationFullscreenHolder(
           currentChat: currentChat,
@@ -109,7 +114,9 @@ class ResolvedFileContent extends StatelessWidget {
                     ? const Radius.circular(20.0)
                     : (!message.isFromMe! ? const Radius.circular(20.0) : Radius.zero),
               )
-            : const BorderRadius.all(Radius.circular(5.0)),
+            : (context.material
+                ? BorderRadius.zero
+                : const BorderRadius.all(Radius.circular(5.0))),
         child: VideoPlayer(
           attachment: attachment,
           file: file,

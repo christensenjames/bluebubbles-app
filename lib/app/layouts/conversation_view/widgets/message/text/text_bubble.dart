@@ -88,8 +88,10 @@ class _TextBubbleState extends State<TextBubble> with ThemeHelpers {
     if (selected && !iOS) {
       return [context.theme.colorScheme.tertiaryContainer, context.theme.colorScheme.tertiaryContainer];
     }
-    final receivedColor = (context.theme.extensions[BubbleColors] as BubbleColors?)?.receivedBubbleColor ??
-        context.theme.colorScheme.surfaceContainerHighest;
+    final receivedColor = context.material
+        ? context.theme.colorScheme.surfaceContainer
+        : (context.theme.extensions[BubbleColors] as BubbleColors?)?.receivedBubbleColor ??
+            context.theme.colorScheme.surfaceContainerHighest;
     List<Color> bubbleColors = [receivedColor, receivedColor];
     if (SettingsSvc.settings.colorfulBubbles.value && !message.isFromMe!) {
       // Read from HandleState reactively (called inside Obx so registers dependency).
@@ -123,8 +125,10 @@ class _TextBubbleState extends State<TextBubble> with ThemeHelpers {
               : NavigationSvc.width(context) * MessageState.maxBubbleSizeFactor - 40,
           minHeight: 36,
         ),
-        padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 15).add(EdgeInsets.only(
-            left: isFromMe || message.isBigEmoji ? 0 : 10, right: isFromMe && !message.isBigEmoji ? 10 : 0)),
+        padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 15).add(material
+            ? EdgeInsets.zero
+            : EdgeInsets.only(
+                left: isFromMe || message.isBigEmoji ? 0 : 10, right: isFromMe && !message.isBigEmoji ? 10 : 0)),
         color: isFromMe && !message.isBigEmoji
             ? (selected
                 ? context.theme.colorScheme.tertiaryContainer

@@ -250,8 +250,12 @@ class _MessageHolderState extends State<MessageHolder> with AutomaticKeepAliveCl
         return AnimatedPadding(
           duration: const Duration(milliseconds: 100),
           padding: EdgeInsets.only(
-            top: olderMessage != null && !message.sameSender(olderMessage!) ? 5.0 : 0,
-            bottom: newerMessage != null && !message.sameSender(newerMessage!) ? 5.0 : 0,
+            top: material
+                ? ((olderMessage != null && !message.showHead(olderMessage)) ? 0.0 : (olderMessage != null ? 5.0 : 0.0))
+                : (olderMessage != null && !message.sameSender(olderMessage!) ? 5.0 : 0.0),
+            bottom: material
+                ? ((newerMessage != null && !message.showTail(newerMessage)) ? 0.0 : (newerMessage != null ? 5.0 : 0.0))
+                : (newerMessage != null && !message.sameSender(newerMessage!) ? 5.0 : 0.0),
           ),
           child: Column(
             mainAxisSize: MainAxisSize.min,
@@ -269,7 +273,7 @@ class _MessageHolderState extends State<MessageHolder> with AutomaticKeepAliveCl
                       children: [
                         // message column
                         ...messageParts.mapIndexed((index, e) => Padding(
-                              padding: const EdgeInsets.symmetric(vertical: 2.0),
+                              padding: EdgeInsets.symmetric(vertical: material ? 1.0 : 2.0),
                               child: Column(
                                 mainAxisSize: MainAxisSize.min,
                                 crossAxisAlignment: isFromMe ? CrossAxisAlignment.end : CrossAxisAlignment.start,
@@ -576,18 +580,27 @@ class _MessageHolderState extends State<MessageHolder> with AutomaticKeepAliveCl
                                                                               showTail: !e.isPkPass &&
                                                                                   message.showTail(newerMessage) &&
                                                                                   e.part == controller.lastPartNumber,
-                                                                              connectLower: iOS
-                                                                                  ? false
-                                                                                  : (e.part !=
-                                                                                      controller.firstPartNumber &&
-                                                                                      e.part !=
-                                                                                      controller.lastPartNumber) ||
-                                                                                      (e.part ==
-                                                                                          controller.firstPartNumber &&
-                                                                                          controller.parts.length > 1),
-                                                                              connectUpper: iOS
-                                                                                  ? false
-                                                                                  : e.part != controller.firstPartNumber,
+                                                                              connectLower: material
+                                                                                  ? (e.part !=
+                                                                                          controller.lastPartNumber ||
+                                                                                      !message.showTail(newerMessage))
+                                                                                  : (iOS
+                                                                                      ? false
+                                                                                      : (e.part !=
+                                                                                              controller.firstPartNumber &&
+                                                                                          e.part !=
+                                                                                              controller.lastPartNumber) ||
+                                                                                          (e.part ==
+                                                                                                  controller.firstPartNumber &&
+                                                                                              controller.parts.length > 1)),
+                                                                              connectUpper: material
+                                                                                  ? (e.part !=
+                                                                                          controller.firstPartNumber ||
+                                                                                      !message.showHead(olderMessage))
+                                                                                  : (iOS
+                                                                                      ? false
+                                                                                      : e.part !=
+                                                                                          controller.firstPartNumber),
                                                                             ),
                                                                             child: inner,
                                                                           );

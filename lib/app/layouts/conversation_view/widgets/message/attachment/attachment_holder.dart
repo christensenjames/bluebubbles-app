@@ -187,7 +187,7 @@ class _AttachmentHolderState extends State<AttachmentHolder> with ThemeHelpers {
     // exact final size, so it has to take the image's padding too — otherwise
     // the outer geometry still shifts by the padding delta on resolve.
     if ((effectiveFile != null || hasReservedBox) && !hideAttachments) {
-      return showTail ? EdgeInsets.zero : sideInsets;
+      return showTail || SettingsSvc.settings.skin.value == Skins.Material ? EdgeInsets.zero : sideInsets;
     }
     if (isInReply) {
       return const EdgeInsets.symmetric(vertical: 5, horizontal: 10).add(sideInsets);
@@ -384,7 +384,13 @@ class _AttachmentHolderState extends State<AttachmentHolder> with ThemeHelpers {
           child: InkWell(
             onTap: _buildOnTap(state),
             child: Ink(
-              color: transparentCard ? Colors.transparent : context.theme.colorScheme.surfaceContainerHighest,
+              color: transparentCard
+                  ? Colors.transparent
+                  : (context.material
+                      ? (message.isFromMe!
+                          ? context.theme.colorScheme.bubble(context, message.chat.target?.isIMessage ?? true)
+                          : context.theme.colorScheme.surfaceContainer)
+                      : context.theme.colorScheme.surfaceContainerHighest),
               child: ConstrainedBox(
                 constraints: BoxConstraints(
                   maxWidth: NavigationSvc.width(context) * 0.5,

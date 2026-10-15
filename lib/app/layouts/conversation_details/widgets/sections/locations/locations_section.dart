@@ -102,8 +102,9 @@ class _LocationsSectionState extends State<LocationsSection> {
             }
             return UrlPreview(
               data: UrlPreviewData(
-                title:
-                    "Location from ${DateFormat.yMd().format(_displayedLocations[index].message.target!.dateCreated!.toLocal())}",
+                title: "Location from ${DateFormat.yMd().format(
+                  _displayedLocations[index].message.target!.dateCreated!.toLocal(),
+                )}",
                 siteName: "Tap to open",
               ),
               file: AttachmentsSvc.getContent(_displayedLocations[index]),

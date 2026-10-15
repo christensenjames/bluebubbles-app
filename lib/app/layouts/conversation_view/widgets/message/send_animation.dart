@@ -12,6 +12,7 @@ import 'package:bluebubbles/database/models.dart';
 import 'package:bluebubbles/app/state/message_state.dart';
 import 'package:bluebubbles/services/services.dart';
 import 'package:bluebubbles/services/ui/chat/send_data.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:mime_type/mime_type.dart';
@@ -191,6 +192,14 @@ class _SendAnimationState extends CustomState<SendAnimation, SendData, Conversat
       }
     }
 
+    final sendAsMultipart = !kIsWeb &&
+        SettingsSvc.settings.enablePrivateAPI.value &&
+        SettingsSvc.settings.privateAPIAttachmentSend.value &&
+        !data.isAudioMessage &&
+        (attachments.length >= 2 ||
+            (attachments.isNotEmpty && (text.isNotEmpty || data.subject.isNotEmpty)));
+    final multipartAttachments = <Attachment>[];
+
     for (int i = 0; i < attachments.length; i++) {
       final file = attachments[i];
       final attachment = Attachment(
@@ -205,6 +214,10 @@ class _SendAnimationState extends CustomState<SendAnimation, SendData, Conversat
         metadata: file.path != null ? {'source_path': file.path} : null,
         bytes: file.path == null ? file.bytes : null,
       );
+      if (sendAsMultipart) {
+        multipartAttachments.add(attachment);
+        continue;
+      }
 
       final message = Message(
         text: "",
@@ -229,7 +242,7 @@ class _SendAnimationState extends CustomState<SendAnimation, SendData, Conversat
       );
     }
 
-    if (text.isNotEmpty || data.subject.isNotEmpty) {
+    if (text.isNotEmpty || data.subject.isNotEmpty || sendAsMultipart) {
       final textSplit = MentionTextEditingController.splitText(text);
       bool flag = false;
       final newText = [];
@@ -251,13 +264,13 @@ class _SendAnimationState extends CustomState<SendAnimation, SendData, Conversat
       }
       int currentPos = 0;
       final _message = Message(
-        text: text.isEmpty && data.subject.isNotEmpty ? data.subject : text,
-        subject: text.isEmpty && data.subject.isNotEmpty ? null : data.subject,
-        threadOriginatorGuid: attachments.isEmpty ? data.replyGuid : null,
-        threadOriginatorPart: attachments.isEmpty ? "${data.replyPart ?? 0}:0:0" : null,
+        text: !sendAsMultipart && text.isEmpty && data.subject.isNotEmpty ? data.subject : text,
+        subject: !sendAsMultipart && text.isEmpty && data.subject.isNotEmpty ? null : data.subject,
+        threadOriginatorGuid: attachments.isEmpty || sendAsMultipart ? data.replyGuid : null,
+        threadOriginatorPart: attachments.isEmpty || sendAsMultipart ? "${data.replyPart ?? 0}:0:0" : null,
         expressiveSendStyleId: data.effectId,
         dateCreated: DateTime.now(),
-        hasAttachments: false,
+        hasAttachments: sendAsMultipart,
         isFromMe: true,
         handleId: 0,
         hasDdResults: true,
@@ -291,6 +304,46 @@ class _SendAnimationState extends CustomState<SendAnimation, SendData, Conversat
             ),
         ],
       );
+      if (sendAsMultipart) {
+        _message.generateTempGuid();
+        final attachmentCount = multipartAttachments.length;
+        final prefix = List.filled(attachmentCount, '\ufffc').join();
+        final textRuns = _message.attributedBody.firstOrNull?.runs ?? <Run>[];
+        _message.attributedBody = [
+          AttributedBody(
+            string: prefix + text,
+            runs: [
+              for (int i = 0; i < attachmentCount; i++)
+                Run(
+                  range: [i, 1],
+                  attributes: Attributes(
+                    messagePart: i,
+                    attachmentGuid: multipartAttachments[i].guid = '${_message.guid}-$i',
+                  ),
+                ),
+              if (textRuns.isNotEmpty)
+                ...textRuns.map((run) => Run(
+                      range: [run.range.first + attachmentCount, run.range.last],
+                      attributes: Attributes(messagePart: attachmentCount, mention: run.attributes?.mention),
+                    ))
+              else if (text.isNotEmpty)
+                Run(
+                  range: [attachmentCount, text.length],
+                  attributes: Attributes(messagePart: attachmentCount),
+                ),
+            ],
+          ),
+        ];
+        if (text.isEmpty && data.subject.isEmpty) {
+          await OutgoingMsgHandler.queue(OutgoingMultipartMessage(
+            chat: controller.chat,
+            message: _message,
+            attachments: multipartAttachments,
+          ));
+          super.updateWidget(data);
+          return;
+        }
+      }
       // Close the message list gate before the outgoing message is queued, so
       // that a message arriving during the flight can't insert into the list or
       // toggle the rows below it and move the landing target computed by
@@ -307,6 +360,7 @@ class _SendAnimationState extends CustomState<SendAnimation, SendData, Conversat
             ? OutgoingMultipartMessage(
                 chat: controller.chat,
                 message: _message,
+                attachments: multipartAttachments,
               )
             : OutgoingMessage(
                 chat: controller.chat,
@@ -388,7 +442,11 @@ class _SendAnimationState extends CustomState<SendAnimation, SendData, Conversat
                         minWidth: messageBoxSize * exp,
                         minHeight: 36,
                       ),
-                      color: !message!.isBigEmoji ? context.theme.colorScheme.primary.darkenAmount(0.2) : null,
+                      color: !message!.isBigEmoji
+                          ? context.theme.colorScheme
+                              .bubble(context, message!.chat.target?.isIMessage ?? true)
+                              .darkenAmount(0.2)
+                          : null,
                       padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 15).add(EdgeInsets.only(
                           left: message!.isFromMe! || message!.isBigEmoji ? 0 : 10,
                           right: message!.isFromMe! && !message!.isBigEmoji ? 10 : 0)),
@@ -403,8 +461,13 @@ class _SendAnimationState extends CustomState<SendAnimation, SendData, Conversat
                             text: TextSpan(
                               children: buildMessageSpans(context,
                                   MessagePart(part: 0, text: message!.text, subject: message!.subject), message!,
-                                  colorOverride: Color.lerp(context.theme.colorScheme.onSurfaceVariant,
-                                      context.theme.colorScheme.onPrimary, 1 - value)),
+                                  colorOverride: Color.lerp(
+                                      context.theme.colorScheme.onSurfaceVariant,
+                                      context.theme.colorScheme.onBubble(
+                                        context,
+                                        message!.chat.target?.isIMessage ?? true,
+                                      ),
+                                      1 - value)),
                             ),
                           ),
                         ),

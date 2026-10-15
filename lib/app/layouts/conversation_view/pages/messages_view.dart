@@ -790,8 +790,8 @@ class MessagesViewState extends State<MessagesView> with MessagesServiceMixin, T
                               );
                             },
                           ),
-                          const SliverPadding(
-                            padding: EdgeInsets.all(70),
+                          SliverPadding(
+                            padding: material ? const EdgeInsets.only(top: 16) : const EdgeInsets.all(70),
                           ),
                         ],
                       ),

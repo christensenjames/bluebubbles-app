@@ -45,6 +45,11 @@ class MethodChannelActions {
     await service.invokeMethod('start-notification-listener');
   }
 
+  Future<List<String>> pickImages() async {
+    final res = await service.invokeMethod('pick-images');
+    return (res as List?)?.map((e) => e.toString()).toList() ?? [];
+  }
+
   Future<void> openConversationNotificationSettings({required String channelId, required String displayName}) async {
     await service.invokeMethod('open-conversation-notification-settings', {
       'channel_id': channelId,

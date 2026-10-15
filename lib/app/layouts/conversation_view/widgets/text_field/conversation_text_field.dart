@@ -441,6 +441,8 @@ class ConversationTextFieldState extends CustomState<ConversationTextField, void
       if (_sending) return;
       _sending = true;
       try {
+        final matches = emojiRegex.allMatches(text);
+        SettingsSvc.settings.addRecentEmojis(matches.map((m) => m[0]!));
         await controller.send(SendData(
           attachments: controller.pickedAttachments,
           text: text,
@@ -498,16 +500,20 @@ class ConversationTextFieldState extends CustomState<ConversationTextField, void
 
   @override
   Widget build(BuildContext context) {
-    return Obx(() => Padding(
+    return Obx(() {
+      final materialComposer = Platform.isAndroid && material;
+      return Padding(
           padding: EdgeInsets.only(
             bottom: showAttachmentPicker ? 0 : 10.0,
+            left: materialComposer ? 8 : 0,
+            right: materialComposer ? 8 : 0,
             top: 10.0,
           ),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
               Row(crossAxisAlignment: CrossAxisAlignment.end, children: [
-                TextFieldIconBar(controller: controller, localController: localController),
+                if (!materialComposer) TextFieldIconBar(controller: controller, localController: localController),
                 Expanded(
                   child: Stack(
                     alignment: Alignment.centerLeft,
@@ -520,6 +526,7 @@ class ConversationTextFieldState extends CustomState<ConversationTextField, void
                         controller: controller,
                         recorderController: recorderController,
                         sendMessage: sendMessage,
+                        localController: localController,
                       ),
                       if (!kIsWeb)
                         Positioned(
@@ -534,7 +541,15 @@ class ConversationTextFieldState extends CustomState<ConversationTextField, void
                     ],
                   ),
                 ),
-                if (iOS || material) const SizedBox(width: 10),
+                if (materialComposer) const SizedBox(width: 8),
+                if (materialComposer)
+                  TextFieldMaterialSendButton(
+                    subjectTextController: controller.subjectTextController,
+                    textController: controller.textController,
+                    controller: controller,
+                    sendMessage: sendMessage,
+                  ),
+                if (!materialComposer && (iOS || material)) const SizedBox(width: 10),
                 if (samsung)
                   Padding(
                     padding: const EdgeInsets.only(right: 5.0),
@@ -564,6 +579,7 @@ class ConversationTextFieldState extends CustomState<ConversationTextField, void
                                 const SizedBox(height: 8),
                                 AttachmentPicker(
                                   controller: controller,
+                                  sendMessage: sendMessage,
                                 ),
                               ],
                             ),
@@ -578,6 +594,7 @@ class ConversationTextFieldState extends CustomState<ConversationTextField, void
               ),
             ],
           ),
-        ));
+      );
+    });
   }
 }

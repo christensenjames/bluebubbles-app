@@ -1,5 +1,41 @@
 # Changelog
 
+## 2026-10-14 — Photos sent as one message, Google Messages-style Material chat, local-time dates
+
+- Several photos picked together, with or without typed text, now go out as one iMessage
+  instead of one message per photo. Each file is uploaded with `POST /attachment/upload`, then
+  one `POST /message/multipart` sends the attachment parts followed by the text and mention
+  parts. This needs the Private API and its attachment-send setting; without them, and for
+  audio messages or a lone photo with no text, sending works as before. Retrying a failed batch
+  resends the whole batch. See `docs/MESSAGE_SEND_FLOW.md`.
+- The Material skin's chat screen follows Google Messages: the message list sits in a panel
+  with 28 px rounded top corners on the header's tinted surface. Consecutive messages from the
+  same sender within a minute form one group, with 20 px outer corners, 4 px corners where
+  they touch, and no tail inset. Photos and videos take the same corners. The iOS and Samsung
+  skins are unchanged.
+- Message and location-preview dates that arrive as UTC strings now show in local time
+  (`9ae162284`, `269811341`, ported from the 10-05 overnight branches).
+- The Pixel checks of the merged land build passed: photo notifications with the app closed
+  and open (BigPictureStyle, upright, sharp on the watch), a deleted message staying deleted
+  after a resync, Soft-Deleted Chats restoring history, and a muted chat leaving the unread
+  count. Fork `master` was fast-forwarded to land, and the overnight branches and worktrees
+  were removed.
+- On Android in the Material skin, the button inside the empty message box opens the photo
+  picker with multi-select instead of starting a voice memo; the picked photos go out together.
+  Other skins and desktop keep the voice-memo button.
+- On Android, the photo pickers (the message box button and the Gallery option) only offer
+  JPEG, PNG, GIF, WebP and HEIC/HEIF, so RAW (DNG) photos no longer appear.
+- On Android in the Material skin, a row of recent emojis sits above the message box while the
+  keyboard is open; tapping one inserts it at the cursor.
+- The Material skin's chat screen now uses Google Messages' colour roles (header, bubbles,
+  message box, send button) and the emoji row sits between the message box and the keyboard.
+- On Android in the Material skin, the composer now matches Google Messages: + inside the box,
+  a permanent send button outside it, long-press to schedule, and send effects in the + panel.
+- Switching back to BlueBubbles with the keyboard open no longer drops the keyboard and reopens
+  it. Android hides the keyboard when a window regains focus on a view that is not a text
+  editor, and Flutter's view never reports itself as one; `MainActivity` now moves focus to a
+  1x1 stand-in editor view for that moment and hands it back to Flutter a frame later.
+
 ## 2026-10-12 — Upstream 2.1.3 merged, dev builds on the Surface and Pixel
 
 - Merged `upstream/master` (`9aaabfbfd`, 2.1.3, 23 commits) as `2c697f665`. Conflicts:

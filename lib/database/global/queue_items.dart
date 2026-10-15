@@ -87,6 +87,7 @@ class OutgoingAttachment extends OutgoingQueueItem {
 }
 
 class OutgoingMultipartMessage extends OutgoingQueueItem {
+  List<Attachment> attachments;
   @override
   bool isRetry;
   @override
@@ -96,6 +97,7 @@ class OutgoingMultipartMessage extends OutgoingQueueItem {
     super.completer,
     required super.chat,
     required super.message,
+    this.attachments = const [],
     this.isRetry = false,
     this.clearNotificationsIfFromMe = true,
   }) : super(type: QueueType.sendMultipart);

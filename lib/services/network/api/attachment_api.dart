@@ -1,11 +1,41 @@
+import 'package:bluebubbles/database/models.dart' show PlatformFile;
 import 'package:bluebubbles/services/network/api/base_api.dart';
 import 'package:dio/dio.dart';
+import 'package:flutter/foundation.dart';
 import 'package:universal_io/io.dart';
 
 class AttachmentApi {
   final BaseApi _svc;
 
   AttachmentApi(this._svc);
+
+  Future<String> upload(
+    PlatformFile file, {
+    void Function(int, int)? onSendProgress,
+    CancelToken? cancelToken,
+  }) async {
+    final response = await _svc.runApiGuarded(() async {
+      final formData = FormData.fromMap({
+        "attachment": kIsWeb
+            ? MultipartFile.fromBytes(file.bytes!, filename: file.name)
+            : await MultipartFile.fromFile(file.path!, filename: file.name),
+      });
+      final response = await _svc.dio.post(
+        "${_svc.apiRoot}/attachment/upload",
+        queryParameters: _svc.buildQueryParams(),
+        data: formData,
+        onSendProgress: onSendProgress,
+        cancelToken: cancelToken,
+        options: Options(
+          sendTimeout: _svc.dio.options.sendTimeout! * 12,
+          receiveTimeout: _svc.dio.options.receiveTimeout! * 12,
+          headers: _svc.headers,
+        ),
+      );
+      return _svc.returnSuccessOrError(response);
+    });
+    return response.data['data']['path'] as String;
+  }
 
   /// Get the attachment data for the specified [guid]
   Future<Response> fetch(String guid, {CancelToken? cancelToken}) async {

@@ -5,6 +5,7 @@ import 'package:bluebubbles/app/layouts/conversation_view/widgets/message/intera
 import 'package:bluebubbles/app/layouts/conversation_view/widgets/message/reply/reply_bubble.dart';
 import 'package:bluebubbles/app/state/message_state_scope.dart';
 import 'package:bluebubbles/database/models.dart';
+import 'package:bluebubbles/helpers/helpers.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:universal_io/io.dart';
@@ -197,7 +198,11 @@ class ExpressiveUrlPreview extends StatelessWidget {
   /// tap-to-load affordance when the policy is what is holding the preview back.
   Widget _buildBare(BuildContext context, {required bool inReply}) {
     final link = controller.linkText ?? controller.siteText ?? "";
-
+    final message = MessageStateScope.maybeMessageOf(context);
+    final isFromMe = message?.isFromMe == true;
+    final bareColor = context.material && isFromMe
+        ? context.theme.colorScheme.onPrimaryContainer
+        : context.theme.colorScheme.onSurfaceVariant;
     return Padding(
       padding: inReply
           ? const EdgeInsets.all(M3ESpacing.md)
@@ -214,7 +219,7 @@ class ExpressiveUrlPreview extends StatelessWidget {
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Icon(Icons.link, size: 16, color: context.theme.colorScheme.onSurfaceVariant),
+                    Icon(Icons.link, size: 16, color: bareColor),
                     const SizedBox(width: M3ESpacing.sm),
                     Flexible(
                       child: Text(
@@ -222,7 +227,7 @@ class ExpressiveUrlPreview extends StatelessWidget {
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
                         style: context.theme.textTheme.bodySmall?.copyWith(
-                          color: context.theme.colorScheme.onSurfaceVariant,
+                          color: bareColor,
                         ),
                       ),
                     ),
@@ -243,10 +248,15 @@ class ExpressiveUrlPreview extends StatelessWidget {
   // ---------------------------------------------------------------------------
 
   Widget _buildSiteLine(BuildContext context) {
+    final message = MessageStateScope.maybeMessageOf(context);
+    final isFromMe = message?.isFromMe == true;
+    final color = context.material && isFromMe
+        ? context.theme.colorScheme.onPrimaryContainer
+        : context.theme.colorScheme.onSurfaceVariant;
     return Text(
       controller.siteText!,
       style: context.theme.textTheme.labelSmall?.copyWith(
-        color: context.theme.colorScheme.onSurfaceVariant,
+        color: color,
         letterSpacing: 0.5,
       ),
       maxLines: 1,
@@ -274,10 +284,14 @@ class ExpressiveUrlPreview extends StatelessWidget {
   }
 
   Widget _buildTitle(BuildContext context, Message? message) {
+    final isFromMe = message?.isFromMe == true;
+    final color = context.material && isFromMe
+        ? context.theme.colorScheme.onPrimaryContainer
+        : context.theme.colorScheme.onSurface;
     return Text(
       controller.titleFor(message?.text),
       style: context.theme.textTheme.titleSmall?.copyWith(
-        color: context.theme.colorScheme.onSurface,
+        color: color,
         fontWeight: FontWeight.w600,
       ),
       maxLines: 2,
@@ -367,12 +381,20 @@ class ExpressiveUrlPreview extends StatelessWidget {
   }
 
   Widget _imageFallback(BuildContext context) {
+    final message = MessageStateScope.maybeMessageOf(context);
+    final isFromMe = message?.isFromMe == true;
     return ColoredBox(
-      color: context.theme.colorScheme.surfaceContainerHighest,
+      color: context.material
+          ? (isFromMe
+              ? context.theme.colorScheme.bubble(context, message?.chat.target?.isIMessage ?? true)
+              : context.theme.colorScheme.surfaceContainer)
+          : context.theme.colorScheme.surfaceContainerHighest,
       child: Center(
         child: Icon(
           Icons.broken_image_outlined,
-          color: context.theme.colorScheme.onSurfaceVariant,
+          color: context.material && isFromMe
+              ? context.theme.colorScheme.onPrimaryContainer
+              : context.theme.colorScheme.onSurfaceVariant,
           size: 28,
         ),
       ),

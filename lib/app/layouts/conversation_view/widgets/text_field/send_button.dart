@@ -11,11 +11,15 @@ class SendButton extends StatefulWidget {
     required this.onLongPress,
     required this.sendMessage,
     this.visible = true,
+    this.enabled = true,
+    this.materialComposer = false,
   });
 
   final Function() onLongPress;
   final Function() sendMessage;
   final bool visible;
+  final bool enabled;
+  final bool materialComposer;
 
   @override
   SendButtonState createState() => SendButtonState();
@@ -52,7 +56,15 @@ class SendButtonState extends State<SendButton> with SingleTickerProviderStateMi
   @override
   void didUpdateWidget(SendButton oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.visible && !widget.visible) controller.reset();
+    if ((oldWidget.visible && !widget.visible) || (oldWidget.enabled && !widget.enabled)) controller.reset();
+  }
+
+  void _handleLongPress() {
+    if (controller.isAnimating) {
+      controller.reset();
+    } else {
+      widget.onLongPress.call();
+    }
   }
 
   @override
@@ -75,27 +87,23 @@ class SendButtonState extends State<SendButton> with SingleTickerProviderStateMi
 
   @override
   Widget build(BuildContext context) {
+    final double side = widget.materialComposer ? 54 : material ? 40 : 32;
     return GestureDetector(
-      onSecondaryTap: () {
-        if (controller.isAnimating) {
-          controller.reset();
-        } else {
-          widget.onLongPress.call();
-        }
-      },
+      onSecondaryTap: widget.enabled ? _handleLongPress : null,
       child: TextButton(
         style: TextButton.styleFrom(
           backgroundColor: iOS ? _iosBaseColor : null,
           shape: const CircleBorder(),
           padding: const EdgeInsets.all(0),
-          maximumSize: const Size(32, 32),
-          minimumSize: const Size(32, 32),
+          maximumSize: Size.square(side),
+          minimumSize: Size.square(side),
           tapTargetSize: MaterialTapTargetSize.shrinkWrap,
         ),
-        onPressed: onSendPressed,
+        onPressed: widget.enabled ? onSendPressed : null,
+        onLongPress: widget.enabled ? _handleLongPress : null,
         child: AnimatedBuilder(
           animation: controller,
-          builder: (context, widget) {
+          builder: (context, _) {
             return _SendButtonIcon(
               animationValue: controller.value,
               baseColor: baseColor,
@@ -103,21 +111,18 @@ class SendButtonState extends State<SendButton> with SingleTickerProviderStateMi
               iosOnPrimary: _iosOnPrimary,
               materialSecondary: _materialIconColor,
               onError: _onError,
+              enabled: widget.enabled,
+              side: side,
+              materialComposer: widget.materialComposer,
             );
           },
         ),
-        onLongPress: () {
-          if (controller.isAnimating) {
-            controller.reset();
-          } else {
-            widget.onLongPress.call();
-          }
-        },
       ),
     );
   }
 
   void onSendPressed() {
+    if (!widget.enabled) return;
     if (controller.isAnimating) {
       controller.reset();
     } else if (SettingsSvc.settings.sendDelay.value != 0) {
@@ -138,6 +143,9 @@ class _SendButtonIcon extends StatelessWidget {
     required this.iosOnPrimary,
     required this.materialSecondary,
     required this.onError,
+    required this.enabled,
+    required this.side,
+    required this.materialComposer,
   });
 
   final double animationValue;
@@ -146,18 +154,26 @@ class _SendButtonIcon extends StatelessWidget {
   final Color iosOnPrimary;
   final Color materialSecondary;
   final Color onError;
+  final bool enabled;
+  final double side;
+  final bool materialComposer;
 
   @override
   Widget build(BuildContext context) {
     return Obx(() {
       final isIOS = SettingsSvc.settings.skin.value == Skins.iOS;
+      final isMaterial = SettingsSvc.settings.skin.value == Skins.Material;
       final isAnimating = animationValue != 0;
+      final filled = isMaterial && !isAnimating;
 
       return Container(
-        constraints: const BoxConstraints(minHeight: 32, minWidth: 32),
+        constraints: BoxConstraints.tight(Size.square(side)),
         decoration: BoxDecoration(
-          shape: isIOS ? BoxShape.circle : BoxShape.rectangle,
-          borderRadius: isIOS ? null : BorderRadius.circular(10),
+          shape: isIOS || filled || materialComposer ? BoxShape.circle : BoxShape.rectangle,
+          borderRadius: isIOS || filled || materialComposer ? null : BorderRadius.circular(10),
+          color: filled
+              ? context.theme.colorScheme.primary.withValues(alpha: materialComposer && !enabled ? 0.38 : 1)
+              : null,
           gradient: isIOS || isAnimating
               ? LinearGradient(
                   begin: Alignment.bottomCenter,
@@ -172,8 +188,16 @@ class _SendButtonIcon extends StatelessWidget {
           animationValue == 0
               ? (isIOS ? CupertinoIcons.arrow_up : Icons.send_outlined)
               : (isIOS ? CupertinoIcons.xmark : Icons.close),
-          color: animationValue == 0 ? (isIOS ? iosOnPrimary : materialSecondary) : onError,
-          size: isIOS || isAnimating ? 20 : 28,
+          color: animationValue != 0
+              ? onError
+              : isIOS
+                  ? iosOnPrimary
+                  : enabled == filled
+                      ? context.theme.colorScheme.onPrimary
+                      : materialComposer
+                          ? context.theme.colorScheme.onSurface.withValues(alpha: 0.38)
+                          : materialSecondary,
+          size: materialComposer ? 24 : isIOS || isAnimating || filled ? 20 : 28,
         ),
       );
     });

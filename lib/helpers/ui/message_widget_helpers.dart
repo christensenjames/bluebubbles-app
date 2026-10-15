@@ -26,7 +26,9 @@ List<InlineSpan> buildMessageSpans(BuildContext context, MessagePart part, Messa
         color: colorOverride ??
             (message.isFromMe!
                 ? context.theme.colorScheme.onBubble(context, message.chat.target?.isIMessage ?? true)
-                : bubbleColors?.onReceivedBubbleColor ?? context.theme.colorScheme.onSurfaceVariant),
+                : (context.material
+                    ? context.theme.colorScheme.onSurface
+                    : bubbleColors?.onReceivedBubbleColor ?? context.theme.colorScheme.onSurfaceVariant)),
         fontSizeFactor: message.isBigEmoji ? 3 : 1,
       );
 
@@ -104,7 +106,9 @@ Future<List<InlineSpan>> buildEnrichedMessageSpans(BuildContext context, Message
         color: colorOverride ??
             (message.isFromMe!
                 ? context.theme.colorScheme.onBubble(context, message.chat.target?.isIMessage ?? true)
-                : bubbleColors?.onReceivedBubbleColor ?? context.theme.colorScheme.onSurfaceVariant),
+                : (context.material
+                    ? context.theme.colorScheme.onSurface
+                    : bubbleColors?.onReceivedBubbleColor ?? context.theme.colorScheme.onSurfaceVariant)),
         fontSizeFactor: message.isBigEmoji ? 3 : 1,
       );
 

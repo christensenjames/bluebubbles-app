@@ -655,6 +655,17 @@ class Message {
     return newer.dateCreated!.difference(dateCreated!).inMinutes.abs() > 1;
   }
 
+  bool showHead(Message? older) {
+    if (older == null ||
+        !sameSender(older) ||
+        older.isGroupEvent ||
+        (threadOriginatorGuid == null && isReply)) {
+      return true;
+    }
+    if (dateCreated == null || older.dateCreated == null) return true;
+    return dateCreated!.difference(older.dateCreated!).inMinutes.abs() > 1;
+  }
+
   bool sameSender(Message? other) {
     return (isFromMe! && isFromMe == other?.isFromMe) ||
         (!isFromMe! && !(other?.isFromMe ?? true) && handleId == other?.handleId);

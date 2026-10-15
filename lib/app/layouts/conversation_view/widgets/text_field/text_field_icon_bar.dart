@@ -29,10 +29,12 @@ class TextFieldIconBar extends StatelessWidget {
     super.key,
     required this.controller,
     required this.localController,
+    this.materialComposer = false,
   });
 
   final ConversationViewController controller;
   final ConversationTextFieldLocalController localController;
+  final bool materialComposer;
 
   Chat get _chat => controller.chat;
 
@@ -47,7 +49,10 @@ class TextFieldIconBar extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.end,
           children: [
             _attachmentButton(context),
-            ...SettingsSvc.settings.textFieldButtons.platformSupportedButtons.map((b) => _build(context, b)),
+            if (!materialComposer)
+              ...SettingsSvc.settings.textFieldButtons.platformSupportedButtons.map(
+                (b) => _build(context, b),
+              ),
           ],
         ));
   }
@@ -60,24 +65,34 @@ class TextFieldIconBar extends StatelessWidget {
 
   Widget _attachmentButton(BuildContext context) {
     final hasBackground = ChatsSvc.getChatState(controller.chat.guid)?.hasCustomWallpaper ?? false;
+    final material = context.material;
+    final double size = materialComposer ? 48 : material ? 54 : 36;
     return Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 10),
+          padding: EdgeInsets.symmetric(horizontal: materialComposer ? 0 : material ? 8 : 10),
           child: IconButton(
             style: IconButton.styleFrom(
-              backgroundColor: hasBackground
-                  ? context.theme.colorScheme.surfaceContainerHighest
-                  : context.theme.colorScheme.outline.withValues(alpha: 0.2),
+              backgroundColor: materialComposer
+                  ? null
+                  : material
+                      ? context.theme.colorScheme.surfaceContainer
+                      : (hasBackground
+                          ? context.theme.colorScheme.surfaceContainerHighest
+                          : context.theme.colorScheme.outline.withValues(alpha: 0.2)),
               shape: const CircleBorder(),
               padding: EdgeInsets.zero,
-              minimumSize: const Size(36, 36),
-              fixedSize: const Size(36, 36),
+              minimumSize: Size(size, size),
+              fixedSize: Size(size, size),
             ),
             icon: Icon(
               Icons.add,
-              color: context.theme.colorScheme.outline,
-              size: 22,
+              color: material ? context.theme.colorScheme.onSurfaceVariant : context.theme.colorScheme.outline,
+              size: materialComposer ? 24 : material ? 26 : 22,
             ),
-            visualDensity: Platform.isAndroid ? VisualDensity.compact : null,
+            visualDensity: materialComposer
+                ? VisualDensity.standard
+                : Platform.isAndroid
+                    ? VisualDensity.compact
+                    : null,
             onPressed: () async {
               if (kIsDesktop) {
                 final res = await FilePicker.pickFiles(withReadStream: true, allowMultiple: true);

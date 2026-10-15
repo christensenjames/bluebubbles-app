@@ -84,8 +84,12 @@ class ReactionDetails extends StatelessWidget {
                         decoration: BoxDecoration(
                           borderRadius: BorderRadius.circular(100),
                           color: message.isFromMe!
-                              ? context.theme.colorScheme.primary
-                              : context.theme.colorScheme.surfaceContainerHighest,
+                              ? (context.material
+                                  ? context.theme.colorScheme.primaryContainer
+                                  : context.theme.colorScheme.primary)
+                              : (context.material
+                                  ? context.theme.colorScheme.surfaceContainer
+                                  : context.theme.colorScheme.surfaceContainerHighest),
                           boxShadow: [
                             BoxShadow(
                               blurRadius: 1.0,
