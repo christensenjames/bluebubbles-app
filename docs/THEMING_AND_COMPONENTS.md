@@ -363,9 +363,12 @@ Nord, or legacy/custom `FlexScheme` presets). The fallback picks whichever of
 **`BubbleText`** — a second `ThemeExtension` with a single `bubbleText` `TextStyle`, sized
 independently of the rest of the type scale (`ThemeStruct.defaultTextSizes["bubbleText"] = 15`)
 so message-bubble text can be tuned without affecting body text elsewhere. On the Material
-skin, `ThemesService.getStructsFromData` rewrites it at load time to Google Sans (bundled
+skin, `ThemesService.renderTheme` rewrites it at render time to Google Sans (bundled
 `GoogleSans` family, only when the theme's font is `Default`), 16 sp when the stored size is
-the default, and a 1.5 line height; stored themes are never changed.
+the default, and a 1.5 line height; stored themes are never changed. Any code that builds a
+`ThemeData` from a `ThemeStruct` for display (the app theme, per-chat themes in
+`conversation_view.dart` and `chat_detail_theme.dart`) must go through `renderTheme` /
+`renderThemes`, not `.data`.
 
 **`context.headerColor` / `context.tileColor`** — used for settings-page section headers vs.
 tile backgrounds. Both invert their mapping when `Skins.Material` + dark mode are active

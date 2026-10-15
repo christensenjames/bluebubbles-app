@@ -5,8 +5,11 @@
 - The Material skin now renders text in Google Sans, bundled with the app under
   `assets/fonts/` (OFL), so it never downloads a font. A font picked in Theme Studio still
   wins. Bubble text is 16 sp on a 24 dp line; a bubble size changed in Theme Studio is kept.
-  The override is applied when the theme loads (`ThemesService.renderThemes`), so the
-  iOS and Samsung skins are unchanged whatever theme they use.
+  The override is applied when a theme is rendered (`ThemesService.renderTheme`), both for the
+  app theme and for each chat's own theme (`conversation_view.dart`, `chat_detail_theme.dart`),
+  so the iOS and Samsung skins are unchanged whatever theme they use. The first build missed
+  the per-chat path: the chat list showed Google Sans while the chat screen did not
+  (`bbc343161`).
 - Material-skin text bubbles have 16 dp horizontal and 8 dp vertical padding and are at most
   76% of the conversation width (325 dp on a 427 dp phone); the send animation and message
   part wrapper use the same limit. Messages sit 8 dp from the screen edge. Date/time separators use
@@ -14,6 +17,10 @@
 - The Android Material composer matches Google Messages: a circled `+` and an image button
   sit at the bottom of the box beside the text, the box is 54 dp tall for one line, and the
   text runs nearly the full width of the box.
+- Checked on the Pixel against Google Messages with the same draft: same line wrapping, same
+  single- and two-line bubble heights (120 / 192 px), same 8 dp edge inset. Not added: GM's
+  smiley button and its "Saturday, Oct 3 • 11:02 AM" separator wording (James chose to keep
+  ours).
 
 ## 2026-10-14 — Photos sent as one message, Google Messages-style Material chat, local-time dates
 
