@@ -245,7 +245,8 @@ class ConversationViewState extends State<ConversationView> with ThemeHelpers<Co
         final isDark = ThemeSvc.inDarkMode(context);
         chatState.themeVersion.value;
         final themeName = isDark ? chatState.customThemeDark.value : chatState.customThemeLight.value;
-        final baseTheme = ThemeStruct.resolveByName(themeName, isDark ? Brightness.dark : Brightness.light).data;
+        final baseTheme =
+            ThemeSvc.renderTheme(ThemeStruct.resolveByName(themeName, isDark ? Brightness.dark : Brightness.light));
 
         final colorScheme = baseTheme.colorScheme;
         final bubbleColors = baseTheme.extensions[BubbleColors] as BubbleColors?;

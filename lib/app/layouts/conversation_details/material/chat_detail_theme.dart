@@ -24,7 +24,8 @@ class ChatDetailTheme {
     final isDark = ThemeSvc.inDarkMode(context);
     chatState.themeVersion.value;
     final themeName = isDark ? chatState.customThemeDark.value : chatState.customThemeLight.value;
-    final baseTheme = ThemeStruct.resolveByName(themeName, isDark ? Brightness.dark : Brightness.light).data;
+    final baseTheme =
+        ThemeSvc.renderTheme(ThemeStruct.resolveByName(themeName, isDark ? Brightness.dark : Brightness.light));
 
     // Compute scaffold colors from baseTheme before copyWith modifies colorScheme.surface.
     final hasWindowEffect = SettingsSvc.settings.windowEffect.value != WindowEffect.disabled;

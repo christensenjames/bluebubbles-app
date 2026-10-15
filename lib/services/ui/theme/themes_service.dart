@@ -683,9 +683,10 @@ class ThemesService {
     );
   }
 
-  ThemePair renderThemes(ThemeStruct light, ThemeStruct dark) => skin == Skins.Material
-      ? getStructsFromData(_applyMaterialTypography(light), _applyMaterialTypography(dark))
-      : getStructsFromData(light.data, dark.data);
+  ThemePair renderThemes(ThemeStruct light, ThemeStruct dark) =>
+      getStructsFromData(renderTheme(light), renderTheme(dark));
+
+  ThemeData renderTheme(ThemeStruct theme) => skin == Skins.Material ? _applyMaterialTypography(theme) : theme.data;
 
   ThemePair getStructsFromData(ThemeData light, ThemeData dark) {
     return Platform.isWindows ? _applyWindowsAccent(light, dark) : ThemePair(light: light, dark: dark);
