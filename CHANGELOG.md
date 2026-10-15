@@ -35,6 +35,20 @@
   it. Android hides the keyboard when a window regains focus on a view that is not a text
   editor, and Flutter's view never reports itself as one; `MainActivity` now moves focus to a
   1x1 stand-in editor view for that moment and hands it back to Flutter a frame later.
+- Code review fixes, folded into `ae0a5d07e`. Picked photos are copied under a sanitised
+  file name into their own folder, so a provider-supplied name such as `../x` cannot escape
+  the cache and two photos both named `same.jpg` no longer overwrite each other. Before the
+  fix, the second photo was sent twice. Checked on the Pixel with a red A and a blue B, both
+  named `same.jpg`.
+- When the socket echo of a photo batch arrives before the HTTP response, each attachment now
+  swaps from its own `<tempGuid>-i` GUID. Before, every attachment was mapped to the bare temp
+  GUID. A multipart reply listing fewer attachments than were sent no longer throws and leaves
+  the message stuck on "sending". Web never takes the batch path, because its uploads need
+  file bytes.
+- Other fixes: the disabled send button is no longer drawn twice at 38% opacity, and the emoji
+  row resets its keyboard height when the keyboard closes. Effects in the + panel is hidden
+  while the Private API is off. The photo-pick loop and the Effects action are now shared in
+  `schedule_message_helper.dart`.
 
 ## 2026-10-12 — Upstream 2.1.3 merged, dev builds on the Surface and Pixel
 

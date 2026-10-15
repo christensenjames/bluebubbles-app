@@ -58,7 +58,7 @@ The Send button calls the `sendMessage` callback passed down from `ConversationT
 
 ### Step 2 — Build Message Objects (`send_animation.dart`)
 
-`SendAnimation.send()` batches attachments when `enablePrivateAPI` and `privateAPIAttachmentSend` are both enabled, the send is not an audio message, and either at least two files were picked or at least one file accompanies non-empty text or subject.
+`SendAnimation.send()` batches attachments on non-web platforms when `enablePrivateAPI` and `privateAPIAttachmentSend` are both enabled, the send is not an audio message, and either at least two files were picked or at least one file accompanies non-empty text or subject. Web keeps separate sends because its uploads carry file bytes, which the batch path does not fill in.
 
 A batch is one `Message` and one `OutgoingMultipartMessage`, whose `attachments` list contains every picked file. The message keeps the reply GUID/part, effect, and subject. Its attributed body starts with one U+FFFC attachment run per file (`messagePart` 0 through n−1), followed by the text and mention runs at `messagePart` n. Text ranges are shifted by n, preserving mention addresses and text. The message receives a `temp-XXXXXXXX` GUID; attachment i receives `<message tempGuid>-i`, so equal filenames still have independent local directories.
 
