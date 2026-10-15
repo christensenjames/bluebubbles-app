@@ -271,6 +271,13 @@ objectbox:
 
 # The following section is specific to Flutter.
 flutter:
+  fonts:
+    - family: GoogleSans
+      fonts:
+        - asset: assets/fonts/GoogleSans-Variable.ttf
+        - asset: assets/fonts/GoogleSans-Italic-Variable.ttf
+          style: italic
+
   # fonts:
   # - family: AppleColorEmoji
   #   fonts:

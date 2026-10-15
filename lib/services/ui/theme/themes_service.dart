@@ -1,3 +1,4 @@
+
 import 'package:adaptive_theme/adaptive_theme.dart';
 import 'package:bluebubbles/helpers/helpers.dart';
 import 'package:bluebubbles/app/components/custom/custom_bouncing_scroll_physics.dart';
@@ -31,6 +32,11 @@ enum MaterialYouVariant {
 }
 
 class ThemesService {
+  static const String googleMessagesFontFamily = "GoogleSans";
+  static const double googleMessagesBubbleTextFontSize = 16;
+  static const double googleMessagesBubbleTextLineHeight = 1.5;
+  static const double _googleMessagesBubbleTextOpticalSize = 17;
+
   static const String materialYouLightName = "Material You (Light)";
   static const String materialYouDarkName = "Material You (Dark)";
   static const String _adaptiveBackgroundThemePrefix = "__adaptive_background_theme__";
@@ -466,12 +472,8 @@ class ThemesService {
         ThemeStruct(name: "Bright White", themeData: whiteLightTheme),
         ThemeStruct(name: "OLED Dark", themeData: oledDarkTheme),
         ...MaterialYouVariant.values.expand((variant) => [
-              ThemeStruct(
-                  name: materialYouThemeName(variant, Brightness.light),
-                  themeData: materialYouTheme(Brightness.light, variant: variant)),
-              ThemeStruct(
-                  name: materialYouThemeName(variant, Brightness.dark),
-                  themeData: materialYouTheme(Brightness.dark, variant: variant)),
+              ThemeStruct(name: materialYouThemeName(variant, Brightness.light), themeData: materialYouTheme(Brightness.light, variant: variant)),
+              ThemeStruct(name: materialYouThemeName(variant, Brightness.dark), themeData: materialYouTheme(Brightness.dark, variant: variant)),
             ]),
         ThemeStruct(name: "Nord Theme", themeData: nordDarkTheme),
         ThemeStruct(name: "Music Theme ☀", themeData: whiteLightTheme),
@@ -661,8 +663,7 @@ class ThemesService {
         struct
           ..name = name
           ..data = data
-          ..gradientBg = false
-          ..googleFont = 'Default';
+          ..gradientBg = false;
         struct.save();
         results.add(struct);
       }
@@ -672,22 +673,45 @@ class ThemesService {
   }
 
   void _loadTheme(BuildContext context, {ThemeStruct? lightOverride, ThemeStruct? darkOverride}) {
-    // Set the theme to match those of the settings
-    ThemeData light = (lightOverride ?? ThemeStruct.getLightTheme()).data;
-    ThemeData dark = (darkOverride ?? ThemeStruct.getDarkTheme()).data;
+    final light = lightOverride ?? ThemeStruct.getLightTheme();
+    final dark = darkOverride ?? ThemeStruct.getDarkTheme();
 
-    final pair = getStructsFromData(light, dark);
-    light = pair.light;
-    dark = pair.dark;
-
+    final pair = renderThemes(light, dark);
     AdaptiveTheme.of(context).setTheme(
-      light: light,
-      dark: dark,
+      light: pair.light,
+      dark: pair.dark,
     );
   }
 
+  ThemePair renderThemes(ThemeStruct light, ThemeStruct dark) => skin == Skins.Material
+      ? getStructsFromData(_applyMaterialTypography(light), _applyMaterialTypography(dark))
+      : getStructsFromData(light.data, dark.data);
+
   ThemePair getStructsFromData(ThemeData light, ThemeData dark) {
     return Platform.isWindows ? _applyWindowsAccent(light, dark) : ThemePair(light: light, dark: dark);
+  }
+
+  ThemeData _applyMaterialTypography(ThemeStruct theme) {
+    final useGoogleSans = theme.googleFont == "Default";
+    final bubbleText = theme.data.extension<BubbleText>()!.bubbleText;
+    return theme.data.copyWith(
+      textTheme: useGoogleSans ? theme.data.textTheme.apply(fontFamily: googleMessagesFontFamily) : null,
+      extensions: [
+        ...theme.data.extensions.values.where((extension) => extension is! BubbleText),
+        BubbleText(
+          bubbleText: bubbleText.copyWith(
+            fontFamily: useGoogleSans ? googleMessagesFontFamily : null,
+            fontSize: bubbleText.fontSize == ThemeStruct.defaultTextSizes["bubbleText"]
+                ? googleMessagesBubbleTextFontSize
+                : null,
+            height: googleMessagesBubbleTextLineHeight,
+            fontVariations: useGoogleSans
+                ? const [FontVariation("opsz", _googleMessagesBubbleTextOpticalSize)]
+                : null,
+          ),
+        ),
+      ],
+    );
   }
 
   Future<ThemeStruct> revertToPreviousDarkTheme() async {

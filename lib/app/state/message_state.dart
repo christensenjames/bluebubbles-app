@@ -160,6 +160,7 @@ class MessageState extends StatefulController {
   final Map<String, Attachment> _asyncResolvedAttachments = {};
 
   static const maxBubbleSizeFactor = 0.75;
+  static const materialBubbleSizeFactor = 0.76;
 
   // ========== End Widget Controller Fields ==========
 

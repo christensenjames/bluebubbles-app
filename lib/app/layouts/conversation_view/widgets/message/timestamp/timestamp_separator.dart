@@ -53,15 +53,22 @@ class TimestampSeparator extends StatelessWidget {
     if (timestamp == null) return const SizedBox.shrink();
 
     final textColor = hasBackground ? context.theme.colorScheme.onSurfaceVariant : context.theme.colorScheme.outline;
+    final isMaterial = SettingsSvc.settings.skin.value == Skins.Material;
+    final separatorTextStyle = context.theme.textTheme.labelSmall!.copyWith(
+      color: textColor,
+      fontWeight: FontWeight.normal,
+      fontSize: isMaterial ? 12 : null,
+      height: isMaterial ? 16 / 12 : null,
+    );
 
     final richText = RichText(
       text: TextSpan(
-        style: context.theme.textTheme.labelSmall!.copyWith(color: textColor, fontWeight: FontWeight.normal),
+        style: separatorTextStyle,
         children: [
           if (timestamp.date != null)
             TextSpan(
               text: "${timestamp.date!} ",
-              style: context.theme.textTheme.labelSmall!.copyWith(fontWeight: FontWeight.w600, color: textColor),
+              style: isMaterial ? null : const TextStyle(fontWeight: FontWeight.w600),
             ),
           TextSpan(text: timestamp.time),
         ],

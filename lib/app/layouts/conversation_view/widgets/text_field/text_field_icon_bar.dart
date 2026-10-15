@@ -84,7 +84,7 @@ class TextFieldIconBar extends StatelessWidget {
               fixedSize: Size(size, size),
             ),
             icon: Icon(
-              Icons.add,
+              materialComposer ? Icons.add_circle_outline : Icons.add,
               color: material ? context.theme.colorScheme.onSurfaceVariant : context.theme.colorScheme.outline,
               size: materialComposer ? 24 : material ? 26 : 22,
             ),

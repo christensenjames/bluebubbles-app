@@ -134,6 +134,7 @@ class _ThemingPanelState extends CustomState<ThemingPanel, void, ThemingPanelCon
                             await ChatsSvc.setAllInactive();
                             SettingsSvc.settings.skin.value = val;
                             await SettingsSvc.settings.saveOneAsync('skin');
+                            if (context.mounted) await ThemeSvc.changeTheme(context);
                             if (mounted) setState(() {});
                             EventDispatcherSvc.emit('theme-update', null);
                           },

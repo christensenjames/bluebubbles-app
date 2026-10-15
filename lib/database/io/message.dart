@@ -804,7 +804,10 @@ class Message {
     // initialize constraints for text rendering
     final fontSizeFactor = isBigEmoji ? bigEmojiScaleFactor : 1.0;
     final constraints = BoxConstraints(
-      maxWidth: maxWidthOverride ?? NavigationSvc.width(context) * MessageState.maxBubbleSizeFactor - 30,
+      maxWidth: maxWidthOverride ??
+          (SettingsSvc.settings.skin.value == Skins.Material
+              ? NavigationSvc.width(context) * MessageState.materialBubbleSizeFactor - 30
+              : NavigationSvc.width(context) * MessageState.maxBubbleSizeFactor - 30),
       minHeight: minHeightOverride ?? Theme.of(context).textTheme.bodySmall!.fontSize! * fontSizeFactor,
     );
     final renderParagraph = RichText(

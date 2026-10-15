@@ -122,13 +122,19 @@ class _TextBubbleState extends State<TextBubble> with ThemeHelpers {
         constraints: BoxConstraints(
           maxWidth: message.isBigEmoji
               ? NavigationSvc.width(context)
-              : NavigationSvc.width(context) * MessageState.maxBubbleSizeFactor - 40,
+              : material
+                  ? NavigationSvc.width(context) * MessageState.materialBubbleSizeFactor
+                  : NavigationSvc.width(context) * MessageState.maxBubbleSizeFactor - 40,
           minHeight: 36,
         ),
-        padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 15).add(material
-            ? EdgeInsets.zero
-            : EdgeInsets.only(
-                left: isFromMe || message.isBigEmoji ? 0 : 10, right: isFromMe && !message.isBigEmoji ? 10 : 0)),
+        padding: material
+            ? const EdgeInsets.symmetric(vertical: 8, horizontal: 16)
+            : const EdgeInsets.symmetric(vertical: 8, horizontal: 15).add(
+                EdgeInsets.only(
+                  left: isFromMe || message.isBigEmoji ? 0 : 10,
+                  right: isFromMe && !message.isBigEmoji ? 10 : 0,
+                ),
+              ),
         color: isFromMe && !message.isBigEmoji
             ? (selected
                 ? context.theme.colorScheme.tertiaryContainer
@@ -195,8 +201,9 @@ class _TextBubbleState extends State<TextBubble> with ThemeHelpers {
                 return Center(
                   widthFactor: 1,
                   child: Padding(
-                      padding:
-                          message.fullText.length == 1 ? const EdgeInsets.only(left: 3, right: 3) : EdgeInsets.zero,
+                      padding: !material && message.fullText.length == 1
+                          ? const EdgeInsets.only(left: 3, right: 3)
+                          : EdgeInsets.zero,
                       child: RichText(
                         text: TextSpan(
                           children: snapshot.data!,

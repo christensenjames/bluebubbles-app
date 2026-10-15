@@ -739,7 +739,7 @@ class MessagesViewState extends State<MessagesView> with MessagesServiceMixin, T
                                     final messageWidget = RepaintBoundary(
                                       key: _messageKeys.putIfAbsent(messageId, () => GlobalKey()),
                                       child: Padding(
-                                        padding: const EdgeInsets.only(left: 5.0, right: 5.0),
+                                        padding: EdgeInsets.symmetric(horizontal: material ? 8.0 : 5.0),
                                         child: AutoScrollTag(
                                           key: ValueKey("$messageId-scrolling"),
                                           index: index,

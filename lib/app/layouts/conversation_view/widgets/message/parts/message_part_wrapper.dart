@@ -275,7 +275,9 @@ class _EditModeTextField extends StatelessWidget {
                 : context.theme.colorScheme.surface,
           ),
           constraints: BoxConstraints(
-            maxWidth: NavigationSvc.width(context) * MessageState.maxBubbleSizeFactor - 40,
+            maxWidth: SettingsSvc.settings.skin.value == Skins.Material
+                ? NavigationSvc.width(context) * MessageState.materialBubbleSizeFactor
+                : NavigationSvc.width(context) * MessageState.maxBubbleSizeFactor - 40,
             minHeight: 40,
           ),
           padding: const EdgeInsets.only(right: 10).add(const EdgeInsets.all(5)),

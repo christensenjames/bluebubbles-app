@@ -251,12 +251,9 @@ Future<Null> initApp(bool bubble, List<String> arguments) async {
 
     if (exception == null) {
       /* ----- THEME INITIALIZATION ----- */
-      ThemeData light = ThemeStruct.getLightTheme().data;
-      ThemeData dark = ThemeStruct.getDarkTheme().data;
-
-      final pair = ThemeSvc.getStructsFromData(light, dark);
-      light = pair.light;
-      dark = pair.dark;
+      final pair = ThemeSvc.renderThemes(ThemeStruct.getLightTheme(), ThemeStruct.getDarkTheme());
+      ThemeData light = pair.light;
+      ThemeData dark = pair.dark;
 
       runApp(MaterialApp(
           home: Main(

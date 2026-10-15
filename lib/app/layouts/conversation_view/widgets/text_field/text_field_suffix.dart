@@ -27,7 +27,6 @@ class TextFieldSuffix extends StatefulWidget {
     required this.recorderController,
     required this.sendMessage,
     this.isChatCreator = false,
-    this.materialComposer = false,
     this.alwaysShowSend = false,
     this.hasInitialAttachments = false,
   });
@@ -38,7 +37,6 @@ class TextFieldSuffix extends StatefulWidget {
   final RecorderController? recorderController;
   final Future<void> Function({String? effect}) sendMessage;
   final bool isChatCreator;
-  final bool materialComposer;
 
   /// When true the send button is always shown, regardless of whether there
   /// is text or attachments. Used in the chat creator when an existing chat
@@ -70,12 +68,6 @@ class _TextFieldSuffixState extends State<TextFieldSuffix> with ThemeHelpers {
 
   @override
   Widget build(BuildContext context) {
-    if (widget.materialComposer) {
-      return Padding(
-        padding: const EdgeInsets.all(3.0),
-        child: _MaterialComposerPhotoButton(controller: widget.controller!),
-      );
-    }
     return MultiValueListenableBuilder(
       valueListenables: [widget.textController, widget.subjectTextController].nonNulls.toList(),
       builder: (context, values, _) {
@@ -202,8 +194,8 @@ class TextFieldMaterialSendButton extends StatelessWidget {
   }
 }
 
-class _MaterialComposerPhotoButton extends StatelessWidget {
-  const _MaterialComposerPhotoButton({required this.controller});
+class MaterialComposerPhotoButton extends StatelessWidget {
+  const MaterialComposerPhotoButton({super.key, required this.controller});
 
   final ConversationViewController controller;
 
@@ -216,7 +208,7 @@ class _MaterialComposerPhotoButton extends StatelessWidget {
           minimumSize: const Size(48, 48),
           fixedSize: const Size(48, 48),
         ),
-        icon: const Icon(Icons.photo_library_outlined, size: 22),
+        icon: const Icon(Icons.image_outlined, size: 24),
         onPressed: () => pickImagesIntoAttachments(controller),
       );
 }

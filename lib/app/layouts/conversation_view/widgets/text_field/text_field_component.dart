@@ -281,17 +281,18 @@ class TextFieldComponentState extends State<TextFieldComponent> {
                       final chatTitle =
                           chat == null ? null : (ChatsSvc.getChatState(chat!.guid)?.title.value ?? chat!.getTitle());
                       final contentPadding = materialComposer
-                          ? const EdgeInsets.fromLTRB(0, 18, 20, 18)
+                          ? const EdgeInsets.symmetric(vertical: 9)
                           : material
                               ? const EdgeInsets.symmetric(horizontal: 20, vertical: 18)
                               : EdgeInsets.all(iOS && !kIsDesktop && !kIsWeb ? 10 : 12.5);
+                      final bubbleText = context.theme.extension<BubbleText>()!.bubbleText;
                       final messageInput = TextField(
                         textCapitalization: TextCapitalization.sentences,
                         focusNode: controller?.focusNode ?? focusNode,
                         autocorrect: true,
                         controller: txtController,
                         scrollPhysics: const CustomBouncingScrollPhysics(),
-                        style: context.theme.extension<BubbleText>()!.bubbleText,
+                        style: bubbleText,
                         keyboardType: TextInputType.multiline,
                         maxLines: 14,
                         minLines: 1,
@@ -301,9 +302,11 @@ class TextFieldComponentState extends State<TextFieldComponent> {
                             ? TextInputAction.send
                             : TextInputAction.newline,
                         cursorColor: context.theme.colorScheme.primary,
-                        cursorHeight: context.theme.extension<BubbleText>()!.bubbleText.fontSize! * 1.25,
+                        cursorHeight: bubbleText.fontSize! * 1.25,
+                        textAlignVertical: materialComposer ? TextAlignVertical.center : null,
                         decoration: InputDecoration(
                           contentPadding: contentPadding,
+                          constraints: materialComposer ? const BoxConstraints(minHeight: 54) : null,
                           isDense: true,
                           isCollapsed: true,
                           hintText: isChatCreator
@@ -324,12 +327,10 @@ class TextFieldComponentState extends State<TextFieldComponent> {
                           fillColor: (isRecording & iOS)
                               ? context.theme.colorScheme.primary.withValues(alpha: 0.3)
                               : Colors.transparent,
-                          hintStyle: context.theme
-                              .extension<BubbleText>()!
-                              .bubbleText
-                              .copyWith(color: context.theme.colorScheme.outline),
+                          hintStyle: bubbleText.copyWith(color: context.theme.colorScheme.outline),
                           suffixIconConstraints: const BoxConstraints(minHeight: 0),
-                          suffixIcon: samsung && !isChatCreator
+                          // InputDecorator always centres suffixIcon; the Material composer bottom-aligns its button in the Row below.
+                          suffixIcon: materialComposer || (samsung && !isChatCreator)
                               ? null
                               : Padding(
                                   padding: EdgeInsets.only(right: iOS ? 0.0 : 5.0),
@@ -342,7 +343,6 @@ class TextFieldComponentState extends State<TextFieldComponent> {
                                     isChatCreator: isChatCreator,
                                     alwaysShowSend: widget.alwaysShowSend,
                                     hasInitialAttachments: initialAttachments.isNotEmpty,
-                                    materialComposer: materialComposer,
                                   ),
                                 ),
                         ),
@@ -474,9 +474,9 @@ class TextFieldComponentState extends State<TextFieldComponent> {
                       return Row(
                         crossAxisAlignment: CrossAxisAlignment.end,
                         children: [
-                          // The pill is 54 dp for one line; 3 dp under the 48 dp button centres it on that line.
+                          // The pill is 54 dp for one line; 3 dp under the 48 dp buttons centres them on that line.
                           Padding(
-                            padding: const EdgeInsets.only(left: 4, bottom: 3),
+                            padding: const EdgeInsets.only(bottom: 3),
                             child: TextFieldIconBar(
                               controller: controller!,
                               localController: widget.localController!,
@@ -484,6 +484,10 @@ class TextFieldComponentState extends State<TextFieldComponent> {
                             ),
                           ),
                           Expanded(child: messageInput),
+                          Padding(
+                            padding: const EdgeInsets.only(bottom: 3),
+                            child: MaterialComposerPhotoButton(controller: controller!),
+                          ),
                         ],
                       );
                     }),
