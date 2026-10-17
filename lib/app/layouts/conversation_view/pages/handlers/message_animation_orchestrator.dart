@@ -69,6 +69,23 @@ class MessageAnimationOrchestrator {
     );
   }
 
+  /// Material skin: no flying send bubble, the row grows in place from its bottom-right corner.
+  Widget buildMaterialSentMessageAnimation({
+    required Widget child,
+    required Animation<double> animation,
+  }) {
+    final curved = animation.drive(CurveTween(curve: MessageListAnimationConfig.entranceCurve));
+    return SizeTransition(
+      sizeFactor: curved,
+      alignment: Alignment.bottomRight,
+      child: ScaleTransition(
+        scale: curved,
+        alignment: Alignment.bottomRight,
+        child: child,
+      ),
+    );
+  }
+
   /// Build the animated widget for a received (incoming) message.
   /// Includes slide + size transitions (no fade).
   Widget buildReceivedMessageAnimation({
@@ -97,7 +114,10 @@ class MessageAnimationOrchestrator {
     );
   }
 
-  Duration getInsertionDuration({required bool isFromMe}) => isFromMe
-      ? MessageListAnimationConfig.sentInsertionDuration
-      : MessageListAnimationConfig.receivedInsertionDuration;
+  Duration getInsertionDuration(Message message, {required bool material}) {
+    if (material && message.isSending) return MessageListAnimationConfig.materialSentInsertionDuration;
+    return (message.isFromMe ?? false)
+        ? MessageListAnimationConfig.sentInsertionDuration
+        : MessageListAnimationConfig.receivedInsertionDuration;
+  }
 }

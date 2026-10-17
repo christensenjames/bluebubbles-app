@@ -12,6 +12,9 @@ class MessageListAnimationConfig {
   /// Receiving is a high-frequency event with no send-bubble handoff, so it stays inside the 300ms UI budget.
   static const Duration receivedInsertionDuration = Durations.short4;
 
+  /// Google Messages grows a sent bubble in place from its corner; measured on a Pixel at ~200ms to settle.
+  static const Duration materialSentInsertionDuration = Durations.medium1;
+
   /// Curve for insertion slide animation
   static const Curve insertionSlideCurve = entranceCurve;
 

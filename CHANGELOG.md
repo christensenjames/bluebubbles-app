@@ -1,5 +1,17 @@
 # Changelog
 
+## 2026-10-17 — Google Messages send animation in the Material skin
+
+- Sending in the Material skin no longer flies a copy of the bubble up from the composer.
+  The copy was built for the iOS skin: it was darker than the real bubble, landed over the
+  old send-button gap about 60 px left of where the message actually sits, and then sat on
+  top of the faded-in list row for another 200 ms before vanishing. Now the new row grows in
+  place from its bottom-right corner while the list makes room, as Google Messages does
+  (measured on the Pixel: GM settles in about 200 ms; ours uses `Durations.medium1`). A
+  message that is still sending keeps its normal colour in this skin. The iOS and Samsung
+  skins keep the old animation (`send_animation.dart`, `message_animation_orchestrator.dart`).
+- Checked on the Pixel with screen recordings of a send in BlueBubbles and in Google Messages.
+
 ## 2026-10-16 — Centred one-line draft in the Material composer
 
 - A one-line draft is vertically centred in the 54 dp composer (before: 9 dp above the text,

@@ -479,7 +479,7 @@ class MessagesViewState extends State<MessagesView> with MessagesServiceMixin, T
     animationOrchestrator.markAnimating(message);
 
     // Use insertItem to animate the list sliding up to make space (all messages)
-    final duration = animationOrchestrator.getInsertionDuration(isFromMe: message.isFromMe ?? false);
+    final duration = animationOrchestrator.getInsertionDuration(message, material: material);
     _listKey.currentState?.insertItem(
       insertIndex,
       duration: duration,
@@ -760,10 +760,10 @@ class MessagesViewState extends State<MessagesView> with MessagesServiceMixin, T
                                     if (isFromMe &&
                                         message.isSending &&
                                         animationOrchestrator.isMessageAnimating(message)) {
-                                      return animationOrchestrator.buildSentMessageAnimation(
-                                        child: messageWidget,
-                                        animation: animation,
-                                      );
+                                      final build = material
+                                          ? animationOrchestrator.buildMaterialSentMessageAnimation
+                                          : animationOrchestrator.buildSentMessageAnimation;
+                                      return build(child: messageWidget, animation: animation);
                                     }
 
                                     // Animate other messages with size + slide only (received or from other devices)

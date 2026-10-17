@@ -354,7 +354,9 @@ class _SendAnimationState extends CustomState<SendAnimation, SendData, Conversat
       // The outgoing message this animation lands on is queued *after* the hold
       // but bypasses the gate in MessagesView.handleNewMessage, so the send is
       // never delayed by its own hold.
-      controller.messageListGate.hold();
+      // Material matches Google Messages: no flying bubble, the list row grows in place
+      // (MessageAnimationOrchestrator.buildMaterialSentMessageAnimation), so there is no target to hold.
+      if (!material) controller.messageListGate.hold();
       OutgoingMsgHandler.queue(
         (_message.attributedBody.isNotEmpty)
             ? OutgoingMultipartMessage(
@@ -367,19 +369,21 @@ class _SendAnimationState extends CustomState<SendAnimation, SendData, Conversat
                 message: _message,
               ),
       );
-      setState(() {
-        // Freeze the landing target for the whole flight. Computed here rather
-        // than in build() so it reflects the layout at the moment of the send —
-        // notably after updateSmartReplyLayout() above has already zeroed the
-        // smart reply row.
-        _frozenBottomOffset = _liveBottomOffset;
-        tween = Tween<double>(
-          begin: 0.9,
-          end: 0,
-        );
-        control = Control.play;
-        message = _message;
-      });
+      if (!material) {
+        setState(() {
+          // Freeze the landing target for the whole flight. Computed here rather
+          // than in build() so it reflects the layout at the moment of the send —
+          // notably after updateSmartReplyLayout() above has already zeroed the
+          // smart reply row.
+          _frozenBottomOffset = _liveBottomOffset;
+          tween = Tween<double>(
+            begin: 0.9,
+            end: 0,
+          );
+          control = Control.play;
+          message = _message;
+        });
+      }
     }
     super.updateWidget(data);
   }
