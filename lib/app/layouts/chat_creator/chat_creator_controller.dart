@@ -267,13 +267,7 @@ class ChatCreatorController extends StatefulController {
     filteredContacts.value = result.contacts;
     await findExistingChat();
 
-    // A chat was selected — move focus to the message compose field.
-    // Defer to the next frame so the TextFieldComponent has time to build
-    // and attach the CVC's focusNode before we request focus.
-    final cvcFocusNode = activeController.value?.focusNode;
-    SchedulerBinding.instance.addPostFrameCallback((_) {
-      cvcFocusNode?.requestFocus();
-    });
+    addressNode.requestFocus();
   }
 
   Future<void> removeSelected(SelectedContact contact) async {

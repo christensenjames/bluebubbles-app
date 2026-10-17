@@ -1,5 +1,11 @@
 # Changelog
 
+## 2026-10-17 — New chat keeps the cursor in the To: field
+
+- Picking a conversation from the "Conversations" results in the new-chat screen now leaves
+  the cursor in the To: field, as picking a contact already did, instead of jumping to the
+  message box (`chat_creator_controller.dart`). Checked on the Pixel.
+
 ## 2026-10-17 — Google Messages send animation in the Material skin
 
 - Sending in the Material skin no longer flies a copy of the bubble up from the composer.
