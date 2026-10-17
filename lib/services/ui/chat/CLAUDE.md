@@ -58,7 +58,7 @@ GetX controller, one instance per open chat. Accessed via `cvc(chat)` helper or 
 
 One instance per `ConversationViewController`, reached as `controller.messageListGate`.
 
-`SendAnimation` flies a bubble from the text field to the bottom of the message list, aiming at a target computed from the live layout of the rows below the list. Anything that mutates the list or those rows mid-flight moves that target and makes the bubble land wrong. The gate defers that work instead.
+In the iOS and Samsung skins, `SendAnimation` flies a bubble from the text field to the bottom of the message list, aiming at a target computed from the live layout of the rows below the list. Anything that mutates the list or those rows mid-flight moves that target and makes the bubble land wrong. The gate defers that work instead. The Material skin has no flying bubble (the list row grows in place, as in Google Messages), so it never holds the gate.
 
 **API:** `hold()` closes it, `run(work)` submits, `release()` opens it and replays the queue in order, `dispose()` releases permanently.
 

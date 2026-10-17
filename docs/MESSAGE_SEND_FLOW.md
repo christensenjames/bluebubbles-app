@@ -74,7 +74,7 @@ Text-only messages do not call `generateTempGuid()` in `send()`; `OutgoingMessag
 
 Queue types remain `OutgoingMessage` (plain text), `OutgoingReaction` (tapbacks), `OutgoingAttachment` (standalone file/audio), and `OutgoingMultipartMessage` (mention text or an attachment batch).
 
-Immediately before an animated text-bearing item is queued, `send()` closes `ConversationViewController.messageListGate` until the animated bubble is torn down (~650ms later). This keeps incoming messages and the typing indicator from moving the animation target. The outgoing item bypasses the gate. An attachment-only batch is queued without the text animation or gate hold. See **Step 8b** of `docs/MESSAGE_RECEIVE_FLOW.md`.
+Immediately before an animated text-bearing item is queued, `send()` closes `ConversationViewController.messageListGate` until the animated bubble is torn down (~650ms later). This keeps incoming messages and the typing indicator from moving the animation target. The outgoing item bypasses the gate. An attachment-only batch is queued without the text animation or gate hold. The Material skin skips both the flying bubble and the gate hold: like Google Messages, the new list row grows in place from its bottom-right corner over 200ms (`MessageAnimationOrchestrator.buildMaterialSentMessageAnimation`). See **Step 8b** of `docs/MESSAGE_RECEIVE_FLOW.md`.
 
 **Key files:** `lib/app/layouts/conversation_view/widgets/message/send_animation.dart`, `lib/services/ui/chat/message_list_gate.dart`
 

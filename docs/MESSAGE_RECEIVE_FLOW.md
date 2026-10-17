@@ -210,7 +210,7 @@ The send animation flies a bubble from the text field to the bottom of the messa
 
 - **Open (the normal case):** work runs inline, synchronously — identical to not having a gate.
 - **Held:** work is queued and replayed in submission order the instant the gate opens. Nothing ever blocks or awaits on it; it cannot delay a send.
-- **Held by:** `SendAnimation.send()`, from just before the outgoing text message is queued until the animated bubble is torn down (~650ms: 450ms flight + 200ms hold). Also released by `SendAnimation.dispose()`, and by a watchdog timer if a release is ever lost.
+- **Held by:** `SendAnimation.send()`, from just before the outgoing text message is queued until the animated bubble is torn down (~650ms: 450ms flight + 200ms hold). Also released by `SendAnimation.dispose()`, and by a watchdog timer if a release is ever lost. Never held in the Material skin, which has no flying bubble: the new list row grows in place (`MessageAnimationOrchestrator.buildMaterialSentMessageAnimation`).
 
 **Bypasses the gate:**
 
