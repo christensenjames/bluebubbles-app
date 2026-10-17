@@ -20,43 +20,50 @@ class SelectedContactChip extends StatelessWidget {
   Widget build(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 2.5),
-      child: Obx(() => Material(
-            color: contact.serviceType.value == ChatServiceType.iMessage
-                ? context.theme.colorScheme.bubble(context, true).withValues(alpha: 0.2)
-                : contact.serviceType.value == ChatServiceType.sms
-                    ? context.theme.colorScheme.bubble(context, false).withValues(alpha: 0.2)
-                    : context.theme.colorScheme.surfaceContainerHighest,
-            borderRadius: BorderRadius.circular(5),
-            clipBehavior: Clip.antiAlias,
-            child: InkWell(
-              onTap: onRemove,
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 7.5, vertical: 7.0),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.start,
-                  mainAxisSize: MainAxisSize.min,
-                  children: <Widget>[
-                    Text(
-                        contact.displayName.isPhoneNumber
-                            ? formatPhoneNumber(contact.displayName)
-                            : contact.displayName,
-                        style: context.theme.textTheme.bodyMedium!.copyWith(
-                          color: contact.serviceType.value == ChatServiceType.iMessage
-                              ? context.theme.colorScheme.bubble(context, true)
-                              : contact.serviceType.value == ChatServiceType.sms
-                                  ? context.theme.colorScheme.bubble(context, false)
-                                  : context.theme.colorScheme.onSurfaceVariant,
-                        )),
-                    const SizedBox(width: 5.0),
-                    Icon(
-                      SettingsSvc.settings.skin.value == Skins.iOS ? CupertinoIcons.xmark : Icons.close,
-                      size: 15.0,
-                    ),
-                  ],
-                ),
+      child: Obx(() {
+        final service = contact.serviceType.value;
+        final colors = context.theme.colorScheme;
+        final known = service == ChatServiceType.iMessage || service == ChatServiceType.sms;
+        final bubble = colors.bubble(context, service == ChatServiceType.iMessage);
+        // The Material bubble colour is a pale container tone, too light to use as text on its own tint.
+        final Color background = !known
+            ? colors.surfaceContainerHighest
+            : context.material
+                ? bubble
+                : bubble.withValues(alpha: 0.2);
+        final Color foreground = !known
+            ? colors.onSurfaceVariant
+            : context.material
+                ? colors.onBubble(context, service == ChatServiceType.iMessage)
+                : bubble;
+        return Material(
+          color: background,
+          borderRadius: BorderRadius.circular(5),
+          clipBehavior: Clip.antiAlias,
+          child: InkWell(
+            onTap: onRemove,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 7.5, vertical: 7.0),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: <Widget>[
+                  Text(
+                      contact.displayName.isPhoneNumber
+                          ? formatPhoneNumber(contact.displayName)
+                          : contact.displayName,
+                      style: context.theme.textTheme.bodyMedium!.copyWith(color: foreground)),
+                  const SizedBox(width: 5.0),
+                  Icon(
+                    SettingsSvc.settings.skin.value == Skins.iOS ? CupertinoIcons.xmark : Icons.close,
+                    size: 15.0,
+                  ),
+                ],
               ),
             ),
-          )),
+          ),
+        );
+      }),
     );
   }
 }

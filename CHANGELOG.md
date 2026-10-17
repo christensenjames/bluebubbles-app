@@ -5,6 +5,10 @@
 - Picking a conversation from the "Conversations" results in the new-chat screen now leaves
   the cursor in the To: field, as picking a contact already did, instead of jumping to the
   message box (`chat_creator_controller.dart`). Checked on the Pixel.
+- Recipient chips in the Material skin are readable: dark text on the full sent-bubble colour,
+  like a sent message. The chip drew its name in the bubble colour on a 20% tint of that
+  same colour, which works for the iOS blue and green but not for Material's pale
+  `primaryContainer` bubble. The iOS and Samsung skins are unchanged (`selected_contact_chip.dart`).
 
 ## 2026-10-17 — Google Messages send animation in the Material skin
 
