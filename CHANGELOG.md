@@ -17,6 +17,10 @@
 - The Android Material composer matches Google Messages: a circled `+` and an image button
   sit at the bottom of the box beside the text, the box is 54 dp tall for one line, and the
   text runs nearly the full width of the box.
+- A one-line draft is vertically centred in the 54 dp composer. The 54 dp minimum was set
+  through `InputDecoration.constraints`, which `InputDecorator` ignores when placing the text,
+  so a single line sat at the top of the box. The minimum height and the centring now wrap the
+  text field instead (`text_field_component.dart`).
 - Checked on the Pixel against Google Messages with the same draft: same line wrapping, same
   single- and two-line bubble heights (120 / 192 px), same 8 dp edge inset. Not added: GM's
   smiley button and its "Saturday, Oct 3 • 11:02 AM" separator wording (James chose to keep

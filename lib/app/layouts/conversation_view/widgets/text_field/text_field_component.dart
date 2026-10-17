@@ -303,10 +303,8 @@ class TextFieldComponentState extends State<TextFieldComponent> {
                             : TextInputAction.newline,
                         cursorColor: context.theme.colorScheme.primary,
                         cursorHeight: bubbleText.fontSize! * 1.25,
-                        textAlignVertical: materialComposer ? TextAlignVertical.center : null,
                         decoration: InputDecoration(
                           contentPadding: contentPadding,
-                          constraints: materialComposer ? const BoxConstraints(minHeight: 54) : null,
                           isDense: true,
                           isCollapsed: true,
                           hintText: isChatCreator
@@ -483,7 +481,12 @@ class TextFieldComponentState extends State<TextFieldComponent> {
                               materialComposer: true,
                             ),
                           ),
-                          Expanded(child: messageInput),
+                          Expanded(
+                            child: ConstrainedBox(
+                              constraints: const BoxConstraints(minHeight: 54),
+                              child: Center(child: messageInput),
+                            ),
+                          ),
                           Padding(
                             padding: const EdgeInsets.only(bottom: 3),
                             child: MaterialComposerPhotoButton(controller: controller!),
