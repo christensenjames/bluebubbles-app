@@ -387,26 +387,29 @@ class _ImageViewerState extends State<ImageViewer> with AutomaticKeepAliveClient
         );
       }
 
-      final knownPreview = AttachmentsSvc.knownPreviewPath(attachment);
-      if (knownPreview != null) {
-        imageWidget = buildPreview(knownPreview);
-      } else {
-        _previewPathFuture ??= AttachmentsSvc.getOrCreateImagePreview(attachment, actualPath: file.path);
-        imageWidget = FutureBuilder<String?>(
-          future: _previewPathFuture,
-          builder: (context, snapshot) {
-            // While the preview is still generating, hold the placeholder
-            // rather than decoding the full-resolution original — that decode
-            // is the expensive work the preview exists to avoid, and it would
-            // be thrown away moments later when the preview lands.
-            if (snapshot.connectionState != ConnectionState.done) return placeholder();
-            final previewPath = snapshot.data;
-            if (previewPath != null) return buildPreview(previewPath);
-            // Preview generation genuinely failed — fall back to the original.
-            return buildOriginalFallback();
-          },
-        );
-      }
+      // FutureBuilder keeps the old path while a new future runs; precaching lets the swap paint without a spinner.
+      _previewPathFuture ??=
+          AttachmentsSvc.getOrCreateImagePreview(attachment, actualPath: file.path).then((path) async {
+        if (path != null && context.mounted) {
+          await precacheImage(ResizeImage.resizeIfNeeded(calculatedWidth, null, FileImage(File(path))), context);
+        }
+        return path;
+      });
+      imageWidget = FutureBuilder<String?>(
+        future: _previewPathFuture,
+        initialData: AttachmentsSvc.knownPreviewPath(attachment),
+        builder: (context, snapshot) {
+          final previewPath = snapshot.data;
+          if (previewPath != null) return buildPreview(previewPath);
+          // While the preview is still generating, hold the placeholder
+          // rather than decoding the full-resolution original — that decode
+          // is the expensive work the preview exists to avoid, and it would
+          // be thrown away moments later when the preview lands.
+          if (snapshot.connectionState != ConnectionState.done) return placeholder();
+          // Preview generation genuinely failed — fall back to the original.
+          return buildOriginalFallback();
+        },
+      );
     }
 
     // No AnimatedSize here: every Image above is given an explicit size, so the

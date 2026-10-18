@@ -309,8 +309,11 @@ class Attachment {
   ///
   /// The JPEG quality bucket is part of the filename so that changing the
   /// preview-quality setting resolves to a different file instead of silently
-  /// reusing a preview generated at the old quality.
-  String previewPathForQuality(int quality) => "$path.preview.q$quality.jpg";
+  /// reusing a preview generated at the old quality. Low-res downloads get their
+  /// own name too, so the full-quality upgrade is a new image provider rather
+  /// than a cache hit on the low-res decode.
+  String previewPathForQuality(int quality) =>
+      "$path.preview.q$quality${metadata?['_lowRes'] == true ? '.lowres' : ''}.jpg";
 
   bool get existsOnDisk => File(path).existsSync();
 

@@ -416,9 +416,16 @@ class AttachmentsService extends GetxService {
           final chatGuid = message?.chat.target?.guid;
           final messageGuid = message?.guid;
           if (chatGuid != null && messageGuid != null) {
-            maybeFindMessagesSvc(chatGuid)
-                ?.getAttachmentState(messageGuid, guid)
-                ?.updateResolvedFileInternal(file);
+            final state = maybeFindMessagesSvc(chatGuid)?.getAttachmentState(messageGuid, guid);
+            if (state == null) return;
+            // The on-screen Attachment is a different instance from this DB copy; without the cleared
+            // `_lowRes` flag it would keep resolving the low-res preview path.
+            state.attachment
+              ..metadata = attachment.metadata
+              ..exif = attachment.exif
+              ..width = attachment.width
+              ..height = attachment.height;
+            state.updateResolvedFileInternal(file);
           }
         },
         onError: () => _upgradingAttachmentGuids.remove(guid),
