@@ -2,7 +2,22 @@
 
 ## 2026-10-18 — Low-quality image downloads on mobile data
 
-- Image attachments can download at 1280px on mobile data, then silently upgrade to full quality on Wi-Fi or Ethernet.
+- On mobile data, image attachments (not GIFs) download as JPEGs of at most 1280 px, then upgrade to
+  full quality without a spinner when the phone reaches Wi-Fi or Ethernet. New setting "Low-quality
+  images on mobile data" (`lowQualityImagesOnCellular`, on by default) under attachment settings.
+- Needs the server fork's `?maxSize=` download option (bluebubbles-server branch
+  `feat/jpeg-resize-download`). The app marks a copy low quality only when the reply carries
+  `X-BB-Resized`, so a stock server keeps sending full quality. The stock `?width=` resize was not
+  usable: it returns a PNG and drops EXIF orientation, so portrait photos come out sideways.
+- Low-res copies carry `metadata['_lowRes']`; `AttachmentsSvc.watchForLowResUpgrades` (started from
+  `SocketService.init`, so never in a headless worker) re-downloads them on the switch to Wi-Fi.
+  Low-res copies are not auto-saved to the gallery.
+- Fix: the first build showed a spinner during the swap, because the inline preview was deleted and
+  regenerated from the full file. The low-res preview now has its own file name
+  (`.preview.qN.lowres.jpg`) and stays on screen until the full preview has been generated and decoded
+  (`image_viewer.dart`).
+- Checked by James on the Pixel: an image loaded small on mobile data and was full resolution in the
+  full-screen view after Wi-Fi came back. The swap itself was not visible in the bubble.
 
 ## 2026-10-17 — New chat keeps the cursor in the To: field
 
