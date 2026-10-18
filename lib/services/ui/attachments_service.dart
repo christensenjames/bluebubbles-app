@@ -1,5 +1,7 @@
+import 'dart:async';
 import 'dart:convert';
 
+import 'package:bluebubbles/database/database.dart';
 import 'package:bluebubbles/database/models.dart';
 import 'package:bluebubbles/services/backend/interfaces/image_interface.dart';
 import 'package:bluebubbles/services/services.dart';
@@ -39,6 +41,28 @@ class AttachmentWithProgress {
 }
 
 class AttachmentsService extends GetxService {
+  StreamSubscription<List<ConnectivityResult>>? _connectivitySubscription;
+  bool _wasOnUnmeteredNetwork = false;
+  final Set<String> _upgradingAttachmentGuids = {};
+
+  /// UI isolate only: the upgrade downloads must not start from a headless worker.
+  void watchForLowResUpgrades() {
+    if (kIsWeb || _connectivitySubscription != null) return;
+    _connectivitySubscription =
+        Connectivity().onConnectivityChanged.listen(_handleConnectivityChange, onError: _logConnectivityError);
+    unawaited(Connectivity().checkConnectivity().then(_handleConnectivityChange, onError: _logConnectivityError));
+  }
+
+  void _logConnectivityError(Object error) =>
+      Logger.warn('Connectivity check failed', error: error, tag: 'AttachmentsService');
+
+  void _handleConnectivityChange(List<ConnectivityResult> results) {
+    final isUnmetered =
+        results.contains(ConnectivityResult.wifi) || results.contains(ConnectivityResult.ethernet);
+    if (isUnmetered && !_wasOnUnmeteredNetwork) _upgradeLowResAttachments();
+    _wasOnUnmeteredNetwork = isUnmetered;
+  }
+
   /// The already-converted sibling of [basePath], if one is on disk. Checks the
   /// current format first, then the legacy `.png` older builds wrote for HEIC —
   /// those files decode fine, so there's no reason to reconvert.
@@ -371,6 +395,92 @@ class AttachmentsService extends GetxService {
     }
   }
 
+  void _upgradeLowResAttachments() {
+    final attachments = Database.runInTransaction(TxMode.read, () {
+      final query = Database.attachments.query(Attachment_.dbMetadata.contains('"_lowRes":true')).build();
+      try {
+        return query.find();
+      } finally {
+        query.close();
+      }
+    });
+
+    for (final attachment in attachments) {
+      final guid = attachment.guid;
+      if (guid == null || !_upgradingAttachmentGuids.add(guid)) continue;
+      AttachmentDownloader.startDownload(
+        attachment,
+        onComplete: (file) {
+          _upgradingAttachmentGuids.remove(guid);
+          final message = attachment.message.target;
+          final chatGuid = message?.chat.target?.guid;
+          final messageGuid = message?.guid;
+          if (chatGuid != null && messageGuid != null) {
+            maybeFindMessagesSvc(chatGuid)
+                ?.getAttachmentState(messageGuid, guid)
+                ?.updateResolvedFileInternal(file);
+          }
+        },
+        onError: () => _upgradingAttachmentGuids.remove(guid),
+      );
+    }
+  }
+
+  Future<bool> prepareAttachmentReplacement(Attachment attachment, {required bool deleteOriginal}) async {
+    var updateAttachment = false;
+    if (deleteOriginal && attachment.isDownloaded) {
+      attachment.isDownloaded = false;
+      updateAttachment = true;
+    }
+
+    if (!kIsWeb) {
+      final convertedPaths = {attachment.convertedPath, attachment.legacyConvertedPath};
+      final pathsToDelete = {
+        "${attachment.path}.thumbnail",
+        for (final path in convertedPaths) "$path.thumbnail",
+        if (deleteOriginal) attachment.path,
+        if (deleteOriginal) "${attachment.path}.part",
+        for (final path in convertedPaths)
+          if (path != attachment.path) path,
+      };
+
+      try {
+        for (final path in pathsToDelete) {
+          final file = File(path);
+          if (await file.exists()) await file.delete();
+        }
+      } catch (_) {}
+      await deleteImagePreviews(attachment);
+
+      final imageCache = PaintingBinding.instance.imageCache;
+      for (final path in {attachment.path, ...convertedPaths, ...pathsToDelete}) {
+        imageCache.evict(FileImage(File(path)));
+      }
+    }
+
+    if (attachment.metadata != null) {
+      attachment.metadata!.remove('_dimensions_processed');
+      attachment.metadata!.remove('_orientation_processed');
+      attachment.metadata!.remove('_orientation');
+      attachment.metadata!.remove('_raw_width');
+      attachment.metadata!.remove('_raw_height');
+      updateAttachment = true;
+    }
+
+    if (attachment.height != null || attachment.width != null) {
+      attachment.height = null;
+      attachment.width = null;
+      updateAttachment = true;
+    }
+
+    if (attachment.exif != null) {
+      attachment.exif = null;
+      updateAttachment = true;
+    }
+
+    return updateAttachment;
+  }
+
   Future<void> redownloadAttachment(
     Attachment attachment, {
     Function(PlatformFile)? onComplete,
@@ -390,57 +500,7 @@ class AttachmentsService extends GetxService {
       Get.find<ConversationViewController>(tag: chatGuid).invalidateVideoPlayer(attachment.guid!);
     }
 
-    if (!kIsWeb) {
-      // Both conversion paths, since a file converted by an older build still
-      // sits at the legacy `.png` location.
-      final derived = {
-        attachment.path,
-        "${attachment.path}.thumbnail",
-        "${attachment.path}.part",
-        attachment.convertedPath,
-        "${attachment.convertedPath}.thumbnail",
-        attachment.legacyConvertedPath,
-        "${attachment.legacyConvertedPath}.thumbnail",
-      };
-
-      try {
-        for (final path in derived) {
-          final f = File(path);
-          if (await f.exists()) await f.delete();
-        }
-      } catch (_) {}
-      // Sweeps every quality bucket, not just the current one.
-      await deleteImagePreviews(attachment);
-    }
-
-    bool updateAttachment = false;
-    if (attachment.isDownloaded == true) {
-      attachment.isDownloaded = false;
-      updateAttachment = true;
-    }
-
-    // Clear orientation/dimension processing flags and cached values to force reprocessing
-    if (attachment.metadata != null) {
-      attachment.metadata!.remove('_dimensions_processed');
-      attachment.metadata!.remove('_orientation_processed');
-      attachment.metadata!.remove('_orientation');
-      attachment.metadata!.remove('_raw_width');
-      attachment.metadata!.remove('_raw_height');
-      updateAttachment = true;
-    }
-
-    if (attachment.height != null || attachment.width != null) {
-      attachment.height = null;
-      attachment.width = null;
-      updateAttachment = true;
-    }
-
-    // Force EXIF reload on the next properties pass.
-    if (attachment.exif != null) {
-      attachment.exif = null;
-      updateAttachment = true;
-    }
-
+    final updateAttachment = await prepareAttachmentReplacement(attachment, deleteOriginal: true);
     if (updateAttachment) {
       await attachment.saveAsync(null);
     }
@@ -867,12 +927,21 @@ class AttachmentsService extends GetxService {
   /// buckets, and forgets them. Used when the source file is being replaced.
   Future<void> deleteImagePreviews(Attachment attachment) async {
     final prefix = "${attachment.path}.preview.";
-    _generatedPreviews.removeWhere((p) => p.startsWith(prefix));
+    final cachedPaths = _generatedPreviews.where((path) => path.startsWith(prefix)).toList();
+    _generatedPreviews.removeAll(cachedPaths);
+    final imageCache = PaintingBinding.instance.imageCache;
+    for (final path in cachedPaths) {
+      imageCache.evict(FileImage(File(path)));
+    }
+
     try {
       final dir = Directory(attachment.directory);
       if (!await dir.exists()) return;
       await for (final entity in dir.list()) {
-        if (entity is File && entity.path.startsWith(prefix)) await entity.delete();
+        if (entity is File && entity.path.startsWith(prefix)) {
+          imageCache.evict(FileImage(File(entity.path)));
+          await entity.delete();
+        }
       }
     } catch (_) {}
   }

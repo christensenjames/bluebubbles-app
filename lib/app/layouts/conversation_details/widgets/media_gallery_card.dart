@@ -35,6 +35,7 @@ class _MediaGalleryCardState extends State<MediaGalleryCard> with AutomaticKeepA
   Duration? duration;
   bool _pressed = false;
   late dynamic content;
+  Worker? _resolvedFileWorker;
 
   void _setPressed(bool value) {
     if (_pressed == value) return;
@@ -78,16 +79,31 @@ class _MediaGalleryCardState extends State<MediaGalleryCard> with AutomaticKeepA
         getVideoPreview(content as PlatformFile);
       }
     }
+    _watchAttachmentFile();
+  }
+
+  void _watchAttachmentFile() {
+    _resolvedFileWorker?.dispose();
+    if (attachment.mimeStart != "image") return;
+    final message = attachment.message.target;
+    final chatGuid = message?.chat.target?.guid;
+    final messageGuid = message?.guid;
+    final attachmentGuid = attachment.guid;
+    if (chatGuid == null || messageGuid == null || attachmentGuid == null) return;
+    final state = maybeFindMessagesSvc(chatGuid)?.getAttachmentState(messageGuid, attachmentGuid);
+    if (state == null) return;
+    _resolvedFileWorker = ever(state.resolvedFile, (PlatformFile? file) {
+      if (file != null && !identical(content, file)) onComplete(file);
+    });
   }
 
   void onComplete(PlatformFile file) {
-    if (mounted) {
-      setState(() {
-        content = file;
-      });
-      if (attachment.mimeType?.contains("video") ?? false) {
-        getVideoPreview(file);
-      }
+    if (!mounted || identical(content, file)) return;
+    setState(() {
+      content = file;
+    });
+    if (attachment.mimeType?.contains("video") ?? false) {
+      getVideoPreview(file);
     }
   }
 
@@ -326,6 +342,7 @@ class _MediaGalleryCardState extends State<MediaGalleryCard> with AutomaticKeepA
         final file = content as PlatformFile;
         if (attachment.mimeType?.startsWith("image") ?? false) {
           child = ImageDisplay(
+            key: ObjectKey(file),
             attachment: attachment,
             file: file,
             showSenderAvatar: widget.showSenderAvatar,
@@ -377,6 +394,12 @@ class _MediaGalleryCardState extends State<MediaGalleryCard> with AutomaticKeepA
         child: child,
       );
     }); // end Obx
+  }
+
+  @override
+  void dispose() {
+    _resolvedFileWorker?.dispose();
+    super.dispose();
   }
 
   @override

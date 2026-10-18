@@ -53,6 +53,19 @@ class _AttachmentPanelState extends State<AttachmentPanel> with ThemeHelpers {
                           backgroundColor: tileColor,
                         )),
                     const SettingsDivider(padding: EdgeInsets.only(left: 16.0)),
+                    Obx(() => SettingsSwitch(
+                          onChanged: (bool val) async {
+                            SettingsSvc.settings.lowQualityImagesOnCellular.value = val;
+                            await SettingsSvc.settings.saveOneAsync('lowQualityImagesOnCellular');
+                          },
+                          initialVal: SettingsSvc.settings.lowQualityImagesOnCellular.value,
+                          title: "Low-quality images on mobile data",
+                          subtitle:
+                              "Download smaller images on mobile data, then replace them with full quality on Wi-Fi",
+                          backgroundColor: tileColor,
+                          isThreeLine: true,
+                        )),
+                    const SettingsDivider(padding: EdgeInsets.only(left: 16.0)),
                     Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [

@@ -64,6 +64,12 @@ class _ImageViewerState extends State<ImageViewer> with AutomaticKeepAliveClient
     }
   }
 
+  @override
+  void didUpdateWidget(covariant ImageViewer oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (!identical(oldWidget.file, widget.file)) _previewPathFuture = null;
+  }
+
   bool get _isGif => attachment.mimeType?.contains("gif") ?? attachment.path.endsWith(".gif");
 
   // Read bytes off the UI thread — a synchronous read of a multi-MB GIF during

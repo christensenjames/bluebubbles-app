@@ -235,6 +235,7 @@ List<Widget> buildSettingItemList({
           searchTags: [
             "Auto-download Attachments",
             "Only Auto-download Attachments on WiFi",
+            "Low-quality images on mobile data",
             "Auto-save Attachments",
             "Save Media Location",
             "Enter Relative Path",

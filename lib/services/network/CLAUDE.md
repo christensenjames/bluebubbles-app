@@ -90,6 +90,7 @@ Attachment download state machine:
 `queued → downloading → processing → complete / error`
 - Concurrent download management
 - EXIF extraction and format conversion post-download
+- Resized image downloads carry `_lowRes` in attachment metadata; they upgrade silently on Wi-Fi/Ethernet.
 
 ## Firebase (`firebase/`) → `firebase/CLAUDE.md`
 - `cloud_messaging_service.dart` — FCM device token registration (Android + Desktop)

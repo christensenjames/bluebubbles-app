@@ -177,6 +177,7 @@ class SocketService {
     Logger.debug("Initializing socket service...");
     startSocket();
     _checkConnectivity();
+    AttachmentsSvc.watchForLowResUpgrades();
     Logger.debug("Initialized socket service");
   }
 

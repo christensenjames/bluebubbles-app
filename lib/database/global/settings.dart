@@ -46,6 +46,7 @@ class Settings {
   final RxBool reachedConversationList = false.obs;
   final RxBool autoDownload = true.obs;
   final RxBool onlyWifiDownload = false.obs;
+  final RxBool lowQualityImagesOnCellular = true.obs;
   final RxInt maxConcurrentDownloads = 2.obs;
   final RxBool autoSave = false.obs;
   final RxString autoSavePicsLocation = "Pictures".obs;
@@ -341,6 +342,7 @@ class Settings {
     Map<String, dynamic> map = {
       'autoDownload': autoDownload.value,
       'onlyWifiDownload': onlyWifiDownload.value,
+      'lowQualityImagesOnCellular': lowQualityImagesOnCellular.value,
       'maxConcurrentDownloads': maxConcurrentDownloads.value,
       'autoSave': autoSave.value,
       'autoSavePicsLocation': autoSavePicsLocation.value,
@@ -528,6 +530,8 @@ class Settings {
     SettingsSvc.settings.autoDownload.value = map['autoDownload'] ?? SettingsSvc.settings.autoDownload.value;
     SettingsSvc.settings.onlyWifiDownload.value =
         map['onlyWifiDownload'] ?? SettingsSvc.settings.onlyWifiDownload.value;
+    SettingsSvc.settings.lowQualityImagesOnCellular.value =
+        map['lowQualityImagesOnCellular'] ?? SettingsSvc.settings.lowQualityImagesOnCellular.value;
     SettingsSvc.settings.maxConcurrentDownloads.value =
         map['maxConcurrentDownloads'] ?? SettingsSvc.settings.maxConcurrentDownloads.value;
     SettingsSvc.settings.autoSave.value = map['autoSave'] ?? SettingsSvc.settings.autoSave.value;
@@ -803,6 +807,7 @@ class Settings {
     s.reachedConversationList.value = map['reachedConversationList'] ?? false;
     s.autoDownload.value = map['autoDownload'] ?? true;
     s.onlyWifiDownload.value = map['onlyWifiDownload'] ?? false;
+    s.lowQualityImagesOnCellular.value = map['lowQualityImagesOnCellular'] ?? true;
     s.maxConcurrentDownloads.value = map['maxConcurrentDownloads'] ?? 2;
     s.autoSave.value = map['autoSave'] ?? false;
     s.autoSavePicsLocation.value = map['autoSavePicsLocation'] ?? "Pictures";

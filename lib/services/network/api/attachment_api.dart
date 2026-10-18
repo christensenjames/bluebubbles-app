@@ -56,13 +56,16 @@ class AttachmentApi {
     String guid, {
     void Function(int, int)? onReceiveProgress,
     bool original = false,
+    int? maxSize,
     CancelToken? cancelToken,
     String? savePath,
   }) async {
     return _svc.runApiGuarded(() async {
+      final params = <String, dynamic>{"original": original};
+      if (maxSize != null) params["maxSize"] = maxSize;
       final response = await _svc.dio.get(
         "${_svc.apiRoot}/attachment/$guid/download",
-        queryParameters: _svc.buildQueryParams({"original": original}),
+        queryParameters: _svc.buildQueryParams(params),
         options: Options(
           responseType: savePath != null ? ResponseType.stream : ResponseType.bytes,
           receiveTimeout: _svc.dio.options.receiveTimeout! * 12,

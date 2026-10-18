@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-10-18 — Low-quality image downloads on mobile data
+
+- Image attachments can download at 1280px on mobile data, then silently upgrade to full quality on Wi-Fi or Ethernet.
+
 ## 2026-10-17 — New chat keeps the cursor in the To: field
 
 - Picking a conversation from the "Conversations" results in the new-chat screen now leaves

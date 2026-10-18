@@ -4,6 +4,7 @@ import 'package:bluebubbles/helpers/helpers.dart';
 import 'package:bluebubbles/database/models.dart';
 import 'package:bluebubbles/services/services.dart';
 import 'package:collection/collection.dart';
+import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 import 'package:get/get.dart' hide Response;
@@ -275,11 +276,23 @@ class AttachmentDownloadController extends GetxController {
     // with a failure that sticks until the widget is disposed ("Failed to display image").
     final savePath = kIsWeb ? null : attachment.path;
     final tempPath = savePath == null ? null : "$savePath.part";
+    int? maxSize;
+    if (SettingsSvc.settings.lowQualityImagesOnCellular.value &&
+        !kIsWeb &&
+        attachment.mimeStart == "image" &&
+        attachment.mimeType != "image/gif") {
+      final connectivity = await Connectivity().checkConnectivity();
+      if (!connectivity.contains(ConnectivityResult.wifi) &&
+          !connectivity.contains(ConnectivityResult.ethernet)) {
+        maxSize = 1280;
+      }
+    }
 
     var response = await HttpSvc.attachment
         .download(
       attachment.guid!,
       savePath: tempPath,
+      maxSize: maxSize,
       cancelToken: _cancelToken,
       onReceiveProgress: (count, total) {
         // `attachment.totalBytes` is preferred on native because dio reports
@@ -389,6 +402,17 @@ class AttachmentDownloadController extends GetxController {
       }
     }
 
+    final isLowRes = response.headers.value("x-bb-resized") != null;
+    final wasLowRes = attachment.metadata?['_lowRes'] == true;
+    if (isLowRes) {
+      attachment.metadata = {...?attachment.metadata, '_lowRes': true};
+    } else {
+      if (wasLowRes) {
+        await AttachmentsSvc.prepareAttachmentReplacement(attachment, deleteOriginal: false);
+      }
+      attachment.metadata?.remove('_lowRes');
+    }
+
     // Load image properties before displaying (so UI shows correct dimensions immediately)
     if (!kIsWeb && attachment.mimeStart == "image") {
       try {
@@ -425,6 +449,7 @@ class AttachmentDownloadController extends GetxController {
 
     // Auto-save handling
     if (SettingsSvc.settings.autoSave.value &&
+        attachment.metadata?['_lowRes'] != true &&
         !kIsWeb &&
         !kIsDesktop &&
         !(attachment.isOutgoing ?? false) &&

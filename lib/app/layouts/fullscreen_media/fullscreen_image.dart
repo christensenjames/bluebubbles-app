@@ -44,8 +44,10 @@ class _FullscreenImageState extends State<FullscreenImage>
   bool hasError = false;
   Uint8List? bytes;
   String? compatiblePath; // For converted HEIC/TIFF files
+  late PlatformFile _currentFile;
+  Worker? _resolvedFileWorker;
 
-  PlatformFile get file => widget.file;
+  PlatformFile get file => _currentFile;
   Attachment get attachment => widget.attachment;
   Message? get message => attachment.message.target;
 
@@ -56,8 +58,40 @@ class _FullscreenImageState extends State<FullscreenImage>
   @override
   void initState() {
     super.initState();
+    _currentFile = widget.file;
     _setFullscreen(true);
+    _watchAttachmentFile();
     initBytes();
+  }
+
+  @override
+  void didUpdateWidget(covariant FullscreenImage oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (!identical(oldWidget.file, widget.file)) _replaceFile(widget.file);
+  }
+
+  void _watchAttachmentFile() {
+    final currentMessage = message;
+    final chatGuid = currentMessage?.chat.target?.guid;
+    final messageGuid = currentMessage?.guid;
+    final attachmentGuid = attachment.guid;
+    if (chatGuid == null || messageGuid == null || attachmentGuid == null) return;
+    final state = maybeFindMessagesSvc(chatGuid)?.getAttachmentState(messageGuid, attachmentGuid);
+    if (state == null) return;
+    _resolvedFileWorker = ever(state.resolvedFile, (PlatformFile? updatedFile) {
+      if (updatedFile != null) _replaceFile(updatedFile);
+    });
+  }
+
+  void _replaceFile(PlatformFile updatedFile) {
+    if (identical(_currentFile, updatedFile)) return;
+    setState(() {
+      _currentFile = updatedFile;
+      bytes = null;
+      compatiblePath = null;
+      hasError = false;
+    });
+    unawaited(initBytes());
   }
 
   void _setFullscreen(bool fullscreen) {
@@ -89,6 +123,7 @@ class _FullscreenImageState extends State<FullscreenImage>
   @override
   void dispose() {
     _setFullscreen(false);
+    _resolvedFileWorker?.dispose();
     controller.dispose();
     super.dispose();
   }
@@ -131,6 +166,7 @@ class _FullscreenImageState extends State<FullscreenImage>
     // itself, so the provider's reported size is already display-space and
     // PhotoViewComputedScale.contained reads it correctly.
     return PhotoView(
+      key: ObjectKey(file),
       gaplessPlayback: true,
       minScale: PhotoViewComputedScale.contained,
       maxScale: PhotoViewComputedScale.contained * 10,
