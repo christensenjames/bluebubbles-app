@@ -167,8 +167,32 @@ class _DesktopPanelState extends State<DesktopPanel> with ThemeHelpers {
                             containerColor: Colors.orange,
                           ),
                         )),
+                  Container(
+                    color: tileColor,
+                    child: Padding(
+                      padding: const EdgeInsets.only(left: 15.0),
+                      child: SettingsDivider(color: context.theme.colorScheme.surfaceVariant),
+                    ),
+                  ),
+                  Obx(() => SettingsSwitch(
+                        onChanged: (bool val) async {
+                          SettingsSvc.settings.showTrayIcon.value = val;
+                          await SettingsSvc.settings.saveOneAsync('showTrayIcon');
+                        },
+                        initialVal: SettingsSvc.settings.showTrayIcon.value,
+                        title: "Show Tray Icon",
+                        subtitle:
+                            "Show the app in the system tray. Minimize to Tray and Close to Tray are unavailable while this is off",
+                        backgroundColor: tileColor,
+                        leading: const SettingsLeadingIcon(
+                          iosIcon: CupertinoIcons.tray,
+                          materialIcon: Icons.inbox_outlined,
+                          containerColor: Colors.blueGrey,
+                        ),
+                      )),
                   Obx(() {
-                    if (SettingsSvc.settings.titleBarStyle.value == BBTitleBarStyle.custom || !Platform.isLinux) {
+                    if (SettingsSvc.settings.showTrayIcon.value &&
+                        (SettingsSvc.settings.titleBarStyle.value == BBTitleBarStyle.custom || !Platform.isLinux)) {
                       return Container(
                         color: tileColor,
                         child: Padding(
@@ -180,7 +204,8 @@ class _DesktopPanelState extends State<DesktopPanel> with ThemeHelpers {
                     return const SizedBox.shrink();
                   }),
                   Obx(() {
-                    if (SettingsSvc.settings.titleBarStyle.value == BBTitleBarStyle.custom || !Platform.isLinux) {
+                    if (SettingsSvc.settings.showTrayIcon.value &&
+                        (SettingsSvc.settings.titleBarStyle.value == BBTitleBarStyle.custom || !Platform.isLinux)) {
                       return SettingsSwitch(
                         onChanged: (bool val) async {
                           SettingsSvc.settings.minimizeToTray.value = val;
@@ -200,7 +225,7 @@ class _DesktopPanelState extends State<DesktopPanel> with ThemeHelpers {
                     return const SizedBox.shrink();
                   }),
                   Obx(() {
-                    if (SettingsSvc.settings.titleBarStyle.value == BBTitleBarStyle.custom) {
+                    if (SettingsSvc.settings.showTrayIcon.value) {
                       return Container(
                         color: tileColor,
                         child: Padding(
@@ -211,22 +236,24 @@ class _DesktopPanelState extends State<DesktopPanel> with ThemeHelpers {
                     }
                     return const SizedBox.shrink();
                   }),
-                  Obx(() => SettingsSwitch(
-                        onChanged: (bool val) async {
-                          SettingsSvc.settings.closeToTray.value = val;
-                          await windowManager.setPreventClose(val);
-                          await SettingsSvc.settings.saveOneAsync('closeToTray');
-                        },
-                        initialVal: SettingsSvc.settings.closeToTray.value,
-                        title: "Close to Tray",
-                        subtitle: "When enabled, clicking the close button will minimize the app to the system tray",
-                        backgroundColor: tileColor,
-                        leading: const SettingsLeadingIcon(
-                          iosIcon: CupertinoIcons.tray_arrow_down_fill,
-                          materialIcon: Icons.expand_circle_down,
-                          containerColor: Colors.green,
-                        ),
-                      )),
+                  Obx(() => !SettingsSvc.settings.showTrayIcon.value
+                      ? const SizedBox.shrink()
+                      : SettingsSwitch(
+                          onChanged: (bool val) async {
+                            SettingsSvc.settings.closeToTray.value = val;
+                            await windowManager.setPreventClose(val);
+                            await SettingsSvc.settings.saveOneAsync('closeToTray');
+                          },
+                          initialVal: SettingsSvc.settings.closeToTray.value,
+                          title: "Close to Tray",
+                          subtitle: "When enabled, clicking the close button will minimize the app to the system tray",
+                          backgroundColor: tileColor,
+                          leading: const SettingsLeadingIcon(
+                            iosIcon: CupertinoIcons.tray_arrow_down_fill,
+                            materialIcon: Icons.expand_circle_down,
+                            containerColor: Colors.green,
+                          ),
+                        )),
                 ],
               ),
               SettingsHeader(iosSubtitle: iosSubtitle, materialSubtitle: materialSubtitle, text: "Notifications"),

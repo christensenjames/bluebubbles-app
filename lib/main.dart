@@ -179,7 +179,7 @@ Future<Null> initApp(bool bubble, List<String> arguments) async {
       if (kIsDesktop) {
         /* ----- WINDOW INITIALIZATION ----- */
         await windowManager.ensureInitialized();
-        await windowManager.setPreventClose(SettingsSvc.settings.closeToTray.value);
+        await windowManager.setPreventClose(SettingsSvc.settings.closeToTrayEffective);
         await windowManager.setTitle('BlueBubbles');
         await Window.initialize();
         if (Platform.isWindows) {
@@ -225,7 +225,7 @@ Future<Null> initApp(bool bubble, List<String> arguments) async {
           await PrefsSvc.desktop.setWindowDimensions(width: width, height: height);
 
           await windowManager.setTitle('BlueBubbles');
-          if (arguments.firstOrNull != "minimized") {
+          if (arguments.firstOrNull != "minimized" || !SettingsSvc.settings.showTrayIcon.value) {
             await windowManager.show();
           } else {
             await windowManager.hide();
@@ -558,6 +558,7 @@ class _HomeState extends State<Home> with WidgetsBindingObserver, TrayListener {
   final ReceivePort port = ReceivePort();
   bool serverCompatible = true;
   bool fullyLoaded = false;
+  Worker? _trayWorker;
 
   @override
   void initState() {
@@ -570,6 +571,9 @@ class _HomeState extends State<Home> with WidgetsBindingObserver, TrayListener {
     EventDispatcherSvc.stream.listen((event) {
       if (event.type == 'refresh-all') {
         setState(() {});
+      } else if (event.type == 'settings-replaced' && _trayWorker != null) {
+        _bindTrayWorker();
+        _applyTrayState();
       }
     });
 
@@ -640,8 +644,9 @@ class _HomeState extends State<Home> with WidgetsBindingObserver, TrayListener {
         }
 
         /* ----- SYSTEM TRAY INITIALIZATION ----- */
-        await initSystemTray();
+        if (SettingsSvc.settings.showTrayIcon.value) await initSystemTray();
         trayManager.addListener(this);
+        _bindTrayWorker();
       }
 
       if (!SettingsSvc.settings.finishedSetup.value) {
@@ -654,6 +659,20 @@ class _HomeState extends State<Home> with WidgetsBindingObserver, TrayListener {
         }
       }
     });
+  }
+
+  void _bindTrayWorker() {
+    _trayWorker?.dispose();
+    _trayWorker = ever(SettingsSvc.settings.showTrayIcon, (bool _) => _applyTrayState());
+  }
+
+  Future<void> _applyTrayState() async {
+    await windowManager.setPreventClose(SettingsSvc.settings.closeToTrayEffective);
+    if (SettingsSvc.settings.showTrayIcon.value) {
+      await initSystemTray();
+    } else {
+      await trayManager.destroy();
+    }
   }
 
   @override
@@ -687,6 +706,7 @@ class _HomeState extends State<Home> with WidgetsBindingObserver, TrayListener {
   void dispose() {
     // Clean up observer when app is fully closed
     WidgetsBinding.instance.removeObserver(this);
+    _trayWorker?.dispose();
     windowManager.removeListener(DesktopWindowListener.instance);
     if (kIsDesktop) {
       trayManager.removeListener(this);
@@ -770,6 +790,7 @@ Future<void> initSystemTray() async {
 }
 
 Future<void> setSystemTrayContextMenu({bool windowHidden = false}) async {
+  if (!SettingsSvc.settings.showTrayIcon.value) return;
   await trayManager.setContextMenu(Menu(
     items: [
       MenuItem(label: windowHidden ? 'Show App' : 'Hide App', key: windowHidden ? 'show_app' : 'hide_app'),

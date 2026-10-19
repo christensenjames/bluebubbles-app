@@ -417,6 +417,7 @@ List<Widget> buildSettingItemList({
               "Use Custom TitleBar",
               "Minimize to Tray",
               "Close to Tray",
+              "Show Tray Icon",
               "Desktop Notifications",
               "Notification Sound Volume",
               "Actions",

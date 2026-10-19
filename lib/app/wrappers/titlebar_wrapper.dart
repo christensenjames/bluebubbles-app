@@ -86,8 +86,9 @@ class WindowButtons extends StatelessWidget {
       children: [
         MinimizeWindowButton(
           colors: buttonColors,
-          onPressed: () async =>
-              SettingsSvc.settings.minimizeToTray.value ? await windowManager.hide() : await windowManager.minimize(),
+          onPressed: () async => SettingsSvc.settings.minimizeToTrayEffective
+              ? await windowManager.hide()
+              : await windowManager.minimize(),
           animate: true,
         ),
         MaximizeWindowButton(

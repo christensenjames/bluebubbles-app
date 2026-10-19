@@ -219,6 +219,7 @@ class Settings {
   final RxInt desktopNotificationSoundVolume = 100.obs;
   final RxnString desktopNotificationSoundPath = RxnString();
   final RxBool windowsTaskbarBadge = true.obs;
+  final RxBool showTrayIcon = true.obs;
 
   // Troubleshooting settings
   final Rx<Level> logLevel = Level.info.obs;
@@ -252,6 +253,9 @@ class Settings {
 
   // Desktop settings
   final RxBool useDesktopAccent = RxBool(false);
+
+  bool get closeToTrayEffective => showTrayIcon.value && closeToTray.value;
+  bool get minimizeToTrayEffective => showTrayIcon.value && minimizeToTray.value;
 
   Future<DisplayMode> getDisplayMode() async {
     List<DisplayMode> modes = await FlutterDisplayMode.supported;
@@ -465,6 +469,7 @@ class Settings {
       'desktopNotifications': desktopNotifications.value,
       'desktopNotificationSoundVolume': desktopNotificationSoundVolume.value,
       'windowsTaskbarBadge': windowsTaskbarBadge.value,
+      'showTrayIcon': showTrayIcon.value,
       'useDesktopAccent': useDesktopAccent.value,
       'logLevel': logLevel.value.index,
       'hideNamesForReactions': hideNamesForReactions.value,
@@ -777,6 +782,7 @@ class Settings {
         map['desktopNotificationSoundVolume'] ?? SettingsSvc.settings.desktopNotificationSoundVolume.value;
     SettingsSvc.settings.windowsTaskbarBadge.value =
         map['windowsTaskbarBadge'] ?? SettingsSvc.settings.windowsTaskbarBadge.value;
+    SettingsSvc.settings.showTrayIcon.value = map['showTrayIcon'] ?? SettingsSvc.settings.showTrayIcon.value;
     SettingsSvc.settings.desktopNotificationSoundPath.value =
         map['desktopNotificationSoundPath'] ?? SettingsSvc.settings.desktopNotificationSoundPath.value;
     SettingsSvc.settings.useDesktopAccent.value =
@@ -958,6 +964,7 @@ class Settings {
     s.desktopNotificationSoundPath.value = map['desktopNotificationSoundPath'];
     s.useDesktopAccent.value = map['useDesktopAccent'] ?? map['useWindowsAccent'] ?? false;
     s.windowsTaskbarBadge.value = map['windowsTaskbarBadge'] ?? true;
+    s.showTrayIcon.value = map['showTrayIcon'] ?? true;
     s.firstFcmRegisterDate.value = map['firstFcmRegisterDate'] ?? 0;
     s.logLevel.value = map['logLevel'] != null ? Level.values[map['logLevel']] : Level.info;
     s.hideNamesForReactions.value = map['hideNamesForReactions'] ?? false;

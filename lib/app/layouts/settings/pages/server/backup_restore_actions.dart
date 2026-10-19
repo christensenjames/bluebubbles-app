@@ -14,7 +14,7 @@ class BackupRestoreActions {
     Logger.currentLevel = SettingsSvc.settings.logLevel.value;
     await SettingsSvc.updateDisplayMode();
     if (!kIsDesktop) return;
-    await windowManager.setPreventClose(SettingsSvc.settings.closeToTray.value);
+    await windowManager.setPreventClose(SettingsSvc.settings.closeToTrayEffective);
     SettingsSvc.settings.launchAtStartup.value = await SettingsSvc.setupLaunchAtStartup(
         SettingsSvc.settings.launchAtStartup.value, SettingsSvc.settings.launchAtStartupMinimized.value);
     if (Platform.isLinux) {
