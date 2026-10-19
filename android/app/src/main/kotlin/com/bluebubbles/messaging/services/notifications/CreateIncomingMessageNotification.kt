@@ -27,6 +27,24 @@ class CreateIncomingMessageNotification: MethodCallHandlerImpl() {
     companion object {
         const val tag = "create-incoming-message-notification"
         private val notificationLock = Any()
+
+        private val codeKeywordRegex = Regex(
+            "\\b(code|verification|verify|passcode|password|otp|pin|one-time|2fa|security|login|sign in)\\b",
+            RegexOption.IGNORE_CASE
+        )
+        private val codeNumberRegex = Regex("(?<![\\w\\$.,])(\\d{3}[- ]\\d{3}|\\d{4,8})(?!\\w|[.,]\\d)")
+
+        private fun findVerificationCode(text: String): String? {
+            val keywords = codeKeywordRegex.findAll(text).map { it.range }.toList()
+            if (keywords.isEmpty()) return null
+            val best = codeNumberRegex.findAll(text).minByOrNull { number ->
+                keywords.minOf { keyword ->
+                    if (number.range.first > keyword.last) number.range.first - keyword.last
+                    else keyword.first - number.range.last
+                }
+            } ?: return null
+            return best.value.filter { it.isDigit() }
+        }
     }
 
     override fun handleMethodCall(
@@ -180,6 +198,23 @@ class CreateIncomingMessageNotification: MethodCallHandlerImpl() {
             .setShowsUserInterface(false)
             .build()
 
+        // intent and action for 'copy verification code'
+        val copyCodeAction = findVerificationCode(messageText)?.let { code ->
+            val copyCodeIntent = PendingIntent.getBroadcast(
+                context,
+                notificationId + Constants.pendingIntentCopyCodeOffset,
+                Intent(context, InternalIntentReceiver::class.java)
+                    .putExtras(extras)
+                    .putExtra("notificationId", notificationId)
+                    .putExtra("code", code)
+                    .setType("CopyCode"),
+                PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
+            )
+            NotificationCompat.Action.Builder(0, "Copy $code", copyCodeIntent)
+                .setShowsUserInterface(false)
+                .build()
+        }
+
         // intent for bubbling (create it even if not used, for future compatibility)
         val bubbleIntent = PendingIntent.getActivity(
             context,
@@ -215,6 +250,10 @@ class CreateIncomingMessageNotification: MethodCallHandlerImpl() {
                 .setContentTitle(if (chatIsGroup) "$chatTitle: $contactName" else contactName)
                 .setContentText(messageText)
                 .setLargeIcon(picture)
+        }
+
+        if (copyCodeAction != null) {
+            notificationBuilder.addAction(copyCodeAction)
         }
 
         // Conditionally add reaction action if enabled

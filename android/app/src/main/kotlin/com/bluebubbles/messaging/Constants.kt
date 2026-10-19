@@ -18,6 +18,7 @@ class Constants {
         const val pendingIntentMarkReadOffset = 100000
         const val pendingIntentOpenBubbleOffset = 200000
         const val pendingIntentDeleteNotificationOffset = 300000
+        const val pendingIntentCopyCodeOffset = 400000
         const val pendingIntentAnswerFaceTimeOffset = -100000
         const val pendingIntentDeclineFaceTimeOffset = -200000
         const val notificationListenerRequestCode = 1000

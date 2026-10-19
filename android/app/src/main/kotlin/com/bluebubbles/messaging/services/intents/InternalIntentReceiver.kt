@@ -6,10 +6,13 @@ import android.app.NotificationManager
 import android.app.PendingIntent
 import android.app.Person
 import android.content.BroadcastReceiver
+import android.content.ClipData
+import android.content.ClipboardManager
 import android.content.Context
 import android.content.Intent
 import android.os.Build
 import android.os.Bundle
+import android.widget.Toast
 import androidx.core.app.NotificationCompat
 import androidx.core.app.RemoteInput
 import com.bluebubbles.messaging.Constants
@@ -200,6 +203,15 @@ class InternalIntentReceiver: BroadcastReceiver() {
                     }
                 )
             }
+            "CopyCode" -> {
+                val code: String = intent.getStringExtra("code") ?: return
+                val clipboard = context.getSystemService(ClipboardManager::class.java)
+                clipboard.setPrimaryClip(ClipData.newPlainText("Verification code", code))
+                // Android 13+ shows its own clipboard confirmation
+                if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) {
+                    Toast.makeText(context, "Copied $code", Toast.LENGTH_SHORT).show()
+                }
+            }
         }
     }
 
@@ -316,6 +328,9 @@ class InternalIntentReceiver: BroadcastReceiver() {
         
         oldBuilder.addAction(markAsReadAction)
         oldBuilder.addAction(replyAction)
+        existingNotification.notification.actions
+            ?.firstOrNull { it.title?.startsWith("Copy ") == true }
+            ?.let { oldBuilder.addAction(it) }
         oldBuilder.addAction(likeAction)
         
         // Post the updated notification
