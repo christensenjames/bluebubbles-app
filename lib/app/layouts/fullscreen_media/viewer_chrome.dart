@@ -45,7 +45,7 @@ class ViewerChrome extends StatelessWidget {
     final message = attachment.message.target;
     final name = (message?.isFromMe ?? false) ? 'You' : message?.handleRelation.target?.displayName ?? 'Unknown';
     final created = message?.dateCreated;
-    final date = created == null ? null : intl.DateFormat('EEE').add_jm().format(created);
+    final date = created == null ? null : '${intl.DateFormat('EEE').format(created)} ${buildTime(created)}';
     final textTheme = Theme.of(context).textTheme;
     return IgnorePointer(
       child: AnimatedSwitcher(

@@ -167,7 +167,7 @@ class _ActivityContent extends StatelessWidget {
 
   static String _formatHour(int hour) {
     final dt = DateTime(2000, 1, 1, hour);
-    return SettingsSvc.settings.use24HrFormat.value ? DateFormat.Hm().format(dt) : DateFormat.j().format(dt);
+    return SettingsSvc.settings.use24HrFormat.value ? DateFormat.Hm().format(dt) : DateFormat('h a').format(dt);
   }
 }
 

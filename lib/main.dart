@@ -138,7 +138,8 @@ Future<Null> initApp(bool bubble, List<String> arguments) async {
       });
 
       /* ----- DATE FORMATTING INITIALIZATION ----- */
-      Future.microtask(() => initializeDateFormatting());
+      await initializeDateFormatting();
+      setDefaultDateLocale();
 
       /* ----- MEDIAKIT INITIALIZATION ----- */
       clearLeakedMpvWakeupCallbacks(); // must run first — see media_kit_hot_restart_fix.dart

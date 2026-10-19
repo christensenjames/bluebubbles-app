@@ -1,6 +1,23 @@
 import 'package:bluebubbles/helpers/helpers.dart';
 import 'package:bluebubbles/services/services.dart';
 import 'package:intl/intl.dart';
+import 'package:universal_io/io.dart';
+
+const _hour12Pattern = 'h:mm a';
+
+DateFormat get _timeFormat => DateFormat(SettingsSvc.settings.use24HrFormat.value ? 'Hm' : _hour12Pattern);
+
+// Must run after initializeDateFormatting(), since DateFormat.localeExists only knows initialized locales.
+void setDefaultDateLocale() {
+  final name = Platform.localeName.split(RegExp(r'[.@]')).first;
+  if (name == 'C' || name == 'POSIX') {
+    Intl.defaultLocale = 'en_US';
+    return;
+  }
+  final locale = Intl.canonicalizedLocale(name);
+  Intl.defaultLocale =
+      [locale, Intl.shortLocale(locale)].firstWhere(DateFormat.localeExists, orElse: () => 'en_US');
+}
 
 DateTime? parseDate(dynamic value) {
   if (value == null) return null;
@@ -13,8 +30,7 @@ DateTime? parseDate(dynamic value) {
 String buildDate(DateTime? dateTime) {
   if (dateTime == null || dateTime.millisecondsSinceEpoch == 0) return "";
   dateTime = dateTime.toLocal();
-  String time =
-      SettingsSvc.settings.use24HrFormat.value ? DateFormat.Hm().format(dateTime) : DateFormat.jm().format(dateTime);
+  String time = _timeFormat.format(dateTime);
   String date;
   final elapsed = DateTime.now().difference(dateTime);
   if (SettingsSvc.settings.skin.value != Skins.iOS && elapsed.inMinutes == 0) {
@@ -74,8 +90,7 @@ String buildSeparatorDateSamsung(DateTime dateTime) {
 String buildTime(DateTime? dateTime) {
   if (dateTime == null || dateTime.millisecondsSinceEpoch == 0) return "";
   dateTime = dateTime.toLocal();
-  String time =
-      SettingsSvc.settings.use24HrFormat.value ? DateFormat.Hm().format(dateTime) : DateFormat.jm().format(dateTime);
+  String time = _timeFormat.format(dateTime);
   return time;
 }
 
@@ -100,14 +115,14 @@ String buildFullDate(DateTime time, {bool includeTime = true, bool useTodayYeste
     } else {
       if (useTodayYesterday) {
         if (time.isToday()) {
-          date = "Today, ${DateFormat.jm().format(time)}";
+          date = "Today, ${DateFormat(_hour12Pattern).format(time)}";
         } else if (time.isYesterday()) {
-          date = "Yesterday, ${DateFormat.jm().format(time)}";
+          date = "Yesterday, ${DateFormat(_hour12Pattern).format(time)}";
         } else {
-          date = DateFormat.yMd().add_jm().format(time);
+          date = DateFormat.yMd().addPattern(_hour12Pattern).format(time);
         }
       } else {
-        date = DateFormat.yMd().add_jm().format(time);
+        date = DateFormat.yMd().addPattern(_hour12Pattern).format(time);
       }
     }
   } else {
