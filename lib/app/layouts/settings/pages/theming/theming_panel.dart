@@ -118,6 +118,29 @@ class _ThemingPanelState extends CustomState<ThemingPanel, void, ThemingPanelCon
                             divisions: 4)),
                       ],
                     ),
+                    const SettingsDivider(padding: EdgeInsets.only(left: 16.0)),
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.only(left: 15, top: 10),
+                          child: Text("Animation Speed", style: context.theme.textTheme.bodyLarge),
+                        ),
+                        Obx(() => SettingsSlider(
+                            startingVal: SettingsSvc.settings.animationSpeed.value,
+                            update: (double val) {
+                              SettingsSvc.settings.animationSpeed.value = val.toPrecision(2);
+                            },
+                            onChangeEnd: (double val) async {
+                              await SettingsSvc.settings.saveOneAsync('animationSpeed');
+                            },
+                            formatValue: ((double val) => "${val.toPrecision(2)}x"),
+                            backgroundColor: tileColor,
+                            min: 0.25,
+                            max: 2.0,
+                            divisions: 7)),
+                      ],
+                    ),
                   ],
                 ),
                 SettingsHeader(

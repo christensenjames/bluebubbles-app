@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:math';
 
+import 'package:bluebubbles/env.dart';
 import 'package:bluebubbles/app/layouts/settings/pages/advanced/private_api_panel.dart';
 import 'package:bluebubbles/app/layouts/settings/settings_page.dart';
 import 'package:bluebubbles/app/wrappers/scrollbar_wrapper.dart';
@@ -12,6 +13,7 @@ import 'package:bluebubbles/services/backend/interfaces/server_interface.dart';
 import 'package:bluebubbles/services/services.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/scheduler.dart' show timeDilation;
 import 'package:flutter/services.dart';
 import 'package:flutter_displaymode/flutter_displaymode.dart';
 import 'package:get/get.dart';
@@ -32,7 +34,21 @@ import 'package:get_it/get_it.dart';
 SettingsService get SettingsSvc => GetIt.I<SettingsService>();
 
 class SettingsService {
-  late Settings settings;
+  Settings? _settings;
+  Worker? _animationSpeedWorker;
+
+  Settings get settings => _settings!;
+
+  set settings(Settings value) {
+    final replaced = _settings != null;
+    _settings = value;
+    if (isIsolate) return;
+    timeDilation = 1 / value.animationSpeed.value;
+    _animationSpeedWorker?.dispose();
+    _animationSpeedWorker = ever(value.animationSpeed, (double speed) => timeDilation = 1 / speed);
+    if (replaced) EventDispatcherSvc.emit('settings-replaced');
+  }
+
   late FCMData fcmData;
   bool _canAuthenticate = false;
   bool _showingPapiPopup = false;

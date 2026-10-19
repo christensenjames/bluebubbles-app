@@ -115,6 +115,7 @@ class Settings {
   final RxBool highlightSelectedChat = true.obs;
   final RxBool immersiveMode = true.obs;
   final RxDouble avatarScale = 1.0.obs;
+  final RxDouble animationSpeed = 1.0.obs;
   final RxBool askWhereToSave = false.obs;
   final RxBool statusIndicatorsOnChats = false.obs;
   final RxInt apiTimeout = 30000.obs;
@@ -391,6 +392,7 @@ class Settings {
       'tabletMode': tabletMode.value,
       'immersiveMode': immersiveMode.value,
       'avatarScale': avatarScale.value,
+      'animationSpeed': animationSpeed.value,
       'launchAtStartup': launchAtStartup.value,
       'launchAtStartupMinimized': launchAtStartupMinimized.value,
       'closeToTray': closeToTray.value,
@@ -619,6 +621,8 @@ class Settings {
         map['highlightSelectedChat'] ?? SettingsSvc.settings.highlightSelectedChat.value;
     SettingsSvc.settings.immersiveMode.value = map['immersiveMode'] ?? SettingsSvc.settings.immersiveMode.value;
     SettingsSvc.settings.avatarScale.value = map['avatarScale']?.toDouble() ?? SettingsSvc.settings.avatarScale.value;
+    SettingsSvc.settings.animationSpeed.value =
+        map['animationSpeed']?.toDouble() ?? SettingsSvc.settings.animationSpeed.value;
     SettingsSvc.settings.launchAtStartup.value = map['launchAtStartup'] ?? SettingsSvc.settings.launchAtStartup.value;
     SettingsSvc.settings.launchAtStartupMinimized.value =
         map['launchAtStartupMinimized'] ?? SettingsSvc.settings.launchAtStartupMinimized.value;
@@ -858,6 +862,7 @@ class Settings {
     s.highlightSelectedChat.value = map['highlightSelectedChat'] ?? true;
     s.immersiveMode.value = map['immersiveMode'] ?? true;
     s.avatarScale.value = map['avatarScale']?.toDouble() ?? 1.0;
+    s.animationSpeed.value = map['animationSpeed']?.toDouble() ?? 1.0;
     s.launchAtStartup.value = map['launchAtStartup'] ?? false;
     s.launchAtStartupMinimized.value = map['launchAtStartupMinimized'] ?? false;
     s.closeToTray.value = map['closeToTray'] ?? true;

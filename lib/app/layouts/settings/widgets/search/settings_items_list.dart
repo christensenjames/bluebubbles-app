@@ -179,6 +179,7 @@ List<Widget> buildSettingItemList({
         "Theme Studio",
         "Tablet Mode",
         "Immersive Mode",
+        "Animation Speed",
         "Material You",
         "Colors for Media",
         "Colorful Avatars",
