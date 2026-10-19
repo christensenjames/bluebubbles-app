@@ -12,8 +12,8 @@ import 'package:get/get.dart';
 
 import 'settings_header.dart';
 
-class _SettingsBackButton extends StatelessWidget {
-  const _SettingsBackButton();
+class SettingsBackButton extends StatelessWidget {
+  const SettingsBackButton({super.key});
 
   void _pop(BuildContext context) {
     if (Get.isSnackbarOpen) {
@@ -164,7 +164,7 @@ class SettingsScaffold extends StatelessWidget {
                               padding: const EdgeInsets.only(left: 24),
                               child: Align(
                                 alignment: Alignment.centerLeft,
-                                child: leading ?? const _SettingsBackButton(),
+                                child: leading ?? const SettingsBackButton(),
                               ),
                             ),
                             leadingWidth: 64,

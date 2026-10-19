@@ -22,6 +22,10 @@
 - Material Backup & Restore had a minimal back-arrow-only bar (`minimalAppBar: true`), which also
   dropped its refresh action. It now uses the standard settings top bar with its title and
   refresh button.
+- The Notifications settings page now uses the same 64dp top bar as the other Material settings
+  pages, with the round back button and a Material section header. It keeps its own `BBAppBar`
+  because the Global/Chat Options tabs don't fit `SettingsScaffold`. To make that possible,
+  `SettingsBackButton` is now public and `BBAppBar` accepts a `titleSpacing`.
 
 ## 2026-10-19 — Search in a chat, copy-code notifications, and small fixes
 

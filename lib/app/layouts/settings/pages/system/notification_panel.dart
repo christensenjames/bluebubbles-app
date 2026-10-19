@@ -48,7 +48,13 @@ class _NotificationPanelState extends State<NotificationPanel> with SingleTicker
       SliverList(
         delegate: SliverChildListDelegate(
           <Widget>[
-            if (SettingsSvc.settings.skin.value != Skins.Samsung)
+            if (material)
+              SettingsHeader(
+                iosSubtitle: iosSubtitle,
+                materialSubtitle: materialSubtitle,
+                text: "Notifications",
+              )
+            else if (!samsung)
               Container(
                   height: 50,
                   alignment: Alignment.bottomLeft,
@@ -221,11 +227,28 @@ class _NotificationPanelState extends State<NotificationPanel> with SingleTicker
           extendBodyBehindBottomPill: false,
           appBar: samsung && index.value == 0
               ? null
-              : BBAppBar(
-                  titleText: "Notifications",
-                  leading: buildBackButton(context),
-                  toolbarHeight: 50,
-                ),
+              : material
+                  // matches SettingsScaffold's Material top bar; this page can't use it because of the tabs
+                  ? BBAppBar(
+                      titleText: "Notifications",
+                      titleStyle: context.theme.textTheme.titleLarge
+                          ?.copyWith(color: context.theme.colorScheme.onSurface),
+                      leading: const Padding(
+                        padding: EdgeInsets.only(left: 24),
+                        child: Align(alignment: Alignment.centerLeft, child: SettingsBackButton()),
+                      ),
+                      leadingWidth: 64,
+                      titleSpacing: 22,
+                      toolbarHeight: 64,
+                      backgroundColor: headerColor,
+                      surfaceTintColor: Colors.transparent,
+                      scrolledUnderElevation: 0,
+                    )
+                  : BBAppBar(
+                      titleText: "Notifications",
+                      leading: buildBackButton(context),
+                      toolbarHeight: 50,
+                    ),
           body: TabBarView(
             physics: ThemeSwitcher.getScrollPhysics(),
             controller: tabController,

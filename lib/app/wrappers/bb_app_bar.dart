@@ -69,6 +69,7 @@ class BBAppBar extends StatelessWidget implements PreferredSizeWidget {
   final bool automaticallyImplyLeading;
 
   final double? leadingWidth;
+  final double? titleSpacing;
   final IconThemeData? iconTheme;
 
   /// Optional bottom widget (e.g. a [TabBar]).
@@ -90,6 +91,7 @@ class BBAppBar extends StatelessWidget implements PreferredSizeWidget {
     this.systemOverlayStyle,
     this.automaticallyImplyLeading = false,
     this.leadingWidth,
+    this.titleSpacing,
     this.iconTheme,
     this.bottom,
   });
@@ -129,6 +131,7 @@ class BBAppBar extends StatelessWidget implements PreferredSizeWidget {
           ),
       automaticallyImplyLeading: automaticallyImplyLeading,
       leadingWidth: leadingWidth,
+      titleSpacing: titleSpacing,
       iconTheme: iconTheme,
       bottom: bottom,
     );
