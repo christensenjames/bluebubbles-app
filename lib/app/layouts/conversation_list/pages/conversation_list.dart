@@ -54,13 +54,51 @@ class ConversationListController extends StatefulController {
   }
 
   void clearSelectedChats() {
-    final copy = List.from(selectedChats);
+    final copy = List<Chat>.from(selectedChats);
+    selectedChats.clear();
     for (Chat c in copy) {
-      selectedChats.removeWhere((element) => element.guid == c.guid);
-      Get.find<ConversationTileController>(tag: c.guid).updateWidgets<MaterialConversationTile>(null);
-      Get.find<ConversationTileController>(tag: c.guid).updateWidgets<SamsungConversationTile>(null);
+      _updateTile(c);
     }
     updateSelectedChats();
+  }
+
+  List<Chat> get shownChats => ChatsSvc.getFilteredChats(
+        showArchived: showArchivedChats,
+        showUnknown: showUnknownSenders,
+        filters: ChatsSvc.chatListFilters.value,
+      );
+
+  bool get allShownSelected {
+    final shown = shownChats;
+    final selected = selectedChats.map((c) => c.guid).toSet();
+    return shown.isNotEmpty && shown.every((c) => selected.contains(c.guid));
+  }
+
+  // Same date the list sorts by (ChatsService._sortCompare); chats with no message count as inactive.
+  List<Chat> shownChatsInactiveFor(int days) {
+    final cutoff = DateTime.now().subtract(Duration(days: days));
+    return shownChats.where((c) {
+      final date = ChatsSvc.getChatState(c.guid)?.latestMessage.value?.dateCreated ?? c.dbOnlyLatestMessageDate;
+      return date == null || date.isBefore(cutoff);
+    }).toList();
+  }
+
+  void selectChats(Iterable<Chat> chats) {
+    final selected = selectedChats.map((c) => c.guid).toSet();
+    for (Chat c in chats) {
+      if (!selected.add(c.guid)) continue;
+      selectedChats.add(c);
+      _updateTile(c);
+    }
+    updateSelectedChats();
+  }
+
+  // A tile that was never built has no controller yet; it reads the selection when it builds.
+  void _updateTile(Chat c) {
+    if (!Get.isRegistered<ConversationTileController>(tag: c.guid)) return;
+    final tile = Get.find<ConversationTileController>(tag: c.guid);
+    tile.updateWidgets<MaterialConversationTile>(null);
+    tile.updateWidgets<SamsungConversationTile>(null);
   }
 
   void updateMaterialFAB() {

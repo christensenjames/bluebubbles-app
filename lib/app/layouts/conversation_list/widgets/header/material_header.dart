@@ -10,6 +10,10 @@ import 'package:flutter_acrylic/flutter_acrylic.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:get/get.dart';
 
+const _inactiveDays = 90;
+
+enum _SelectionMenuAction { selectAll, selectInactive, delete }
+
 class MaterialHeader extends CustomStateful<ConversationListController> {
   const MaterialHeader({super.key, required super.parentController});
 
@@ -21,6 +25,30 @@ class _MaterialHeaderState extends CustomState<MaterialHeader, void, Conversatio
   bool get showArchived => controller.showArchivedChats;
 
   bool get showUnknown => controller.showUnknownSenders;
+
+  void _onMenuAction(_SelectionMenuAction action) {
+    switch (action) {
+      case _SelectionMenuAction.selectAll:
+        if (controller.allShownSelected) {
+          controller.clearSelectedChats();
+        } else {
+          controller.selectChats(controller.shownChats);
+        }
+      case _SelectionMenuAction.selectInactive:
+        final inactive = controller.shownChatsInactiveFor(_inactiveDays);
+        if (inactive.isEmpty) {
+          showSnackbar("No inactive chats", "No chats have been inactive for $_inactiveDays days or more.");
+        } else {
+          controller.selectChats(inactive);
+        }
+      case _SelectionMenuAction.delete:
+        for (Chat element in controller.selectedChats) {
+          ChatsSvc.removeChat(element);
+          ChatsSvc.softDeleteChat(element);
+        }
+        controller.clearSelectedChats();
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -230,18 +258,27 @@ class _MaterialHeaderState extends CustomState<MaterialHeader, void, Conversatio
                                 color: context.theme.colorScheme.primary,
                               ),
                             ),
-                            IconButton(
-                              onPressed: () {
-                                for (Chat element in controller.selectedChats) {
-                                  ChatsSvc.removeChat(element);
-                                  ChatsSvc.softDeleteChat(element);
-                                }
-                                controller.clearSelectedChats();
-                              },
+                            PopupMenuButton<_SelectionMenuAction>(
                               icon: Icon(
-                                Icons.delete_outlined,
+                                Icons.more_vert,
                                 color: context.theme.colorScheme.primary,
                               ),
+                              onSelected: _onMenuAction,
+                              itemBuilder: (context) => [
+                                PopupMenuItem(
+                                  value: _SelectionMenuAction.selectAll,
+                                  child: Text(controller.allShownSelected ? "Deselect all" : "Select all"),
+                                ),
+                                const PopupMenuItem(
+                                  value: _SelectionMenuAction.selectInactive,
+                                  child: Text("Select inactive $_inactiveDays+ days"),
+                                ),
+                                const PopupMenuDivider(),
+                                const PopupMenuItem(
+                                  value: _SelectionMenuAction.delete,
+                                  child: Text("Delete"),
+                                ),
+                              ],
                             ),
                           ],
                         )

@@ -1,5 +1,15 @@
 # Changelog
 
+## 2026-10-19 — Bulk selection in the chat list
+
+- The Material chat list's selection bar gets an overflow menu with "Select all" (every chat in the
+  current view, including archived/unknown views and active filters; it turns into "Deselect all"
+  once everything shown is selected), "Select inactive 90+ days" (adds chats whose newest message is
+  over 90 days old, or that have none) and Delete, which moved off the bar into the menu. Chats
+  whose tiles were never built are selected too, and their tiles read the selection when they
+  build. Verified on the Pixel: inactive selection stopped between Jul 22 and Jul 13 (cutoff Jul
+  21), Select all reached 88 and Deselect all cleared it.
+
 ## 2026-10-19 — Search in a chat, copy-code notifications, and small fixes
 
 - Search within one conversation: a Search item in the Material chat header's menu and a "Search
