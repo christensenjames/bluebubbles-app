@@ -380,6 +380,26 @@ class Chat {
   /// even with automatic receipts off. A chat whose receipts were explicitly disabled is left alone.
   Future<void> markReadOnInteraction() async {
     if (id == null || autoSendReadReceipts == false || !SettingsSvc.settings.enablePrivateAPI.value) return;
+    final latest = _latestIncoming();
+    if (latest == null || latest.dateRead != null) return;
+    await ChatInterface.markChatReadUnread(chatGuid: guid, markAsRead: true, shouldMarkOnServer: true);
+    latest
+      ..dateRead = DateTime.now()
+      ..save();
+  }
+
+  /// Mirrors a read or unread made on another device onto the newest incoming message, which the
+  /// conversation header's Mark Read button follows.
+  void syncLatestIncomingRead(bool read) {
+    if (id == null) return;
+    final latest = _latestIncoming();
+    if (latest == null || (latest.dateRead != null) == read) return;
+    latest
+      ..dateRead = read ? DateTime.now() : null
+      ..save();
+  }
+
+  Message? _latestIncoming() {
     final query = (Database.messages.query(Message_.dateDeleted
             .isNull()
             .and(Message_.dateCreated.notNull())
@@ -390,11 +410,7 @@ class Chat {
         .build();
     final latest = query.findFirst();
     query.close();
-    if (latest == null || latest.dateRead != null) return;
-    await ChatInterface.markChatReadUnread(chatGuid: guid, markAsRead: true, shouldMarkOnServer: true);
-    latest
-      ..dateRead = DateTime.now()
-      ..save();
+    return latest;
   }
 
   /// Add message to chat - pure DB operation

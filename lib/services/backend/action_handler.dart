@@ -156,6 +156,7 @@ class ActionHandler extends GetxService {
           // renders from is updated too. Writing only to the DB row leaves the
           // unread dot stale until the state is rebuilt (open chat / restart).
           await ChatsSvc.setChatHasUnread(chat, !data["read"]!, force: data["read"] == true, privateMark: false);
+          chat.syncLatestIncomingRead(data["read"]);
         }
         return;
       case "typing-indicator":

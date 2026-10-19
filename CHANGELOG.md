@@ -11,6 +11,11 @@
 - The notification Reply action now sends that receipt before queueing the reply instead of after,
   so a message that arrives during the send stays unread without a separate check, and the receipt
   no longer depends on `privateMarkChatAsRead`.
+- Marking a chat read or unread on one device now updates the conversation header's Mark Read /
+  Mark Unread button on the others. The server already broadcast `chat-read-status-changed`, but
+  clients only cleared the list's unread dot; the header follows the newest incoming message's
+  `dateRead`, which nothing updated (`Chat.syncLatestIncomingRead`, called from the socket and FCM
+  handlers). Reading on the iPhone or Mac sends the same event.
 
 ## 2026-10-19 — Google Photos-style full-screen photo viewer (Material skin)
 

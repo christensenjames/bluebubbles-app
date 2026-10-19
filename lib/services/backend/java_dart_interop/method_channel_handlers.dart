@@ -378,6 +378,7 @@ class MethodChannelHandlers {
           privateMark: false,
         );
         if (chatsRegistered) ChatsSvc.getChatState(chat.guid)?.updateHasUnreadInternal(chat.hasUnreadMessage ?? false);
+        chat.syncLatestIncomingRead(payload.data['read']);
         return await _ok();
       }
 
