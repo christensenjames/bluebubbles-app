@@ -10,7 +10,7 @@ UI for creating, viewing, and managing scheduled messages and message reminders.
 | `cupertino_scheduled_messages_panel.dart` | iOS-skin scheduled messages list |
 | `material_scheduled_messages_panel.dart` | Material-skin scheduled messages list |
 | `samsung_scheduled_messages_panel.dart` | Samsung-skin scheduled messages list |
-| `scheduled_messages_mixin.dart` | Shared logic mixin for all three list variants |
+| `scheduled_messages_mixin.dart` | Shared logic mixin for all three list variants; also applies the `scheduled-message-*` socket events (re-emitted on `EventDispatcherSvc` by `SocketService`) to the open list |
 | `create_scheduled_panel.dart` | Entry point for creating a new scheduled message — routes to platform variant |
 | `cupertino_create_scheduled_panel.dart` | iOS-skin scheduled message creator |
 | `material_create_scheduled_panel.dart` | Material-skin scheduled message creator |

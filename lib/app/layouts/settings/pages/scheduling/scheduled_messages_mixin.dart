@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:bluebubbles/helpers/helpers.dart';
 import 'package:bluebubbles/database/models.dart';
 import 'package:bluebubbles/services/services.dart';
@@ -9,6 +11,7 @@ import 'package:get/get.dart' hide Response;
 mixin ScheduledMessagesMixin<T extends StatefulWidget> on State<T> {
   final RxList<ScheduledMessage> scheduled = <ScheduledMessage>[].obs;
   final Rx<bool?> fetching = Rx<bool?>(true);
+  StreamSubscription? _eventSub;
 
   List<ScheduledMessage> get oneTime =>
       scheduled.where((e) => e.schedule.type == "once" && e.status == "pending").toList();
@@ -27,6 +30,29 @@ mixin ScheduledMessagesMixin<T extends StatefulWidget> on State<T> {
 
   void initScheduled() {
     getExistingMessages();
+    _eventSub = EventDispatcherSvc.stream.listen((event) {
+      if (!mounted || !event.type.startsWith('scheduled-message-')) return;
+      if (event.type == 'scheduled-message-deleted' || event.data is! Map) {
+        getExistingMessages();
+      } else {
+        upsertScheduled(ScheduledMessage.fromJson(Map<String, dynamic>.from(event.data)));
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _eventSub?.cancel();
+    super.dispose();
+  }
+
+  void upsertScheduled(ScheduledMessage item) {
+    final idx = scheduled.indexWhere((e) => e.id == item.id);
+    if (idx == -1) {
+      scheduled.add(item);
+    } else {
+      scheduled[idx] = item;
+    }
   }
 
   void getExistingMessages() async {
@@ -44,7 +70,7 @@ mixin ScheduledMessagesMixin<T extends StatefulWidget> on State<T> {
   void deleteMessage(ScheduledMessage item) async {
     final response = await HttpSvc.message.deleteScheduled(item.id);
     if (response.statusCode == 200) {
-      scheduled.remove(item);
+      scheduled.removeWhere((e) => e.id == item.id);
     } else {
       Logger.error(response.data);
       showSnackbar("Error", "Something went wrong!", type: SnackbarType.error);

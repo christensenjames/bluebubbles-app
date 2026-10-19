@@ -190,8 +190,7 @@ class _MaterialScheduledMessagesPanelState extends State<MaterialScheduledMessag
                   CreateScheduledMessage(existing: item),
                 );
                 if (result is ScheduledMessage) {
-                  final idx = scheduled.indexWhere((e) => e.id == item.id);
-                  scheduled[idx] = result;
+                  upsertScheduled(result);
                 }
               },
             ),
@@ -270,7 +269,7 @@ class _MaterialScheduledMessagesPanelState extends State<MaterialScheduledMessag
               const CreateScheduledMessage(),
             );
             if (result is ScheduledMessage) {
-              scheduled.add(result);
+              upsertScheduled(result);
             }
           },
         ),

@@ -47,6 +47,14 @@ enum SocketState {
 class SocketService {
   static const String _tag = "SocketService";
 
+  static const List<String> _scheduledMessageEvents = [
+    'scheduled-message-created',
+    'scheduled-message-updated',
+    'scheduled-message-sent',
+    'scheduled-message-error',
+    'scheduled-message-deleted',
+  ];
+
   // ── 1. Reconnection policy (handed to socket.io) ───────────────────────────
 
   /// Delay before socket.io's first reconnect attempt. It doubles from here,
@@ -375,6 +383,8 @@ class SocketService {
       // replaced on every restart, so a listener attached directly to it silently
       // stops firing the first time the connection is cycled.
       s.on("new-findmy-location", (data) => EventDispatcherSvc.emit('new-findmy-location', data)),
+      // Scheduled-message changes made on other clients; the open scheduled-messages panel listens on the dispatcher.
+      for (final event in _scheduledMessageEvents) s.on(event, (data) => EventDispatcherSvc.emit(event, data)),
     ]);
 
     // Report the attempt before making it. closeSocket() leaves the state at

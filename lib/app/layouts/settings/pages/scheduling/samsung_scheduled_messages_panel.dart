@@ -199,8 +199,7 @@ class _SamsungScheduledMessagesPanelState extends State<SamsungScheduledMessages
                   CreateScheduledMessage(existing: item),
                 );
                 if (result is ScheduledMessage) {
-                  final idx = scheduled.indexWhere((e) => e.id == item.id);
-                  scheduled[idx] = result;
+                  upsertScheduled(result);
                 }
               },
             ),
@@ -280,7 +279,7 @@ class _SamsungScheduledMessagesPanelState extends State<SamsungScheduledMessages
               const CreateScheduledMessage(),
             );
             if (result is ScheduledMessage) {
-              scheduled.add(result);
+              upsertScheduled(result);
             }
           },
         ),

@@ -179,8 +179,7 @@ class _CupertinoScheduledMessagesPanelState extends State<CupertinoScheduledMess
                   CreateScheduledMessage(existing: item),
                 );
                 if (result is ScheduledMessage) {
-                  final idx = scheduled.indexWhere((e) => e.id == item.id);
-                  scheduled[idx] = result;
+                  upsertScheduled(result);
                 }
               },
               child: Icon(CupertinoIcons.pencil, size: 20, color: context.theme.colorScheme.primary),
@@ -252,7 +251,7 @@ class _CupertinoScheduledMessagesPanelState extends State<CupertinoScheduledMess
               const CreateScheduledMessage(),
             );
             if (result is ScheduledMessage) {
-              scheduled.add(result);
+              upsertScheduled(result);
             }
           },
         ),
