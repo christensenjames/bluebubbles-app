@@ -127,7 +127,7 @@ class _SamsungConnectionPanelState extends CustomState<SamsungConnectionPanel, v
   Widget build(BuildContext context) {
     final qrAction = buildQrCodeAction(context);
     return SettingsScaffold(
-      title: "Server Management",
+      title: "Connection & Server",
       initialHeader: null,
       iosSubtitle: iosSubtitle,
       materialSubtitle: materialSubtitle,

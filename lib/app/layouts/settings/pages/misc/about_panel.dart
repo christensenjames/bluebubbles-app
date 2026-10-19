@@ -23,7 +23,7 @@ class _AboutPanelState extends State<AboutPanel> with ThemeHelpers {
   @override
   Widget build(BuildContext context) {
     return SettingsScaffold(
-        title: "About & Links",
+        title: "About & More",
         initialHeader: "Links",
         iosSubtitle: iosSubtitle,
         materialSubtitle: materialSubtitle,

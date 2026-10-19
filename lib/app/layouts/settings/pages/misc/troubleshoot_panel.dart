@@ -315,7 +315,39 @@ class _TroubleshootPanelState extends State<TroubleshootPanel> with ThemeHelpers
                     subtitle: "Shows only soft-deleted chats. Allows restoring them back to the main chat list.",
                     trailing: const NextButton(),
                   ),
-                  const SettingsDivider(padding: EdgeInsets.only(left: 16.0)),
+                ]),
+                SettingsHeader(iosSubtitle: iosSubtitle, materialSubtitle: materialSubtitle, text: "Audit"),
+                SettingsSection(backgroundColor: tileColor, children: [
+                  SettingsTile(
+                    onTap: () => NavigationSvc.pushSettings(context, const HandleAuditPanel()),
+                    leading: const SettingsLeadingIcon(
+                      iosIcon: CupertinoIcons.person_crop_circle_badge_exclam,
+                      materialIcon: Icons.person_search,
+                      containerColor: Colors.deepPurpleAccent,
+                    ),
+                    title: "Audit Handles",
+                    subtitle: "Scans local handles for a missing originalROWID (the server-side ID used to link "
+                        "messages to their sender) and lets you try to repair the affected ones.",
+                    trailing: const NextButton(),
+                  ),
+                ]),
+                SettingsHeader(iosSubtitle: iosSubtitle, materialSubtitle: materialSubtitle, text: "Memory"),
+                SettingsSection(backgroundColor: tileColor, children: [
+                  SettingsTile(
+                    onTap: () => NavigationSvc.pushSettings(context, const CacheTuningPanel()),
+                    leading: const SettingsLeadingIcon(
+                      iosIcon: CupertinoIcons.memories,
+                      materialIcon: Icons.memory,
+                      containerColor: Colors.teal,
+                    ),
+                    title: "Cache Tuning",
+                    subtitle: "Choose how much the app releases when it goes to the background, purge caches by hand, "
+                        "and watch what each purge frees.",
+                    trailing: const NextButton(),
+                  ),
+                ]),
+                SettingsHeader(iosSubtitle: iosSubtitle, materialSubtitle: materialSubtitle, text: "Danger Zone"),
+                SettingsSection(backgroundColor: tileColor, children: [
                   SettingsTile(
                       onTap: () async {
                         NavigationSvc.pushSettings(
@@ -454,36 +486,6 @@ class _TroubleshootPanelState extends State<TroubleshootPanel> with ThemeHelpers
                       title: "Delete All Messaging Data",
                       subtitle:
                           "Permanently deletes ALL messages, chats, attachments, participants, and contacts on this device."),
-                ]),
-                SettingsHeader(iosSubtitle: iosSubtitle, materialSubtitle: materialSubtitle, text: "Audit"),
-                SettingsSection(backgroundColor: tileColor, children: [
-                  SettingsTile(
-                    onTap: () => NavigationSvc.pushSettings(context, const HandleAuditPanel()),
-                    leading: const SettingsLeadingIcon(
-                      iosIcon: CupertinoIcons.person_crop_circle_badge_exclam,
-                      materialIcon: Icons.person_search,
-                      containerColor: Colors.deepPurpleAccent,
-                    ),
-                    title: "Audit Handles",
-                    subtitle: "Scans local handles for a missing originalROWID (the server-side ID used to link "
-                        "messages to their sender) and lets you try to repair the affected ones.",
-                    trailing: const NextButton(),
-                  ),
-                ]),
-                SettingsHeader(iosSubtitle: iosSubtitle, materialSubtitle: materialSubtitle, text: "Memory"),
-                SettingsSection(backgroundColor: tileColor, children: [
-                  SettingsTile(
-                    onTap: () => NavigationSvc.pushSettings(context, const CacheTuningPanel()),
-                    leading: const SettingsLeadingIcon(
-                      iosIcon: CupertinoIcons.memories,
-                      materialIcon: Icons.memory,
-                      containerColor: Colors.teal,
-                    ),
-                    title: "Cache Tuning",
-                    subtitle: "Choose how much the app releases when it goes to the background, purge caches by hand, "
-                        "and watch what each purge frees.",
-                    trailing: const NextButton(),
-                  ),
                 ]),
                 if (kIsDesktop) const SizedBox(height: 100),
               ],

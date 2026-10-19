@@ -90,19 +90,6 @@ class _ChatListPanelState extends State<ChatListPanel> with ThemeHelpers {
                           backgroundColor: tileColor,
                           isThreeLine: true,
                         )),
-                    if (!kIsWeb) const SettingsDivider(padding: EdgeInsets.only(left: 16.0)),
-                    if (!kIsWeb)
-                      Obx(() => SettingsSwitch(
-                            onChanged: (bool val) async {
-                              SettingsSvc.settings.unarchiveOnNewMessage.value = val;
-                              await SettingsSvc.settings.saveOneAsync('unarchiveOnNewMessage');
-                            },
-                            initialVal: SettingsSvc.settings.unarchiveOnNewMessage.value,
-                            title: "Unarchive Chats On New Message",
-                            subtitle: "Automatically unarchive chats when a new message is received",
-                            backgroundColor: tileColor,
-                            isThreeLine: true,
-                          )),
                   ],
                 ),
                 SettingsHeader(iosSubtitle: iosSubtitle, materialSubtitle: materialSubtitle, text: "Appearance"),
@@ -531,6 +518,19 @@ class _ChatListPanelState extends State<ChatListPanel> with ThemeHelpers {
                             backgroundColor: tileColor,
                             isThreeLine: true,
                           ),
+                        if (!kIsWeb) const SettingsDivider(padding: EdgeInsets.only(left: 16.0)),
+                        if (!kIsWeb)
+                          Obx(() => SettingsSwitch(
+                                onChanged: (bool val) async {
+                                  SettingsSvc.settings.unarchiveOnNewMessage.value = val;
+                                  await SettingsSvc.settings.saveOneAsync('unarchiveOnNewMessage');
+                                },
+                                initialVal: SettingsSvc.settings.unarchiveOnNewMessage.value,
+                                title: "Unarchive Chats On New Message",
+                                subtitle: "Automatically unarchive chats when a new message is received",
+                                backgroundColor: tileColor,
+                                isThreeLine: true,
+                              )),
                       ],
                     )),
               ],

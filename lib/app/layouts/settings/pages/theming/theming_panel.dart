@@ -141,6 +141,20 @@ class _ThemingPanelState extends CustomState<ThemingPanel, void, ThemingPanelCon
                             divisions: 7)),
                       ],
                     ),
+                    const SettingsDivider(padding: EdgeInsets.only(left: 16.0)),
+                    Obx(() => SettingsSwitch(
+                          onChanged: (bool val) async {
+                            SettingsSvc.settings.use24HrFormat.value = val;
+                            await SettingsSvc.settings.saveOneAsync('use24HrFormat');
+                          },
+                          initialVal: SettingsSvc.settings.use24HrFormat.value,
+                          title: "Use 24 Hour Format for Times",
+                          backgroundColor: tileColor,
+                          leading: const SettingsLeadingIcon(
+                              iosIcon: CupertinoIcons.clock,
+                              materialIcon: Icons.access_time,
+                              containerColor: Colors.blue),
+                        )),
                   ],
                 ),
                 SettingsHeader(

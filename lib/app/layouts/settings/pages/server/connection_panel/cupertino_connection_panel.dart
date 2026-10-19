@@ -128,7 +128,7 @@ class _CupertinoConnectionPanelState
   Widget build(BuildContext context) {
     final qrAction = buildQrCodeAction(context);
     return SettingsScaffold(
-      title: "Server Management",
+      title: "Connection & Server",
       initialHeader: "Connection Details",
       iosSubtitle: iosSubtitle,
       materialSubtitle: materialSubtitle,

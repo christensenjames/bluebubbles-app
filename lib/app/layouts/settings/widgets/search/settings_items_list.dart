@@ -85,6 +85,52 @@ List<Widget> buildSettingItemList({
     ),
   );
 
+  final scheduledMessagesItem = SettingsSvc.serverDetails.supportsScheduledMessages
+      ? SearchableSettingItem(
+          title: "Scheduled Messages",
+          searchTags: ["Scheduled Messages"],
+          child: SettingsTile(
+            backgroundColor: tileColor,
+            title: "Scheduled Messages",
+            activePage: ScheduledMessagesPanel,
+            onTap: () {
+              ns.pushAndRemoveSettingsUntil(
+                context,
+                const ScheduledMessagesPanel(),
+                (Route route) => route.isFirst,
+              );
+            },
+            trailing: material ? null : const NextButton(),
+            leading: const SettingsLeadingIcon(
+              iosIcon: CupertinoIcons.calendar,
+              materialIcon: Icons.schedule_send_outlined,
+              containerColor: Colors.teal,
+            ),
+          ),
+        )
+      : null;
+
+  final messageRemindersItem = Platform.isAndroid
+      ? SearchableSettingItem(
+          title: "Message Reminders",
+          searchTags: ["Message Reminders"],
+          child: SettingsTile(
+            backgroundColor: tileColor,
+            title: "Message Reminders",
+            activePage: MessageRemindersPanel,
+            onTap: () {
+              ns.pushAndRemoveSettingsUntil(context, const MessageRemindersPanel(), (Route route) => route.isFirst);
+            },
+            trailing: material ? null : const NextButton(),
+            leading: const SettingsLeadingIcon(
+              iosIcon: CupertinoIcons.alarm_fill,
+              materialIcon: Icons.alarm,
+              containerColor: Colors.indigo,
+            ),
+          ),
+        )
+      : null;
+
   final connectionItem = SearchableSettingItem(
     title: "Connection & Server",
     searchTags: [
@@ -111,51 +157,8 @@ List<Widget> buildSettingItemList({
         // Optimized reactive tile for connection state
         ConnectionServerTile(tileColor: tileColor),
 
-        if (SettingsSvc.serverDetails.supportsScheduledMessages) const SettingsDivider(),
-        if (SettingsSvc.serverDetails.supportsScheduledMessages)
-          SearchableSettingItem(
-            title: "Scheduled Messages",
-            searchTags: ["Scheduled Messages"],
-            child: SettingsTile(
-              backgroundColor: tileColor,
-              title: "Scheduled Messages",
-              activePage: ScheduledMessagesPanel,
-              onTap: () {
-                ns.pushAndRemoveSettingsUntil(
-                  context,
-                  const ScheduledMessagesPanel(),
-                  (Route route) => route.isFirst,
-                );
-              },
-              trailing: material ? null : const NextButton(),
-              leading: const SettingsLeadingIcon(
-                iosIcon: CupertinoIcons.calendar,
-                materialIcon: Icons.schedule_send_outlined,
-                containerColor: Colors.teal,
-              ),
-            ),
-          ),
-
-        if (Platform.isAndroid) const SettingsDivider(),
-        if (Platform.isAndroid)
-          SearchableSettingItem(
-            title: "Message Reminders",
-            searchTags: ["Message Reminders"],
-            child: SettingsTile(
-              backgroundColor: tileColor,
-              title: "Message Reminders",
-              activePage: MessageRemindersPanel,
-              onTap: () {
-                ns.pushAndRemoveSettingsUntil(context, const MessageRemindersPanel(), (Route route) => route.isFirst);
-              },
-              trailing: material ? null : const NextButton(),
-              leading: const SettingsLeadingIcon(
-                iosIcon: CupertinoIcons.alarm_fill,
-                materialIcon: Icons.alarm,
-                containerColor: Colors.indigo,
-              ),
-            ),
-          ),
+        if (scheduledMessagesItem != null) ...[const SettingsDivider(), scheduledMessagesItem],
+        if (messageRemindersItem != null) ...[const SettingsDivider(), messageRemindersItem],
       ],
     ),
   );
@@ -208,6 +211,7 @@ List<Widget> buildSettingItemList({
       "Custom Avatar Colors",
       "Custom Avatars",
       "Download iOS Emoji font",
+      "Use 24 Hour Format for Times",
     ],
     onTap: () {
       ns.pushAndRemoveSettingsUntil(context, ThemingPanel(), (Route route) => route.isFirst);
@@ -347,6 +351,10 @@ List<Widget> buildSettingItemList({
       "Open Keyboard After Tapping Scroll To Bottom",
       "Double-Tap Message",
       "Send Message with Enter",
+      "Enable Spellcheck",
+      "Replace Emoticons with Emoji",
+      "Send Delay",
+      "Cancel Queued Messages on Failure",
       "Scroll to Bottom When Sending Messages",
     ],
     onTap: () {
@@ -430,7 +438,7 @@ List<Widget> buildSettingItemList({
 
   // More Settings Tile
   final moreSettingsItem = SearchableSettingItem(
-    title: "More settings", // Title to search,
+    title: "Advanced", // Title to search,
     searchTags: [
       "Advanced",
       "Secure App",
@@ -439,11 +447,6 @@ List<Widget> buildSettingItemList({
       "High Performance Mode",
       "Scroll Speed Multiplier",
       "API Timeout Duration",
-      "Cancel Queued Messages on Failure",
-      "Replace Emoticons with Emoji",
-      "Enable Spellcheck",
-      "Send Delay",
-      "Use 24 Hour Format for Times",
       "Allow Upside-Down Rotation",
       "Maximum Group Avatar Count",
     ],
@@ -452,7 +455,7 @@ List<Widget> buildSettingItemList({
     },
     child: SettingsTile(
       backgroundColor: tileColor,
-      title: "More Settings",
+      title: "Advanced",
       activePage: MiscPanel,
       onTap: () {
         ns.pushAndRemoveSettingsUntil(context, const MiscPanel(), (Route route) => route.isFirst);
@@ -803,29 +806,32 @@ List<Widget> buildSettingItemList({
   ];
 
   if (material) {
-    // Pixel-style main page: no headers, profile alone, then categories in 2-3 row groups.
+    // Pixel-style main page: no headers, profile alone, then categories in small groups.
     const groupGap = SizedBox(height: 8);
     SettingsSection group(List<SearchableSettingItem> items) =>
         SettingsSection(backgroundColor: tileColor, searchableSettingsItems: items);
 
+    final connectionTileItem = SearchableSettingItem(
+      title: connectionItem.title,
+      searchTags: connectionItem.searchTags,
+      onTap: connectionItem.onTap,
+      child: ConnectionServerTile(tileColor: tileColor),
+    );
+
+    final groups = [
+      [connectionTileItem, privateApiItem, notificationProvidersItem],
+      [appearanceItem, notificationItem, mediaItem],
+      [chatListItem, conversationItem, customGroupsItem],
+      [?scheduledMessagesItem, ?messageRemindersItem],
+      [?contactsItem, ?storageItem, backupItem],
+      [moreSettingsItem, redactedItem, ?taskerItem, ?desktopItem],
+      [aboutItem, discordItem, reviewItem, ?donationItem],
+      [developerToolsItem, ?resetItem],
+    ].where((items) => items.isNotEmpty);
+
     return [
       profileItem,
-      groupGap,
-      connectionItem,
-      groupGap,
-      group([appearanceItem, mediaItem, notificationItem]),
-      groupGap,
-      group([chatListItem, conversationItem, customGroupsItem]),
-      groupGap,
-      group([?desktopItem, moreSettingsItem, privateApiItem]),
-      groupGap,
-      group([redactedItem, ?taskerItem, notificationProvidersItem]),
-      groupGap,
-      group([?contactsItem, ?storageItem, developerToolsItem]),
-      groupGap,
-      group([backupItem, reviewItem, ?donationItem]),
-      groupGap,
-      group([discordItem, aboutItem, ?resetItem]),
+      for (final items in groups) ...[groupGap, group(items)],
       ...versionWidgets,
     ];
   }

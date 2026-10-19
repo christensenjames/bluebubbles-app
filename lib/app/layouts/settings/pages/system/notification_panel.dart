@@ -98,6 +98,58 @@ class _NotificationPanelState extends State<NotificationPanel> with SingleTicker
                 subtitle: "Sends notifications for incoming reactions",
                 backgroundColor: tileColor,
               ),
+              if (!kIsWeb && !kIsDesktop) ...[
+                AnimatedSizeAndFade.showHide(
+                  show: SettingsSvc.settings.enablePrivateAPI.value,
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const SettingsDivider(padding: EdgeInsets.only(left: 16.0)),
+                      Obx(() => SettingsSwitch(
+                            onChanged: (bool val) async {
+                              SettingsSvc.settings.notificationReactionAction.value = val;
+                              await SettingsSvc.settings.saveOneAsync('notificationReactionAction');
+                            },
+                            initialVal: SettingsSvc.settings.notificationReactionAction.value,
+                            title: "Quick Reaction from Notifications",
+                            subtitle: "Add a quick reaction button to your notifications (requires Private API)",
+                            backgroundColor: tileColor,
+                            isThreeLine: true,
+                          )),
+                    ],
+                  ),
+                ),
+                AnimatedSizeAndFade.showHide(
+                  show: SettingsSvc.settings.enablePrivateAPI.value &&
+                      SettingsSvc.settings.notificationReactionAction.value,
+                  child: Padding(
+                    padding: const EdgeInsets.only(bottom: 5.0),
+                    child: Obx(() => ReactionTypePicker(
+                          title: "Notification Reaction Type",
+                          currentValue: SettingsSvc.settings.notificationReactionActionType.value,
+                          reactions: [ReactionTypes.LOVE, ReactionTypes.LIKE],
+                          onChanged: (val) async {
+                            if (val == null) return;
+                            SettingsSvc.settings.notificationReactionActionType.value = val;
+                            await SettingsSvc.settings.saveOneAsync('notificationReactionActionType');
+                          },
+                          secondaryColor: headerColor,
+                          useModernMenu: true,
+                        )),
+                  ),
+                ),
+              ],
+              const SettingsDivider(padding: EdgeInsets.only(left: 16.0)),
+              Obx(() => SettingsSwitch(
+                    onChanged: (bool val) async {
+                      SettingsSvc.settings.hideTextPreviews.value = val;
+                      await SettingsSvc.settings.saveOneAsync('hideTextPreviews');
+                    },
+                    initialVal: SettingsSvc.settings.hideTextPreviews.value,
+                    title: "Hide Message Text",
+                    subtitle: "Replaces message text with 'iMessage' in notifications",
+                    backgroundColor: tileColor,
+                  )),
               const SettingsDivider(padding: EdgeInsets.only(left: 16.0)),
               SettingsSwitch(
                 title: "Text Detection",
@@ -147,17 +199,6 @@ class _NotificationPanelState extends State<NotificationPanel> with SingleTicker
               children: [
                 Obx(() => SettingsSwitch(
                       onChanged: (bool val) async {
-                        SettingsSvc.settings.hideTextPreviews.value = val;
-                        await SettingsSvc.settings.saveOneAsync('hideTextPreviews');
-                      },
-                      initialVal: SettingsSvc.settings.hideTextPreviews.value,
-                      title: "Hide Message Text",
-                      subtitle: "Replaces message text with 'iMessage' in notifications",
-                      backgroundColor: tileColor,
-                    )),
-                const SettingsDivider(padding: EdgeInsets.only(left: 16.0)),
-                Obx(() => SettingsSwitch(
-                      onChanged: (bool val) async {
                         SettingsSvc.settings.showIncrementalSync.value = val;
                         await SettingsSvc.settings.saveOneAsync('showIncrementalSync');
                       },
@@ -167,47 +208,6 @@ class _NotificationPanelState extends State<NotificationPanel> with SingleTicker
                       backgroundColor: tileColor,
                       isThreeLine: true,
                     )),
-                if (!kIsWeb && !kIsDesktop) ...[
-                  AnimatedSizeAndFade.showHide(
-                    show: SettingsSvc.settings.enablePrivateAPI.value,
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        const SettingsDivider(padding: EdgeInsets.only(left: 16.0)),
-                        Obx(() => SettingsSwitch(
-                              onChanged: (bool val) async {
-                                SettingsSvc.settings.notificationReactionAction.value = val;
-                                await SettingsSvc.settings.saveOneAsync('notificationReactionAction');
-                              },
-                              initialVal: SettingsSvc.settings.notificationReactionAction.value,
-                              title: "Quick Reaction from Notifications",
-                              subtitle: "Add a quick reaction button to your notifications (requires Private API)",
-                              backgroundColor: tileColor,
-                              isThreeLine: true,
-                            )),
-                      ],
-                    ),
-                  ),
-                  AnimatedSizeAndFade.showHide(
-                    show: SettingsSvc.settings.enablePrivateAPI.value &&
-                        SettingsSvc.settings.notificationReactionAction.value,
-                    child: Padding(
-                      padding: const EdgeInsets.only(bottom: 5.0),
-                      child: Obx(() => ReactionTypePicker(
-                            title: "Notification Reaction Type",
-                            currentValue: SettingsSvc.settings.notificationReactionActionType.value,
-                            reactions: [ReactionTypes.LOVE, ReactionTypes.LIKE],
-                            onChanged: (val) async {
-                              if (val == null) return;
-                              SettingsSvc.settings.notificationReactionActionType.value = val;
-                              await SettingsSvc.settings.saveOneAsync('notificationReactionActionType');
-                            },
-                            secondaryColor: headerColor,
-                            useModernMenu: true,
-                          )),
-                    ),
-                  ),
-                ],
               ],
             ),
           ],

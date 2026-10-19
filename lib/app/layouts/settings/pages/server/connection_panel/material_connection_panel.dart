@@ -112,7 +112,7 @@ class _MaterialConnectionPanelState extends CustomState<MaterialConnectionPanel,
   Widget build(BuildContext context) {
     final qrAction = buildQrCodeAction(context);
     return SettingsScaffold(
-      title: "Server Management",
+      title: "Connection & Server",
       initialHeader: null,
       iosSubtitle: iosSubtitle,
       materialSubtitle: materialSubtitle,

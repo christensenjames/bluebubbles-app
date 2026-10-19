@@ -1,4 +1,3 @@
-import 'package:bluebubbles/helpers/types/classes/language_codes.dart';
 import 'package:bluebubbles/services/services.dart';
 import 'package:bluebubbles/helpers/helpers.dart';
 import 'package:bluebubbles/app/layouts/settings/widgets/settings_widgets.dart';
@@ -278,22 +277,6 @@ class _MiscPanelState extends State<MiscPanel> with ThemeHelpers {
                       ),
                     ],
                   ),
-                  const SettingsDivider(padding: EdgeInsets.zero),
-                  Obx(() => SettingsSwitch(
-                        onChanged: (bool val) async {
-                          SettingsSvc.settings.cancelQueuedMessages.toggle();
-                          await SettingsSvc.settings.saveOneAsync('cancelQueuedMessages');
-                        },
-                        initialVal: SettingsSvc.settings.cancelQueuedMessages.value,
-                        title: "Cancel Queued Messages on Failure",
-                        subtitle: "Cancel messages queued to send in a chat if one fails before them",
-                        backgroundColor: tileColor,
-                        isThreeLine: true,
-                        leading: const SettingsLeadingIcon(
-                            iosIcon: CupertinoIcons.hand_raised,
-                            materialIcon: Icons.back_hand_outlined,
-                            containerColor: Colors.orange),
-                      )),
                 ],
               ),
               SettingsHeader(
@@ -304,101 +287,6 @@ class _MiscPanelState extends State<MiscPanel> with ThemeHelpers {
               SettingsSection(
                 backgroundColor: tileColor,
                 children: [
-                  Obx(() => SettingsSwitch(
-                        onChanged: (bool val) async {
-                          SettingsSvc.settings.replaceEmoticonsWithEmoji.value = val;
-                          await SettingsSvc.settings.saveOneAsync('replaceEmoticonsWithEmoji');
-                        },
-                        initialVal: SettingsSvc.settings.replaceEmoticonsWithEmoji.value,
-                        title: "Replace Emoticons with Emoji",
-                        subtitle: "Replace emoticons like :), :D, etc. with their corresponding emojis",
-                        backgroundColor: tileColor,
-                        leading: const SettingsLeadingIcon(
-                            iosIcon: CupertinoIcons.smiley,
-                            materialIcon: Icons.emoji_emotions_outlined,
-                            containerColor: Colors.indigo),
-                      )),
-                  const SettingsDivider(),
-                  if (kIsDesktop || kIsWeb)
-                    Obx(() => SettingsSwitch(
-                          onChanged: (bool val) async {
-                            SettingsSvc.settings.spellcheck.value = val;
-                            await SettingsSvc.settings.saveOneAsync('spellcheck');
-                          },
-                          initialVal: SettingsSvc.settings.spellcheck.value,
-                          title: "Enable Spellcheck",
-                          backgroundColor: tileColor,
-                          leading: const SettingsLeadingIcon(
-                              iosIcon: CupertinoIcons.textformat_abc_dottedunderline,
-                              materialIcon: Icons.spellcheck_outlined,
-                              containerColor: Colors.cyan),
-                        )),
-                  if (kIsDesktop || kIsWeb)
-                    Obx(() => SettingsSvc.settings.spellcheck.value
-                        ? SettingsOptions<(String, String)>(
-                            useCupertino: false,
-                            onChanged: (val) async {
-                              if (val == null) return;
-                              SettingsSvc.settings.spellcheckLanguage.value = val.$2;
-                              await SettingsSvc.settings.saveOneAsync('spellcheckLanguage');
-                            },
-                            initial: languageNameAndCodes
-                                    .firstWhereOrNull((l) => l.$2 == SettingsSvc.settings.spellcheckLanguage.value) ??
-                                ("Auto", "auto"),
-                            options: [("Auto", "auto"), ...languageNameAndCodes],
-                            title: 'Spellcheck Language',
-                            textProcessing: (val) => val.$1,
-                            capitalize: false,
-                          )
-                        : const SizedBox.shrink()),
-                  if (kIsDesktop || kIsWeb) const SettingsDivider(),
-                  Obx(() => SettingsSwitch(
-                        onChanged: (bool val) async {
-                          SettingsSvc.settings.sendDelay.value = val ? 3 : 0;
-                          await SettingsSvc.settings.saveOneAsync('sendDelay');
-                        },
-                        initialVal: !isNullOrZero(SettingsSvc.settings.sendDelay.value),
-                        title: "Send Delay",
-                        subtitle:
-                            "Adds a delay before sending a message to prevent accidental sends. During this time, you can cancel the message.",
-                        backgroundColor: tileColor,
-                        leading: const SettingsLeadingIcon(
-                            iosIcon: CupertinoIcons.timer, materialIcon: Icons.timer, containerColor: Colors.green),
-                      )),
-                  Obx(() {
-                    if (!isNullOrZero(SettingsSvc.settings.sendDelay.value)) {
-                      return SettingsSlider(
-                          startingVal: SettingsSvc.settings.sendDelay.toDouble(),
-                          update: (double val) {
-                            SettingsSvc.settings.sendDelay.value = val.toInt();
-                          },
-                          onChangeEnd: (double val) async {
-                            await SettingsSvc.settings.saveOneAsync('sendDelay');
-                          },
-                          formatValue: ((double val) => "${val.toStringAsFixed(0)} sec"),
-                          backgroundColor: tileColor,
-                          min: 1,
-                          max: 10,
-                          divisions: 9);
-                    } else {
-                      return const SizedBox.shrink();
-                    }
-                  }),
-                  const SettingsDivider(),
-                  Obx(() => SettingsSwitch(
-                        onChanged: (bool val) async {
-                          SettingsSvc.settings.use24HrFormat.value = val;
-                          await SettingsSvc.settings.saveOneAsync('use24HrFormat');
-                        },
-                        initialVal: SettingsSvc.settings.use24HrFormat.value,
-                        title: "Use 24 Hour Format for Times",
-                        backgroundColor: tileColor,
-                        leading: const SettingsLeadingIcon(
-                            iosIcon: CupertinoIcons.clock,
-                            materialIcon: Icons.access_time,
-                            containerColor: Colors.blue),
-                      )),
-                  const SettingsDivider(),
                   if (Platform.isAndroid)
                     Obx(() => SettingsSwitch(
                           onChanged: (bool val) async {

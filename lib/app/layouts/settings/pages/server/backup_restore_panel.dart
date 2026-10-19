@@ -65,7 +65,7 @@ class _BackupRestorePanelState extends State<BackupRestorePanel> with ThemeHelpe
   @override
   Widget build(BuildContext context) {
     return Obx(() => SettingsScaffold(
-        title: "Backup and Restore",
+        title: "Backup & Restore",
         initialHeader: null,
         iosSubtitle: iosSubtitle,
         materialSubtitle: materialSubtitle,
