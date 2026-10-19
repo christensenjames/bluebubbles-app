@@ -43,6 +43,7 @@ class ConnectionServerTile extends StatelessWidget {
       return SettingsTile(
         backgroundColor: tileColor,
         title: "Connection & Server",
+        subtitle: context.material ? subtitle : null,
         activePage: ServerManagementPanel,
         onTap: () {
           NavigationSvc.pushAndRemoveSettingsUntil(
@@ -60,17 +61,20 @@ class ConnectionServerTile extends StatelessWidget {
           materialIcon: Icons.router,
           containerColor: getIndicatorColor(SocketSvc.state.value),
         ),
-        trailing: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(
-              subtitle,
-              style: context.theme.textTheme.bodyMedium!.apply(color: context.theme.colorScheme.outline.withAlpha(220)),
-            ),
-            const SizedBox(width: 5),
-            const NextButton(),
-          ],
-        ),
+        trailing: context.material
+            ? null
+            : Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    subtitle,
+                    style: context.theme.textTheme.bodyMedium!
+                        .apply(color: context.theme.colorScheme.outline.withAlpha(220)),
+                  ),
+                  const SizedBox(width: 5),
+                  const NextButton(),
+                ],
+              ),
       );
     });
   }

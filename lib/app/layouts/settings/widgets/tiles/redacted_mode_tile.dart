@@ -1,6 +1,7 @@
 import 'package:bluebubbles/app/layouts/settings/pages/advanced/redacted_mode_panel.dart';
 import 'package:bluebubbles/app/layouts/settings/widgets/content/next_button.dart';
 import 'package:bluebubbles/app/layouts/settings/widgets/settings_widgets.dart';
+import 'package:bluebubbles/helpers/helpers.dart';
 import 'package:bluebubbles/services/services.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
@@ -15,24 +16,28 @@ class RedactedModeTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Obx(
-      () => SettingsTile(
+    return Obx(() {
+      final status = SettingsSvc.settings.redactedMode.value ? "Enabled" : "Disabled";
+      return SettingsTile(
         backgroundColor: tileColor,
         title: "Redacted Mode",
+        subtitle: context.material ? status : null,
         activePage: RedactedModePanel,
-        trailing: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(
-              SettingsSvc.settings.redactedMode.value ? "Enabled" : "Disabled",
-              style: context.theme.textTheme.bodyMedium!.apply(
-                color: context.theme.colorScheme.outline.withValues(alpha: 0.85),
+        trailing: context.material
+            ? null
+            : Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    status,
+                    style: context.theme.textTheme.bodyMedium!.apply(
+                      color: context.theme.colorScheme.outline.withValues(alpha: 0.85),
+                    ),
+                  ),
+                  const SizedBox(width: 5),
+                  const NextButton(),
+                ],
               ),
-            ),
-            const SizedBox(width: 5),
-            const NextButton(),
-          ],
-        ),
         onTap: () async {
           NavigationSvc.pushAndRemoveSettingsUntil(context, const RedactedModePanel(), (Route route) => route.isFirst);
         },
@@ -41,7 +46,7 @@ class RedactedModeTile extends StatelessWidget {
           materialIcon: Icons.auto_fix_high,
           containerColor: SettingsSvc.settings.redactedMode.value ? Colors.green : Colors.red[700],
         ),
-      ),
-    );
+      );
+    });
   }
 }

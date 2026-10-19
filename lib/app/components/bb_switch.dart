@@ -3,7 +3,8 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 
 /// A skin-aware toggle switch — renders [CupertinoSwitch] under the iOS skin
-/// and Material [Switch] otherwise. Use this instead of either widget directly.
+/// and Material [Switch] otherwise (with check / close thumb icons under the Material skin).
+/// Use this instead of either widget directly.
 class BBSwitch extends StatelessWidget {
   final bool value;
   final ValueChanged<bool>? onChanged;
@@ -30,6 +31,11 @@ class BBSwitch extends StatelessWidget {
       value: value,
       onChanged: onChanged,
       activeThumbColor: activeColor,
+      thumbIcon: context.material
+          ? WidgetStateProperty.resolveWith(
+              (states) => Icon(states.contains(WidgetState.selected) ? Icons.check : Icons.close),
+            )
+          : null,
     );
   }
 }

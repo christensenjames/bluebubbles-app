@@ -1,3 +1,4 @@
+import 'package:bluebubbles/app/layouts/settings/widgets/layout/settings_leading_icons.dart';
 import 'package:bluebubbles/app/components/bb_switch.dart';
 import 'package:bluebubbles/app/layouts/settings/widgets/content/settings_leading_icon.dart';
 import 'package:bluebubbles/helpers/helpers.dart';
@@ -25,6 +26,8 @@ class SettingsSwitch extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final material = context.material;
+    final showLeading = leading != null && (!material || SettingsLeadingIcons.shown(context));
     return Material(
       color: Colors.transparent,
       child: InkWell(
@@ -34,28 +37,32 @@ class SettingsSwitch extends StatelessWidget {
         child: ListTile(
           mouseCursor: MouseCursor.defer,
           enableFeedback: true,
-          minVerticalPadding: 10,
-          horizontalTitleGap: 10,
+          minVerticalPadding: material ? 12 : 10,
+          horizontalTitleGap: material ? 13 : 10,
           title: Text(
             title,
-            style: context.theme.textTheme.bodyLarge,
+            style: context.theme.textTheme.bodyLarge!.copyWith(fontWeight: material ? FontWeight.w500 : null),
           ),
-          leading: leading == null
+          leading: !showLeading
               ? null
               : Padding(
-                  padding: EdgeInsets.only(bottom: isThreeLine ? 10 : 0.0, right: 5, left: 5),
+                  padding: material
+                      ? EdgeInsets.zero
+                      : EdgeInsets.only(bottom: isThreeLine ? 10 : 0.0, right: 5, left: 5),
                   child: leading,
                 ),
           trailing: BBSwitch(
             value: initialVal,
-            activeColor: context.theme.colorScheme.primary.lightenOrDarken(15),
+            activeColor: material ? null : context.theme.colorScheme.primary.lightenOrDarken(15),
             onChanged: onChanged,
           ),
           subtitle: subtitle != null
               ? Text(
                   subtitle!,
-                  style: context.theme.textTheme.bodySmall!
-                      .copyWith(color: context.theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.75), height: 1.5),
+                  style: material
+                      ? context.theme.textTheme.bodyMedium!.copyWith(color: context.theme.colorScheme.onSurfaceVariant)
+                      : context.theme.textTheme.bodySmall!.copyWith(
+                          color: context.theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.75), height: 1.5),
                 )
               : null,
           contentPadding: const EdgeInsets.symmetric(horizontal: 16.0),

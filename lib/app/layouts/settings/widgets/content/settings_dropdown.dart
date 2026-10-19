@@ -111,7 +111,8 @@ class SettingsOptions<T extends Object> extends StatelessWidget {
                 children: [
                   Text(
                     title,
-                    style: context.theme.textTheme.bodyLarge,
+                    style: context.theme.textTheme.bodyLarge!
+                        .copyWith(fontWeight: context.material ? FontWeight.w500 : null),
                   ),
                   (subtitle != null)
                       ? Padding(

@@ -124,20 +124,19 @@ mixin ThemeHelpers<T extends StatefulWidget> on State<T> {
               : context.theme.colorScheme.onSurfaceVariant),
       fontWeight: FontWeight.w300);
 
-  /// Material / Samsung skin [ListTile] subtitle [TextStyle]s
-  TextStyle get materialSubtitle => context.theme.textTheme.labelLarge!
-      .copyWith(color: context.theme.colorScheme.primary, fontWeight: FontWeight.bold);
+  /// Material / Samsung skin [ListTile] subtitle [TextStyle]s. Material headers are regular
+  /// weight like the Pixel's; Samsung keeps bold.
+  TextStyle get materialSubtitle => context.theme.textTheme.labelLarge!.copyWith(
+      color: context.theme.colorScheme.primary, fontWeight: material ? FontWeight.w500 : FontWeight.bold);
 
   /// Header / background color on settings pages
-  Color get headerColor => (ThemeSvc.inDarkMode(context)
-          ? context.theme.colorScheme.surface
-          : context.theme.colorScheme.surfaceContainerHighest)
+  Color get headerColor => context.theme.colorScheme
+      .settingsPage(material: material, dark: ThemeSvc.inDarkMode(context))
       .withAlpha(SettingsSvc.settings.windowEffect.value != WindowEffect.disabled ? 20 : 255);
 
   /// Tile / foreground color on settings pages
-  Color get tileColor => (ThemeSvc.inDarkMode(context)
-          ? context.theme.colorScheme.surfaceContainerHighest
-          : context.theme.colorScheme.surface)
+  Color get tileColor => context.theme.colorScheme
+      .settingsCard(material: material, dark: ThemeSvc.inDarkMode(context))
       .withAlpha(SettingsSvc.settings.windowEffect.value != WindowEffect.disabled ? 100 : 255);
 
   /// Whether or not to use tablet mode
@@ -170,13 +169,13 @@ extension BuildContextThemeHelpers on BuildContext {
 
   bool get samsung => SettingsSvc.settings.skin.value == Skins.Samsung;
 
-  Color get _headerColor =>
-      (ThemeSvc.inDarkMode(this) ? theme.colorScheme.surface : theme.colorScheme.surfaceContainerHighest)
-          .withAlpha(SettingsSvc.settings.windowEffect.value != WindowEffect.disabled ? 20 : 255);
+  Color get _headerColor => theme.colorScheme
+      .settingsPage(material: material, dark: ThemeSvc.inDarkMode(this))
+      .withAlpha(SettingsSvc.settings.windowEffect.value != WindowEffect.disabled ? 20 : 255);
 
-  Color get _tileColor =>
-      (ThemeSvc.inDarkMode(this) ? theme.colorScheme.surfaceContainerHighest : theme.colorScheme.surface)
-          .withAlpha(SettingsSvc.settings.windowEffect.value != WindowEffect.disabled ? 100 : 255);
+  Color get _tileColor => theme.colorScheme
+      .settingsCard(material: material, dark: ThemeSvc.inDarkMode(this))
+      .withAlpha(SettingsSvc.settings.windowEffect.value != WindowEffect.disabled ? 100 : 255);
 
   Color get headerColor => _headerColor;
 
@@ -196,8 +195,18 @@ extension BuildContextThemeHelpers on BuildContext {
 
   /// Material / Samsung skin [ListTile] subtitle [TextStyle] — mirrors
   /// [ThemeHelpers.materialSubtitle].
-  TextStyle get materialSubtitle =>
-      theme.textTheme.labelLarge!.copyWith(color: theme.colorScheme.primary, fontWeight: FontWeight.bold);
+  TextStyle get materialSubtitle => theme.textTheme.labelLarge!
+      .copyWith(color: theme.colorScheme.primary, fontWeight: material ? FontWeight.w500 : FontWeight.bold);
+}
+
+/// Page and card fills for settings screens. Material uses the Pixel Settings roles in both
+/// brightnesses; iOS and Samsung keep their own light/dark pairing.
+extension SettingsSurfaceRoles on ColorScheme {
+  Color settingsPage({required bool material, required bool dark}) =>
+      material ? surfaceContainer : (dark ? surface : surfaceContainerHighest);
+
+  Color settingsCard({required bool material, required bool dark}) =>
+      material ? surfaceBright : (dark ? surfaceContainerHighest : surface);
 }
 
 extension ColorSchemeHelpers on ColorScheme {

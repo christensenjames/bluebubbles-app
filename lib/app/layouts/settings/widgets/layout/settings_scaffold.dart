@@ -1,3 +1,4 @@
+import 'package:gesture_x_detector/gesture_x_detector.dart';
 import 'package:bluebubbles/app/components/m3e/m3e_motion.dart';
 import 'package:bluebubbles/helpers/helpers.dart';
 import 'package:bluebubbles/app/wrappers/bb_app_bar.dart';
@@ -8,6 +9,42 @@ import 'package:bluebubbles/services/services.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+
+import 'settings_header.dart';
+
+class _SettingsBackButton extends StatelessWidget {
+  const _SettingsBackButton();
+
+  void _pop(BuildContext context) {
+    if (Get.isSnackbarOpen) {
+      Get.closeAllSnackbars();
+    }
+    Navigator.of(context).pop();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = context.theme.colorScheme;
+    // desktop routes the tap through XGestureDetector, matching buildBackButton
+    return XGestureDetector(
+      supportTouch: true,
+      onTap: kIsDesktop ? (_) => _pop(context) : null,
+      child: IconButton(
+        style: IconButton.styleFrom(
+          backgroundColor: scheme.surfaceContainerHigh,
+          foregroundColor: scheme.onSurfaceVariant,
+          fixedSize: const Size(40, 40),
+          padding: EdgeInsets.zero,
+          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+        ),
+        icon: const Icon(Icons.arrow_back),
+        onPressed: () {
+          if (!kIsDesktop) _pop(context);
+        },
+      ),
+    );
+  }
+}
 
 class SettingsScaffold extends StatelessWidget {
   final ScrollController controller = ScrollController();
@@ -115,16 +152,30 @@ class SettingsScaffold extends StatelessWidget {
                             ),
                           ),
                         if (_expressiveMaterial && !minimalAppBar)
-                          SliverAppBar.large(
+                          SliverAppBar(
                             title: Text(
                               title,
-                              style: context.theme.textTheme.headlineMedium?.copyWith(fontWeight: FontWeight.w700),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: context.theme.textTheme.titleLarge
+                                  ?.copyWith(color: context.theme.colorScheme.onSurface),
                             ),
-                            leading: leading ?? buildBackButton(context),
+                            leading: Padding(
+                              padding: const EdgeInsets.only(left: 24),
+                              child: Align(
+                                alignment: Alignment.centerLeft,
+                                child: leading ?? const _SettingsBackButton(),
+                              ),
+                            ),
+                            leadingWidth: 64,
+                            titleSpacing: 22,
+                            toolbarHeight: 64,
                             actions: actions,
+                            actionsPadding: const EdgeInsets.only(right: 8),
                             backgroundColor: headerColor,
-                            surfaceTintColor: context.theme.colorScheme.surfaceTint,
-                            scrolledUnderElevation: 3,
+                            surfaceTintColor: Colors.transparent,
+                            elevation: 0,
+                            scrolledUnderElevation: 0,
                             pinned: true,
                             automaticallyImplyLeading: false,
                           ),
@@ -212,14 +263,22 @@ class SettingsScaffold extends StatelessWidget {
                               },
                             ),
                           ),
-                        if (SettingsSvc.settings.skin.value != Skins.Samsung && initialHeader != null)
+                        if (_expressiveMaterial && initialHeader != null)
+                          SliverToBoxAdapter(
+                            child: SettingsHeader(
+                              iosSubtitle: iosSubtitle,
+                              materialSubtitle: materialSubtitle,
+                              text: initialHeader!,
+                            ),
+                          ),
+                        if (!_expressiveMaterial &&
+                            SettingsSvc.settings.skin.value != Skins.Samsung &&
+                            initialHeader != null)
                           SliverToBoxAdapter(
                             child: Container(
                                 height: 50,
                                 alignment: Alignment.bottomLeft,
-                                color: SettingsSvc.settings.skin.value == Skins.iOS || _expressiveMaterial
-                                    ? headerColor
-                                    : tileColor,
+                                color: SettingsSvc.settings.skin.value == Skins.iOS ? headerColor : tileColor,
                                 child: Padding(
                                   padding: EdgeInsets.only(
                                       bottom: 8.0, left: SettingsSvc.settings.skin.value == Skins.iOS ? 30 : 15),

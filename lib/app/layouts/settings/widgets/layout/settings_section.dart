@@ -46,6 +46,16 @@ class SettingsSection extends StatelessWidget {
       // Strip interleaved SettingsDividers - they're SizedBox.shrink() off-iOS but would
       // still occupy an index and corrupt M3EShapes.grouped()'s corner sequence.
       final m3eChildren = displayedChildren.where((child) => child is! SettingsDivider).toList(growable: false);
+      if (SettingsSvc.settings.skin.value == Skins.Material) {
+        return M3ESection(
+          backgroundColor: backgroundColor,
+          margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+          gap: 2,
+          outerRadius: 24,
+          innerRadius: 4,
+          children: m3eChildren,
+        );
+      }
       return M3ESection(
         backgroundColor: backgroundColor,
         children: m3eChildren,

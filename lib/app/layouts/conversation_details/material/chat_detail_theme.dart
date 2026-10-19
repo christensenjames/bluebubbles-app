@@ -1,4 +1,6 @@
 import 'package:bluebubbles/database/models.dart';
+import 'package:bluebubbles/helpers/types/constants.dart';
+import 'package:bluebubbles/helpers/ui/theme_helpers.dart';
 import 'package:bluebubbles/services/services.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_acrylic/flutter_acrylic.dart';
@@ -29,12 +31,11 @@ class ChatDetailTheme {
 
     // Compute scaffold colors from baseTheme before copyWith modifies colorScheme.surface.
     final hasWindowEffect = SettingsSvc.settings.windowEffect.value != WindowEffect.disabled;
+    final material = SettingsSvc.settings.skin.value == Skins.Material;
     final scaffoldHeaderColor =
-        (isDark ? baseTheme.colorScheme.surface : baseTheme.colorScheme.surfaceContainerHighest)
-            .withAlpha(hasWindowEffect ? 20 : 255);
+        baseTheme.colorScheme.settingsPage(material: material, dark: isDark).withAlpha(hasWindowEffect ? 20 : 255);
     final scaffoldTileColor =
-        (isDark ? baseTheme.colorScheme.surfaceContainerHighest : baseTheme.colorScheme.surface)
-            .withAlpha(hasWindowEffect ? 100 : 255);
+        baseTheme.colorScheme.settingsCard(material: material, dark: isDark).withAlpha(hasWindowEffect ? 100 : 255);
 
     // Use the chat's selected theme as-is — no bubble-color accent override. Bubble colors are
     // tuned for contrast against the bubble itself, not against the tonal surfaces buttons, icons,

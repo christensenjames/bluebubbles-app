@@ -16,6 +16,8 @@ class M3ESection extends StatelessWidget {
   final M3ESectionTone tone;
   final EdgeInsets margin;
   final double gap;
+  final double outerRadius;
+  final double innerRadius;
 
   const M3ESection({
     super.key,
@@ -24,6 +26,8 @@ class M3ESection extends StatelessWidget {
     this.tone = M3ESectionTone.neutral,
     this.margin = const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
     this.gap = 2,
+    this.outerRadius = M3EShapes.xl,
+    this.innerRadius = M3EShapes.sm,
   });
 
   @override
@@ -50,7 +54,8 @@ class M3ESection extends StatelessWidget {
           for (int i = 0; i < displayedChildren.length; i++) ...[
             if (i > 0) SizedBox(height: gap),
             ClipRRect(
-              borderRadius: M3EShapes.grouped(i, displayedChildren.length),
+              borderRadius:
+                  M3EShapes.grouped(i, displayedChildren.length, outer: outerRadius, inner: innerRadius),
               child: Container(
                 color: fill,
                 child: displayedChildren[i],

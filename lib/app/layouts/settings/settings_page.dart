@@ -96,143 +96,150 @@ class _SettingsPageState extends State<SettingsPage> with ThemeHelpers {
                   allowResize: true,
                   left: SettingsScaffold(
                     title: "Settings",
-                    initialHeader: kIsWeb ? "Server & Message Management" : null,
+                    initialHeader: kIsWeb && !material ? "Server & Message Management" : null,
+                    minimalAppBar: material,
+                    leading: material ? const SizedBox.shrink() : null,
                     iosSubtitle: iosSubtitle,
                     materialSubtitle: materialSubtitle,
                     tileColor: tileColor,
                     headerColor: headerColor,
                     bodySlivers: [
-                      SliverList(
-                        delegate: SliverChildListDelegate([
-                          SettingsSearchBar(
-                            iOS: iOS,
-                            tileColor: tileColor,
-                            onChanged: (value) {
-                              setState(() {
-                                searchQuery = value.trim().toLowerCase();
-                              });
-                            },
-                          ),
-                          ...(() {
-                            final lowerQuery = searchQuery;
-                            final settingsItemList = _getSettingsItemList(context);
+                      SettingsLeadingIcons(
+                        show: true,
+                        child: SliverList(
+                          delegate: SliverChildListDelegate([
+                            SettingsSearchBar(
+                              iOS: iOS,
+                              material: material,
+                              showBack: material,
+                              tileColor: tileColor,
+                              onChanged: (value) {
+                                setState(() {
+                                  searchQuery = value.trim().toLowerCase();
+                                });
+                              },
+                            ),
+                            ...(() {
+                              final lowerQuery = searchQuery;
+                              final settingsItemList = _getSettingsItemList(context);
 
-                            // Build widgets list dynamically
-                            final List<Widget> widgets = [];
-                            var hasSearchResult = false;
+                              // Build widgets list dynamically
+                              final List<Widget> widgets = [];
+                              var hasSearchResult = false;
 
-                            for (int i = 0; i < settingsItemList.length; i++) {
-                              final item = settingsItemList[i];
-                              if (item is SearchableSettingItem) {
-                                // Flat item (SearchableSettingItem)
-                                final titleMatches = item.title.toLowerCase().contains(lowerQuery);
-                                final tagMatches = item.searchTags.any(
-                                  (tag) => tag.toLowerCase().contains(lowerQuery),
-                                );
+                              for (int i = 0; i < settingsItemList.length; i++) {
+                                final item = settingsItemList[i];
+                                if (item is SearchableSettingItem) {
+                                  // Flat item (SearchableSettingItem)
+                                  final titleMatches = item.title.toLowerCase().contains(lowerQuery);
+                                  final tagMatches = item.searchTags.any(
+                                    (tag) => tag.toLowerCase().contains(lowerQuery),
+                                  );
 
-                                final isHeader = item.child is SettingsHeader;
+                                  final isHeader = item.child is SettingsHeader;
 
-                                // If it's a header and we're searching, check if the next section has matches
-                                bool shouldShowHeader = true;
-                                if (isHeader && searchQuery.isNotEmpty && i + 1 < settingsItemList.length) {
-                                  final nextItem = settingsItemList[i + 1];
-                                  if (nextItem is SettingsSection && nextItem.searchableSettingsItems != null) {
-                                    // Only show header if the section has matching items
-                                    shouldShowHeader = nextItem.searchableSettingsItems!.any((childItem) {
-                                      final childTitleMatches = childItem.title.toLowerCase().contains(lowerQuery);
-                                      final childTagMatches = childItem.searchTags.any(
-                                        (tag) => tag.toLowerCase().contains(lowerQuery),
-                                      );
-                                      return childTitleMatches || childTagMatches;
-                                    });
-                                  }
-                                }
-
-                                if (searchQuery.isEmpty || (shouldShowHeader && (titleMatches || tagMatches))) {
-                                  widgets.add(item);
-                                  // App Version's child is an empty Container, reachable only via its breadcrumb.
-                                  if (searchQuery.isNotEmpty && !isHeader && item.child is! Container) {
-                                    hasSearchResult = true;
-                                  }
-
-                                  if (searchQuery.isNotEmpty) {
-                                    final matchingTags = item.searchTags.where(
-                                      (tag) => tag.toLowerCase().contains(lowerQuery),
-                                    );
-
-                                    for (final tag in matchingTags) {
-                                      widgets.add(SearchBreadcrumbTile(
-                                        origin: item.title,
-                                        destination: tag,
-                                        onTap: item.onTap,
-                                      ));
-                                      hasSearchResult = true;
+                                  // If it's a header and we're searching, check if the next section has matches
+                                  bool shouldShowHeader = true;
+                                  if (isHeader && searchQuery.isNotEmpty && i + 1 < settingsItemList.length) {
+                                    final nextItem = settingsItemList[i + 1];
+                                    if (nextItem is SettingsSection && nextItem.searchableSettingsItems != null) {
+                                      // Only show header if the section has matching items
+                                      shouldShowHeader = nextItem.searchableSettingsItems!.any((childItem) {
+                                        final childTitleMatches = childItem.title.toLowerCase().contains(lowerQuery);
+                                        final childTagMatches = childItem.searchTags.any(
+                                          (tag) => tag.toLowerCase().contains(lowerQuery),
+                                        );
+                                        return childTitleMatches || childTagMatches;
+                                      });
                                     }
                                   }
-                                }
-                              } else if (item is SettingsSection) {
-                                // Section → recurse into children
-                                final sectionWidgets = <Widget>[];
 
-                                if (item.searchableSettingsItems != null) {
-                                  final matchingItems = item.searchableSettingsItems!.where((childItem) {
-                                    final titleMatches = childItem.title.toLowerCase().contains(lowerQuery);
-                                    final tagMatches = childItem.searchTags.any(
-                                      (tag) => tag.toLowerCase().contains(lowerQuery),
-                                    );
-                                    return titleMatches || tagMatches;
-                                  }).toList();
+                                  if (searchQuery.isEmpty || (shouldShowHeader && (titleMatches || tagMatches))) {
+                                    widgets.add(item);
+                                    // App Version's child is an empty Container, reachable only via its breadcrumb.
+                                    if (searchQuery.isNotEmpty && !isHeader && item.child is! Container) {
+                                      hasSearchResult = true;
+                                    }
 
-                                  if (searchQuery.isEmpty) {
-                                    // No search → show whole section
-                                    sectionWidgets.add(item);
-                                  } else if (matchingItems.isNotEmpty) {
-                                    // If any children match → rebuild section with only matching children
-                                    sectionWidgets.add(SettingsSection(
-                                      backgroundColor: item.backgroundColor,
-                                      searchableSettingsItems: matchingItems,
-                                      children: null, // Only show matching searchable children
-                                    ));
-                                    hasSearchResult = true;
-
-                                    // Add breadcrumbs for matching child tags
-                                    for (final matchingItem in matchingItems) {
-                                      final matchingTags = matchingItem.searchTags.where(
+                                    if (searchQuery.isNotEmpty) {
+                                      final matchingTags = item.searchTags.where(
                                         (tag) => tag.toLowerCase().contains(lowerQuery),
                                       );
 
                                       for (final tag in matchingTags) {
-                                        sectionWidgets.add(SearchBreadcrumbTile(
-                                          origin: matchingItem.title,
+                                        widgets.add(SearchBreadcrumbTile(
+                                          origin: item.title,
                                           destination: tag,
-                                          onTap: matchingItem.onTap,
+                                          onTap: item.onTap,
                                         ));
+                                        hasSearchResult = true;
                                       }
                                     }
                                   }
-                                } else if (item.children != null && searchQuery.isEmpty) {
-                                  // Section with non-searchable children → show if no search
-                                  sectionWidgets.add(item);
-                                }
+                                } else if (item is SettingsSection) {
+                                  // Section → recurse into children
+                                  final sectionWidgets = <Widget>[];
 
-                                // Add section content to main list
-                                widgets.addAll(sectionWidgets);
-                              } else {
-                                // Other Widget → show only if no search
-                                if (searchQuery.isEmpty) {
-                                  widgets.add(item);
+                                  if (item.searchableSettingsItems != null) {
+                                    final matchingItems = item.searchableSettingsItems!.where((childItem) {
+                                      final titleMatches = childItem.title.toLowerCase().contains(lowerQuery);
+                                      final tagMatches = childItem.searchTags.any(
+                                        (tag) => tag.toLowerCase().contains(lowerQuery),
+                                      );
+                                      return titleMatches || tagMatches;
+                                    }).toList();
+
+                                    if (searchQuery.isEmpty) {
+                                      // No search → show whole section
+                                      sectionWidgets.add(item);
+                                    } else if (matchingItems.isNotEmpty) {
+                                      // If any children match → rebuild section with only matching children
+                                      sectionWidgets.add(SettingsSection(
+                                        backgroundColor: item.backgroundColor,
+                                        searchableSettingsItems: matchingItems,
+                                        children: null, // Only show matching searchable children
+                                      ));
+                                      hasSearchResult = true;
+
+                                      // Add breadcrumbs for matching child tags
+                                      for (final matchingItem in matchingItems) {
+                                        final matchingTags = matchingItem.searchTags.where(
+                                          (tag) => tag.toLowerCase().contains(lowerQuery),
+                                        );
+
+                                        for (final tag in matchingTags) {
+                                          sectionWidgets.add(SearchBreadcrumbTile(
+                                            origin: matchingItem.title,
+                                            destination: tag,
+                                            onTap: matchingItem.onTap,
+                                          ));
+                                        }
+                                      }
+                                    }
+                                  } else if (item.children != null && searchQuery.isEmpty) {
+                                    // Section with non-searchable children → show if no search
+                                    sectionWidgets.add(item);
+                                  }
+
+                                  // Add section content to main list
+                                  widgets.addAll(sectionWidgets);
+                                } else {
+                                  // Other Widget → show only if no search
+                                  if (searchQuery.isEmpty) {
+                                    widgets.add(item);
+                                  }
                                 }
                               }
-                            }
 
-                            // If searching and no results → show EmptySearchResult
-                            if (searchQuery.isNotEmpty && !hasSearchResult) {
-                              return [EmptySearchResult(searchQuery: searchQuery)];
-                            }
+                              // If searching and no results → show EmptySearchResult
+                              if (searchQuery.isNotEmpty && !hasSearchResult) {
+                                return [EmptySearchResult(searchQuery: searchQuery)];
+                              }
 
-                            return widgets;
-                          })(),
-                        ]),
+                              return widgets;
+                            })(),
+                          ]),
+                        ),
                       ),
                     ],
                   ),

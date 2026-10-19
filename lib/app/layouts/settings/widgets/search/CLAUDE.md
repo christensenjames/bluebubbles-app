@@ -24,6 +24,7 @@ Implements the settings search feature — finding settings panels by keyword ac
 ## Refactor Notes
 - Keep large section declarations in `settings_items_list.dart`, but move side-effectful handlers (`onTap` network/file/external-link flows) into `settings_items_actions.dart`.
 - Promote repeated labels/search tags/breadcrumb strings into shared constants when adding new sections.
+- `buildSettingItemList` declares every `SearchableSettingItem` as a local, then composes two layouts: Material (no headers, profile alone, then 2–3-row groups separated by an 8 dp gap) and iOS/Samsung (headers + the three original sections). New entries must be added to both compositions.
 
 ## Making a Setting Searchable
 

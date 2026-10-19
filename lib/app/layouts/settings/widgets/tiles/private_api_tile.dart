@@ -1,6 +1,7 @@
 import 'package:bluebubbles/app/layouts/settings/pages/advanced/private_api_panel.dart';
 import 'package:bluebubbles/app/layouts/settings/widgets/content/next_button.dart';
 import 'package:bluebubbles/app/layouts/settings/widgets/settings_widgets.dart';
+import 'package:bluebubbles/helpers/helpers.dart';
 import 'package:bluebubbles/services/services.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
@@ -15,28 +16,32 @@ class PrivateAPITile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Obx(
-      () => SettingsTile(
+    return Obx(() {
+      final status = SettingsSvc.settings.enablePrivateAPI.value
+          ? SettingsSvc.settings.serverPrivateAPI.value == false
+              ? "Not Set Up"
+              : "Enabled"
+          : "Disabled";
+      return SettingsTile(
         backgroundColor: tileColor,
         title: "Private API Features",
+        subtitle: context.material ? status : null,
         activePage: PrivateAPIPanel,
-        trailing: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(
-              SettingsSvc.settings.enablePrivateAPI.value
-                  ? SettingsSvc.settings.serverPrivateAPI.value == false
-                        ? "Not Set Up"
-                        : "Enabled"
-                  : "Disabled",
-              style: context.theme.textTheme.bodyMedium!.apply(
-                color: context.theme.colorScheme.outline.withValues(alpha: 0.85),
+        trailing: context.material
+            ? null
+            : Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    status,
+                    style: context.theme.textTheme.bodyMedium!.apply(
+                      color: context.theme.colorScheme.outline.withValues(alpha: 0.85),
+                    ),
+                  ),
+                  const SizedBox(width: 5),
+                  const NextButton(),
+                ],
               ),
-            ),
-            const SizedBox(width: 5),
-            const NextButton(),
-          ],
-        ),
         onTap: () async {
           NavigationSvc.pushAndRemoveSettingsUntil(context, PrivateAPIPanel(), (Route route) => route.isFirst);
         },
@@ -49,7 +54,7 @@ class PrivateAPITile extends StatelessWidget {
                     : Colors.green
               : Colors.amber,
         ),
-      ),
-    );
+      );
+    });
   }
 }
