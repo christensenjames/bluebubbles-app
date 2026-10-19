@@ -369,6 +369,7 @@ class MethodChannelHandlers {
         }
 
         if (payload.data['read'] == false && chatsRegistered && ChatsSvc.isChatActive(chat.guid)) {
+          chat.syncLatestIncomingRead(false);
           return await _ok();
         }
 

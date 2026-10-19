@@ -15,7 +15,9 @@
   Mark Unread button on the others. The server already broadcast `chat-read-status-changed`, but
   clients only cleared the list's unread dot; the header follows the newest incoming message's
   `dateRead`, which nothing updated (`Chat.syncLatestIncomingRead`, called from the socket and FCM
-  handlers). Reading on the iPhone or Mac sends the same event.
+  handlers). Reading on the iPhone or Mac sends the same event. An unread event for the chat that
+  is open still leaves its unread dot clear, but now flips its header back to Mark Read; before,
+  it was dropped entirely. Verified on the Pixel with the chat open (read, unread, read).
 
 ## 2026-10-19 — Google Photos-style full-screen photo viewer (Material skin)
 

@@ -151,7 +151,11 @@ class ActionHandler extends GetxService {
         final String? chatGuid = data["chatGuid"];
         Chat? chat = (chatGuid != null ? ChatsSvc.findChatByGuid(chatGuid) : null) ?? Chat.findOne(guid: chatGuid);
         if (chat != null && (data["read"] == true || data["read"] == false)) {
-          if (data["read"] == false && ChatsSvc.isChatActive(chat.guid)) return;
+          if (data["read"] == false && ChatsSvc.isChatActive(chat.guid)) {
+            // Keep the open chat's unread dot clear, but let its header offer Mark Read again.
+            chat.syncLatestIncomingRead(false);
+            return;
+          }
           // Route through ChatsService so the ChatState the conversation list
           // renders from is updated too. Writing only to the DB row leaves the
           // unread dot stale until the state is rebuilt (open chat / restart).
