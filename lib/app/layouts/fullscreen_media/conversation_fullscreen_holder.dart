@@ -1,6 +1,7 @@
 import 'package:bluebubbles/app/components/circle_progress_bar.dart';
 import 'package:bluebubbles/app/layouts/fullscreen_media/fullscreen_image.dart';
 import 'package:bluebubbles/app/layouts/fullscreen_media/fullscreen_video.dart';
+import 'package:bluebubbles/app/layouts/fullscreen_media/viewer_chrome.dart';
 import 'package:bluebubbles/models/models.dart' show MessageReplyContext;
 import 'package:bluebubbles/app/wrappers/bb_app_bar.dart';
 import 'package:bluebubbles/app/wrappers/bb_scaffold.dart';
@@ -44,6 +45,9 @@ class ConversationFullscreenHolder extends StatefulWidget {
   /// instead of all images in the chat. Used when opening from a gallery card.
   final List<Attachment>? galleryAttachments;
 
+  static String heroTagFor(Attachment attachment) =>
+      'attachment-hero-${attachment.message.target?.guid}-${attachment.guid}';
+
   @override
   ConversationFullscreenHolderState createState() => ConversationFullscreenHolderState();
 }
@@ -60,6 +64,8 @@ class ConversationFullscreenHolderState extends State<ConversationFullscreenHold
 
   int currentIndex = 0;
   ScrollPhysics? physics;
+  final ValueNotifier<double> _dismissProgress = ValueNotifier(0);
+  final Map<int, GlobalKey> _pageKeys = {};
 
   VideoController? _inlineController;
 
@@ -83,6 +89,53 @@ class ConversationFullscreenHolderState extends State<ConversationFullscreenHold
   late bool showAppBar = kIsDesktop || kIsWeb || !_isVideoAttachment;
   bool get _canReply => widget.replyMessage != null && widget.replyPartIndex != null && widget.currentChat != null;
 
+  GlobalKey _pageKey(int index) => _pageKeys.putIfAbsent(index, GlobalKey.new);
+
+  ViewerPageActions? _currentPage() {
+    final state = _pageKeys[currentIndex]?.currentState;
+    if (state case final ViewerPageActions actions) return actions;
+    return null;
+  }
+
+  void _setOverlay(bool show) {
+    if (showAppBar == show) return;
+    setState(() => showAppBar = show);
+    if (material) _applySystemUi();
+  }
+
+  void _applySystemUi() =>
+      SystemChrome.setEnabledSystemUIMode(showAppBar ? SystemUiMode.edgeToEdge : SystemUiMode.immersive);
+
+  Widget _withChrome(Widget viewer) {
+    if (!material) return viewer;
+    final fadeBackground = ModalRoute.of(context)?.opaque == false;
+    return PopScope(
+      onPopInvokedWithResult: (didPop, _) {
+        if (didPop) SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
+      },
+      child: Stack(
+        fit: StackFit.expand,
+        children: [
+          ValueListenableBuilder<double>(
+            valueListenable: _dismissProgress,
+            builder: (context, progress, _) =>
+                ColoredBox(color: Colors.black.withValues(alpha: fadeBackground ? 1 - progress : 1)),
+          ),
+          viewer,
+          ValueListenableBuilder<double>(
+            valueListenable: _dismissProgress,
+            builder: (context, progress, _) => ViewerChrome(
+              visible: showAppBar && progress == 0,
+              attachment: attachments[currentIndex],
+              showActions: widget.showInteractions,
+              currentPage: _currentPage,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   void initState() {
     super.initState();
@@ -101,12 +154,15 @@ class ConversationFullscreenHolderState extends State<ConversationFullscreenHold
       }
       controller = PageController(initialPage: currentIndex);
     }
+    if (material) _applySystemUi();
   }
 
   @override
   void dispose() {
     focusNode.dispose();
     controller.dispose();
+    _dismissProgress.dispose();
+    if (material) SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
     super.dispose();
   }
 
@@ -168,8 +224,8 @@ class ConversationFullscreenHolderState extends State<ConversationFullscreenHold
                   ],
                   backgroundColor: context.theme.colorScheme.surfaceContainerHighest,
                 ),
-          backgroundColor: Colors.black,
-          body: FocusScope(
+          backgroundColor: material ? Colors.transparent : Colors.black,
+          body: _withChrome(FocusScope(
             child: Focus(
               focusNode: focusNode,
               autofocus: true,
@@ -266,41 +322,40 @@ class ConversationFullscreenHolderState extends State<ConversationFullscreenHold
 
                   if (content is PlatformFile) {
                     if (attachment.mimeStart == "image") {
-                      return FullscreenImage(
-                        key: Key(key),
-                        attachment: attachment,
-                        file: content,
-                        showInteractions: widget.showInteractions,
-                        updatePhysics: (ScrollPhysics p) {
-                          if (physics != p) {
-                            setState(() {
-                              physics = p;
-                            });
-                          }
-                        },
-                        onOverlayToggle: (show) {
-                          if (showAppBar != show) {
-                            setState(() {
-                              showAppBar = show;
-                            });
-                          }
-                        },
+                      return HeroMode(
+                        enabled: index == currentIndex && !MediaQuery.disableAnimationsOf(context),
+                        child: FullscreenImage(
+                          key: material ? _pageKey(index) : Key(key),
+                          attachment: attachment,
+                          file: content,
+                          showInteractions: widget.showInteractions,
+                          updatePhysics: (ScrollPhysics p) {
+                            if (physics != p) {
+                              setState(() {
+                                physics = p;
+                              });
+                            }
+                          },
+                          onOverlayToggle: _setOverlay,
+                          onTap: material ? () => _setOverlay(!showAppBar) : null,
+                          onDismissProgress: material ? (progress) => _dismissProgress.value = progress : null,
+                          onDismiss: material ? () => Navigator.of(this.context).pop() : null,
+                          heroTag: material ? ConversationFullscreenHolder.heroTagFor(attachment) : null,
+                        ),
                       );
                     } else if (attachment.mimeStart == "video") {
                       return FullscreenVideo(
-                        key: Key(key),
+                        key: material ? _pageKey(index) : Key(key),
                         file: content,
                         attachment: attachment,
                         showInteractions: widget.showInteractions,
                         videoController: attachment.guid == widget.attachment.guid ? _inlineController : null,
                         mute: widget.mute,
                         isCurrentPage: index == currentIndex,
+                        sharedChrome: material,
                         onOverlayToggle: (show) {
-                          if (showAppBar != show) {
-                            setState(() {
-                              showAppBar = show;
-                            });
-                          }
+                          if (material && index != currentIndex) return;
+                          _setOverlay(show);
                         },
                         onPlayerDetached: () {
                           _inlineController = null;
@@ -424,7 +479,7 @@ class ConversationFullscreenHolderState extends State<ConversationFullscreenHold
                 ),
               ),
             ),
-          ),
+          )),
         ),
       ),
     );

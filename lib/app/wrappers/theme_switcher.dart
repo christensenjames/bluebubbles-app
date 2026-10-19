@@ -27,6 +27,17 @@ class ThemeSwitcher extends StatefulWidget {
     }
   }
 
+  static PageRoute<T> buildTransparentPageRoute<T>({required Widget Function(BuildContext context) builder}) {
+    return PageRouteBuilder<T>(
+      opaque: false,
+      transitionDuration: const Duration(milliseconds: 300),
+      reverseTransitionDuration: const Duration(milliseconds: 250),
+      pageBuilder: (context, animation, secondaryAnimation) => builder.call(context),
+      transitionsBuilder: (context, animation, secondaryAnimation, child) =>
+          FadeTransition(opacity: animation, child: child),
+    );
+  }
+
   static ScrollPhysics getScrollPhysics() {
     switch (SettingsSvc.settings.skin.value) {
       case Skins.iOS:

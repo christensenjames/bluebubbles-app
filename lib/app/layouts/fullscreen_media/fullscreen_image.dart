@@ -2,7 +2,10 @@ import 'dart:async';
 
 import 'package:bluebubbles/app/layouts/conversation_view/widgets/message/attachment/live_photo_mixin.dart';
 import 'package:bluebubbles/app/layouts/fullscreen_media/dialogs/metadata_dialog.dart';
+import 'package:bluebubbles/app/layouts/fullscreen_media/viewer_chrome.dart';
+import 'package:bluebubbles/app/layouts/fullscreen_media/zoomable_media.dart';
 import 'package:bluebubbles/utils/share.dart';
+import 'package:bluebubbles/utils/logger/logger.dart';
 import 'package:bluebubbles/helpers/helpers.dart';
 import 'package:bluebubbles/app/wrappers/theme_switcher.dart';
 import 'package:bluebubbles/database/models.dart';
@@ -25,6 +28,10 @@ class FullscreenImage extends StatefulWidget {
     required this.showInteractions,
     required this.updatePhysics,
     this.onOverlayToggle,
+    this.onTap,
+    this.onDismissProgress,
+    this.onDismiss,
+    this.heroTag,
   });
 
   final PlatformFile file;
@@ -33,17 +40,28 @@ class FullscreenImage extends StatefulWidget {
   final Function(ScrollPhysics) updatePhysics;
   final Function(bool)? onOverlayToggle;
 
+  /// Non-null when the holder draws the shared chrome, so the page draws no bars of its own.
+  final VoidCallback? onTap;
+  final ValueChanged<double>? onDismissProgress;
+  final VoidCallback? onDismiss;
+  final String? heroTag;
+
   @override
   State<FullscreenImage> createState() => _FullscreenImageState();
 }
 
 class _FullscreenImageState extends State<FullscreenImage>
-    with AutomaticKeepAliveClientMixin, LivePhotoMixin, ThemeHelpers {
+    with AutomaticKeepAliveClientMixin, LivePhotoMixin, ThemeHelpers
+    implements ViewerPageActions {
   final PhotoViewController controller = PhotoViewController();
   bool showOverlay = true;
   bool hasError = false;
   Uint8List? bytes;
   String? compatiblePath; // For converted HEIC/TIFF files
+  // Decoding the original only once the user zooms keeps a 24 MP photo (~100 MB decoded) from
+  // flushing every chat thumbnail out of the shared 100 MB imageCache.
+  bool _fullResolution = false;
+  bool _fullResolutionRequested = false;
   late PlatformFile _currentFile;
   Worker? _resolvedFileWorker;
 
@@ -59,7 +77,8 @@ class _FullscreenImageState extends State<FullscreenImage>
   void initState() {
     super.initState();
     _currentFile = widget.file;
-    _setFullscreen(true);
+    compatiblePath = _readyCompatiblePath(_currentFile);
+    if (!_sharedChrome) _setFullscreen(true);
     _watchAttachmentFile();
     initBytes();
   }
@@ -67,7 +86,12 @@ class _FullscreenImageState extends State<FullscreenImage>
   @override
   void didUpdateWidget(covariant FullscreenImage oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (!identical(oldWidget.file, widget.file)) _replaceFile(widget.file);
+    // The holder builds a fresh PlatformFile on every rebuild (each zoom-state change triggers one),
+    // so identity would remount PhotoView mid-zoom against the controller's stale scale/position.
+    final changed = widget.file.path == null
+        ? !identical(oldWidget.file, widget.file)
+        : oldWidget.file.path != widget.file.path;
+    if (changed) _replaceFile(widget.file);
   }
 
   void _watchAttachmentFile() {
@@ -88,11 +112,14 @@ class _FullscreenImageState extends State<FullscreenImage>
     setState(() {
       _currentFile = updatedFile;
       bytes = null;
-      compatiblePath = null;
+      compatiblePath = _readyCompatiblePath(updatedFile);
       hasError = false;
     });
     unawaited(initBytes());
   }
+
+  String? _readyCompatiblePath(PlatformFile f) =>
+      kIsWeb || f.path == null ? null : AttachmentsSvc.readyCompatiblePath(attachment, actualPath: f.path);
 
   void _setFullscreen(bool fullscreen) {
     if (fullscreen) {
@@ -122,12 +149,13 @@ class _FullscreenImageState extends State<FullscreenImage>
 
   @override
   void dispose() {
-    _setFullscreen(false);
+    if (!_sharedChrome) _setFullscreen(false);
     _resolvedFileWorker?.dispose();
     controller.dispose();
     super.dispose();
   }
 
+  @override
   void refreshAttachment() {
     setState(() {
       bytes = null;
@@ -155,6 +183,54 @@ class _FullscreenImageState extends State<FullscreenImage>
     redownloadAttachmentFromViewer(attachment, onComplete: onComplete, onError: onError);
   }
 
+  @override
+  void download() => AttachmentsSvc.saveToDisk(file);
+
+  @override
+  void shareFile() {
+    if (file.path != null) Share.files([file.path!]);
+  }
+
+  @override
+  VoidCallback? get enterPip => null;
+
+  bool get _sharedChrome => widget.onTap != null;
+
+  void _onScaleStateChanged(PhotoViewScaleState scale) {
+    final zoomed =
+        scale == PhotoViewScaleState.zoomedIn ||
+        scale == PhotoViewScaleState.covering ||
+        scale == PhotoViewScaleState.originalSize;
+    widget.updatePhysics(zoomed ? const NeverScrollableScrollPhysics() : ThemeSwitcher.getScrollPhysics());
+    _onZoomChanged(zoomed);
+  }
+
+  void _onZoomChanged(bool zoomed) {
+    if (zoomed && !_fullResolution && !_fullResolutionRequested && compatiblePath != null) {
+      _fullResolutionRequested = true;
+      var loadFailed = false;
+      // Decoded off-tree: swapping the provider first blanks the screen for the length of the decode.
+      precacheImage(
+        FileImage(File(compatiblePath!)),
+        context,
+        onError: (Object error, StackTrace? stackTrace) {
+          loadFailed = true;
+          _fullResolutionRequested = false;
+          Logger.error('Full-res precache failed for ${attachment.guid}', error: error, trace: stackTrace);
+        },
+      ).then((_) {
+        if (mounted && !loadFailed) setState(() => _fullResolution = true);
+      });
+    }
+  }
+
+  void _toggleOverlay() {
+    if (!widget.showInteractions) return;
+    final newVal = !showOverlay;
+    setState(() => showOverlay = newVal);
+    widget.onOverlayToggle?.call(newVal);
+  }
+
   Widget _buildPhotoView(BuildContext context) {
     if (bytes == null && compatiblePath == null) {
       return hasError
@@ -162,55 +238,126 @@ class _FullscreenImageState extends State<FullscreenImage>
           : Center(child: buildProgressIndicator(context));
     }
 
+    Widget failed(BuildContext context, Object error, StackTrace? stackTrace) {
+      Logger.error('Fullscreen image decode failed for ${attachment.guid}', error: error, trace: stackTrace);
+      return Center(child: Text("Failed to display image", style: context.theme.textTheme.bodyLarge));
+    }
+
+    if (material) return _buildZoomable(failed);
+
+    if (bytes != null) {
+      return PhotoView(
+        key: ObjectKey(file),
+        gaplessPlayback: true,
+        minScale: PhotoViewComputedScale.contained,
+        maxScale: PhotoViewComputedScale.contained * 10,
+        controller: controller,
+        imageProvider: MemoryImage(bytes!),
+        loadingBuilder: (context, _) => Center(child: buildProgressIndicator(context)),
+        scaleStateChangedCallback: _onScaleStateChanged,
+        errorBuilder: failed,
+        filterQuality: FilterQuality.high,
+      );
+    }
+
+    final original = FileImage(File(compatiblePath!));
+    final screenSized = _screenSized(original);
+
     // No orientation handling here: the decoder applies EXIF orientation
     // itself, so the provider's reported size is already display-space and
     // PhotoViewComputedScale.contained reads it correctly.
-    return PhotoView(
+    final width = attachment.displayWidth, height = attachment.displayHeight;
+    if (width == null || height == null || width <= 0 || height <= 0) {
+      return PhotoView(
+        key: ObjectKey(file),
+        gaplessPlayback: true,
+        minScale: PhotoViewComputedScale.contained,
+        maxScale: PhotoViewComputedScale.contained * 10,
+        controller: controller,
+        imageProvider: screenSized,
+        loadingBuilder: (context, _) => Center(child: buildProgressIndicator(context)),
+        scaleStateChangedCallback: _onScaleStateChanged,
+        errorBuilder: failed,
+        filterQuality: FilterQuality.high,
+      );
+    }
+
+    // A fixed childSize keeps PhotoView's geometry identical when the image underneath
+    // swaps from the screen-sized decode to the original.
+    return PhotoView.customChild(
       key: ObjectKey(file),
-      gaplessPlayback: true,
+      childSize: Size(width.toDouble(), height.toDouble()),
       minScale: PhotoViewComputedScale.contained,
       maxScale: PhotoViewComputedScale.contained * 10,
       controller: controller,
-      imageProvider: bytes != null
-          ? MemoryImage(bytes!) as ImageProvider
-          : FileImage(File(compatiblePath ?? file.path!)),
-      loadingBuilder: (BuildContext context, ImageChunkEvent? ev) {
-        return Center(child: buildProgressIndicator(context));
-      },
-      scaleStateChangedCallback: (scale) {
-        if (scale == PhotoViewScaleState.zoomedIn ||
-            scale == PhotoViewScaleState.covering ||
-            scale == PhotoViewScaleState.originalSize) {
-          widget.updatePhysics(const NeverScrollableScrollPhysics());
-        } else {
-          widget.updatePhysics(ThemeSwitcher.getScrollPhysics());
-        }
-      },
-      errorBuilder: (context, object, stacktrace) =>
-          Center(child: Text("Failed to display image", style: context.theme.textTheme.bodyLarge)),
-      filterQuality: FilterQuality.high,
+      scaleStateChangedCallback: _onScaleStateChanged,
+      child: _image(_fullResolution ? original : screenSized, failed),
     );
   }
+
+  ImageProvider _screenSized(ImageProvider original) {
+    // Desktop uses the display, not the window, so a drag-resize doesn't re-decode every frame.
+    final display = View.of(context).display.size;
+    final screen = kIsDesktop && !display.isEmpty
+        ? display
+        : MediaQuery.sizeOf(context) * MediaQuery.devicePixelRatioOf(context);
+    return ResizeImage(
+      original,
+      width: screen.width.ceil(),
+      height: screen.height.ceil(),
+      policy: ResizeImagePolicy.fit,
+    );
+  }
+
+  // Image resets `frame` to null on a provider change; gaplessPlayback keeps painting the
+  // screen-sized frame meanwhile, so only the first load may show the spinner.
+  Widget _image(ImageProvider provider, ImageErrorWidgetBuilder failed) => Image(
+    image: provider,
+    gaplessPlayback: true,
+    fit: BoxFit.contain,
+    filterQuality: FilterQuality.high,
+    frameBuilder: (context, child, frame, wasSynchronouslyLoaded) =>
+        wasSynchronouslyLoaded || frame != null || _fullResolution
+        ? child
+        : Center(child: buildProgressIndicator(context)),
+    errorBuilder: failed,
+  );
+
+  Widget _buildZoomable(ImageErrorWidgetBuilder failed) {
+    // The decoder applies EXIF orientation itself, so the attachment's display size is already display-space.
+    final width = attachment.displayWidth, height = attachment.displayHeight;
+    final hasSize = width != null && height != null && width > 0 && height > 0;
+    final ImageProvider provider;
+    if (bytes != null) {
+      provider = MemoryImage(bytes!);
+    } else {
+      final original = FileImage(File(compatiblePath!));
+      // Without known dimensions the size comes from the decoded image, so swapping to the original would rescale.
+      provider = _fullResolution && hasSize ? original : _screenSized(original);
+    }
+    Widget zoomable(Size size) => ZoomableMedia(
+      key: ObjectKey(file),
+      childSize: size,
+      onTap: widget.onTap ?? _toggleOverlay,
+      onZoomChanged: _onZoomChanged,
+      onDismissProgress: widget.onDismissProgress,
+      onDismiss: widget.onDismiss,
+      child: _hero(_image(provider, failed)),
+    );
+    if (hasSize) return zoomable(Size(width.toDouble(), height.toDouble()));
+    return _ImageSizeBuilder(provider: provider, errorBuilder: failed, builder: zoomable);
+  }
+
+  Widget _hero(Widget child) =>
+      widget.heroTag == null ? child : Hero(tag: widget.heroTag!, createRectTween: viewerHeroRectTween, child: child);
 
   @override
   Widget build(BuildContext context) {
     super.build(context);
     return Container(
-      color: Colors.black,
+      color: _sharedChrome ? null : Colors.black,
       child: GestureDetector(
-        onTap: () {
-          if (!widget.showInteractions) return;
-          bool newVal = !showOverlay;
-          setState(() {
-            showOverlay = newVal;
-          });
-
-          if (widget.onOverlayToggle != null) {
-            widget.onOverlayToggle!(newVal);
-          }
-
-          // eventDispatcher.emit('overlay-toggle', newVal);
-        },
+        onTap: material ? null : _toggleOverlay,
         onLongPress: () {
           if (attachment.hasLivePhoto && !isDownloadingLivePhoto.value) {
             handleLivePhotoTap();
@@ -221,7 +368,7 @@ class _FullscreenImageState extends State<FullscreenImage>
             _buildPhotoView(context),
             // Live photo video overlay
             if (attachment.hasLivePhoto) buildLivePhotoOverlay(),
-            if (!iOS)
+            if (!iOS && !_sharedChrome)
               AnimatedOpacity(
                 opacity: showOverlay ? 1.0 : 0.0,
                 duration: const Duration(milliseconds: 125),
@@ -374,41 +521,6 @@ class _FullscreenImageState extends State<FullscreenImage>
                   ),
                 ),
               ),
-            // Bottom FABs (Material style)
-            if (widget.showInteractions && material)
-              Positioned(
-                left: 16,
-                bottom: 16,
-                child: AnimatedOpacity(
-                  opacity: showOverlay ? 1.0 : 0.0,
-                  duration: const Duration(milliseconds: 200),
-                  child: SafeArea(
-                    top: false,
-                    child: Row(
-                      children: [
-                        FloatingActionButton(
-                          backgroundColor: context.theme.colorScheme.secondary,
-                          child: Icon(Icons.file_download_outlined, color: context.theme.colorScheme.onSecondary),
-                          onPressed: () => AttachmentsSvc.saveToDisk(widget.file),
-                        ),
-                        if (!kIsWeb && !kIsDesktop)
-                          Padding(
-                            padding: const EdgeInsets.only(left: 16.0),
-                            child: FloatingActionButton(
-                              backgroundColor: context.theme.colorScheme.secondary,
-                              child: Icon(Icons.share_outlined, color: context.theme.colorScheme.onSecondary),
-                              onPressed: () {
-                                if (widget.file.path != null) {
-                                  Share.files([widget.file.path!]);
-                                }
-                              },
-                            ),
-                          ),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
           ],
         ),
       ),
@@ -417,4 +529,70 @@ class _FullscreenImageState extends State<FullscreenImage>
 
   @override
   bool get wantKeepAlive => true;
+}
+
+class _ImageSizeBuilder extends StatefulWidget {
+  const _ImageSizeBuilder({required this.provider, required this.builder, required this.errorBuilder});
+
+  final ImageProvider provider;
+  final Widget Function(Size size) builder;
+  final ImageErrorWidgetBuilder errorBuilder;
+
+  @override
+  State<_ImageSizeBuilder> createState() => _ImageSizeBuilderState();
+}
+
+class _ImageSizeBuilderState extends State<_ImageSizeBuilder> {
+  late final ImageStreamListener _listener = ImageStreamListener(_onImage, onError: _onError);
+  ImageStream? _stream;
+  Size? _size;
+  Object? _error;
+  StackTrace? _stackTrace;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _resolve();
+  }
+
+  @override
+  void didUpdateWidget(covariant _ImageSizeBuilder oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.provider != widget.provider) _resolve();
+  }
+
+  void _resolve() {
+    final stream = widget.provider.resolve(createLocalImageConfiguration(context));
+    if (stream.key == _stream?.key) return;
+    _stream?.removeListener(_listener);
+    _error = null;
+    _stream = stream..addListener(_listener);
+  }
+
+  void _onImage(ImageInfo info, bool synchronousCall) {
+    final size = Size(info.image.width.toDouble(), info.image.height.toDouble());
+    if (size != _size) setState(() => _size = size);
+  }
+
+  void _onError(Object error, StackTrace? stackTrace) {
+    if (!mounted) return;
+    setState(() {
+      _error = error;
+      _stackTrace = stackTrace;
+    });
+  }
+
+  @override
+  void dispose() {
+    _stream?.removeListener(_listener);
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final error = _error;
+    if (error != null) return widget.errorBuilder(context, error, _stackTrace);
+    final size = _size;
+    return size == null ? Center(child: buildProgressIndicator(context)) : widget.builder(size);
+  }
 }

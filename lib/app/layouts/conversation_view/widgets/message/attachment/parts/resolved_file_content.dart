@@ -9,6 +9,8 @@ import 'package:bluebubbles/app/state/attachment_state_scope.dart';
 import 'package:bluebubbles/app/state/chat_state_scope.dart';
 import 'package:bluebubbles/app/state/message_state_scope.dart';
 import 'package:bluebubbles/app/layouts/fullscreen_media/conversation_fullscreen_holder.dart';
+import 'package:bluebubbles/app/layouts/fullscreen_media/viewer_chrome.dart';
+import 'package:bluebubbles/app/wrappers/theme_switcher.dart';
 import 'package:bluebubbles/database/models.dart';
 import 'package:bluebubbles/helpers/ui/theme_helpers.dart';
 import 'package:bluebubbles/services/services.dart';
@@ -52,6 +54,22 @@ class ResolvedFileContent extends StatelessWidget {
             right: message.isFromMe! ? 10 : 0,
           );
     if (attachment.mimeStart == "image" && !SettingsSvc.settings.highPerfMode.value) {
+      final imageViewer = ImageViewer(
+        file: file,
+        attachment: attachment,
+        isFromMe: message.isFromMe!,
+        isInReply: isInReply,
+        controller: cvController,
+      );
+      if (context.material) {
+        return _HeroImageBubble(
+          attachment: attachment,
+          currentChat: currentChat,
+          cvController: cvController,
+          galleryAttachments: galleryAttachments,
+          child: imageViewer,
+        );
+      }
       return OpenContainer(
         tappable: false,
         openColor: Colors.black,
@@ -89,13 +107,7 @@ class ResolvedFileContent extends StatelessWidget {
           },
           child: Container(
             color: Colors.transparent,
-            child: ImageViewer(
-              file: file,
-              attachment: attachment,
-              isFromMe: message.isFromMe!,
-              isInReply: isInReply,
-              controller: cvController,
-            ),
+            child: imageViewer,
           ),
         ),
       );
@@ -169,6 +181,74 @@ class ResolvedFileContent extends StatelessWidget {
     return Padding(
       padding: showTail ? tailPadding : EdgeInsets.zero,
       child: OtherFile(attachment: attachment, file: file),
+    );
+  }
+}
+
+class _HeroImageBubble extends StatefulWidget {
+  const _HeroImageBubble({
+    required this.attachment,
+    required this.currentChat,
+    required this.cvController,
+    required this.galleryAttachments,
+    required this.child,
+  });
+
+  final Attachment attachment;
+  final Chat? currentChat;
+  final ConversationViewController? cvController;
+  final List<Attachment>? galleryAttachments;
+  final Widget child;
+
+  @override
+  State<_HeroImageBubble> createState() => _HeroImageBubbleState();
+}
+
+class _HeroImageBubbleState extends State<_HeroImageBubble> {
+  // The Hero is only live while this bubble's viewer is open, so duplicate tags never coexist in the chat route.
+  bool _opened = false;
+
+  void _open() {
+    final ctrl = widget.cvController ?? cvc(widget.currentChat!);
+    ctrl.focusNode.unfocus();
+    ctrl.subjectFocusNode.unfocus();
+    final route = ThemeSwitcher.buildTransparentPageRoute<void>(
+      builder: (_) => ConversationFullscreenHolder(
+        currentChat: widget.currentChat,
+        attachment: widget.attachment,
+        showInteractions: true,
+        galleryAttachments: widget.galleryAttachments,
+      ),
+    );
+    setState(() => _opened = true);
+    Navigator.of(context).push(route);
+    route.completed.whenComplete(() {
+      if (mounted) setState(() => _opened = false);
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    // Both flights carry the viewer's decoded image; the bubble image stays mounted outside the Hero, so no spinner.
+    return GestureDetector(
+      onTap: _open,
+      child: Stack(
+        children: [
+          widget.child,
+          Positioned.fill(
+            child: HeroMode(
+              enabled: _opened,
+              child: Hero(
+                tag: ConversationFullscreenHolder.heroTagFor(widget.attachment),
+                createRectTween: viewerHeroRectTween,
+                flightShuttleBuilder: (_, _, direction, fromContext, toContext) =>
+                    ((direction == HeroFlightDirection.push ? toContext : fromContext).widget as Hero).child,
+                child: const SizedBox.expand(),
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

@@ -30,6 +30,7 @@ Both dispatch on the attachment's mime type and render `FullscreenImage` or `Ful
 - `showInteractions` gates which action buttons are relevant (download/reply/share/etc.), not whether the overlay can be shown/hidden
 - `FullscreenVideo` disposes only a player it created; a player borrowed from the inline chat video (`videoController`) is handed back with speed and loop reset
 - `FullscreenVideo` puts its actions (close, info, re-download, save, share, PiP, speed, loop, mute) inside media_kit's control overlay; `FullscreenImage` keeps its own action bar for shares/saves
+- Material skin only: `ConversationFullscreenHolder` draws one shared `ViewerChrome` (`viewer_chrome.dart`) over every page and owns its visibility and the system-UI mode; pages are built with `onTap`/`sharedChrome` and draw no bars of their own. `FullscreenImage` zooms with `ZoomableMedia` (swipe-down dismiss, `Hero` from the chat bubble through `ThemeSwitcher.buildTransparentPageRoute`) and leaves `PageView` paging unlocked. iOS/Samsung keep PhotoView, per-page bars, and the paging lock. `SingleAttachmentFullscreenViewer` passes neither flag, so its pages keep their own close bar.
 
 ## Related
 - Attachment models: `lib/database/io/attachment.dart`

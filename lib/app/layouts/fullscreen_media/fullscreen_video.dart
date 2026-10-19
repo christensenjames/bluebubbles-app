@@ -16,6 +16,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:get/get.dart';
 import 'package:media_kit_video/media_kit_video_controls/media_kit_video_controls.dart' as media_kit_video_controls;
+import 'package:bluebubbles/app/layouts/fullscreen_media/viewer_chrome.dart';
 import 'package:universal_html/html.dart' as html;
 
 class FullscreenVideo extends StatefulWidget {
@@ -29,6 +30,7 @@ class FullscreenVideo extends StatefulWidget {
     this.mute,
     this.onOverlayToggle,
     this.isCurrentPage = true,
+    this.sharedChrome = false,
   });
 
   final PlatformFile file;
@@ -41,11 +43,16 @@ class FullscreenVideo extends StatefulWidget {
   final Function(bool)? onOverlayToggle;
   final bool isCurrentPage;
 
+  /// True when the holder draws the shared chrome, so this page drops its own top bar.
+  final bool sharedChrome;
+
   @override
   State<StatefulWidget> createState() => _FullscreenVideoState();
 }
 
-class _FullscreenVideoState extends State<FullscreenVideo> with AutomaticKeepAliveClientMixin, ThemeHelpers {
+class _FullscreenVideoState extends State<FullscreenVideo>
+    with AutomaticKeepAliveClientMixin, ThemeHelpers
+    implements ViewerPageActions {
   static const _speeds = [1.0, 1.5, 2.0, 0.5];
   static bool? _sessionMuted;
 
@@ -83,7 +90,7 @@ class _FullscreenVideoState extends State<FullscreenVideo> with AutomaticKeepAli
   void initState() {
     super.initState();
 
-    _setFullscreen(true);
+    if (!widget.sharedChrome) _setFullscreen(true);
     initControllers();
     if (kIsDesktop && widget.isCurrentPage) _keyFocus.requestFocus();
   }
@@ -345,7 +352,14 @@ class _FullscreenVideoState extends State<FullscreenVideo> with AutomaticKeepAli
     await player.setVolume(mute ? 0 : _volumeBeforeMute ?? 100);
   }
 
-  Future<void> _shareFile() async {
+  @override
+  void download() => AttachmentsSvc.saveToDisk(widget.file);
+
+  @override
+  VoidCallback? get enterPip => _pipSupported ? () => PipSvc.enter(aspectRatio: videoController.aspectRatio) : null;
+
+  @override
+  Future<void> shareFile() async {
     if (widget.file.path == null) return;
     if (_pipSupported) await PipSvc.setAutoEnter(enabled: false);
     if (hasDisposed) return;
@@ -412,7 +426,7 @@ class _FullscreenVideoState extends State<FullscreenVideo> with AutomaticKeepAli
     _pipActiveWorker?.dispose();
     _keyFocus.dispose();
     if (_pipSupported && widget.isCurrentPage) PipSvc.setAutoEnter(enabled: false);
-    _setFullscreen(false);
+    if (!widget.sharedChrome) _setFullscreen(false);
 
     // Sync mute state back to parent — deferred to avoid mutating an Rx value
     // while the widget tree is locked (causes markNeedsBuild error in Obx).
@@ -434,6 +448,7 @@ class _FullscreenVideoState extends State<FullscreenVideo> with AutomaticKeepAli
     super.dispose();
   }
 
+  @override
   Future<void> refreshAttachment() async {
     // A pending autoplay would start the old media, which stays open in an owned player until the download finishes.
     _autoplayTimer?.cancel();
@@ -478,17 +493,18 @@ class _FullscreenVideoState extends State<FullscreenVideo> with AutomaticKeepAli
   Widget build(BuildContext context) {
     super.build(context);
     final topInset = MediaQuery.paddingOf(context).top;
+    final chromeInset = widget.sharedChrome && widget.showInteractions ? ViewerChrome.barHeight : 0.0;
     final primary = context.theme.colorScheme.primary;
     Widget button(Widget icon, VoidCallback onPressed) => kIsDesktop
         ? media_kit_video_controls.MaterialDesktopCustomButton(icon: icon, onPressed: onPressed)
         : media_kit_video_controls.MaterialCustomButton(icon: icon, onPressed: onPressed);
     final topButtonBar = <Widget>[
-      if (!iOS) ...[
+      if (!iOS && !widget.sharedChrome) ...[
         button(const Icon(Icons.close), () => Navigator.of(context).pop()),
         const Spacer(),
         if (widget.showInteractions) ...[
           button(const Icon(Icons.file_download_outlined), () => AttachmentsSvc.saveToDisk(widget.file)),
-          if (!kIsWeb && !kIsDesktop) button(const Icon(Icons.share_outlined), _shareFile),
+          if (!kIsWeb && !kIsDesktop) button(const Icon(Icons.share_outlined), shareFile),
           if (_pipSupported)
             button(
               const Icon(Icons.picture_in_picture_alt_outlined),
@@ -534,9 +550,12 @@ class _FullscreenVideoState extends State<FullscreenVideo> with AutomaticKeepAli
             ? media_kit_video_controls.NoVideoControls
             : (state) => Padding(
                 padding: kIsWeb || kIsDesktop
-                    ? const EdgeInsets.fromLTRB(20, 20, 20, 0)
+                    ? EdgeInsets.fromLTRB(20, 20, 20, chromeInset)
                     : EdgeInsets.only(
-                        bottom: iOS && widget.showInteractions ? 100 : MediaQuery.systemGestureInsetsOf(context).bottom),
+                        bottom: iOS && widget.showInteractions
+                            ? 100
+                            : MediaQuery.systemGestureInsetsOf(context).bottom + chromeInset,
+                      ),
                 child: kIsDesktop
                     ? media_kit_video_controls.MaterialDesktopVideoControls(state)
                     // media_kit's theme never notifies on change (inverted updateShouldNotify); remount when the
@@ -663,7 +682,7 @@ class _FullscreenVideoState extends State<FullscreenVideo> with AutomaticKeepAli
                                     CupertinoIcons.share,
                                     color: context.theme.colorScheme.primary,
                                   ),
-                                  onPressed: _shareFile,
+                                  onPressed: shareFile,
                                 ),
                               IconButton(
                                 icon: Icon(

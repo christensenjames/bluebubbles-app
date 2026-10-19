@@ -1,5 +1,73 @@
 # Changelog
 
+## 2026-10-19 — Google Photos-style full-screen photo viewer (Material skin)
+
+- The Material skin's photo viewer now uses a custom `ZoomableMedia` widget
+  (`fullscreen_media/zoomable_media.dart`) instead of `PhotoView`. Pinch works on the first touch,
+  without a double-tap first. Zoom and pan rubber-band past their limits and spring back, a
+  zoomed photo pans with momentum, and pinching past the zoom-out limit plays one haptic tick.
+  Swipe down to close: the photo follows the finger while the black background fades.
+- Photos grow out of their chat bubble when opened and shrink back into it when closed: a `Hero`
+  on a transparent route (`ThemeSwitcher.buildTransparentPageRoute`, `_HeroImageBubble` in
+  `resolved_file_content.dart`). Both flights carry the viewer's already-decoded image, so the
+  bubble's spinner never shows. Only the photo that was opened flies back; others fade out.
+- One shared chrome for all pages (`viewer_chrome.dart`): back button, sender and date, overflow
+  menu with info, re-download and picture-in-picture, and a share/download bottom bar. Hiding it
+  with a tap also hides the status bar, and it stays hidden while swiping between photos.
+- iOS and Samsung skins keep the old viewer (`PhotoView`, `OpenContainer`).
+- On desktop, a trackpad pinch zooms and a two-finger drag pans a zoomed photo (the gesture
+  recognizer accepts pan/zoom pointers; mouse-wheel zoom is not supported). Swiping down in the
+  composer's attachment preview, which has no close handler, now springs the photo back instead of
+  leaving it shrunk and offset. Neither was exercised on a device.
+- Verified on the Pixel: first-touch pinch, the haptic, swipe-down close, the open and close
+  flights, and chrome staying hidden across pages. The video page in the shared chrome and the
+  iOS/Samsung skins were not exercised on device.
+
+## 2026-10-19 — Pinch-zoom then double-tap in the photo viewer; HDR video thumbnails
+
+- Pinch-zooming a full-screen photo and then double-tapping could leave a spinner, or show the
+  photo half off-screen. Every zoom-state change rebuilds the viewer's page, and the holder builds a
+  new `PlatformFile` each time, so `FullscreenImage.didUpdateWidget` treated it as a new file: it
+  cleared the image (spinner) and remounted `PhotoView` (keyed on the file object) against the
+  controller's leftover scale and position. It now compares paths instead
+  (`FullscreenImage.didUpdateWidget`). Fixed from the code path; the pinch gesture itself was not
+  reproduced, because adb cannot inject multi-touch on the Pixel without root.
+- Video thumbnails of HLG / BT.2020 clips (iPhone HDR video) came out washed out: ffmpeg extracted
+  the frame with no colour conversion. HDR sources now go through
+  `colorspace=all=bt709:iall=bt2020:space=smpte170m` (`zscale` is not in the bundled ffmpeg-kit
+  build), found with an ffprobe of the stream's primaries and transfer; SDR clips are unchanged.
+  Thumbnails moved to `$path.v2.thumbnail`, so every video re-extracts once. PQ (HDR10) clips are
+  skipped and still come out wrong (`attachments_service.dart` `_needsHdrToSdr`,
+  `_thumbnailFilter`). On the Pixel, a family-thread video's thumbnail matched its playing frame
+  within ~8/255 per channel (yellow floor, sky, grass).
+
+## 2026-10-19 — Full-screen photos open without a spinner
+
+- The full-screen viewer decodes photos at screen size (`ResizeImage`, `ResizeImagePolicy.fit`)
+  instead of full camera resolution, and decodes the original only when the user zooms in. A 24 MP
+  original decodes to ~98 MB, nearly all of Flutter's default 100 MiB image cache, so each open
+  pushed out the chat thumbnails (spinners on every bubble after going back), and anything over
+  100 MiB was never cached, so it decoded from disk again on every open (`fullscreen_image.dart`).
+- The original is decoded off-screen with `precacheImage` and swapped in only once ready. Swapping
+  the provider directly blanked the screen for ~0.6 s, even with `gaplessPlayback`.
+- The viewer finds an already-usable file synchronously (`AttachmentsSvc.readyCompatiblePath`), so
+  it no longer shows a spinner for a frame while the async compatibility check runs. It still
+  waits when an HEIC or TIFF has not been converted yet.
+- Checked on the Pixel with the same scripted run before and after: opening a photo showed a
+  spinner for 0.8-0.9 s every time (re-opens included) and the chat bubbles reloaded for
+  0.2-0.5 s after going back; afterwards, no spinner frames in either. Double-tap zoom swaps
+  to the original with no blank frame.
+
+## 2026-10-19 — Notification reply marks the chat read
+
+- Replying from a notification's Reply action now marks the chat read on the server, as the Mark As
+  Read action does, when "mark chats as read" (`privateMarkChatAsRead`) is on. Before, only the local
+  unread badge cleared, so the Mac kept the chat unread and the sender saw the reply without a read
+  receipt (`method_channel_handlers.dart` `_handleReplyChat`). The receipt is sent only after the
+  whole reply succeeds, and is skipped when a newer incoming message arrived during the send, so
+  that message stays unread. If it fails, the reply still counts as sent and the failure is only logged.
+- Not yet checked on a device.
+
 ## 2026-10-18 — Low-quality image downloads on mobile data
 
 - On mobile data, image attachments (not GIFs) download as JPEGs of at most 1280 px, then upgrade to
