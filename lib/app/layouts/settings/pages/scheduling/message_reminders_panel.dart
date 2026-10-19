@@ -72,7 +72,8 @@ class _MessageRemindersPanelState extends State<MessageRemindersPanel> with Them
                     ),
                   ),
                 ),
-              SettingsSection(
+              if (scheduled.isNotEmpty)
+                SettingsSection(
                 backgroundColor: tileColor,
                 children: [
                   Material(
