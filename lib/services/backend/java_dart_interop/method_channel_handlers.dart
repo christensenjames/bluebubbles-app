@@ -315,7 +315,7 @@ class MethodChannelHandlers {
       final latest = Chat.getMessages(chat, limit: 1).firstOrNull;
       if (latest != null && latest.isFromMe != true) {
         Logger.info('Skipping mark-read for ${chat.guid}: a newer incoming message arrived during the send');
-        return _ok();
+        return await _ok();
       }
       await chat.toggleHasUnreadAsync(false, clearLocalNotifications: false, force: true, awaitReadReceipt: true);
     } catch (e, s) {
