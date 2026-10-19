@@ -28,6 +28,23 @@ class ActionHandler extends GetxService {
     return chat;
   }
 
+  // Not routed through IncomingMsgHandler: its replace keeps the stored row, dropping the error, when the payload
+  // isn't newer by date (a late failure carries the same GUID and dates).
+  Future<void> handleMessageSendError(Map<String, dynamic> data) async {
+    if (isNullOrEmpty(data)) return;
+    final payload = ServerPayload.fromJson(data);
+    final failed = Message.fromMap(payload.data);
+    final tempGuid = payload.data['tempGuid'] as String?;
+    final existing = (tempGuid != null ? Message.findOne(guid: tempGuid) : null) ?? Message.findOne(guid: failed.guid);
+    if (existing == null) return;
+    if (failed.error > 0) failed.errorMessage = serverErrorMessage(failed.error);
+    await Message.replaceMessage(existing.guid, failed);
+    final chatGuid = existing.chat.target?.guid;
+    if (chatGuid != null && Get.isRegistered<MessagesService>(tag: chatGuid)) {
+      MessagesSvc(chatGuid).updateMessage(failed, oldGuid: existing.guid != failed.guid ? existing.guid : null);
+    }
+  }
+
   Future<void> handleFaceTimeStatusChange(Map<String, dynamic> data) async {
     if (data["status_id"] == null) return;
     final int statusId = data["status_id"] as int;
@@ -136,6 +153,9 @@ class ActionHandler extends GetxService {
               ),
               front: !useQueue);
         }
+        return;
+      case "message-send-error":
+        await handleMessageSendError(data);
         return;
       case "group-name-change":
       case "participant-removed":

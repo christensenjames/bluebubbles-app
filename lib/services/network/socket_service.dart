@@ -364,6 +364,7 @@ class SocketService {
           (data) => MessageHandlerSvc.handleEvent("ft-call-status-changed", data, 'DartSocket')),
       s.on("new-message", (data) => MessageHandlerSvc.handleEvent("new-message", data, 'DartSocket')),
       s.on("updated-message", (data) => MessageHandlerSvc.handleEvent("updated-message", data, 'DartSocket')),
+      s.on("message-send-error", (data) => MessageHandlerSvc.handleEvent("message-send-error", data, 'DartSocket')),
       s.on("typing-indicator", (data) => MessageHandlerSvc.handleEvent("typing-indicator", data, 'DartSocket')),
       s.on("chat-read-status-changed",
           (data) => MessageHandlerSvc.handleEvent("chat-read-status-changed", data, 'DartSocket')),

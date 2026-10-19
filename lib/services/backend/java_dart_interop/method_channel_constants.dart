@@ -2,6 +2,7 @@ abstract class MethodChannelInboundMethods {
   static const String newServerUrl = 'NewServerUrl';
   static const String newMessage = 'new-message';
   static const String updatedMessage = 'updated-message';
+  static const String messageSendError = 'message-send-error';
   static const String groupNameChange = 'group-name-change';
   static const String participantRemoved = 'participant-removed';
   static const String participantAdded = 'participant-added';

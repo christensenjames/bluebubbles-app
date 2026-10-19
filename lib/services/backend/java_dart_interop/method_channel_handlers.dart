@@ -27,6 +27,7 @@ class MethodChannelHandlers {
       MethodChannelInboundMethods.newServerUrl: _handleNewServerUrl,
       MethodChannelInboundMethods.newMessage: _handleNewMessage,
       MethodChannelInboundMethods.updatedMessage: _handleUpdatedMessage,
+      MethodChannelInboundMethods.messageSendError: _handleMessageSendError,
       MethodChannelInboundMethods.groupNameChange: _handleGroupUpdate,
       MethodChannelInboundMethods.participantRemoved: _handleGroupUpdate,
       MethodChannelInboundMethods.participantAdded: _handleGroupUpdate,
@@ -62,7 +63,8 @@ class MethodChannelHandlers {
   static Future<bool> _failNoRetry(String reason) =>
       Future.error(PlatformException(code: MethodChannelErrorCodes.noRetry, message: reason));
 
-  // The socket also subscribes the read-status and FaceTime-status events; SocketService registers late in startup.
+  // The socket also subscribes the read-status, FaceTime-status and send-error events; SocketService registers late in
+  // startup.
   bool get _socketWillDeliver =>
       !service.headless && GetIt.I.isRegistered<SocketService>() && (SocketSvc.socket?.connected ?? false);
 
@@ -170,6 +172,22 @@ class MethodChannelHandlers {
               .toList(),
           tempGuid: payload.data['tempGuid'],
         ));
+      }
+    } catch (e, s) {
+      return Future.error(e, s);
+    }
+
+    return _ok();
+  }
+
+  Future<bool> _handleMessageSendError(MethodCall _, Map<String, dynamic>? arguments) async {
+    if (_socketWillDeliver) return _ok();
+    await Database.waitForInit();
+    Logger.info('Received message send error from FCM');
+
+    try {
+      if (!isNullOrEmpty(arguments)) {
+        await MessageHandlerSvc.handleMessageSendError(arguments!);
       }
     } catch (e, s) {
       return Future.error(e, s);
