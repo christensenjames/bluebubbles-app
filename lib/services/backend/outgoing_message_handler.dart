@@ -210,6 +210,11 @@ class OutgoingMessageHandler {
     // centralized rather than left to convention).
     _ensureTempGuid(item);
 
+    // Replying or reacting means the user has read the chat, even with automatic receipts off.
+    unawaited(item.chat.markReadOnInteraction().catchError((Object e, StackTrace s) {
+      Logger.warn('Read receipt on send failed for ${item.chat.guid}', error: e, trace: s, tag: _tag);
+    }));
+
     // Prep the item (writes temp messages / copies attachment files to disk),
     // retrying a transient failure and surfacing a terminal one as a failed
     // message so it is never silently dropped. See [_prepItemWithRetry].

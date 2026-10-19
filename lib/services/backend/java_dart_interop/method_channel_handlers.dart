@@ -270,6 +270,13 @@ class MethodChannelHandlers {
     final Chat? chat = Chat.findOne(guid: data['chatGuid']);
     if (chat == null) return _retry();
 
+    // Awaited here rather than left to queue() so the worker engine outlives the receipt request.
+    try {
+      await chat.markReadOnInteraction();
+    } catch (e, s) {
+      Logger.warn('Marking chat ${chat.guid} read before the reply failed', error: e, trace: s);
+    }
+
     final Completer<void> completer = Completer();
     OutgoingMsgHandler.queue(
       OutgoingMessage(
@@ -308,19 +315,10 @@ class MethodChannelHandlers {
     );
     Logger.info('Updated recent reply cache to ${PrefsSvc.messaging.getRecentReplyRaw()}');
 
-    // Awaited so the worker engine outlives the request; failure is logged only, since a retry
-    // would hit the duplicate-reply guard above and never resend the receipt.
-    try {
-      // The send takes seconds; a message that arrived meanwhile must stay unread.
-      final latest = Chat.getMessages(chat, limit: 1).firstOrNull;
-      if (latest != null && latest.isFromMe != true) {
-        Logger.info('Skipping mark-read for ${chat.guid}: a newer incoming message arrived during the send');
-        return await _ok();
-      }
-      await chat.toggleHasUnreadAsync(false, clearLocalNotifications: false, force: true, awaitReadReceipt: true);
-    } catch (e, s) {
-      Logger.warn('Reply sent but marking chat ${chat.guid} read failed', error: e, trace: s);
-    }
+    // The send takes seconds; a message that arrived meanwhile must stay unread.
+    final latest = Chat.getMessages(chat, limit: 1).firstOrNull;
+    if (latest != null && latest.isFromMe != true) return _ok();
+    await chat.toggleHasUnreadAsync(false, clearLocalNotifications: false, force: true, privateMark: false);
     if (GetIt.I.isRegistered<ChatsService>()) ChatsSvc.getChatState(chat.guid)?.updateHasUnreadInternal(false);
 
     return _ok();

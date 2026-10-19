@@ -382,6 +382,8 @@ class Chat {
     return [];
   }
 
+  Future<void> markReadOnInteraction() async {}
+
   static List<Message> getMessages(Chat chat,
       {int offset = 0, int limit = 25, bool includeDeleted = false, bool getDetails = false}) {
     return [];

@@ -376,6 +376,27 @@ class Chat {
     return this;
   }
 
+  /// Sends a read receipt for the newest unread incoming message when the user sends into this chat,
+  /// even with automatic receipts off. A chat whose receipts were explicitly disabled is left alone.
+  Future<void> markReadOnInteraction() async {
+    if (id == null || autoSendReadReceipts == false || !SettingsSvc.settings.enablePrivateAPI.value) return;
+    final query = (Database.messages.query(Message_.dateDeleted
+            .isNull()
+            .and(Message_.dateCreated.notNull())
+            .and(Message_.isFromMe.equals(false))
+            .and(Message_.associatedMessageGuid.isNull()))
+          ..link(Message_.chat, Chat_.id.equals(id!))
+          ..order(Message_.dateCreated, flags: Order.descending))
+        .build();
+    final latest = query.findFirst();
+    query.close();
+    if (latest == null || latest.dateRead != null) return;
+    await ChatInterface.markChatReadUnread(chatGuid: guid, markAsRead: true, shouldMarkOnServer: true);
+    latest
+      ..dateRead = DateTime.now()
+      ..save();
+  }
+
   /// Add message to chat - pure DB operation
   /// Note: For full message add with service updates, use ChatsSvc.addMessageToChat
   Future<MessageSaveResult> addMessage(Message message,

@@ -1,5 +1,17 @@
 # Changelog
 
+## 2026-10-19 — Sending into a chat sends a read receipt
+
+- Sending a message, attachment or tapback into a chat now marks its newest unread incoming
+  message read on the server, even with automatic receipts (`privateMarkChatAsRead`) off and manual
+  mark-read on. Before, replying left the other person's message unread on the Mac and without a
+  "Read" receipt, and the header kept offering "Mark Read". `Chat.markReadOnInteraction` runs from
+  `OutgoingMessageHandler.queue`; it needs the private API and skips a chat whose read receipts
+  were explicitly turned off.
+- The notification Reply action now sends that receipt before queueing the reply instead of after,
+  so a message that arrives during the send stays unread without a separate check, and the receipt
+  no longer depends on `privateMarkChatAsRead`.
+
 ## 2026-10-19 — Google Photos-style full-screen photo viewer (Material skin)
 
 - The Material skin's photo viewer now uses a custom `ZoomableMedia` widget
@@ -16,9 +28,13 @@
   with a tap also hides the status bar, and it stays hidden while swiping between photos.
 - iOS and Samsung skins keep the old viewer (`PhotoView`, `OpenContainer`).
 - On desktop, a trackpad pinch zooms and a two-finger drag pans a zoomed photo (the gesture
-  recognizer accepts pan/zoom pointers; mouse-wheel zoom is not supported). Swiping down in the
-  composer's attachment preview, which has no close handler, now springs the photo back instead of
-  leaving it shrunk and offset. Neither was exercised on a device.
+  recognizer accepts pan/zoom pointers; mouse-wheel zoom is not supported). Flutter's Linux
+  embedder reports the previous gesture's pan at the start of the next one, so the pan is measured
+  from each gesture's first update; without that, a pinch zoomed around a point ~750 px off the
+  cursor and slid the photo sideways. While the photo still fits the window on an axis it stays
+  centred on that axis during a pinch. Swiping down in the composer's attachment preview, which has
+  no close handler, now springs the photo back instead of leaving it shrunk and offset. Trackpad
+  pinch verified on matebook (Linux, Hyprland).
 - Verified on the Pixel: first-touch pinch, the haptic, swipe-down close, the open and close
   flights, and chrome staying hidden across pages. The video page in the shared chrome and the
   iOS/Samsung skins were not exercised on device.
@@ -61,7 +77,8 @@
 ## 2026-10-19 — Notification reply marks the chat read
 
 - Replying from a notification's Reply action now marks the chat read on the server, as the Mark As
-  Read action does, when "mark chats as read" (`privateMarkChatAsRead`) is on. Before, only the local
+  Read action does, when "mark chats as read" (`privateMarkChatAsRead`) is on (superseded the same
+  day: see "Sending into a chat sends a read receipt"). Before, only the local
   unread badge cleared, so the Mac kept the chat unread and the sender saw the reply without a read
   receipt (`method_channel_handlers.dart` `_handleReplyChat`). The receipt is sent only after the
   whole reply succeeds, and is skipped when a newer incoming message arrived during the send, so
