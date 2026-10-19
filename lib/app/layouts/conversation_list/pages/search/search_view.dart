@@ -24,7 +24,10 @@ import 'conversation_search_field.dart';
 class SearchView extends StatefulWidget {
   const SearchView({
     super.key,
+    this.initialChat,
   });
+
+  final Chat? initialChat;
 
   @override
   SearchViewState createState() => SearchViewState();
@@ -55,6 +58,12 @@ class SearchViewState extends State<SearchView> with ThemeHelpers {
   @override
   void initState() {
     super.initState();
+    selectedChat.value = widget.initialChat;
+    if (widget.initialChat != null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) focusNode.requestFocus();
+      });
+    }
 
     // When the user types again after no results, reset no results
     textEditingController.addListener(() {

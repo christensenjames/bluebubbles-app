@@ -232,7 +232,7 @@ class ExpressiveChatHeader extends StatelessWidget {
         M3EButtonGroupItem(
           icon: Icons.search,
           label: "Search",
-          onPressed: () => NavigationSvc.push(context, const SearchView()),
+          onPressed: () => NavigationSvc.push(context, SearchView(initialChat: chat)),
         ),
       ];
     }

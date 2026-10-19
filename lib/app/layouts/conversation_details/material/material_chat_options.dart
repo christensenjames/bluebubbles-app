@@ -3,6 +3,7 @@ import 'package:bluebubbles/app/layouts/conversation_details/dialogs/chat_sync_d
 import 'package:bluebubbles/app/layouts/conversation_details/pages/chat_stats/chat_stats_page.dart';
 import 'package:bluebubbles/app/layouts/conversation_details/dialogs/sync_time_range_dialog.dart';
 import 'package:bluebubbles/app/layouts/conversation_details/dialogs/timeframe_picker.dart';
+import 'package:bluebubbles/app/layouts/conversation_list/pages/search/search_view.dart';
 import 'package:bluebubbles/app/layouts/conversation_view/widgets/message/reply/reply_thread_popup.dart';
 import 'package:bluebubbles/app/layouts/settings/pages/storage/storage_analyzer_panel.dart';
 import 'package:bluebubbles/app/layouts/settings/pages/theming/theme_studio/theme_studio_panel.dart';
@@ -377,6 +378,15 @@ class ExpressiveChatOptions extends StatelessWidget {
 
   Widget _buildContentGroup(BuildContext context) {
     final rows = <_OptionRow>[
+      _OptionRow(
+        enabled: true,
+        build: (context) => M3EListTile(
+          icon: Icons.search,
+          title: "Search in conversation",
+          supportingText: "Find messages in this chat",
+          onTap: () => NavigationSvc.push(context, SearchView(initialChat: chat)),
+        ),
+      ),
       _OptionRow(
         enabled: !kIsWeb,
         build: (context) => M3EListTile(
