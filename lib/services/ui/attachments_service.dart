@@ -9,6 +9,7 @@ import 'package:bluebubbles/helpers/helpers.dart';
 import 'package:bluebubbles/utils/logger/logger.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:ffmpeg_kit_flutter_new_min/ffmpeg_kit.dart';
+import 'package:ffmpeg_kit_flutter_new_min/ffprobe_kit.dart';
 import 'package:ffmpeg_kit_flutter_new_min/return_code.dart';
 import 'package:file_picker/file_picker.dart' hide PlatformFile;
 import 'package:flutter/foundation.dart';
@@ -443,8 +444,8 @@ class AttachmentsService extends GetxService {
     if (!kIsWeb) {
       final convertedPaths = {attachment.convertedPath, attachment.legacyConvertedPath};
       final pathsToDelete = {
-        "${attachment.path}.thumbnail",
-        for (final path in convertedPaths) "$path.thumbnail",
+        _videoThumbnailPath(attachment.path),
+        for (final path in convertedPaths) _videoThumbnailPath(path),
         if (deleteOriginal) attachment.path,
         if (deleteOriginal) "${attachment.path}.part",
         for (final path in convertedPaths)
@@ -535,9 +536,15 @@ class AttachmentsService extends GetxService {
   /// A plain existence check -- disk is the only source of truth, so there's no cache to
   /// invalidate when a video gets redownloaded/replaced.
   String? getCachedVideoThumbnailSync(String filePath) {
-    final cachedPath = "$filePath.thumbnail";
+    final cachedPath = _videoThumbnailPath(filePath);
     return File(cachedPath).existsSync() ? cachedPath : null;
   }
+
+  // .v2: v1 HDR thumbnails were extracted unconverted.
+  static String _videoThumbnailPath(String filePath) => "$filePath.v2.thumbnail";
+
+  // ffmpeg-kit min has no zscale; iall=bt2020 overrides the arib-std-b67 tags that colorspace rejects.
+  static const _hdrToSdrFilter = 'colorspace=all=bt709:iall=bt2020:space=smpte170m';
 
   /// The filter chain behind every video thumbnail. Shared by the ffmpeg-kit path and the arm64
   /// Linux shell-out below so the two can't drift apart.
@@ -550,8 +557,47 @@ class AttachmentsService extends GetxService {
   /// box-fit -- some .mov clips have non-1:1 SAR, and a plain `scale=W:H` ignores it, unlike real
   /// playback (mpv/media_kit), producing a wrongly-proportioned thumbnail.
   /// `scale=512:512:force_original_aspect_ratio=decrease`: the actual box-fit.
-  static const _thumbnailFilter =
-      'thumbnail,scale=iw*sar:ih,setsar=1,scale=512:512:force_original_aspect_ratio=decrease';
+  static String _thumbnailFilter({required bool hdr}) =>
+      'thumbnail,${hdr ? '$_hdrToSdrFilter,' : ''}'
+      'scale=iw*sar:ih,setsar=1,scale=512:512:force_original_aspect_ratio=decrease';
+
+  // PQ excluded: colorspace has no PQ curve.
+  Future<bool> _needsHdrToSdr(String filePath) async {
+    try {
+      final args = [
+        '-v',
+        'error',
+        '-select_streams',
+        'v:0',
+        '-show_entries',
+        'stream=color_primaries,color_transfer',
+        '-of',
+        'default=nw=1',
+        filePath,
+      ];
+      final String output;
+      if (_useSystemFfmpeg) {
+        final result = await Process.run('ffprobe', args);
+        if (result.exitCode != 0) {
+          Logger.warn('ffprobe failed for $filePath (rc=${result.exitCode}) stderr=${result.stderr}',
+              tag: 'VideoThumbnail');
+        }
+        output = result.stdout as String;
+      } else {
+        final session = await FFprobeKit.executeWithArguments(args);
+        final returnCode = await session.getReturnCode();
+        if (!ReturnCode.isSuccess(returnCode)) {
+          final logs = await session.getAllLogsAsString();
+          Logger.warn('ffprobe failed for $filePath (rc=$returnCode) logs=$logs', tag: 'VideoThumbnail');
+        }
+        output = await session.getOutput() ?? '';
+      }
+      return output.contains('color_primaries=bt2020') && !output.contains('color_transfer=smpte2084');
+    } catch (e, s) {
+      Logger.warn('HDR probe failed for $filePath', error: e, trace: s, tag: 'VideoThumbnail');
+      return false;
+    }
+  }
 
   static final _useSystemFfmpeg = Platform.isLinux && Platform.version.contains('linux_arm64');
 
@@ -559,12 +605,12 @@ class AttachmentsService extends GetxService {
   /// the decoded thumbnail into memory as bytes, so callers must render it via [Image.file].
   ///
   /// When [useCachedFile] is true (the common case), the thumbnail is written next to the source
-  /// video at `$filePath.thumbnail` and reused across calls. When false (e.g. a picker preview for
+  /// video at `$filePath.v2.thumbnail` and reused across calls. When false (e.g. a picker preview for
   /// a not-yet-sent attachment), a one-off thumbnail is written to the system temp directory
   /// instead, since the source file may live in a location that isn't safe/writable to cache
   /// alongside (e.g. the photo library).
   Future<String?> getVideoThumbnail(String filePath, {bool useCachedFile = true}) async {
-    final cachedPath = "$filePath.thumbnail";
+    final cachedPath = _videoThumbnailPath(filePath);
     if (useCachedFile) {
       final cachedExists = await File(cachedPath).exists();
       final cachedLowRes = cachedExists && await _isLowResThumbnailFile(cachedPath);
@@ -578,6 +624,8 @@ class AttachmentsService extends GetxService {
         : join(FilesystemSvc.sysTempPath,
             "${basenameWithoutExtension(filePath)}_${DateTime.now().microsecondsSinceEpoch}.thumbnail.jpg");
 
+    final filter = _thumbnailFilter(hdr: await _needsHdrToSdr(filePath));
+
     bool success;
 
     try {
@@ -587,7 +635,7 @@ class AttachmentsService extends GetxService {
         final result = await Process.run('ffmpeg', [
           '-y',
           '-i', filePath,
-          '-vf', _thumbnailFilter,
+          '-vf', filter,
           '-frames:v', '1',
           '-q:v', '2',
           // Forces the output muxer -- the cached dest path has no image extension for ffmpeg to
@@ -603,7 +651,7 @@ class AttachmentsService extends GetxService {
       } else {
         final command = '-y '
             '-i "${_ffmpegEscapePath(filePath)}" '
-            '-vf "$_thumbnailFilter" '
+            '-vf "$filter" '
             '-frames:v 1 -q:v 2 -f mjpeg '
             '"${_ffmpegEscapePath(destPath)}"';
         final session = await FFmpegKit.execute(command);
@@ -643,6 +691,21 @@ class AttachmentsService extends GetxService {
       Logger.debug('_isLowResThumbnailFile: could not read header for $path ($ex)', tag: 'VideoThumbnail');
       return false;
     }
+  }
+
+  /// Synchronous [ensureImageCompatibility]: the path if no conversion is pending, else null.
+  String? readyCompatiblePath(Attachment attachment, {String? actualPath}) {
+    final filePath = actualPath ?? attachment.path;
+    final mime = attachment.mimeType;
+    if (kIsWeb || mime == null || attachment.mimeStart != "image") return filePath;
+    if (mime.contains('image/tif')) {
+      final convertedPath = "$filePath.png";
+      return File(convertedPath).existsSync() ? convertedPath : null;
+    }
+    if (mime.contains('image/hei') && !Platform.isIOS && !Platform.isMacOS) {
+      return _existingConvertedPath(attachment, filePath);
+    }
+    return filePath;
   }
 
   /// Converts HEIC/TIFF images to PNG if needed (only on platforms that don't support them natively).
