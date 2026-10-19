@@ -111,6 +111,8 @@ class ConversationViewController extends StatefulController with GetTickerProvid
   double _keyboardOffset = 0;
   StreamSubscription<bool>? _keyboardSub;
   Timer? _scrollDownDebounce;
+  Timer? _typingTimer;
+  StreamSubscription? _newMessageSub;
   Future<void> Function(SendData)? sendFunc;
 
   /// When set, [_SendAnimationState] will auto-fire this send as soon as it
@@ -152,6 +154,13 @@ class ConversationViewController extends StatefulController with GetTickerProvid
   /// The send itself is never gated — see [MessageListGate].
   final MessageListGate messageListGate = MessageListGate();
 
+  /// A lost stop event would leave the indicator on, so every show re-arms a timeout that hides it.
+  void setTypingIndicator(bool display) {
+    _typingTimer?.cancel();
+    _typingTimer = display ? Timer(const Duration(seconds: 60), () => setTypingIndicator(false)) : null;
+    messageListGate.run(() => showTypingIndicator.value = display);
+  }
+
   @override
   void onInit() {
     super.onInit();
@@ -162,6 +171,11 @@ class ConversationViewController extends StatefulController with GetTickerProvid
       if (scrollController.hasClients && scrollController.positions.length == 1) {
         _keyboardOffset = scrollController.offset;
       }
+    });
+
+    _newMessageSub = EventDispatcherSvc.stream.listen((event) {
+      if (event.type != 'new-message' || event.data['chatGuid'] != chat.guid) return;
+      if ((event.data['message'] as Message).isFromMe != true) setTypingIndicator(false);
     });
 
     scrollController.addListener(() {
@@ -203,6 +217,8 @@ class ConversationViewController extends StatefulController with GetTickerProvid
   @override
   void onClose() {
     _keyboardSub?.cancel();
+    _typingTimer?.cancel();
+    _newMessageSub?.cancel();
     _scrollDownDebounce?.cancel();
     messageListGate.dispose();
     updateSmartReplyLayout(visible: false, height: 0);

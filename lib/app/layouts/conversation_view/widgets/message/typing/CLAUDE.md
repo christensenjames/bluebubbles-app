@@ -7,8 +7,8 @@
 | `typing_clipper.dart` | `CustomClipper` that shapes the typing bubble's rounded tail |
 
 ## Lifecycle
-`TypingIndicator` appears at the bottom of the message list when `ChatState.showTypingIndicator` is true.
-The `ChatsService` toggles this flag when the server sends a `typing` socket event.
+`TypingIndicator` appears at the bottom of the message list when `ConversationViewController.showTypingIndicator` is true.
+`ActionHandler` sets it through `ConversationViewController.setTypingIndicator` on each `typing-indicator` socket event. A show auto-hides after 60 s (a lost stop event), and a new incoming message in the chat hides it.
 
 ## Animation
 Uses a staggered `AnimationController` to bounce each of the three dots at offset intervals. Auto-disposes when hidden.
