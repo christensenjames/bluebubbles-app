@@ -263,7 +263,18 @@ class _ZoomableMediaState extends State<ZoomableMedia> with SingleTickerProvider
       _inZone = false;
     }
     final double scale = _rubberScale(rawScale);
-    _setView((scale: scale, offset: _rubberOffset(focal - _center - _anchor * scale, scale)));
+    final Offset b = _bounds(scale);
+    Offset raw = focal - _center - _anchor * scale;
+    // An axis that fits the viewport stays centred, as in Google Photos; re-anchoring keeps the hand-off continuous.
+    if (b.dx == 0) {
+      _anchor = Offset((focal.dx - _center.dx) / scale, _anchor.dy);
+      raw = Offset(0, raw.dy);
+    }
+    if (b.dy == 0) {
+      _anchor = Offset(_anchor.dx, (focal.dy - _center.dy) / scale);
+      raw = Offset(raw.dx, 0);
+    }
+    _setView((scale: scale, offset: _rubberOffset(raw, scale)));
   }
 
   void _onEnd(Velocity velocity) {
@@ -384,6 +395,7 @@ class _ZoomGestureRecognizer extends OneSequenceGestureRecognizer {
   double _baseSpan = 0;
   int? _panZoomPointer;
   double _panZoomScale = 1;
+  Offset? _panZoomPan0;
   double _panZoomBase = 1;
   bool _pinching = false;
   VelocityTracker? _tracker;
@@ -428,6 +440,7 @@ class _ZoomGestureRecognizer extends OneSequenceGestureRecognizer {
     _kind = event.kind;
     _panZoomPointer = event.pointer;
     _panZoomScale = 1;
+    _panZoomPan0 = null;
     _positions[event.pointer] = event.localPosition;
     onDown();
   }
@@ -452,9 +465,11 @@ class _ZoomGestureRecognizer extends OneSequenceGestureRecognizer {
       final Offset delta;
       var pinched = false;
       if (event is PointerPanZoomUpdateEvent) {
-        _positions[event.pointer] = event.localPosition + event.localPan;
+        // Flutter's Linux embedder carries the previous gesture's pan into the next one, so measure from the first.
+        final Offset pan = event.localPan - (_panZoomPan0 ??= event.localPan);
+        _positions[event.pointer] = event.localPosition + pan;
         _panZoomScale = event.scale;
-        delta = event.localPan;
+        delta = pan;
         pinched = (event.scale - 1).abs() >= _panZoomScaleSlop;
       } else {
         _positions[event.pointer] = event.localPosition;
