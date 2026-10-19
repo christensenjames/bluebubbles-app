@@ -1,5 +1,37 @@
 # Changelog
 
+## 2026-10-19 — Search in a chat, copy-code notifications, and small fixes
+
+- Search within one conversation: a Search item in the Material chat header's menu and a "Search
+  in Conversation" row on the details page (both skins) open the search page with that chat already
+  selected and the field focused (`SearchView.initialChat`). Verified on the Pixel.
+- Notifications whose text contains a verification code get a "Copy 123456" button beside Mark As
+  Read and Reply; tapping it copies the code with spaces and dashes removed. A code needs a
+  keyword such as "code", "verification" or "login" in the same message
+  (`CreateIncomingMessageNotification.kt`, `InternalIntentReceiver`). Verified on the Pixel: the
+  clipboard holds the code.
+- A typing indicator now hides itself 60 seconds after the last "typing" event, and as soon as an
+  incoming message arrives in that chat (`ConversationViewController.setTypingIndicator`). Before,
+  a lost stop event left it on indefinitely. Not reproduced on device.
+- A send that the server reports failed only after the fact (`message-send-error`, sent when the
+  failure can't be matched to a pending send) now marks the message failed, from both the socket
+  and the FCM handler (`ActionHandler.handleMessageSendError`). Before, the app ignored the event and the
+  message looked sent. Not reproduced on device.
+- The scheduled messages list updates live when a schedule is created, changed, sent, fails or is
+  deleted from another client (`scheduled-message-*` socket events). Verified on the Pixel with a
+  create and a delete made through the Mac's API.
+- Animation speed setting (Theming & Styles, 0.25x–2x), applied through Flutter's `timeDilation`.
+  On the Pixel, opening Theming & Styles took 0.29 s at 1x and 3.0 s at 0.25x (screen recording).
+- "Show Tray Icon" setting on desktop. Turning it off removes the tray icon at once, hides Minimize
+  to Tray and Close to Tray (and ignores them while off), and makes a "start minimized" launch show
+  the window, since there would be nothing to restore it from. Verified on fedora (KDE): the
+  icon's StatusNotifierItem goes Passive and back to Active, and the two rows disappear.
+- Dates and times follow the system locale (`Intl.defaultLocale` from `Platform.localeName`, set
+  after `initializeDateFormatting`), for example `3 Oct, 3:45 pm` under `en_GB`. The 24-hour
+  setting now wins in every place that formats a time, including the photo viewer and the chat
+  stats activity chart, instead of some places following the locale's default. Verified on fedora
+  with `LANG=en_GB.UTF-8`.
+
 ## 2026-10-19 — Sending into a chat sends a read receipt
 
 - Sending a message, attachment or tapback into a chat now marks its newest unread incoming
