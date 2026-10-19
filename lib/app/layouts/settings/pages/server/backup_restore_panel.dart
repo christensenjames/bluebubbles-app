@@ -71,7 +71,6 @@ class _BackupRestorePanelState extends State<BackupRestorePanel> with ThemeHelpe
         materialSubtitle: materialSubtitle,
         tileColor: tileColor,
         headerColor: headerColor,
-        minimalAppBar: true,
         actions: [
           IconButton(
             icon: Icon(iOS ? CupertinoIcons.arrow_counterclockwise : Icons.refresh,
