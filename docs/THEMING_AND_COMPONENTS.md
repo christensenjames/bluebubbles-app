@@ -237,6 +237,7 @@ Other reusable widgets that override or extend stock Flutter behavior — see
 |---|---|
 | `CustomCupertinoAlertDialog` / `CupertinoDialogAction` | `custom_cupertino_alert_dialog.dart` — used internally by `dialog_helpers.dart` to fix text-scaling and add dark/light theming |
 | Custom page transition | `custom_cupertino_page_transition.dart` |
+| `SystemBackPageTransitionsBuilder` | `system_back_page_transitions_builder.dart` — Android page transition whose back motion copies the system's activity back animation (Settings): predictive-back card over the dimmed, shrunken previous page during a swipe; a non-gesture pop moves the page 96dp right as it fades. Pushes keep fade-forwards. Set as the Android entry of `pageTransitionsTheme` in `main.dart` |
 | `CustomErrorBox` | `custom_error_box.dart` |
 | Custom bouncing scroll physics | `custom_bouncing_scroll_physics.dart` |
 
@@ -275,8 +276,16 @@ uses `context.iOS` for `centerTitle` but `context.theme.colorScheme` for colorin
   `iOSSkin`/`materialSkin`/`samsungSkin` (Samsung falls back to `materialSkin` if omitted) and
   switches on `SettingsSvc.settings.skin.value` inside an `Obx`. Also exposes static helpers
   that branch the same way outside of a widget tree:
-  - `ThemeSwitcher.buildPageRoute<T>()` — iOS gets `CustomCupertinoPageTransition` in a
-    `PageRouteBuilder`; Material/Samsung get plain `MaterialPageRoute`.
+  - `ThemeSwitcher.buildPageRoute<T>({required builder, bool instantPush = false})` — iOS gets
+    `CustomCupertinoPageTransition` in a `PageRouteBuilder`; Material/Samsung get plain
+    `MaterialPageRoute`. With `instantPush: true` the push is instant (zero duration) and the pop
+    uses the skin's normal page transition: iOS gets the same `PageRouteBuilder` with
+    `transitionDuration: Duration.zero`, and Material/Samsung get a private
+    `_InstantPushMaterialPageRoute` (a `MaterialPageRoute` whose first push is instant; later
+    forward animations, such as cancelling a back swipe, use the normal duration). The three
+    chat-creator call sites (`chat_creator.dart` x2, `chat_creator_controller.dart` x1) pass
+    `instantPush: true` as `customRoute`, because the creator already shows the chat inline and a
+    visible push would replay a transition the user has already seen.
   - `ThemeSwitcher.getScrollPhysics()` (also exposed as `ThemeSvc.scrollPhysics`) — iOS gets
     `CustomBouncingScrollPhysics`; Material/Samsung get `ClampingScrollPhysics`.
 - Quick boolean checks — two equivalent definitions, pick whichever fits the call site:
@@ -446,10 +455,12 @@ Consuming components:
   from the `adaptive_theme` package — this is the layer that owns the persisted
   light/dark/system mode toggle (independent from *which* light/dark `ThemeStruct` is
   selected). `GetMaterialApp`'s `theme`/`darkTheme` then read from the resolved
-  `AdaptiveTheme` state, with `appBarTheme.elevation = 0.0` and a custom `DialogThemeData`
-  forced on top (barrier = `colorScheme.shadow` @ 60% alpha, background =
-  `colorScheme.surfaceContainerHighest` — this is why `showBBDialog`'s Material path doesn't
-  need to set its own barrier/background).
+  `AdaptiveTheme` state, with `appBarTheme.elevation = 0.0`, a custom `DialogThemeData`, and a
+  `pageTransitionsTheme` forced on top. The dialog theme sets barrier = `colorScheme.shadow` @ 60%
+  alpha and background = `colorScheme.surfaceContainerHighest` — this is why `showBBDialog`'s
+  Material path doesn't need to set its own barrier/background. The `pageTransitionsTheme` maps
+  Android to `SystemBackPageTransitionsBuilder`, iOS/macOS to `CupertinoPageTransitionsBuilder`, and
+  Windows/Linux to `ZoomPageTransitionsBuilder`, so only Android differs from Flutter's defaults.
 - **Persistence entity**: `ThemeStruct` (`lib/database/io/theme.dart`, `@Entity()`) — `name`
   (unique), `gradientBg`, `googleFont`, and `data` (a `ThemeData`, serialized to/from JSON for
   ObjectBox — encodes the full `textTheme`, every M3 `colorScheme` role, and the

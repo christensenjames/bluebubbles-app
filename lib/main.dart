@@ -8,6 +8,7 @@ import 'package:async_task/async_task_extension.dart';
 import 'package:bitsdojo_window/bitsdojo_window.dart';
 import 'package:bluebubbles/app/wrappers/bb_scaffold.dart';
 import 'package:bluebubbles/app/components/custom/custom_error_box.dart';
+import 'package:bluebubbles/app/components/custom/system_back_page_transitions_builder.dart';
 import 'package:bluebubbles/helpers/backend/startup_tasks.dart';
 import 'package:bluebubbles/helpers/helpers.dart';
 import 'package:bluebubbles/services/network/http_overrides.dart';
@@ -26,6 +27,7 @@ import 'package:collection/collection.dart';
 import 'package:easy_debounce/easy_debounce.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/gestures.dart';
+import 'package:flutter/cupertino.dart' show CupertinoPageTransitionsBuilder;
 import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart' hide Priority;
 import 'package:flutter/services.dart';
@@ -343,6 +345,14 @@ class Main extends StatelessWidget {
 
   const Main({super.key, required this.lightTheme, required this.darkTheme, this.savedThemeMode});
 
+  static const _pageTransitionsTheme = PageTransitionsTheme(builders: {
+    TargetPlatform.android: SystemBackPageTransitionsBuilder(),
+    TargetPlatform.iOS: CupertinoPageTransitionsBuilder(),
+    TargetPlatform.macOS: CupertinoPageTransitionsBuilder(),
+    TargetPlatform.windows: ZoomPageTransitionsBuilder(),
+    TargetPlatform.linux: ZoomPageTransitionsBuilder(),
+  });
+
   @override
   Widget build(BuildContext context) {
     return AdaptiveTheme(
@@ -356,6 +366,7 @@ class Main extends StatelessWidget {
         title: 'BlueBubbles',
         theme: theme.copyWith(
           appBarTheme: theme.appBarTheme.copyWith(elevation: 0.0),
+          pageTransitionsTheme: _pageTransitionsTheme,
           dialogTheme: DialogThemeData(
             barrierColor: theme.colorScheme.shadow.withValues(alpha: 0.6),
             backgroundColor: theme.colorScheme.surfaceContainerHighest,
@@ -363,6 +374,7 @@ class Main extends StatelessWidget {
         ),
         darkTheme: darkTheme.copyWith(
           appBarTheme: darkTheme.appBarTheme.copyWith(elevation: 0.0),
+          pageTransitionsTheme: _pageTransitionsTheme,
           dialogTheme: DialogThemeData(
             barrierColor: darkTheme.colorScheme.shadow.withValues(alpha: 0.6),
             backgroundColor: darkTheme.colorScheme.surfaceContainerHighest,

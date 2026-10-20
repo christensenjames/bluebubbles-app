@@ -13,7 +13,6 @@ import 'package:bluebubbles/app/wrappers/theme_switcher.dart';
 import 'package:bluebubbles/services/services.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_acrylic/flutter_acrylic.dart';
 import 'package:get/get.dart';
 
@@ -57,22 +56,7 @@ class _SamsungConversationListState extends State<SamsungConversationList> with 
 
   @override
   Widget build(BuildContext context) {
-    return PopScope(
-      canPop: false,
-      onPopInvokedWithResult: <T>(bool didPop, T? other) {
-        if (didPop) return;
-        if (controller.selectedChats.isNotEmpty) {
-          controller.clearSelectedChats();
-          return;
-        } else if (controller.showArchivedChats || controller.showUnknownSenders) {
-          // Pop the current page
-          Navigator.of(context).pop();
-        } else {
-          // Pop the app to exit the app
-          SystemNavigator.pop();
-        }
-      },
-      child: Scaffold(
+    final page = Scaffold(
         backgroundColor: backgroundColor,
         floatingActionButton:
             !showArchived && !showUnknown ? ConversationListFAB(parentController: controller) : const SizedBox.shrink(),
@@ -193,7 +177,14 @@ class _SamsungConversationListState extends State<SamsungConversationList> with 
           ),
         ),
         bottomNavigationBar: SamsungFooter(parentController: controller),
-      ),
     );
+    return Obx(() => PopScope(
+          canPop: !controller.hasSelection.value,
+          onPopInvokedWithResult: <T>(bool didPop, T? other) {
+            if (didPop) return;
+            controller.clearSelectedChats();
+          },
+          child: page,
+        ));
   }
 }

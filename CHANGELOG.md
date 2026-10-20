@@ -1,5 +1,25 @@
 # Changelog
 
+## 2026-10-19 — Back moves like the system Settings app
+
+- Back on Android now copies the system's own activity back animation (AOSP
+  `DefaultCrossActivityBackAnimation`, `activity_close_enter.xml` / `activity_close_exit.xml`),
+  via `SystemBackPageTransitionsBuilder` in `pageTransitionsTheme`. A back swipe shrinks the page
+  to a 90% rounded card that follows the finger, over the previous page, which is shrunk too and
+  dimmed (80% black in dark mode, 20% in light). On release the card drifts right and fades out
+  within about 80ms while the previous page grows back over 450ms. The header back arrow and
+  3-button back move the page 96dp right as it fades, over the previous page sliding in from 96dp
+  left. Opening pages keeps the fade-forwards transition. Verified on the Pixel by recording the
+  Settings app and the chat back actions frame by frame.
+- The conversation screen and the chat list follow the predictive back gesture instead of
+  blocking it with `canPop: false`. Back from the main chat list peeks the home screen, and back
+  from Archived / Unknown Senders peeks the list. A selection still clears first.
+- Chats opened from the chat creator still appear instantly, but now leave with the normal back
+  motion instead of a hard cut (`ThemeSwitcher.buildPageRoute(instantPush: true)`). Cancelling a
+  back swipe on one animates back instead of snapping.
+- The header back arrow no longer runs `ConversationViewController.close()` twice; the pop runs it
+  through the page's `PopScope`.
+
 ## 2026-10-19 — Pixel-style settings and bulk selection in the chat list
 
 - The Material chat list's selection bar gets an overflow menu with "Select all" (every chat in the

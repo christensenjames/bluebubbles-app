@@ -261,6 +261,22 @@ class ConversationViewState extends State<ConversationView> with ThemeHelpers<Co
                 : bubbleColors.onSmsBubbleColor ?? colorScheme.onSmsBubble)
             : colorScheme.onBubble(context, chat.isIMessage);
 
+        final body = Actions(
+          actions: _actionsMap,
+          // Focus lands inside these Actions even before the composer is focused, so Escape resolves GoBackIntent.
+          child: FocusScope(
+            autofocus: true,
+            child: BBScaffold(
+              backgroundColor: windowEffect != WindowEffect.disabled
+                  ? Colors.transparent
+                  : (material ? colorScheme.surfaceContainer : colorScheme.surface),
+              extendBodyBehindAppBar: !material,
+              appBar: _appBar,
+              body: _bodyContent,
+            ),
+          ),
+        );
+
         return Theme(
           data: material
               ? baseTheme
@@ -271,43 +287,32 @@ class ConversationViewState extends State<ConversationView> with ThemeHelpers<Co
                     onPrimary: onBubbleColor,
                   ),
                 ),
-          child: PopScope(
-            canPop: false,
-            onPopInvokedWithResult: <T>(bool didPop, T? result) async {
-              if (didPop) return;
-              if (controller.inSelectMode.value) {
-                controller.inSelectMode.value = false;
-                controller.selected.clear();
-                return;
-              }
-              if (controller.showAttachmentPicker.value) {
-                controller.showAttachmentPicker.value = false;
-                controller.updateWidgets<ConversationTextField>(null);
-                return;
-              }
-              if (LifecycleSvc.isBubble) {
-                SystemNavigator.pop();
-              }
-              controller.close();
-              if (LifecycleSvc.isBubble) return;
-              return Navigator.of(context).pop();
-            },
-            child: Actions(
-              actions: _actionsMap,
-              // Focus lands inside these Actions even before the composer is focused, so Escape resolves GoBackIntent.
-              child: FocusScope(
-                autofocus: true,
-                child: BBScaffold(
-                  backgroundColor: windowEffect != WindowEffect.disabled
-                      ? Colors.transparent
-                      : (material ? colorScheme.surfaceContainer : colorScheme.surface),
-                  extendBodyBehindAppBar: !material,
-                  appBar: _appBar,
-                  body: _bodyContent,
-                ),
-              ),
-            ),
-          ),
+          child: Obx(() => PopScope(
+                canPop: !controller.inSelectMode.value &&
+                    !controller.showAttachmentPicker.value &&
+                    !LifecycleSvc.isBubble,
+                onPopInvokedWithResult: <T>(bool didPop, T? result) {
+                  if (didPop) {
+                    controller.close();
+                    return;
+                  }
+                  if (controller.inSelectMode.value) {
+                    controller.inSelectMode.value = false;
+                    controller.selected.clear();
+                    return;
+                  }
+                  if (controller.showAttachmentPicker.value) {
+                    controller.showAttachmentPicker.value = false;
+                    controller.updateWidgets<ConversationTextField>(null);
+                    return;
+                  }
+                  if (LifecycleSvc.isBubble) {
+                    SystemNavigator.pop();
+                    controller.close();
+                  }
+                },
+                child: body,
+              )),
         );
       }),
     );

@@ -56,7 +56,6 @@ class MaterialHeader extends StatelessWidget implements PreferredSizeWidget {
                     SystemNavigator.pop();
                     return true;
                   }
-                  controller.close();
                   return false;
                 },
               ),
@@ -121,7 +120,6 @@ class MaterialHeader extends StatelessWidget implements PreferredSizeWidget {
                       );
                     } else if (value == 1) {
                       ChatsSvc.setChatArchived(controller.chat, !controller.chat.isArchived!);
-                      controller.close();
                       if (Get.isSnackbarOpen) {
                         Get.closeAllSnackbars();
                       }
@@ -151,8 +149,8 @@ class MaterialHeader extends StatelessWidget implements PreferredSizeWidget {
                                 Get.closeAllSnackbars();
                               }
                               Navigator.of(context, rootNavigator: true).pop();
-                              // Closing first clears the active chat, so softDeleteChat has no open view to tear down.
-                              controller.close();
+                              // Popping runs controller.close() via ConversationView's PopScope, clearing the active
+                              // chat before softDeleteChat, so it has no open view to tear down.
                               Navigator.of(context).pop();
                               ChatsSvc.removeChat(chat);
                               ChatsSvc.softDeleteChat(chat);

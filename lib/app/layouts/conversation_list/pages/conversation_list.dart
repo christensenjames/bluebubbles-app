@@ -38,12 +38,14 @@ class ConversationListController extends StatefulController {
   final ScrollController materialScrollController = ScrollController();
   final ScrollController samsungScrollController = ScrollController();
   final List<Chat> selectedChats = [];
+  final RxBool hasSelection = false.obs;
   bool showMaterialFABText = true;
   double materialScrollStartPosition = 0;
 
   ConversationListController({required this.showArchivedChats, required this.showUnknownSenders});
 
   void updateSelectedChats() {
+    hasSelection.value = selectedChats.isNotEmpty;
     if (SettingsSvc.settings.skin.value == Skins.Material) {
       updateWidgets<MaterialHeader>(null);
       updateMaterialFAB();

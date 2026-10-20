@@ -536,14 +536,14 @@ class ChatCreatorState extends State<ChatCreator> with ThemeHelpers {
                                 // don't force close the active chat in tablet mode
                                 closeActiveChat: false,
                                 // only used in non-tablet mode context
-                                customRoute: PageRouteBuilder(
-                                  pageBuilder: (_, _, _) => TitleBarWrapper(
+                                customRoute: ThemeSwitcher.buildPageRoute(
+                                  instantPush: true,
+                                  builder: (_) => TitleBarWrapper(
                                       child: ConversationView(
                                     chat: existingChat,
                                     customService: messagesService,
                                     fromChatCreator: true,
                                   )),
-                                  transitionDuration: Duration.zero,
                                 ),
                               );
                             } else {
@@ -623,14 +623,14 @@ class ChatCreatorState extends State<ChatCreator> with ThemeHelpers {
                                   Get.context!,
                                   ConversationView(chat: newChat),
                                   (route) => route.isFirst,
-                                  customRoute: PageRouteBuilder(
-                                    pageBuilder: (_, _, _) => TitleBarWrapper(
+                                  customRoute: ThemeSwitcher.buildPageRoute(
+                                    instantPush: true,
+                                    builder: (_) => TitleBarWrapper(
                                       child: ConversationView(
                                         chat: newChat,
                                         fromChatCreator: true,
                                       ),
                                     ),
-                                    transitionDuration: Duration.zero,
                                   ),
                                 );
                               }).catchError((error) {

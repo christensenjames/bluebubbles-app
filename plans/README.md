@@ -12,6 +12,10 @@ The `Cubic(0.23, 1.0, 0.32, 1.0)` these plans prescribe was later replaced by th
 | [002](002-typing-indicator-scale-from-zero.md) | Stop the typing indicator from scaling out of nothing | HIGH | Physicality & origin | DONE |
 | [003](003-ease-in-on-text-field-pickers.md) | Replace ease-in on the two text-field pickers | HIGH | Easing & duration | DONE |
 | [004](004-reaction-details-route-duration.md) | Cut the reaction-details route transition to 300ms | HIGH | Purpose & frequency | DONE |
+| [005](005-predictive-back-on-conversation-view.md) | Let the conversation screen follow the predictive back gesture | HIGH | Interruptibility | DONE |
+| [006](006-predictive-back-on-chat-list.md) | Let back on the chat list peek home, and peek out of Archived / Unknown Senders | MEDIUM | Interruptibility | DONE |
+| [007](007-chat-creator-route-exit.md) | Give chats opened from the chat creator a real exit transition | MEDIUM | Missed opportunity | DONE (device check pending) |
+| — | Back moves like the system Settings app: a back swipe shrinks the page into a card over the dimmed, shrunken previous page, and on release the card fades while the previous page grows back; the arrow moves the page 96dp right as it fades. Copied from AOSP `DefaultCrossActivityBackAnimation` and `activity_close_{enter,exit}.xml` (`SystemBackPageTransitionsBuilder`, set in `main.dart`); done inline at James's request, no plan file | MEDIUM | Easing & duration | DONE |
 
 ## Recommended order
 
@@ -64,3 +68,29 @@ landed directly in `3412641ac` and `5a29e8a8d`.
 - Left alone on purpose: `reaction_holder.dart:37-40` still scales from zero with
   `easeOutBack`. A 25px tapback badge landing on a message is an object, not a surface,
   and the pop is the product's signature.
+
+## Predictive back — written 2026-10-19 against `e3cf75722`
+
+Recommended order: 005 → 007 → 006.
+
+Flutter 3.47.4 already defaults Android `MaterialPageRoute`s to
+`PredictiveBackPageTransitionsBuilder`, the same back-preview card the system Settings app
+uses. Settings pages in the app already show it. These three plans remove the places that
+switch it off. None of them changes a transition builder.
+
+- 005 is the high-frequency fix and stands alone (`conversation_view.dart` only).
+- 007 depends on 005 for its gesture preview. Its button-back fade works without 005.
+  It touches `theme_switcher.dart`, `chat_creator.dart` and `chat_creator_controller.dart`.
+- 006 is independent in code (`conversation_list.dart`, `material_conversation_list.dart`,
+  `samsung_conversation_list.dart`) but goes last. Root exit behaviour turned out unchanged
+  on Android 17: the system still finishes `MainActivity`, exactly as it does for system
+  Settings. See the corrected section in the plan.
+- No file is shared between the three plans.
+
+After 005-007 shipped, `main.dart` replaced Flutter's Android builder with
+`SystemBackPageTransitionsBuilder` (see the inline row in the status table), which copies the
+system's activity back motion. The statements above that the transition builder is unchanged
+and that the button-back fade works without 005 are superseded.
+
+Out of scope, noted only: the iOS skin's `CustomCupertinoPageTransition` route has no
+edge-swipe-back gesture, and tablet split view uses GetX `Transition.rightToLeft` slides.

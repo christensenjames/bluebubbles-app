@@ -11,19 +11,22 @@ class ThemeSwitcher extends StatefulWidget {
   final Widget materialSkin;
   final Widget? samsungSkin;
 
-  static PageRoute<T> buildPageRoute<T>({required Widget Function(BuildContext context) builder}) {
+  static PageRoute<T> buildPageRoute<T>(
+      {required Widget Function(BuildContext context) builder, bool instantPush = false}) {
     switch (SettingsSvc.settings.skin.value) {
       case Skins.iOS:
         return PageRouteBuilder<T>(
+            transitionDuration: instantPush ? Duration.zero : const Duration(milliseconds: 300),
             pageBuilder: (context, animation, secondaryAnimation) => builder.call(context),
             transitionsBuilder: (context, animation, secondaryAnimation, child) {
               return CustomCupertinoPageTransition(
                   primaryRouteAnimation: animation, linearTransition: false, child: child);
             });
       case Skins.Material:
-        return MaterialPageRoute<T>(builder: builder);
       case Skins.Samsung:
-        return MaterialPageRoute<T>(builder: builder);
+        return instantPush
+            ? _InstantPushMaterialPageRoute<T>(builder: builder)
+            : MaterialPageRoute<T>(builder: builder);
     }
   }
 
@@ -72,5 +75,23 @@ class _ThemeSwitcherState extends State<ThemeSwitcher> with ThemeHelpers {
           return widget.samsungSkin ?? widget.materialSkin;
       }
     });
+  }
+}
+
+class _InstantPushMaterialPageRoute<T> extends MaterialPageRoute<T> {
+  _InstantPushMaterialPageRoute({required super.builder});
+
+  bool _pushed = false;
+
+  @override
+  Duration get transitionDuration => _pushed ? super.transitionDuration : Duration.zero;
+
+  // A zero-duration push completes synchronously; later forwards, like cancelling a back swipe, need the real duration.
+  @override
+  TickerFuture didPush() {
+    final TickerFuture push = super.didPush();
+    _pushed = true;
+    controller!.duration = transitionDuration;
+    return push;
   }
 }

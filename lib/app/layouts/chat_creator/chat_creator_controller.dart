@@ -5,6 +5,7 @@ import 'package:bluebubbles/app/layouts/chat_creator/chat_creator.dart' show Sel
 import 'package:bluebubbles/app/layouts/chat_creator/chat_creator_utils.dart';
 import 'package:bluebubbles/app/layouts/conversation_view/pages/conversation_view.dart';
 import 'package:bluebubbles/app/wrappers/stateful_boilerplate.dart';
+import 'package:bluebubbles/app/wrappers/theme_switcher.dart';
 import 'package:bluebubbles/app/wrappers/titlebar_wrapper.dart';
 import 'package:bluebubbles/database/models.dart';
 import 'package:bluebubbles/helpers/helpers.dart';
@@ -691,15 +692,15 @@ class ChatCreatorController extends StatefulController {
       ConversationView(chat: chat, customService: messagesService, fromChatCreator: true),
       (route) => route.isFirst,
       closeActiveChat: false,
-      customRoute: PageRouteBuilder(
-        pageBuilder: (_, __, ___) => TitleBarWrapper(
+      customRoute: ThemeSwitcher.buildPageRoute(
+        instantPush: true,
+        builder: (_) => TitleBarWrapper(
           child: ConversationView(
             chat: chat,
             customService: messagesService,
             fromChatCreator: true,
           ),
         ),
-        transitionDuration: Duration.zero,
       ),
     );
   }
