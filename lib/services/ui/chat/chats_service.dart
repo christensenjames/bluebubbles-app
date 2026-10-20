@@ -351,10 +351,11 @@ class ChatsService {
       for (Chat c in chatBatch) {
         // A sync or socket event can add a chat during the batch query, and offset paging
         // repeats a chat when new messages reorder the table between batches.
-        if (chatStates.containsKey(c.guid)) continue;
+        final existing = chatStates[c.guid];
+        if (existing != null && _sortedChats.any((s) => s.guid == c.guid)) continue;
 
-        // Create ChatState and add to map
-        final state = chatStates[c.guid] = ChatState(c);
+        // A chat opened before the list loads already has a bare state from getOrCreateChatState.
+        final state = existing ?? (chatStates[c.guid] = ChatState(c));
         _setupChatStateListeners(state);
 
         if (activeChatGuid.value == c.guid) {
@@ -363,7 +364,7 @@ class ChatsService {
         }
 
         // Add to sorted list
-        _insertChatSorted(c);
+        _insertChatSorted(state.chat);
       }
       loadedFirstChatBatch.value = true;
       // Increment chatListVersion after every batch so the UI rebuilds for each batch,
@@ -1131,22 +1132,18 @@ class ChatsService {
     await _clearChatNotifications(chat);
   }
 
-  /// Folds chats left under pre-`any;` GUIDs (from before the server's macOS
-  /// renamed them) into their current chat, then drops them from the list.
   Future<void> mergeLegacyChats() async {
     // A merge during the initial load could re-add a deleted chat from an in-flight batch.
     if (kIsWeb || !loadedAllChats.isCompleted) return;
 
-    // Closing a chat saves it, which would recreate the legacy chat after the merge deletes it.
-    final activeGuid = activeChat?.chat.guid;
-    final activeLegacyMatch = activeGuid == null ? null : RegExp(r'^(iMessage|SMS|RCS)(;.*)$').firstMatch(activeGuid);
-    if (activeLegacyMatch != null && chatStates.containsKey('any${activeLegacyMatch.group(2)}')) {
-      NavigationSvc.closeAllConversationView(Get.context!);
-      await setAllInactive();
-      await Future.delayed(const Duration(milliseconds: 500));
+    // A sync that succeeded must not be reported as failed because this cleanup threw.
+    final Map<String, String> merged;
+    try {
+      merged = await ChatInterface.mergeLegacyChats(skipGuid: activeChat?.chat.guid);
+    } catch (e, s) {
+      Logger.error("Failed to merge legacy chats", error: e, trace: s, tag: "ChatBloc");
+      return;
     }
-
-    final merged = await ChatInterface.mergeLegacyChats();
     if (merged.isEmpty) return;
     Logger.info("Merged ${merged.length} legacy chat(s) into their any; chats", tag: "ChatBloc");
 
@@ -1157,7 +1154,8 @@ class ChatsService {
         await _clearChatNotifications(legacy);
       }
       final target = Chat.findOne(guid: entry.value);
-      if (target != null) updateChat(target, override: true);
+      // A target the merge undeleted has no state yet.
+      if (target != null && !updateChat(target, override: true)) await addChat(target, immediate: true);
     }
     EventDispatcherSvc.emit('custom-groups-updated', null);
   }

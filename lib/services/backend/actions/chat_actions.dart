@@ -196,9 +196,9 @@ class ChatActions {
     await AttachmentActions.deleteAttachmentDirs(attachmentsPath, purgeGuids);
   }
 
-  /// Moves each chat stored under a pre-`any;` GUID (`iMessage;-;X`) into its
-  /// `any;-;X` counterpart and deletes it. Returns legacy GUID → `any;` GUID.
-  static Future<Map<String, String>> mergeLegacyChats(dynamic _) async {
+  /// Returns legacy GUID → the `any;` GUID it was merged into.
+  static Future<Map<String, String>> mergeLegacyChats(dynamic data) async {
+    final skipGuid = data['skipGuid'] as String?;
     final merged = <String, String>{};
 
     Database.runInTransaction(TxMode.write, () {
@@ -209,10 +209,9 @@ class ChatActions {
       legacyQuery.close();
 
       for (final legacy in legacyChats) {
-        final targetGuid = 'any${legacy.guid.substring(legacy.guid.indexOf(';'))}';
-        final targetQuery = Database.chats.query(Chat_.guid.equals(targetGuid)).build();
-        final target = targetQuery.findFirst();
-        targetQuery.close();
+        // An open chat saves its draft on close, which would recreate it after the delete.
+        if (legacy.guid == skipGuid) continue;
+        final target = Chat.findOne(guid: 'any${legacy.guid.substring(legacy.guid.indexOf(';'))}');
         // Servers that still use service prefixes have no `any;` chats; leave theirs alone.
         if (target == null) continue;
 
@@ -229,7 +228,9 @@ class ChatActions {
         if (legacyLatest != null && (targetLatest == null || legacyLatest.isAfter(targetLatest))) {
           target.dbLatestMessage.target = legacy.dbLatestMessage.target;
           target.dbOnlyLatestMessageDate = legacyLatest;
+          target.hasUnreadMessage = legacy.hasUnreadMessage;
         }
+        if (legacy.dateDeleted == null) target.dateDeleted = null;
         if ((legacy.isPinned ?? false) && !(target.isPinned ?? false)) {
           target.isPinned = true;
           target.pinIndex = legacy.pinIndex;
@@ -238,6 +239,27 @@ class ChatActions {
           target.muteType = legacy.muteType;
           target.muteArgs = legacy.muteArgs;
         }
+        if (legacy.lockChatName && !target.lockChatName) {
+          target.lockChatName = true;
+          target.displayName = legacy.displayName;
+        }
+        if (legacy.lockChatIcon && !target.lockChatIcon) {
+          target.lockChatIcon = true;
+          target.customAvatarPath = legacy.customAvatarPath;
+        }
+        target.customAvatarPath ??= legacy.customAvatarPath;
+        target.customBackgroundPath ??= legacy.customBackgroundPath;
+        target.customThemeLight ??= legacy.customThemeLight;
+        target.customThemeDark ??= legacy.customThemeDark;
+        if (target.wallpaperType == null) {
+          target.wallpaperType = legacy.wallpaperType;
+          target.dynamicWallpaperId = legacy.dynamicWallpaperId;
+          target.dynamicWallpaperConfig = legacy.dynamicWallpaperConfig;
+        }
+        target.autoSendReadReceipts ??= legacy.autoSendReadReceipts;
+        target.autoSendTypingIndicators ??= legacy.autoSendTypingIndicators;
+        if (target.textFieldText?.isEmpty ?? true) target.textFieldText = legacy.textFieldText;
+        if (target.textFieldAttachments.isEmpty) target.textFieldAttachments = legacy.textFieldAttachments;
         Database.chats.put(target);
 
         for (final group in legacy.customGroups) {

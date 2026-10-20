@@ -3,14 +3,22 @@
 ## 2026-10-20 — Duplicate chats in the chat list
 
 - A chat no longer shows twice when a message or sync adds it while the chat list is still
-  loading. The batch load skips chats that are already loaded, which also covers offset paging
-  returning a chat twice after new messages reorder the table between batches.
+  loading. The batch load skips chats that are already in the list, which also covers offset
+  paging returning a chat twice after new messages reorder the table between batches. A chat
+  opened before the list finishes loading still gets its place in the list.
 - Chats stored under a service-prefixed GUID (`iMessage;-;X`, `SMS;-;X`, `RCS;-;X`) are merged
-  into their `any;-;X` chat after each incremental and full sync. Newer macOS servers renamed
-  every chat to `any;`, so installs synced before the rename kept a frozen copy of each chat.
-  Messages, the latest message, pin, mute and custom-group membership move to the `any;` chat
-  and the old chat is deleted. Servers that still use prefixed GUIDs have no `any;` chat to
-  match, so their chats are untouched. On James's Linux install it merged 33 chats.
+  into their `any;-;X` chat after an incremental sync, and after the chat list reloads at the
+  end of a full sync. A sync that finishes before the chat list has loaded leaves the merge to
+  the next sync. Newer macOS servers renamed every chat to `any;`, so installs synced before the
+  rename kept a frozen copy of each chat. Messages and custom-group membership move to the
+  `any;` chat. Its latest message and unread state are taken from the old chat when the old
+  one's is newer. Settings the `any;` chat lacks are copied over: pin, mute, a locked name or
+  icon, custom avatar, background, themes, wallpaper, receipt and typing preferences, and the
+  draft. Archive state is not copied, since the `any;` chat may be the active conversation. A
+  soft-deleted `any;` chat is restored when the old one was visible. The old chat is then
+  deleted. The chat that is open is skipped until a later sync, because closing it saves it and
+  would recreate it. Servers that still use prefixed GUIDs have no `any;` chat to match, so
+  their chats are untouched. A merge error is logged and does not fail the sync.
 
 ## 2026-10-19 — Back moves like the system Settings app
 

@@ -113,12 +113,13 @@ class ChatInterface {
     }
   }
 
-  static Future<Map<String, String>> mergeLegacyChats() async {
+  static Future<Map<String, String>> mergeLegacyChats({String? skipGuid}) async {
+    final data = {'skipGuid': skipGuid};
+
     if (isIsolate) {
-      return await ChatActions.mergeLegacyChats(null);
+      return await ChatActions.mergeLegacyChats(data);
     } else {
-      final merged = await GetIt.I<GlobalIsolate>().send<Map>(IsolateRequestType.mergeLegacyChats);
-      return merged.cast<String, String>();
+      return await GetIt.I<GlobalIsolate>().send<Map<String, String>>(IsolateRequestType.mergeLegacyChats, input: data);
     }
   }
 
