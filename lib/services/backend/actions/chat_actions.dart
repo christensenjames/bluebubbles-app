@@ -196,6 +196,64 @@ class ChatActions {
     await AttachmentActions.deleteAttachmentDirs(attachmentsPath, purgeGuids);
   }
 
+  /// Moves each chat stored under a pre-`any;` GUID (`iMessage;-;X`) into its
+  /// `any;-;X` counterpart and deletes it. Returns legacy GUID → `any;` GUID.
+  static Future<Map<String, String>> mergeLegacyChats(dynamic _) async {
+    final merged = <String, String>{};
+
+    Database.runInTransaction(TxMode.write, () {
+      final legacyQuery = Database.chats
+          .query(Chat_.guid.startsWith('iMessage;') | Chat_.guid.startsWith('SMS;') | Chat_.guid.startsWith('RCS;'))
+          .build();
+      final legacyChats = legacyQuery.find();
+      legacyQuery.close();
+
+      for (final legacy in legacyChats) {
+        final targetGuid = 'any${legacy.guid.substring(legacy.guid.indexOf(';'))}';
+        final targetQuery = Database.chats.query(Chat_.guid.equals(targetGuid)).build();
+        final target = targetQuery.findFirst();
+        targetQuery.close();
+        // Servers that still use service prefixes have no `any;` chats; leave theirs alone.
+        if (target == null) continue;
+
+        final messageQuery = (Database.messages.query()..link(Message_.chat, Chat_.id.equals(legacy.id!))).build();
+        final messages = messageQuery.find();
+        messageQuery.close();
+        for (final message in messages) {
+          message.chat.target = target;
+        }
+        Database.messages.putMany(messages);
+
+        final legacyLatest = legacy.dbOnlyLatestMessageDate;
+        final targetLatest = target.dbOnlyLatestMessageDate;
+        if (legacyLatest != null && (targetLatest == null || legacyLatest.isAfter(targetLatest))) {
+          target.dbLatestMessage.target = legacy.dbLatestMessage.target;
+          target.dbOnlyLatestMessageDate = legacyLatest;
+        }
+        if ((legacy.isPinned ?? false) && !(target.isPinned ?? false)) {
+          target.isPinned = true;
+          target.pinIndex = legacy.pinIndex;
+        }
+        if (target.muteType == null && legacy.muteType != null) {
+          target.muteType = legacy.muteType;
+          target.muteArgs = legacy.muteArgs;
+        }
+        Database.chats.put(target);
+
+        for (final group in legacy.customGroups) {
+          group.chats.removeWhere((c) => c.id == legacy.id);
+          if (!group.chats.any((c) => c.id == target.id)) group.chats.add(target);
+          group.chats.applyToDb();
+        }
+
+        Database.chats.remove(legacy.id!);
+        merged[legacy.guid] = target.guid;
+      }
+    });
+
+    return merged;
+  }
+
   static Future<void> softDeleteChat(dynamic data) async {
     final chatData = data['chatData'] as Map<String, dynamic>;
     final inputChat = Chat.fromMap(chatData);

@@ -280,6 +280,7 @@ class FullSyncManager extends SyncManager {
     await ContactsSvcV2.syncContactsToHandles();
     addToOutput("Reloading your chats...");
 
+    await ChatsSvc.mergeLegacyChats();
     ChatsSvc.reset();
     await ChatsSvc.init(force: true);
     await super.complete();

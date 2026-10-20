@@ -172,6 +172,7 @@ class SyncService {
           }
         }
       }
+      await ChatsSvc.mergeLegacyChats();
 
       chatStopwatch.stop();
       Logger.info(

@@ -1131,6 +1131,37 @@ class ChatsService {
     await _clearChatNotifications(chat);
   }
 
+  /// Folds chats left under pre-`any;` GUIDs (from before the server's macOS
+  /// renamed them) into their current chat, then drops them from the list.
+  Future<void> mergeLegacyChats() async {
+    // A merge during the initial load could re-add a deleted chat from an in-flight batch.
+    if (kIsWeb || !loadedAllChats.isCompleted) return;
+
+    // Closing a chat saves it, which would recreate the legacy chat after the merge deletes it.
+    final activeGuid = activeChat?.chat.guid;
+    final activeLegacyMatch = activeGuid == null ? null : RegExp(r'^(iMessage|SMS|RCS)(;.*)$').firstMatch(activeGuid);
+    if (activeLegacyMatch != null && chatStates.containsKey('any${activeLegacyMatch.group(2)}')) {
+      NavigationSvc.closeAllConversationView(Get.context!);
+      await setAllInactive();
+      await Future.delayed(const Duration(milliseconds: 500));
+    }
+
+    final merged = await ChatInterface.mergeLegacyChats();
+    if (merged.isEmpty) return;
+    Logger.info("Merged ${merged.length} legacy chat(s) into their any; chats", tag: "ChatBloc");
+
+    for (final entry in merged.entries) {
+      final legacy = chatStates[entry.key]?.chat;
+      if (legacy != null) {
+        removeChat(legacy);
+        await _clearChatNotifications(legacy);
+      }
+      final target = Chat.findOne(guid: entry.value);
+      if (target != null) updateChat(target, override: true);
+    }
+    EventDispatcherSvc.emit('custom-groups-updated', null);
+  }
+
   /// Performs a full messaging reset: wipes all Messages, Attachments, Chats,
   /// Handles, and Contacts (ContactV2) from the database, deletes all
   /// associated files from disk, and flushes every in-memory service cache

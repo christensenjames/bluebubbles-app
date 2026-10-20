@@ -1,5 +1,17 @@
 # Changelog
 
+## 2026-10-20 — Duplicate chats in the chat list
+
+- A chat no longer shows twice when a message or sync adds it while the chat list is still
+  loading. The batch load skips chats that are already loaded, which also covers offset paging
+  returning a chat twice after new messages reorder the table between batches.
+- Chats stored under a service-prefixed GUID (`iMessage;-;X`, `SMS;-;X`, `RCS;-;X`) are merged
+  into their `any;-;X` chat after each incremental and full sync. Newer macOS servers renamed
+  every chat to `any;`, so installs synced before the rename kept a frozen copy of each chat.
+  Messages, the latest message, pin, mute and custom-group membership move to the `any;` chat
+  and the old chat is deleted. Servers that still use prefixed GUIDs have no `any;` chat to
+  match, so their chats are untouched. On James's Linux install it merged 33 chats.
+
 ## 2026-10-19 — Back moves like the system Settings app
 
 - Back on Android now copies the system's own activity back animation (AOSP

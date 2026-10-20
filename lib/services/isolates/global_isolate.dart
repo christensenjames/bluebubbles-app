@@ -730,6 +730,7 @@ enum IsolateRequestType {
   stopTyping,
   saveChat,
   deleteChat,
+  mergeLegacyChats,
   softDeleteChat,
   unDeleteChat,
   addMessageToChat,

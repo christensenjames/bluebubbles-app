@@ -113,6 +113,15 @@ class ChatInterface {
     }
   }
 
+  static Future<Map<String, String>> mergeLegacyChats() async {
+    if (isIsolate) {
+      return await ChatActions.mergeLegacyChats(null);
+    } else {
+      final merged = await GetIt.I<GlobalIsolate>().send<Map>(IsolateRequestType.mergeLegacyChats);
+      return merged.cast<String, String>();
+    }
+  }
+
   static Future<void> softDeleteChat({
     required Map<String, dynamic> chatData,
   }) async {

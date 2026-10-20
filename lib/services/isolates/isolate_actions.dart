@@ -70,6 +70,7 @@ class IsolateActons {
     IsolateRequestType.stopTyping: ChatActions.stopTyping,
     IsolateRequestType.saveChat: ChatActions.saveChat,
     IsolateRequestType.deleteChat: ChatActions.deleteChat,
+    IsolateRequestType.mergeLegacyChats: ChatActions.mergeLegacyChats,
     IsolateRequestType.softDeleteChat: ChatActions.softDeleteChat,
     IsolateRequestType.unDeleteChat: ChatActions.unDeleteChat,
     IsolateRequestType.addMessageToChat: ChatActions.addMessageToChat,
