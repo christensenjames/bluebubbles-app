@@ -19,6 +19,11 @@
   back swipe on one animates back instead of snapping.
 - The header back arrow no longer runs `ConversationViewController.close()` twice; the pop runs it
   through the page's `PopScope`.
+- Theme Studio, the QR scanner (settings and setup) and the message popup's Open DM used a
+  hardcoded `CupertinoPageRoute`; they now use the skin's page route, so they get the same back.
+  Theme Studio and Search also stopped blocking the gesture with `canPop: false`: Theme Studio
+  only blocks it while there are unapplied changes (to ask before discarding), and Search only
+  while its filter panel is open (back closes the panel first). Verified on the Pixel.
 
 ## 2026-10-19 — Pixel-style settings and bulk selection in the chat list
 

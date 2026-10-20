@@ -128,17 +128,15 @@ class SearchViewState extends State<SearchView> with ThemeHelpers {
 
       bool showSenderFilter = !isNotFromMe.value && !isFromMe.value && (selectedChat.value?.isGroup ?? true);
 
-      return PopScope(
-          canPop: false,
-          onPopInvokedWithResult: <T>(bool didPop, T? result) {
-            if (didPop) return;
-            if (panelController.status != SlidingUpPanelStatus.collapsed) {
-              panelController.collapse();
-            } else {
-              final NavigatorState navigator = Navigator.of(context);
-              navigator.pop();
-            }
-          },
+      return ValueListenableBuilder<SlidingUpPanelStatus>(
+          valueListenable: panelController,
+          builder: (context, panelStatus, child) => PopScope(
+                canPop: panelStatus == SlidingUpPanelStatus.collapsed,
+                onPopInvokedWithResult: <T>(bool didPop, T? result) {
+                  if (!didPop) panelController.collapse();
+                },
+                child: child!,
+              ),
           child: Stack(children: [
             SettingsScaffold(
               title: "Search",

@@ -468,14 +468,10 @@ class _ThemeStudioPanelState extends CustomState<ThemeStudioPanel, void, ThemeSt
 
   @override
   Widget build(BuildContext context) {
-    return PopScope(
-      canPop: false,
+    return Obx(() => PopScope(
+      canPop: !controller.pendingChanges.value,
       onPopInvokedWithResult: (didPop, _) async {
         if (didPop) return;
-        if (!controller.pendingChanges.value) {
-          Navigator.of(context).pop();
-          return;
-        }
         final shouldPop = await _confirmDiscard(context);
         if (shouldPop && context.mounted) Navigator.of(context).pop();
       },
@@ -579,7 +575,7 @@ class _ThemeStudioPanelState extends CustomState<ThemeStudioPanel, void, ThemeSt
           ],
         );
       }),
-    );
+    ));
   }
 
   Widget _sectionHeader(BuildContext context, String text) {
