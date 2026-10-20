@@ -349,6 +349,10 @@ class ChatsService {
       // Insert each chat at the correct position using binary search
       // This maintains proper ordering including pinIndex which DB queries cannot handle
       for (Chat c in chatBatch) {
+        // A sync or socket event can add a chat during the batch query, and offset paging
+        // repeats a chat when new messages reorder the table between batches.
+        if (chatStates.containsKey(c.guid)) continue;
+
         // Create ChatState and add to map
         final state = chatStates[c.guid] = ChatState(c);
         _setupChatStateListeners(state);
