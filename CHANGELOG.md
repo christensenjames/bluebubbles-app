@@ -24,6 +24,12 @@
   Theme Studio and Search also stopped blocking the gesture with `canPop: false`: Theme Studio
   only blocks it while there are unapplied changes (to ask before discarding), and Search only
   while its filter panel is open (back closes the panel first). Verified on the Pixel.
+- Back from Theme Studio started late: the first frame of every back took ~350ms. Switching from
+  the plain page to the back-motion wrappers reparented the page, which rebuilt everything in it
+  that reads Theme or MediaQuery. The swipe card, the entering page and the arrow/3-button close
+  now share one wrapper chain whose values change, so nothing reparents. Measured on the Pixel:
+  the slowest back frame dropped from 354ms build to 5ms, and Theme Studio's back now starts
+  as soon as the Theming page's does.
 
 ## 2026-10-19 — Pixel-style settings and bulk selection in the chat list
 

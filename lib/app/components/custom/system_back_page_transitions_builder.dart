@@ -35,12 +35,10 @@ class SystemBackPageTransitionsBuilder extends PageTransitionsBuilder {
         valueListenable: _backGesture,
         builder: (context, gesture, _) {
           final NavigatorState? navigator = route.navigator;
-          if (gesture != null && gesture.navigator == navigator && navigator!.userGestureInProgress) {
-            return gesture.route == route
-                ? _ClosingCard(gesture: gesture, animation: animation, child: child)
-                : _EnteringPage(gesture: gesture, secondaryAnimation: secondaryAnimation, child: child);
-          }
-          return _CloseTransition(
+          final bool active = gesture != null && gesture.navigator == navigator && navigator!.userGestureInProgress;
+          return _BackTransition(
+            route: route,
+            gesture: active ? gesture : null,
             animation: animation,
             secondaryAnimation: secondaryAnimation,
             builder: (animation, secondaryAnimation) =>
@@ -100,17 +98,6 @@ Rect _enteringRect(Size size, double progress, _BackGesture gesture) {
   final double top = progress * size.height * (1 - _minScale) / 2 + _yShift(size, scale, gesture.dy);
   return Rect.fromLTWH(
       -_enteringOffset + progress * size.width * (1 - _minScale) / 2, top, size.width * scale, size.height * scale);
-}
-
-Widget _card(BuildContext context, Rect rect, Size size, Widget child) {
-  final double scale = rect.width / size.width;
-  return Transform(
-    transform: Matrix4.diagonal3Values(scale, scale, 1)..setTranslationRaw(rect.left, rect.top, 0),
-    child: ClipRRect(
-      borderRadius: MediaQuery.displayCornerRadiiOf(context) ?? BorderRadius.zero,
-      child: child,
-    ),
-  );
 }
 
 class _BackGestureObserver extends StatefulWidget {
@@ -187,78 +174,26 @@ class _BackGestureObserverState extends State<_BackGestureObserver> with Widgets
   Widget build(BuildContext context) => widget.child;
 }
 
-class _ClosingCard extends StatelessWidget {
-  const _ClosingCard({required this.gesture, required this.animation, required this.child});
-
-  final _BackGesture gesture;
-  final Animation<double> animation;
-  final Widget child;
-
-  @override
-  Widget build(BuildContext context) {
-    return LayoutBuilder(builder: (context, constraints) {
-      final Size size = constraints.biggest;
-      final double? commitProgress = gesture.commitProgress;
-      if (commitProgress == null) {
-        return _card(context, _closingRect(size, _gestureCurve.transform(1 - animation.value), gesture), size, child);
-      }
-      final double t = 1 - animation.value;
-      final Rect start = _closingRect(size, commitProgress, gesture);
-      final Rect end = Rect.fromLTWH(start.left + _enteringOffset, 0, size.width, size.height);
-      return Opacity(
-        opacity: math.max(1 - t * 5, 0),
-        child: _card(context, Rect.lerp(start, end, _emphasized.transform(t))!, size, child),
-      );
-    });
-  }
-}
-
-class _EnteringPage extends StatelessWidget {
-  const _EnteringPage({required this.gesture, required this.secondaryAnimation, required this.child});
-
-  final _BackGesture gesture;
-  final Animation<double> secondaryAnimation;
-  final Widget child;
-
-  @override
-  Widget build(BuildContext context) {
-    final ThemeData theme = Theme.of(context);
-    final double maxScrim = theme.brightness == Brightness.dark ? _scrimAlphaDark : _scrimAlphaLight;
-    return LayoutBuilder(builder: (context, constraints) {
-      final Size size = constraints.biggest;
-      final double t = 1 - secondaryAnimation.value;
-      final double? commitProgress = gesture.commitProgress;
-      final Rect rect = commitProgress == null
-          ? _enteringRect(size, _gestureCurve.transform(t), gesture)
-          : Rect.lerp(_enteringRect(size, commitProgress, gesture), Offset.zero & size, _emphasized.transform(t))!;
-      return Stack(
-        fit: StackFit.expand,
-        children: [
-          ColoredBox(color: theme.colorScheme.surface),
-          _card(context, rect, size, child),
-          ColoredBox(color: Colors.black.withValues(alpha: commitProgress == null ? maxScrim : maxScrim * (1 - t))),
-        ],
-      );
-    });
-  }
-}
-
-class _CloseTransition extends StatefulWidget {
-  const _CloseTransition({
+class _BackTransition extends StatefulWidget {
+  const _BackTransition({
+    required this.route,
+    required this.gesture,
     required this.animation,
     required this.secondaryAnimation,
     required this.builder,
   });
 
+  final PageRoute<dynamic> route;
+  final _BackGesture? gesture;
   final Animation<double> animation;
   final Animation<double> secondaryAnimation;
   final Widget Function(Animation<double> animation, Animation<double> secondaryAnimation) builder;
 
   @override
-  State<_CloseTransition> createState() => _CloseTransitionState();
+  State<_BackTransition> createState() => _BackTransitionState();
 }
 
-class _CloseTransitionState extends State<_CloseTransition> {
+class _BackTransitionState extends State<_BackTransition> {
   // Only a pop of a fully settled page uses the close motion; a pop that interrupts a push keeps FadeForwards' reverse
   // so it doesn't jump. Status listeners fire inside reverse(), before the first tick has moved the value off 1.0.
   bool _exiting = false;
@@ -280,7 +215,7 @@ class _CloseTransitionState extends State<_CloseTransition> {
   }
 
   @override
-  void didUpdateWidget(_CloseTransition oldWidget) {
+  void didUpdateWidget(_BackTransition oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.animation != widget.animation) {
       oldWidget.animation.removeStatusListener(_onPrimaryStatus);
@@ -301,25 +236,70 @@ class _CloseTransitionState extends State<_CloseTransition> {
 
   @override
   Widget build(BuildContext context) {
+    final _BackGesture? gesture = widget.gesture;
     final Widget page = widget.builder(
-      _exiting ? kAlwaysCompleteAnimation : widget.animation,
-      _revealing ? kAlwaysDismissedAnimation : widget.secondaryAnimation,
+      gesture != null || _exiting ? kAlwaysCompleteAnimation : widget.animation,
+      gesture != null || _revealing ? kAlwaysDismissedAnimation : widget.secondaryAnimation,
     );
-    if (_exiting) {
-      final double t = 1 - widget.animation.value;
-      final double elapsedMs = t * _closeDuration.inMilliseconds;
-      return Opacity(
-        opacity: 1 - ((elapsedMs - _exitFadeDelayMs) / _exitFadeMs).clamp(0.0, 1.0),
-        child: Transform.translate(offset: Offset(_enteringOffset * _emphasized.transform(t), 0), child: page),
+    return LayoutBuilder(builder: (context, constraints) {
+      final Size size = constraints.biggest;
+      Rect rect = Offset.zero & size;
+      double opacity = 1;
+      Color backdrop = Colors.transparent;
+      Color scrim = Colors.transparent;
+      if (gesture != null && gesture.route == widget.route) {
+        final double t = 1 - widget.animation.value;
+        final double? commitProgress = gesture.commitProgress;
+        if (commitProgress == null) {
+          rect = _closingRect(size, _gestureCurve.transform(t), gesture);
+        } else {
+          final Rect start = _closingRect(size, commitProgress, gesture);
+          final Rect end = Rect.fromLTWH(start.left + _enteringOffset, 0, size.width, size.height);
+          rect = Rect.lerp(start, end, _emphasized.transform(t))!;
+          opacity = math.max(1 - t * 5, 0);
+        }
+      } else if (gesture != null) {
+        final ThemeData theme = Theme.of(context);
+        final double maxScrim = theme.brightness == Brightness.dark ? _scrimAlphaDark : _scrimAlphaLight;
+        final double t = 1 - widget.secondaryAnimation.value;
+        final double? commitProgress = gesture.commitProgress;
+        rect = commitProgress == null
+            ? _enteringRect(size, _gestureCurve.transform(t), gesture)
+            : Rect.lerp(_enteringRect(size, commitProgress, gesture), rect, _emphasized.transform(t))!;
+        backdrop = theme.colorScheme.surface;
+        scrim = Colors.black.withValues(alpha: commitProgress == null ? maxScrim : maxScrim * (1 - t));
+      } else if (_exiting) {
+        final double t = 1 - widget.animation.value;
+        final double elapsedMs = t * _closeDuration.inMilliseconds;
+        opacity = 1 - ((elapsedMs - _exitFadeDelayMs) / _exitFadeMs).clamp(0.0, 1.0);
+        rect = rect.shift(Offset(_enteringOffset * _emphasized.transform(t), 0));
+      } else if (_revealing) {
+        final double t = 1 - widget.secondaryAnimation.value;
+        rect = rect.shift(Offset(-_enteringOffset * (1 - _emphasized.transform(t)), 0));
+        backdrop = Theme.of(context).colorScheme.surface;
+      }
+      final double scale = rect.width / size.width;
+      // One wrapper chain for every state: a different chain reparents the page, and reparenting rebuilds everything in
+      // it that reads Theme or MediaQuery (350ms on Theme Studio).
+      return DecoratedBox(
+        position: DecorationPosition.foreground,
+        decoration: BoxDecoration(color: scrim),
+        child: ColoredBox(
+          color: backdrop,
+          child: Opacity(
+            opacity: opacity,
+            child: Transform(
+              transform: Matrix4.diagonal3Values(scale, scale, 1)..setTranslationRaw(rect.left, rect.top, 0),
+              child: ClipRRect(
+                borderRadius:
+                    gesture != null ? MediaQuery.displayCornerRadiiOf(context) ?? BorderRadius.zero : BorderRadius.zero,
+                clipBehavior: gesture != null ? Clip.antiAlias : Clip.none,
+                child: page,
+              ),
+            ),
+          ),
+        ),
       );
-    }
-    if (_revealing) {
-      final double t = 1 - widget.secondaryAnimation.value;
-      return ColoredBox(
-        color: Theme.of(context).colorScheme.surface,
-        child: Transform.translate(offset: Offset(-_enteringOffset * (1 - _emphasized.transform(t)), 0), child: page),
-      );
-    }
-    return page;
+    });
   }
 }
