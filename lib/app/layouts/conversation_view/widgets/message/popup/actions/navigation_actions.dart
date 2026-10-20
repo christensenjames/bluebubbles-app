@@ -6,12 +6,12 @@ import 'package:bluebubbles/app/layouts/chat_creator/new_chat_creator.dart';
 import 'package:bluebubbles/app/layouts/conversation_view/pages/conversation_view.dart';
 import 'package:bluebubbles/app/layouts/conversation_view/widgets/message/popup/message_popup_action_context.dart';
 import 'package:bluebubbles/app/layouts/conversation_view/widgets/message/reply/reply_thread_popup.dart';
+import 'package:bluebubbles/app/wrappers/theme_switcher.dart';
 import 'package:bluebubbles/database/models.dart';
 import 'package:bluebubbles/helpers/helpers.dart';
 import 'package:bluebubbles/services/services.dart';
 import 'package:bluebubbles/models/models.dart' show MessageReplyContext;
 import 'package:collection/collection.dart';
-import 'package:flutter/cupertino.dart' as cupertino;
 import 'package:flutter/widgets.dart';
 
 void reply(MessagePopupActionContext ctx) {
@@ -24,11 +24,7 @@ void openDm(MessagePopupActionContext ctx) {
   ctx.popDetails();
   Navigator.pushReplacement(
     ctx.context,
-    cupertino.CupertinoPageRoute(
-      builder: (BuildContext context) {
-        return ConversationView(chat: ctx.dmChat!);
-      },
-    ),
+    ThemeSwitcher.buildPageRoute(builder: (BuildContext context) => ConversationView(chat: ctx.dmChat!)),
   );
 }
 

@@ -1,5 +1,6 @@
 import 'package:adaptive_theme/adaptive_theme.dart';
 import 'package:bluebubbles/app/layouts/settings/widgets/content/next_button.dart';
+import 'package:bluebubbles/app/wrappers/theme_switcher.dart';
 import 'package:bluebubbles/helpers/helpers.dart';
 import 'package:bluebubbles/utils/logger/logger.dart';
 import 'package:bluebubbles/utils/window_effects.dart';
@@ -89,7 +90,7 @@ class _ThemingPanelState extends CustomState<ThemingPanel, void, ThemingPanelCon
                         isThreeLine: true,
                         onTap: () async {
                           Navigator.of(context).push(
-                            CupertinoPageRoute(
+                            ThemeSwitcher.buildPageRoute(
                               builder: (context) => ThemeStudioPanel(),
                             ),
                           );

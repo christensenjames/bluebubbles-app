@@ -7,6 +7,7 @@ import 'package:bluebubbles/app/layouts/setup/pages/page_template.dart';
 import 'package:bluebubbles/app/layouts/setup/pages/sync/qr_code_scanner.dart';
 import 'package:bluebubbles/app/layouts/setup/setup_view.dart';
 import 'package:bluebubbles/app/wrappers/stateful_boilerplate.dart';
+import 'package:bluebubbles/app/wrappers/theme_switcher.dart';
 import 'package:bluebubbles/helpers/backend/settings_helpers.dart';
 import 'package:bluebubbles/helpers/helpers.dart';
 import 'package:bluebubbles/database/models.dart';
@@ -578,7 +579,7 @@ class _ServerCredentialsState extends State<ServerCredentials> with ThemeHelpers
     // Open the QR Scanner and get the result
     try {
       final response = await nav.push(
-        CupertinoPageRoute(
+        ThemeSwitcher.buildPageRoute(
           builder: (BuildContext context) {
             return const QRCodeScanner();
           },

@@ -367,7 +367,7 @@ mixin ConnectionPanelHelpersMixin {
                       try {
                         fcmData = jsonDecode(
                           await Navigator.of(context).push(
-                            CupertinoPageRoute(
+                            ThemeSwitcher.buildPageRoute(
                               builder: (BuildContext context) => const QRCodeScanner(),
                             ),
                           ),
