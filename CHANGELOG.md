@@ -19,14 +19,17 @@
   end of a full sync. A sync that finishes before the chat list has loaded leaves the merge to
   the next sync. Newer macOS servers renamed every chat to `any;`, so installs synced before the
   rename kept a frozen copy of each chat. Messages and custom-group membership move to the
-  `any;` chat. Its latest message and unread state are taken from the old chat when the old
-  one's is newer. Settings the `any;` chat lacks are copied over: pin, mute, a locked name or
-  icon, custom avatar, background, themes, wallpaper, receipt and typing preferences, and the
-  draft. Archive state is not copied, since the `any;` chat may be the active conversation. A
-  soft-deleted `any;` chat is restored when the old one was visible. The old chat is then
-  deleted. The chat that is open is skipped until a later sync, because closing it saves it and
-  would recreate it. Servers that still use prefixed GUIDs have no `any;` chat to match, so
-  their chats are untouched. A merge error is logged and does not fail the sync.
+  `any;` chat. Its latest message, unread state and last-read marker are taken from the old
+  chat when the old one's is newer. Settings the `any;` chat lacks are copied over: pin, mute, a
+  locked name or icon, custom avatar, themes, wallpaper, receipt and typing preferences, and the
+  draft, which shows in the text field straight away. A background image moves to the `any;`
+  chat's folder unless that chat already has one. Archive state is not copied, since the
+  `any;` chat may be the active conversation. A soft-deleted `any;` chat is restored when the
+  old one was visible; an old chat the user had deleted passes on only its messages and groups.
+  The old chat is then deleted, each in its own transaction. The chat that is open is skipped
+  until a later sync, because closing it saves it and would recreate it. Servers that still use
+  prefixed GUIDs have no `any;` chat to match, so their chats are untouched. A merge error,
+  including one while updating the chat list afterwards, is logged and does not fail the sync.
 
 ## 2026-10-19 — Back moves like the system Settings app
 

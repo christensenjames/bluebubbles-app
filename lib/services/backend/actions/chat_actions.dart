@@ -201,19 +201,20 @@ class ChatActions {
     final skipGuid = data['skipGuid'] as String?;
     final merged = <String, String>{};
 
-    Database.runInTransaction(TxMode.write, () {
-      final legacyQuery = Database.chats
-          .query(Chat_.guid.startsWith('iMessage;') | Chat_.guid.startsWith('SMS;') | Chat_.guid.startsWith('RCS;'))
-          .build();
-      final legacyChats = legacyQuery.find();
-      legacyQuery.close();
+    final legacyQuery = Database.chats
+        .query(Chat_.guid.startsWith('iMessage;') | Chat_.guid.startsWith('SMS;') | Chat_.guid.startsWith('RCS;'))
+        .build();
+    final legacyChats = legacyQuery.find();
+    legacyQuery.close();
 
-      for (final legacy in legacyChats) {
-        // An open chat saves its draft on close, which would recreate it after the delete.
-        if (legacy.guid == skipGuid) continue;
+    for (final legacy in legacyChats) {
+      // An open chat saves its draft on close, which would recreate it after the delete.
+      if (legacy.guid == skipGuid) continue;
+
+      Database.runInTransaction(TxMode.write, () {
         final target = Chat.findOne(guid: 'any${legacy.guid.substring(legacy.guid.indexOf(';'))}');
         // Servers that still use service prefixes have no `any;` chats; leave theirs alone.
-        if (target == null) continue;
+        if (target == null) return;
 
         final messageQuery = (Database.messages.query()..link(Message_.chat, Chat_.id.equals(legacy.id!))).build();
         final messages = messageQuery.find();
@@ -223,44 +224,48 @@ class ChatActions {
         }
         Database.messages.putMany(messages);
 
-        final legacyLatest = legacy.dbOnlyLatestMessageDate;
-        final targetLatest = target.dbOnlyLatestMessageDate;
-        if (legacyLatest != null && (targetLatest == null || legacyLatest.isAfter(targetLatest))) {
-          target.dbLatestMessage.target = legacy.dbLatestMessage.target;
-          target.dbOnlyLatestMessageDate = legacyLatest;
-          target.hasUnreadMessage = legacy.hasUnreadMessage;
+        // A legacy chat the user deleted keeps its settings and preview to itself.
+        if (legacy.dateDeleted == null) {
+          final legacyLatest = legacy.dbOnlyLatestMessageDate;
+          final targetLatest = target.dbOnlyLatestMessageDate;
+          if (legacyLatest != null && (targetLatest == null || legacyLatest.isAfter(targetLatest))) {
+            target.dbLatestMessage.target = legacy.dbLatestMessage.target;
+            target.dbOnlyLatestMessageDate = legacyLatest;
+            target.hasUnreadMessage = legacy.hasUnreadMessage;
+            target.lastReadMessageGuid = legacy.lastReadMessageGuid ?? target.lastReadMessageGuid;
+          }
+          target.dateDeleted = null;
+          if ((legacy.isPinned ?? false) && !(target.isPinned ?? false)) {
+            target.isPinned = true;
+            target.pinIndex = legacy.pinIndex;
+          }
+          if (target.muteType == null && legacy.muteType != null) {
+            target.muteType = legacy.muteType;
+            target.muteArgs = legacy.muteArgs;
+          }
+          if (legacy.lockChatName && !target.lockChatName) {
+            target.lockChatName = true;
+            target.displayName = legacy.displayName;
+          }
+          if (legacy.lockChatIcon && !target.lockChatIcon) {
+            target.lockChatIcon = true;
+            target.customAvatarPath = legacy.customAvatarPath;
+          }
+          target.customAvatarPath ??= legacy.customAvatarPath;
+          target.customBackgroundPath ??= legacy.customBackgroundPath;
+          target.customThemeLight ??= legacy.customThemeLight;
+          target.customThemeDark ??= legacy.customThemeDark;
+          if (target.wallpaperType == null) {
+            target.wallpaperType = legacy.wallpaperType;
+            target.dynamicWallpaperId = legacy.dynamicWallpaperId;
+            target.dynamicWallpaperConfig = legacy.dynamicWallpaperConfig;
+          }
+          target.autoSendReadReceipts ??= legacy.autoSendReadReceipts;
+          target.autoSendTypingIndicators ??= legacy.autoSendTypingIndicators;
+          if (target.textFieldText?.isEmpty ?? true) target.textFieldText = legacy.textFieldText;
+          if (target.textFieldAttachments.isEmpty) target.textFieldAttachments = legacy.textFieldAttachments;
+          Database.chats.put(target);
         }
-        if (legacy.dateDeleted == null) target.dateDeleted = null;
-        if ((legacy.isPinned ?? false) && !(target.isPinned ?? false)) {
-          target.isPinned = true;
-          target.pinIndex = legacy.pinIndex;
-        }
-        if (target.muteType == null && legacy.muteType != null) {
-          target.muteType = legacy.muteType;
-          target.muteArgs = legacy.muteArgs;
-        }
-        if (legacy.lockChatName && !target.lockChatName) {
-          target.lockChatName = true;
-          target.displayName = legacy.displayName;
-        }
-        if (legacy.lockChatIcon && !target.lockChatIcon) {
-          target.lockChatIcon = true;
-          target.customAvatarPath = legacy.customAvatarPath;
-        }
-        target.customAvatarPath ??= legacy.customAvatarPath;
-        target.customBackgroundPath ??= legacy.customBackgroundPath;
-        target.customThemeLight ??= legacy.customThemeLight;
-        target.customThemeDark ??= legacy.customThemeDark;
-        if (target.wallpaperType == null) {
-          target.wallpaperType = legacy.wallpaperType;
-          target.dynamicWallpaperId = legacy.dynamicWallpaperId;
-          target.dynamicWallpaperConfig = legacy.dynamicWallpaperConfig;
-        }
-        target.autoSendReadReceipts ??= legacy.autoSendReadReceipts;
-        target.autoSendTypingIndicators ??= legacy.autoSendTypingIndicators;
-        if (target.textFieldText?.isEmpty ?? true) target.textFieldText = legacy.textFieldText;
-        if (target.textFieldAttachments.isEmpty) target.textFieldAttachments = legacy.textFieldAttachments;
-        Database.chats.put(target);
 
         for (final group in legacy.customGroups) {
           group.chats.removeWhere((c) => c.id == legacy.id);
@@ -270,8 +275,8 @@ class ChatActions {
 
         Database.chats.remove(legacy.id!);
         merged[legacy.guid] = target.guid;
-      }
-    });
+      });
+    }
 
     return merged;
   }

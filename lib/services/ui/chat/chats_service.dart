@@ -349,8 +349,7 @@ class ChatsService {
       // Insert each chat at the correct position using binary search
       // This maintains proper ordering including pinIndex which DB queries cannot handle
       for (Chat c in chatBatch) {
-        // A sync or socket event can add a chat during the batch query, and offset paging
-        // repeats a chat when new messages reorder the table between batches.
+        // Concurrent adds and offset-paging repeats can deliver a chat already in the list.
         final existing = chatStates[c.guid];
         if (existing != null && _sortedChats.any((s) => s.guid == c.guid)) continue;
 
@@ -1133,31 +1132,41 @@ class ChatsService {
   }
 
   Future<void> mergeLegacyChats() async {
+    if (kIsWeb) return;
     // A merge during the initial load could re-add a deleted chat from an in-flight batch.
-    if (kIsWeb || !loadedAllChats.isCompleted) return;
-
-    // A sync that succeeded must not be reported as failed because this cleanup threw.
-    final Map<String, String> merged;
-    try {
-      merged = await ChatInterface.mergeLegacyChats(skipGuid: activeChat?.chat.guid);
-    } catch (e, s) {
-      Logger.error("Failed to merge legacy chats", error: e, trace: s, tag: "ChatBloc");
+    if (!loadedAllChats.isCompleted) {
+      Logger.debug("Skipping legacy chat merge until the chat list has loaded", tag: "ChatBloc");
       return;
     }
-    if (merged.isEmpty) return;
-    Logger.info("Merged ${merged.length} legacy chat(s) into their any; chats", tag: "ChatBloc");
 
-    for (final entry in merged.entries) {
-      final legacy = chatStates[entry.key]?.chat;
-      if (legacy != null) {
-        removeChat(legacy);
-        await _clearChatNotifications(legacy);
+    // A sync that succeeded must not be reported as failed because this cleanup threw.
+    try {
+      final merged = await ChatInterface.mergeLegacyChats(skipGuid: activeChat?.chat.guid);
+      if (merged.isEmpty) return;
+      Logger.info("Merged ${merged.length} legacy chat(s) into their any; chats", tag: "ChatBloc");
+
+      for (final entry in merged.entries) {
+        final legacy = chatStates[entry.key]?.chat;
+        if (legacy != null) {
+          removeChat(legacy);
+          await _clearChatNotifications(legacy);
+        }
+        // ChatState reads the background from the GUID's folder, not from the Chat row.
+        FilesystemSvc.moveChatBackground(entry.key, entry.value);
+
+        final target = Chat.findOne(guid: entry.value);
+        if (target == null || target.dateDeleted != null) continue;
+        await addChat(target, immediate: true);
+        // updateFromChat leaves drafts alone, so the merged draft must be pushed into the state.
+        chatStates[target.guid]
+          ?..updateTextFieldTextInternal(target.textFieldText)
+          ..updateTextFieldAttachmentsInternal(target.textFieldAttachments);
       }
-      final target = Chat.findOne(guid: entry.value);
-      // A target the merge undeleted has no state yet.
-      if (target != null && !updateChat(target, override: true)) await addChat(target, immediate: true);
+      _recalculateUnreadCount();
+      EventDispatcherSvc.emit('custom-groups-updated', null);
+    } catch (e, s) {
+      Logger.error("Failed to merge legacy chats", error: e, trace: s, tag: "ChatBloc");
     }
-    EventDispatcherSvc.emit('custom-groups-updated', null);
   }
 
   /// Performs a full messaging reset: wipes all Messages, Attachments, Chats,

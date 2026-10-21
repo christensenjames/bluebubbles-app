@@ -130,6 +130,15 @@ class FilesystemService {
     return candidates.isEmpty ? null : candidates.first.path;
   }
 
+  /// Moves [fromGuid]'s custom background to [toGuid], unless [toGuid] already has one.
+  void moveChatBackground(String fromGuid, String toGuid) {
+    final source = getExistingChatBackgroundPath(fromGuid);
+    if (source == null || getExistingChatBackgroundPath(toGuid) != null) return;
+
+    final directory = Directory(join(customBackgroundsPath, sanitizeGuid(toGuid)))..createSync(recursive: true);
+    File(source).renameSync(join(directory.path, basename(source)));
+  }
+
   /// Strips the Android internal storage prefix from [path] for display.
   /// Returns [path] unchanged on non-Android platforms.
   String toDisplayPath(String path) {
