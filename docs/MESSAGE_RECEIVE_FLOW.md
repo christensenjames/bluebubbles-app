@@ -163,7 +163,7 @@ For a temp → real GUID swap, `Message.replaceMessage()` → `MessageInterface.
 ### Step 6 — Unread / Archive State Update
 
 This happens inside `Chat.addMessage()` (see Step 5), not as a separate call from `IncomingMessageHandler`:
-- If the new message is **newer** and **not from this device**, and the chat was archived, and `SettingsSvc.settings.unarchiveOnNewMessage` is enabled: `chat.toggleArchivedAsync(false)` — unarchives it automatically. (If that setting is off, an archived chat stays archived even on a new incoming message.)
+- If the new message is **newer** and **not from this device**, and the chat was archived, and `SettingsSvc.settings.unarchiveOnNewMessage` is enabled (the default; stored as `autoUnarchiveOnNewMessage`): `chat.toggleArchivedAsync(false)` — unarchives it automatically. (If that setting is off, an archived chat stays archived even on a new incoming message.)
 - If the new message is **newer** and **from this device**: `chat.toggleHasUnreadAsync(false, ...)` — clears the unread badge.
 - If the new message is **newer** and **not from this device**: `chat.toggleHasUnreadAsync(true, ...)` — marks the chat as having an unread message. (`IncomingMessageHandler` then immediately clears this back to `false` in-memory if the chat happens to be the currently-active/open chat — see Step 4, new-message step 8.)
 

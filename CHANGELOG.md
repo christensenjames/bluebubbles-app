@@ -1,5 +1,13 @@
 # Changelog
 
+## 2026-10-21 — Archived chats come back on a new message
+
+- "Unarchive Chats On New Message" (Settings → Conversation List) is now on by default, so a
+  new incoming message moves an archived chat back into the chat list. Before, the default was
+  off and a new message left the chat in Archived. The setting is stored under a new key,
+  `autoUnarchiveOnNewMessage`, so existing installs also start with it on, including ones that
+  had saved the old default. Turning it off again still sticks.
+
 ## 2026-10-20 — Duplicate chats in the chat list
 
 - A chat no longer shows twice when a message or sync adds it while the chat list is still

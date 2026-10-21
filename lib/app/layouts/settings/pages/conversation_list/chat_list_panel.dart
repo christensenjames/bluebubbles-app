@@ -523,7 +523,7 @@ class _ChatListPanelState extends State<ChatListPanel> with ThemeHelpers {
                           Obx(() => SettingsSwitch(
                                 onChanged: (bool val) async {
                                   SettingsSvc.settings.unarchiveOnNewMessage.value = val;
-                                  await SettingsSvc.settings.saveOneAsync('unarchiveOnNewMessage');
+                                  await SettingsSvc.settings.saveOneAsync('autoUnarchiveOnNewMessage');
                                 },
                                 initialVal: SettingsSvc.settings.unarchiveOnNewMessage.value,
                                 title: "Unarchive Chats On New Message",

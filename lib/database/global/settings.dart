@@ -139,7 +139,7 @@ class Settings {
   final RxBool scrollToBottomOnSend = true.obs;
   final RxBool sendEventsToTasker = false.obs;
   final RxBool keepAppAlive = false.obs;
-  final RxBool unarchiveOnNewMessage = false.obs;
+  final RxBool unarchiveOnNewMessage = true.obs;
   final RxBool scrollToLastUnread = false.obs;
   final RxString userName = "You".obs;
   final RxnString userAvatarPath = RxnString();
@@ -424,7 +424,8 @@ class Settings {
       'scrollToBottomOnSend': scrollToBottomOnSend.value,
       'sendEventsToTasker': sendEventsToTasker.value,
       'keepAppAlive': keepAppAlive.value,
-      'unarchiveOnNewMessage': unarchiveOnNewMessage.value,
+      // Stored under a new key so installs that saved the old default (off) start with it on.
+      'autoUnarchiveOnNewMessage': unarchiveOnNewMessage.value,
       'scrollToLastUnread': scrollToLastUnread.value,
       'userName': userName.value,
       'privateAPISend': privateAPISend.value,
@@ -664,7 +665,7 @@ class Settings {
         map['sendEventsToTasker'] ?? SettingsSvc.settings.sendEventsToTasker.value;
     SettingsSvc.settings.keepAppAlive.value = map['keepAppAlive'] ?? SettingsSvc.settings.keepAppAlive.value;
     SettingsSvc.settings.unarchiveOnNewMessage.value =
-        map['unarchiveOnNewMessage'] ?? SettingsSvc.settings.unarchiveOnNewMessage.value;
+        map['autoUnarchiveOnNewMessage'] ?? SettingsSvc.settings.unarchiveOnNewMessage.value;
     SettingsSvc.settings.scrollToLastUnread.value =
         map['scrollToLastUnread'] ?? SettingsSvc.settings.scrollToLastUnread.value;
     SettingsSvc.settings.userName.value = map['userName'] ?? SettingsSvc.settings.userName.value;
@@ -892,7 +893,7 @@ class Settings {
     s.scrollToBottomOnSend.value = map['scrollToBottomOnSend'] ?? true;
     s.sendEventsToTasker.value = map['sendEventsToTasker'] ?? false;
     s.keepAppAlive.value = map['keepAppAlive'] ?? false;
-    s.unarchiveOnNewMessage.value = map['unarchiveOnNewMessage'] ?? false;
+    s.unarchiveOnNewMessage.value = map['autoUnarchiveOnNewMessage'] ?? true;
     s.scrollToLastUnread.value = map['scrollToLastUnread'] ?? false;
     s.userName.value = map['userName'] ?? "You";
     s.userAvatarPath.value = map['userAvatarPath'];
