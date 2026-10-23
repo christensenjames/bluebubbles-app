@@ -273,11 +273,14 @@ class SettingsService {
     try {
       final details = await ServerInterface.getServerDetails();
       _serverDetails.value = details;
-      if (details.privateApiEnabled != null) {
+      final List<String> toSave = [];
+      if (details.privateApiEnabled != null && settings.serverPrivateAPI.value != details.privateApiEnabled) {
         settings.serverPrivateAPI.value = details.privateApiEnabled;
+        toSave.add('serverPrivateAPI');
       }
       if (settings.iCloudAccount.isEmpty && details.iCloudAccount != null) {
         settings.iCloudAccount.value = details.iCloudAccount!;
+        toSave.add('iCloudAccount');
       }
 
       await PrefsSvc.server.setServerDetails(
@@ -286,6 +289,9 @@ class SettingsService {
         serverVersion: details.serverVersion,
         serverVersionCode: details.serverVersionCode,
       );
+      if (toSave.isNotEmpty) {
+        await settings.saveManyAsync(toSave);
+      }
     } catch (e, s) {
       Logger.warn("Failed to refresh server details", error: e, trace: s, tag: 'SettingsService');
     }
