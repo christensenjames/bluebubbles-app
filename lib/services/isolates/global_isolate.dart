@@ -7,6 +7,7 @@ import 'package:bluebubbles/utils/logger/logger.dart';
 import 'package:bluebubbles/helpers/backend/startup_tasks.dart';
 import 'package:bluebubbles/services/isolates/isolate_actions.dart';
 import 'package:bluebubbles/services/isolates/isolate_event.dart';
+import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 import 'package:uuid/uuid.dart';
 
@@ -447,7 +448,10 @@ class GlobalIsolate {
         if (isolateResponse.ok) {
           requestInfo.completer.complete(isolateResponse.data);
         } else {
-          requestInfo.completer.completeError(isolateResponse.error ?? 'Unknown error');
+          final networkError = isolateResponse.networkError;
+          requestInfo.completer.completeError(
+            networkError != null ? _restoreSendError(networkError) : isolateResponse.error ?? 'Unknown error',
+          );
         }
 
         _onRequestSettled();
@@ -675,7 +679,19 @@ class GlobalIsolate {
 
         // Send standardized error response
         sendPort.send(
-          IsolateResponse.error(uuid: uuid, error: e.toString(), message: "Error executing isolate action").toMap(),
+          IsolateResponse.error(
+            uuid: uuid,
+            error: e.toString(),
+            message: "Error executing isolate action",
+            networkError: switch (type) {
+              IsolateRequestType.sendTextMessage ||
+              IsolateRequestType.sendTapback ||
+              IsolateRequestType.sendMultipartMessage ||
+              IsolateRequestType.sendAttachmentMessage =>
+                _serializeSendError(e),
+              _ => null,
+            },
+          ).toMap(),
         );
       }
     });
@@ -845,6 +861,61 @@ class IsolateRequest<T> {
   }
 }
 
+Map<String, dynamic>? _serializeSendError(Object error) {
+  final Response<dynamic>? response;
+  final DioException? dioError;
+  if (error is DioException) {
+    dioError = error;
+    response = error.response;
+  } else if (error is Response) {
+    dioError = null;
+    response = error;
+  } else {
+    return null;
+  }
+  return {
+    'dioType': ?dioError?.type.name,
+    'message': ?dioError?.message,
+    'error': ?dioError?.error?.toString(),
+    if (response != null)
+      'response': {
+        'statusCode': response.statusCode,
+        if (_isPlainJson(response.data)) 'data': response.data,
+      },
+  };
+}
+
+Object _restoreSendError(Map<String, dynamic> error) {
+  final requestOptions = RequestOptions(path: '');
+  final responseData = error['response'] as Map<String, dynamic>?;
+  final response = responseData == null
+      ? null
+      : Response<dynamic>(
+          requestOptions: requestOptions,
+          statusCode: responseData['statusCode'] as int?,
+          data: responseData['data'],
+        );
+  final dioType = error['dioType'] as String?;
+  if (dioType == null) return response!;
+  return DioException(
+    requestOptions: requestOptions,
+    response: response,
+    type: DioExceptionType.values.byName(dioType),
+    message: error['message'] as String?,
+    error: error['error'],
+  );
+}
+
+bool _isPlainJson(Object? value) {
+  if (value == null || value is String || value is bool || value is int) return true;
+  if (value is double) return value.isFinite;
+  if (value is List) return value.every(_isPlainJson);
+  if (value is Map) {
+    return value.entries.every((entry) => entry.key is String && _isPlainJson(entry.value));
+  }
+  return false;
+}
+
 /// A standard response format for isolate communication
 class IsolateResponse<T> {
   /// Unique identifier for the request
@@ -855,6 +926,7 @@ class IsolateResponse<T> {
 
   /// Error details if ok is false
   final String? error;
+  final Map<String, dynamic>? networkError;
 
   /// Optional message about the operation
   final String? message;
@@ -862,7 +934,7 @@ class IsolateResponse<T> {
   /// Optional data payload
   final T? data;
 
-  IsolateResponse({required this.uuid, required this.ok, this.error, this.message, this.data});
+  IsolateResponse({required this.uuid, required this.ok, this.error, this.networkError, this.message, this.data});
 
   /// Create a success response
   factory IsolateResponse.success({required String uuid, String? message, T? data}) {
@@ -870,8 +942,13 @@ class IsolateResponse<T> {
   }
 
   /// Create an error response
-  factory IsolateResponse.error({required String uuid, required String error, String? message}) {
-    return IsolateResponse(uuid: uuid, ok: false, error: error, message: message);
+  factory IsolateResponse.error({
+    required String uuid,
+    required String error,
+    Map<String, dynamic>? networkError,
+    String? message,
+  }) {
+    return IsolateResponse(uuid: uuid, ok: false, error: error, networkError: networkError, message: message);
   }
 
   /// Convert response to a map
@@ -880,6 +957,7 @@ class IsolateResponse<T> {
       'uuid': uuid,
       'ok': ok,
       if (error != null) 'error': error,
+      if (networkError != null) 'networkError': networkError,
       if (message != null) 'message': message,
       if (data != null) 'data': data,
     };
@@ -891,6 +969,7 @@ class IsolateResponse<T> {
       uuid: map['uuid'] as String,
       ok: map['ok'] as bool,
       error: map['error'] as String?,
+      networkError: map['networkError'] as Map<String, dynamic>?,
       message: map['message'] as String?,
       data: map['data'] as T?,
     );
