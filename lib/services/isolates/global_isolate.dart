@@ -862,17 +862,9 @@ class IsolateRequest<T> {
 }
 
 Map<String, dynamic>? _serializeSendError(Object error) {
-  final Response<dynamic>? response;
-  final DioException? dioError;
-  if (error is DioException) {
-    dioError = error;
-    response = error.response;
-  } else if (error is Response) {
-    dioError = null;
-    response = error;
-  } else {
-    return null;
-  }
+  final dioError = error is DioException ? error : null;
+  final response = error is Response ? error : dioError?.response;
+  if (dioError == null && response == null) return null;
   return {
     'dioType': ?dioError?.type.name,
     'message': ?dioError?.message,
