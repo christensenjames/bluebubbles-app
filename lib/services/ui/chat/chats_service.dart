@@ -289,6 +289,7 @@ class ChatsService {
       final countQuery = (Database.chats.query(Chat_.dateDeleted.isNull())..order(Chat_.id, flags: Order.descending))
           .watch(triggerImmediately: true);
       var initialDelivery = true;
+      var highestChatId = 0;
       countSub = countQuery.listen((event) async {
         final isInitialDelivery = initialDelivery;
         initialDelivery = false;
@@ -296,14 +297,28 @@ class ChatsService {
         final newCount = event.count();
         final countIncreased = newCount > currentCount;
         currentCount = newCount;
-        if (!isInitialDelivery && countIncreased) {
+        if (isInitialDelivery) {
+          highestChatId = event.findFirst()?.id ?? 0;
+        } else if (countIncreased) {
+          final newChats = Database.runInTransaction(TxMode.read, () {
+            final query = (Database.chats
+                  .query(Chat_.id.greaterThan(highestChatId).and(Chat_.dateDeleted.isNull()))
+                ..order(Chat_.id, flags: Order.descending))
+                .build();
+            final chats = query.find();
+            query.close();
+            return chats;
+          });
+          if (newChats.isEmpty) return;
+          highestChatId = newChats.first.id!;
+          if (newChats.any((chat) =>
+              chat.dbOnlyLatestMessageDate == null || chat.dbOnlyLatestMessageDate!.millisecondsSinceEpoch == 0)) {
+            // Wait for chat.addMessage to go through for the whole batch.
+            await Future.delayed(const Duration(milliseconds: 500));
+          }
           final listedGuids = _sortedChats.map((chat) => chat.guid).toSet();
-          for (final chat in event.find()) {
+          for (final chat in newChats) {
             if (chatStates.containsKey(chat.guid) && listedGuids.contains(chat.guid)) continue;
-            if (chat.dbOnlyLatestMessageDate == null || chat.dbOnlyLatestMessageDate!.millisecondsSinceEpoch == 0) {
-              // wait for the chat.addMessage to go through
-              await Future.delayed(const Duration(milliseconds: 500));
-            }
             await addChat(chat, immediate: true);
           }
         }
