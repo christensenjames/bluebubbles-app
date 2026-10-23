@@ -2,7 +2,6 @@ import 'package:bluebubbles/app/layouts/settings/widgets/settings_widgets.dart';
 import 'package:bluebubbles/helpers/backend/settings_helpers.dart';
 import 'package:bluebubbles/helpers/helpers.dart';
 import 'package:bluebubbles/services/services.dart';
-import 'package:dio/dio.dart' as dio;
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
@@ -58,23 +57,17 @@ class _OauthPanelState extends State<OauthPanel> with ThemeHelpers {
         resetTrust: true,
         saveAdditionalSettings: ["guidAuthKey"]);
 
-    dio.Response? serverResponse;
+    int? statusCode;
     await HttpSvc.server.ping().then((response) {
-      serverResponse = response;
+      statusCode = response.statusCode;
     }).catchError((err) {
-      serverResponse = err is dio.DioException ? err.response : err is dio.Response ? err : null;
+      statusCode = httpStatusCodeOf(err);
     });
 
-    if (serverResponse?.statusCode == 401) {
-      error.value = "Authentication failed. Incorrect password!";
-      SettingsSvc.settings.serverAddress.value = oldAddr;
-      SettingsSvc.settings.guidAuthKey.value = oldPassword;
-      SettingsSvc.settings.serverCertificateFingerprint.value = oldFingerprint;
-      await SettingsSvc.settings.saveManyAsync(["serverAddress", "guidAuthKey", "serverCertificateFingerprint"]);
-      return;
-    }
-    if (serverResponse?.statusCode != 200) {
-      error.value = "Failed to connect to $addr! Please ensure your Server's URL is accessible from your device.";
+    if (statusCode != 200) {
+      error.value = statusCode == 401
+          ? "Authentication failed. Incorrect password!"
+          : "Failed to connect to $addr! Please ensure your Server's URL is accessible from your device.";
       SettingsSvc.settings.serverAddress.value = oldAddr;
       SettingsSvc.settings.guidAuthKey.value = oldPassword;
       SettingsSvc.settings.serverCertificateFingerprint.value = oldFingerprint;
