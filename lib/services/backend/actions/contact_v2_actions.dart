@@ -679,16 +679,16 @@ class ContactV2Actions {
     });
   }
 
-  static Future<List<int>> linkHandlesToContacts(dynamic data) async {
-    final handleIds = (data['handleIds'] as List).cast<int>();
+  static List<int> linkHandlesToContacts(List<int> handleIds) {
     if (handleIds.isEmpty) return [];
+    final normalizeAddress = (String address) =>
+        address.contains('@') ? ContactV2.normalizeEmail(address) : ContactV2.normalizePhoneNumber(address);
 
     return Database.runInTransaction(TxMode.write, () {
       final contactsByAddress = <String, ContactV2>{};
       for (final contact in Database.contactsV2.getAll()) {
         for (final address in contact.addresses) {
-          final normalized =
-              address.contains('@') ? ContactV2.normalizeEmail(address) : ContactV2.normalizePhoneNumber(address);
+          final normalized = normalizeAddress(address);
           contactsByAddress.putIfAbsent(normalized, () => contact);
         }
       }
@@ -697,8 +697,7 @@ class ContactV2Actions {
       final contactsToSave = <int, ContactV2>{};
       for (final handle in Database.handles.getMany(handleIds).whereType<Handle>()) {
         final address = handle.address;
-        final normalized =
-            address.contains('@') ? ContactV2.normalizeEmail(address) : ContactV2.normalizePhoneNumber(address);
+        final normalized = normalizeAddress(address);
         final contact = contactsByAddress[normalized];
         if (contact == null) continue;
         contact.handles.add(handle);

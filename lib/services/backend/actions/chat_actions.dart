@@ -814,9 +814,9 @@ class ChatActions {
     //    Guards against web (no ObjectBox).
     final List<int> affectedHandleIds = [];
     if (brandNewHandles.isNotEmpty && !kIsWeb) {
-      affectedHandleIds.addAll(await ContactV2Actions.linkHandlesToContacts({
-        'handleIds': brandNewHandles.map((h) => h.id).whereType<int>().toList(),
-      }));
+      affectedHandleIds.addAll(
+        ContactV2Actions.linkHandlesToContacts(brandNewHandles.map((h) => h.id).whereType<int>().toList()),
+      );
     }
 
     return {'chatIds': chatIds, 'affectedHandleIds': affectedHandleIds};
