@@ -681,7 +681,7 @@ class ContactV2Actions {
 
   static List<int> linkHandlesToContacts(List<int> handleIds) {
     if (handleIds.isEmpty) return [];
-    final normalizeAddress = (String address) =>
+    String normalizeAddress(String address) =>
         address.contains('@') ? ContactV2.normalizeEmail(address) : ContactV2.normalizePhoneNumber(address);
 
     return Database.runInTransaction(TxMode.write, () {
