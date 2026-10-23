@@ -132,6 +132,8 @@ class Attachment {
   /// Note: This must be called from the main thread to access cm/cvc services
   static Future<Attachment> replaceAttachmentAsync(String? oldGuid, Attachment newAttachment) async {
     if (kIsWeb) return newAttachment;
+    final oldDirectory = directoryForGuid(oldGuid);
+    final newDirectory = newAttachment.directory;
 
     Attachment? existing = await Attachment.findOneAsync(oldGuid!);
     if (existing == null) {
@@ -150,13 +152,9 @@ class Attachment {
     );
 
     // Handle file system operations on main thread AFTER isolate call
-    String appDocPath = FilesystemSvc.appDocDir.path;
-    String pathName = "$appDocPath/attachments/$oldGuid";
-    Directory directory = Directory(pathName);
-
+    final directory = Directory(oldDirectory);
     if (directory.existsSync()) {
-      final newDirPath = "$appDocPath/attachments/${newAttachment.guid}";
-      await directory.rename(newDirPath);
+      await directory.rename(newDirectory);
 
       // After the directory rename the file inside still has its old name (the temp transferName).
       // If the server assigned a different transferName, rename the file to match so that
@@ -164,7 +162,7 @@ class Attachment {
       if (newAttachment.transferName != null) {
         final expectedPath = newAttachment.path; // uses new guid + new transferName
         if (!File(expectedPath).existsSync()) {
-          final files = Directory(newDirPath).listSync().whereType<File>().toList();
+          final files = Directory(newDirectory).listSync().whereType<File>().toList();
           if (files.isNotEmpty) {
             await files.first.rename(expectedPath);
           }
@@ -279,7 +277,21 @@ class Attachment {
 
   static String get baseDirectory => FilesystemSvc.attachmentsPath;
 
-  String get directory => "$baseDirectory/$guid";
+  static final RegExp _unsafeGuidChars = RegExp(r'[/\\:\x00]');
+
+  static bool isValidGuid(String? guid) =>
+      guid != null &&
+      guid.isNotEmpty &&
+      !guid.endsWith('.') &&
+      !guid.endsWith(' ') &&
+      !_unsafeGuidChars.hasMatch(guid);
+
+  static String directoryForGuid(String? guid) {
+    if (!isValidGuid(guid)) throw ArgumentError.value(guid, 'guid', 'Expected a single safe path component');
+    return "$baseDirectory/$guid";
+  }
+
+  String get directory => directoryForGuid(guid);
 
   static final RegExp _unsafeFileNameChars =
       Platform.operatingSystem == "windows" ? RegExp(r'[<>:"/\\|?*]') : RegExp(r'/');
