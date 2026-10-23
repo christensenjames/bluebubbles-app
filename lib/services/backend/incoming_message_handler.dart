@@ -795,7 +795,8 @@ class IncomingMessageHandler {
       final oldest = _pendingUpdates.remove(oldestGuid)!;
       oldest.expiryTimer?.cancel();
       Logger.warn(
-        'Pending-update buffer full ($_maxPendingUpdates) — evicting oldest entry $oldestGuid, processing anyway',
+        'Pending-update buffer full ($_maxPendingUpdates) — evicting oldest entry $oldestGuid, '
+        'retrying once and dropping if no DB record exists',
         tag: _tag,
       );
       unawaited(handle(oldest.payload.copyWith(isPendingUpdateRetry: true), front: true).catchError((e, st) {
@@ -814,7 +815,7 @@ class IncomingMessageHandler {
       if (expired != null) {
         Logger.warn(
           'Buffered update for $guid expired after ${_pendingUpdateTimeout.inSeconds}s '
-          'without a matching new-message — processing anyway',
+          'without a matching new-message — retrying once and dropping if no DB record exists',
           tag: _tag,
         );
         unawaited(handle(expired.payload.copyWith(isPendingUpdateRetry: true), front: true).catchError((e, st) {
