@@ -101,8 +101,12 @@ class _LinksSectionState extends State<LinksSection> with ThemeHelpers {
             ..link(Message_.chat, Chat_.id.equals(widget.chat.id!))
             ..order(Message_.dateCreated, flags: Order.descending))
           .build();
-      final fetchedLinks = await query.findAsync();
-      query.close();
+      final List<Message> fetchedLinks;
+      try {
+        fetchedLinks = await query.findAsync();
+      } finally {
+        query.close();
+      }
 
       if (mounted) {
         setState(() {
