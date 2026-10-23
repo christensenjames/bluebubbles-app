@@ -1,5 +1,38 @@
 # Changelog
 
+## 2026-10-23 — Audit fixes
+
+- The conversation list now picks up every new chat added in a sync burst, instead of showing
+  only the newest one.
+- An incoming message already saved before its socket event arrives now appears in the open
+  conversation instead of remaining absent.
+- A send confirmed by the socket no longer turns into a later “Failed to send” error if the
+  HTTP request subsequently fails.
+- Attachment sends now fail with an error when their staged file is missing, instead of getting
+  stuck.
+- Empty sends now complete as no-ops instead of leaving the send unfinished.
+- A buffered message update that expires or is evicted gets one retry, then is dropped if its
+  message still is not saved.
+- Chat titles now refresh when a participant’s contact name changes.
+- Handle sync keeps local handle identities by matching address and service first, then server
+  row ID; a server response with no handles no longer clears local handles.
+- Large syncs now retrieve message handles and related reaction messages in batches instead
+  of looking them up one at a time.
+- Downloads from external links no longer include the server’s request headers.
+- Self-signed server certificates are pinned on first use. If one changes, the API Connection
+  status card says “The server certificate changed” and tells you to re-enter the server address
+  to trust the replacement.
+- Send errors retain their HTTP status when returned from the background isolate.
+- Changes to the server’s private API capability are now saved when refreshed.
+- Toggling the background service no longer overwrites saved custom headers with current
+  runtime headers.
+- If an OAuth connection check cannot reach the server, the previous address, credentials and
+  certificate trust are restored.
+- Attachment GUIDs that cannot safely name one folder are rejected before filesystem access.
+- Send and receive sound players are disposed after playback or a playback setup error.
+- A message keeps its widget identity when its temporary GUID changes to the server GUID, so
+  the confirmed message is not treated as a new widget.
+
 ## 2026-10-23 — Upstream v2.1.4 merged and installed everywhere
 
 - Merged upstream tag `v2.1.4+desktop.94` into the fork's `master` (`ae096de83`). It brings

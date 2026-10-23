@@ -54,6 +54,7 @@ class IncomingPayload {
   /// The local temp GUID that was assigned when *we* sent this message.
   /// Present only when the server is echoing back one of our own sends.
   final String? tempGuid;
+  final bool isPendingUpdateRetry;
 
   const IncomingPayload({
     required this.type,
@@ -62,6 +63,7 @@ class IncomingPayload {
     required this.message,
     this.attachments = const [],
     this.tempGuid,
+    this.isPendingUpdateRetry = false,
   });
 
   IncomingPayload copyWith({
@@ -71,6 +73,7 @@ class IncomingPayload {
     Message? message,
     List<Attachment>? attachments,
     String? tempGuid,
+    bool? isPendingUpdateRetry,
   }) {
     return IncomingPayload(
       type: type ?? this.type,
@@ -79,6 +82,7 @@ class IncomingPayload {
       message: message ?? this.message,
       attachments: attachments ?? this.attachments,
       tempGuid: tempGuid ?? this.tempGuid,
+      isPendingUpdateRetry: isPendingUpdateRetry ?? this.isPendingUpdateRetry,
     );
   }
 }
@@ -328,6 +332,12 @@ class IncomingMessageHandler {
     if (existsByTempGuid != null || existsByRealGuid != null) {
       Logger.debug('[new-message] ${m.guid} already in DB — routing to updated-message pipeline', tag: _tag);
       await _processUpdatedMessage(payload.copyWith(type: MessageEventType.updatedMessage));
+      if (!isIsolate && Get.isRegistered<MessagesService>(tag: payload.chat.guid)) {
+        final svc = MessagesSvc(payload.chat.guid);
+        if (svc.struct.getMessage(m.guid!) == null) {
+          await svc.addNewMessage(Message.findOne(guid: m.guid) ?? m);
+        }
+      }
       return;
     }
 
@@ -469,6 +479,10 @@ class IncomingMessageHandler {
     //    wait.  _flushPendingUpdate will re-invoke this method once the
     //    new-message is processed.
     if (existing == null) {
+      if (payload.isPendingUpdateRetry) {
+        Logger.warn('Dropping buffered update for ${m.guid} after retry found no DB record', tag: _tag);
+        return;
+      }
       Logger.info(
         'updated-message for ${m.guid} has no DB record yet — buffering',
         tag: _tag,
@@ -567,7 +581,7 @@ class IncomingMessageHandler {
       // Clean up the stale temp record when the real one is now present.
       if (existingGuid != replacement.guid) {
         final stale = Message.findOne(guid: existingGuid);
-        if (stale != null) Message.delete(stale.guid!);
+        if (stale != null) await Message.delete(stale.guid!);
       }
     } else {
       try {
@@ -781,10 +795,11 @@ class IncomingMessageHandler {
       final oldest = _pendingUpdates.remove(oldestGuid)!;
       oldest.expiryTimer?.cancel();
       Logger.warn(
-        'Pending-update buffer full ($_maxPendingUpdates) — evicting oldest entry $oldestGuid, processing anyway',
+        'Pending-update buffer full ($_maxPendingUpdates) — evicting oldest entry $oldestGuid, '
+        'retrying once and dropping if no DB record exists',
         tag: _tag,
       );
-      unawaited(handle(oldest.payload, front: true).catchError((e, st) {
+      unawaited(handle(oldest.payload.copyWith(isPendingUpdateRetry: true), front: true).catchError((e, st) {
         Logger.error(
           'Failed to process evicted buffered update for $oldestGuid — update is lost',
           error: e,
@@ -800,10 +815,10 @@ class IncomingMessageHandler {
       if (expired != null) {
         Logger.warn(
           'Buffered update for $guid expired after ${_pendingUpdateTimeout.inSeconds}s '
-          'without a matching new-message — processing anyway',
+          'without a matching new-message — retrying once and dropping if no DB record exists',
           tag: _tag,
         );
-        unawaited(handle(expired.payload, front: true).catchError((e, st) {
+        unawaited(handle(expired.payload.copyWith(isPendingUpdateRetry: true), front: true).catchError((e, st) {
           Logger.error(
             'Failed to process expired buffered update for $guid — update is lost',
             error: e,

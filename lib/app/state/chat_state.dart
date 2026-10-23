@@ -384,7 +384,10 @@ class ChatState {
       ..addAll(newHandles.map((h) => HandleSvc.getOrCreateHandleState(h)));
     for (final hs in participants) {
       _participantWorkers.add(
-        ever(hs.displayName, (_) => updateChatCreatorSubtitleInternal(_computeCreatorSubtitle())),
+        ever(hs.displayName, (_) {
+          updateChatCreatorSubtitleInternal(_computeCreatorSubtitle());
+          updateTitleInternal(_computeTitle());
+        }),
       );
     }
     updateChatCreatorSubtitleInternal(_computeCreatorSubtitle());

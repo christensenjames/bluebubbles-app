@@ -15,8 +15,8 @@ Server WebSocket event: "new-message" / "updated-message"
   → IncomingMsgHandler.handle()  (FIFO queue, configurable concurrency,
       per-GUID serialization via _inflightByGuid, front:true for priority)
   → IncomingMessageHandler._processNewMessage() or _processUpdatedMessage()
-      (out-of-order updates for a not-yet-saved message are parked and
-      flushed once the matching new-message lands)
+      (out-of-order updates for a not-yet-saved message are parked; a matching new-message
+      flushes them, while an expired or evicted update is retried once and dropped if still unsaved)
   → chat.addMessage() → ChatInterface.addMessageToChat() → GlobalIsolate → ChatActions (ObjectBox write)
   → hydrate ID → Message object
   → ChatsSvc.updateChat() / addChat()  → ChatState.*Internal()     → Obx() rebuild
@@ -47,7 +47,7 @@ No parsing or routing logic lives here — raw JSON is passed directly to `Messa
 
 **`handleEvent(event, data, source, {useQueue = true})`** parses the raw payload into a typed `ServerPayload`, extracts the `Chat`/`Message`/attachments, then builds an `IncomingPayload` and hands off to `IncomingMsgHandler.handle(payload, front: !useQueue)`.
 
-For `"new-message"` events where `message.isFromMe == true` and the payload has **no** `tempGuid`, the handler can't yet tell which local temp message this echo belongs to. It records the real GUID in `outOfOrderTempGuids` and waits 500ms for the paired `updated-message` (which carries the `tempGuid`) to arrive and remove it; if nothing removes it in that window, the `new-message` is processed as-is. See `docs/MESSAGE_SEND_FLOW.md` for the full tempGuid → realGuid swap.
+For `"new-message"` events where `message.isFromMe == true` and the payload has **no** `tempGuid`, the handler records the real GUID in `outOfOrderTempGuids` and waits 500ms for a `new-message` echo with a `tempGuid` to remove it; only that tempGuid echo cancels the delayed event. If no such echo arrives in that window, the original `new-message` is processed as-is. See `docs/MESSAGE_SEND_FLOW.md` for the full tempGuid → realGuid swap.
 
 **Key file:** `lib/services/backend/action_handler.dart`
 
@@ -75,7 +75,7 @@ Routing by `MessageEventType`:
 
 1. **Deduplication** — checks `_processedGuids` (a 100-entry ring buffer). If the real GUID was already processed (e.g. delivered by both socket and Firebase), returns early.
 
-2. **Existing record check** — looks up the message by `tempGuid` and by real GUID. If either already exists in the DB (HTTP response saved it before the socket event, or duplicate delivery), redirects to `_processUpdatedMessage()` for a clean GUID swap or field refresh.
+2. **Existing record check** — looks up the message by `tempGuid` and by real GUID. If either already exists in the DB (HTTP response saved it before the socket event, or duplicate delivery), redirects to `_processUpdatedMessage()` for a clean GUID swap or field refresh. When running on the main thread, if this chat has a `MessagesService` and the message is not already in its in-memory list, it then adds the saved message so it appears in the open conversation.
 
 3. **Chat hydration** — calls `_hydrateChat()` to ensure the chat has valid participants and a DB ID before insertion. If not running in an isolate and hydration resolved new contact links, fires `ContactsSvcV2.notifyHandlesUpdated()`.
 
@@ -106,7 +106,7 @@ Routing by `MessageEventType`:
 
 2. **Locate existing DB record** — tries `tempGuid` first (outgoing echo), then the real GUID.
 
-3. **Out-of-order buffering** — if no DB record exists yet, parks the payload via `_parkPendingUpdate()` (which re-checks the DB once more for a race, replaces any existing pending entry for the same GUID, evicts the oldest entry past a 500-item cap, and expires/processes-anyway after a 10s timeout) and returns. `_flushPendingUpdate()` replays it once the matching `new-message` is processed.
+3. **Out-of-order buffering** — if no DB record exists yet, parks the payload via `_parkPendingUpdate()` (which re-checks the DB for a race and replaces any pending entry for the same GUID). A matching `new-message` flushes it; after the 500-item cap evicts it or its 10s timer expires, it is retried once at the front and dropped if no DB record exists.
 
 4. **Chat hydration** — calls `_hydrateChat()`, same as new-message step 3.
 

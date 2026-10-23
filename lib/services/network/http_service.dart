@@ -34,6 +34,7 @@ HttpService get HttpSvc => GetIt.I<HttpService>();
 class HttpService implements BaseApi {
   @override
   late Dio dio;
+  late Dio _externalDownloadDio;
   String? originOverride;
 
   // ── Sub-services ────────────────────────────────────────────────────────────
@@ -110,6 +111,9 @@ class HttpService implements BaseApi {
   @override
   Future<Response> returnSuccessOrError(Response r) {
     if (r.statusCode == 200) {
+      if (serverCertificateMismatch.value && r.realUri.origin == origin) {
+        serverCertificateMismatch.value = false;
+      }
       return Future.value(r);
     } else {
       return Future.error(r);
@@ -153,6 +157,7 @@ class HttpService implements BaseApi {
       );
     }
     dio.interceptors.add(ApiInterceptor());
+    _externalDownloadDio = dio.clone(options: dio.options.copyWith(headers: {}));
 
     // Initialize sub-services after dio is ready.
     server = ServerApi(this);
@@ -180,19 +185,27 @@ class HttpService implements BaseApi {
     dio.options.connectTimeout = timeout;
     dio.options.receiveTimeout = timeout;
     dio.options.sendTimeout = timeout;
+    _externalDownloadDio.options.connectTimeout = timeout;
+    _externalDownloadDio.options.receiveTimeout = timeout;
+    _externalDownloadDio.options.sendTimeout = timeout;
   }
 
   Future<Response> downloadFromUrl(String url, {Function(int, int)? progress, CancelToken? cancelToken}) async {
+    final uri = Uri.parse(url);
+    final isServerRequest = !uri.hasScheme || uri.origin == origin;
+    final client = isServerRequest ? dio : _externalDownloadDio;
     return runApiGuarded(() async {
-      final response = await dio.get(
+      final response = await client.get(
         url,
         options: Options(
-            responseType: ResponseType.bytes, receiveTimeout: dio.options.receiveTimeout! * 12, headers: headers),
+            responseType: ResponseType.bytes,
+            receiveTimeout: client.options.receiveTimeout! * 12,
+            headers: isServerRequest ? headers : null),
         cancelToken: cancelToken,
         onReceiveProgress: progress,
       );
       return returnSuccessOrError(response);
-    });
+    }, checkOrigin: isServerRequest);
   }
 
   Future<void> downloadAppleEmojiFont() async {

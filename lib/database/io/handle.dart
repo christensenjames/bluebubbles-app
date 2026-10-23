@@ -239,19 +239,47 @@ class Handle {
 
   /// Save a list of handles
   static List<Handle> bulkSave(List<Handle> handles, {matchOnOriginalROWID = false}) {
+    if (handles.isEmpty) return handles;
     Database.runInTransaction(TxMode.write, () {
-      /// Match existing to the handles to save, where possible
+      final keys = handles.map((h) => h.uniqueAddressAndService).toSet();
+      if (keys.length != handles.length) {
+        throw ArgumentError('Incoming handles must have distinct address and service keys');
+      }
+      var condition = Handle_.uniqueAddressAndService.oneOf(keys.toList());
+      if (matchOnOriginalROWID) {
+        final rowIds = handles.map((h) => h.originalROWID).nonNulls.toSet().toList();
+        if (rowIds.isNotEmpty) condition = condition | Handle_.originalROWID.oneOf(rowIds);
+      }
+      final query = Database.handles.query(condition).build();
+      final List<Handle> existingHandles;
+      try {
+        existingHandles = query.find();
+      } finally {
+        query.close();
+      }
+      final existingByKey = {for (final h in existingHandles) h.uniqueAddressAndService: h};
+      final existingByRowId = <int, Handle>{};
+      for (final h in existingHandles) {
+        if (h.originalROWID != null) existingByRowId.putIfAbsent(h.originalROWID!, () => h);
+      }
+      final claimedIds = <int>{};
       for (Handle h in handles) {
-        Handle? existing;
-        if (matchOnOriginalROWID) {
-          existing = Handle.findOne(originalROWID: h.originalROWID);
-        } else {
-          existing = Handle.findOne(addressAndService: HandleLookupKey(h.address, h.service));
+        var existing = existingByKey[h.uniqueAddressAndService];
+        if (existing == null && matchOnOriginalROWID) {
+          final rowIdMatch = existingByRowId[h.originalROWID];
+          if (rowIdMatch != null &&
+              !claimedIds.contains(rowIdMatch.id) &&
+              !keys.contains(rowIdMatch.uniqueAddressAndService)) {
+            existing = rowIdMatch;
+          }
         }
 
         if (existing != null) {
           h.id = existing.id;
           h.originalROWID ??= existing.originalROWID;
+          claimedIds.add(existing.id!);
+        } else {
+          h.id = null;
         }
         // Contact matching is now handled automatically by ContactServiceV2
       }

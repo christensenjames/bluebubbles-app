@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:bluebubbles/app/layouts/settings/pages/advanced/firebase_panel.dart';
@@ -103,8 +104,8 @@ class _NotificationProvidersState extends State<NotificationProvidersPanel> with
                   Obx(() => SettingsSwitch(
                         onChanged: (bool val) async {
                           SettingsSvc.settings.keepAppAlive.value = val;
-                          SettingsSvc.settings.customHeaders.value = HttpSvc.headers;
-                          await SettingsSvc.settings.saveManyAsync(['keepAppAlive', 'customHeaders']);
+                          await SettingsSvc.settings.saveOneAsync('keepAppAlive');
+                          await PrefsSvc.network.setCustomHeadersJson(jsonEncode(HttpSvc.headers));
 
                           // We don't need to start the service here because it will be started
                           // when the app is inactive.

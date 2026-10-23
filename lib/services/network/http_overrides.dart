@@ -1,6 +1,14 @@
+import 'dart:async';
+
 import 'package:bluebubbles/helpers/helpers.dart';
 import 'package:bluebubbles/services/network/user_certificates.dart';
+import 'package:bluebubbles/services/backend/settings/settings_service.dart';
+import 'package:bluebubbles/utils/logger/logger.dart';
+import 'package:crypto/crypto.dart';
+import 'package:get/get.dart';
 import 'package:universal_io/io.dart';
+
+final RxBool serverCertificateMismatch = false.obs;
 
 /// Shared certificate validation logic for both HTTP and WebSocket connections
 /// Returns true if the certificate should be accepted (override bad cert), false otherwise
@@ -13,24 +21,26 @@ bool shouldAcceptCertificate(X509Certificate cert, String host, int port) {
     return false;
   }
 
-  String serverHost = uri.host;
-  bool isValidCert = false;
+  if (uri.host != host) return false;
 
-  // Handle wildcard certificates
-  if (host.startsWith("*")) {
-    // Extract the domain from wildcard (e.g., "*.example.com" -> "example.com")
-    String domain = host.substring(2); // Remove "*."
-    // Check if server host ends with the domain and has exactly one more subdomain
-    // or matches the domain exactly
-    isValidCert = serverHost == domain ||
-        (serverHost.endsWith('.$domain') &&
-            serverHost.substring(0, serverHost.length - domain.length - 1).split('.').length == 1);
-  } else {
-    // For non-wildcard certificates, the hosts must match exactly
-    isValidCert = serverHost == host;
+  final fingerprint = sha256.convert(cert.der).toString();
+  final settings = SettingsSvc.settings;
+  final pinnedFingerprint = settings.serverCertificateFingerprint.value;
+  if (pinnedFingerprint.isEmpty) {
+    settings.serverCertificateFingerprint.value = fingerprint;
+    unawaited(settings.saveOneAsync('serverCertificateFingerprint'));
+    serverCertificateMismatch.value = false;
+    return true;
+  }
+  if (pinnedFingerprint == fingerprint) {
+    serverCertificateMismatch.value = false;
+    return true;
   }
 
-  return isValidCert;
+  serverCertificateMismatch.value = true;
+  Logger.warn('Server certificate fingerprint mismatch: expected $pinnedFingerprint, received $fingerprint',
+      tag: 'HttpOverrides');
+  return false;
 }
 
 class CustomHttpContext extends HttpOverrides {

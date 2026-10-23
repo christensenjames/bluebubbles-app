@@ -52,7 +52,8 @@ class _ManualEntryDialogState extends State<ManualEntryDialog> {
     }
 
     SettingsSvc.settings.guidAuthKey.value = password;
-    await saveNewServerUrl(addr, restartSocket: false, force: true, saveAdditionalSettings: ["guidAuthKey"]);
+    await saveNewServerUrl(addr,
+        restartSocket: false, force: true, resetTrust: true, saveAdditionalSettings: ["guidAuthKey"]);
 
     try {
       SocketSvc.restartSocket();

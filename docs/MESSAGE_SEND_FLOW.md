@@ -86,7 +86,7 @@ Immediately before an animated text-bearing item is queued, `send()` closes `Con
 
 1. **`_ensureTempGuid(item)`** — assigns `item.message.generateTempGuid()` only if the message has no GUID yet. Attachment sends and batches already have one from Step 2; UI retries arrive with a new temp GUID assigned by `retryFailedMessage()`.
 2. **`_prepItemWithRetry(item)`** — text-only/reaction items build their message(s) once through `_buildOutgoingMessages()` and persist through `_persistOutgoingMessages()`. Standalone attachments use `prepAttachment()`. Attachment batches bypass text splitting and use `_prepMultipartAttachments()` to stage all files and save one message with all attachment relations. Prep retries up to 3 attempts (250ms × attempt backoff) while a message remains unsaved; terminal errors use the existing failure finalizer.
-3. Once prep succeeds, the resulting message(s) are wrapped back into queue entries and pushed onto the internal `Queue<_OutgoingEntry>`. `pendingChatGuids` (an `RxSet<String>`, used by UI to show/hide a "Cancel Outgoing Messages" control) gets the chat GUID added, then `_processNext()` is kicked off.
+3. If prep yields no messages, the item settles without entering the send queue. Otherwise, the resulting message(s) are wrapped back into queue entries and pushed onto the internal `Queue<_OutgoingEntry>`. `pendingChatGuids` (an `RxSet<String>`, used by UI to show/hide a "Cancel Outgoing Messages" control) gets the chat GUID added, then `_processNext()` is kicked off.
 
 **`_buildOutgoingMessages()`** — on macOS versions older than Big Sur, a long text message containing a URL is split into two separate `Message`s (each with its own tempGuid) to prevent server-side matching glitches. This is the only case that produces more than one message per send.
 
@@ -100,14 +100,14 @@ Immediately before an animated text-bearing item is queued, `send()` closes `Con
 
 ### Step 4 — OutgoingMessageHandler: Send (`outgoing_message_handler.dart`)
 
-`OutgoingMessageHandler._processNext()` dequeues items one at a time (guarded by an `_isProcessing` flag so only one drain loop runs) and calls `_dispatchItem()`, which routes to `sendMessage()`, `sendMultipart()`, or `sendAttachment()` based on the concrete queue item type.
+`OutgoingMessageHandler._processNext()` dequeues items one at a time (guarded by an `_isProcessing` flag so only one drain loop runs) and calls `_dispatchItem()`, which routes to `sendMessage()`, `sendMultipart()`, or `sendAttachment()` based on the concrete queue item type. Before a standalone attachment is sent, its staged file is checked; if missing, the message is finalized as failed instead of silently returning and leaving the send pending.
 
 Each send method wraps its work in `_handleSend()`, which starts a 5-second timer that nudges `chat.sendProgress` to `0.9` if the send is still in flight (a "this is taking a while" UI signal), then drives it to `1 → 0` on completion — unless an earlier socket-triggered `completeSendProgressIfExists()` call already did so.
 
 Each send method then calls `_sendWithRace()`, which does two things:
 
 1. **Registers a send-progress tracker** keyed by tempGuid: `registerSendProgressTracker(tempGuid, chat, race)` where `race` is a `Completer<void>`.
-2. **Fires the HTTP call** (via the domain-specific `SendMessageInterface` method — see Step 5) and races it against the socket echo. Both paths call `completeSendProgressIfExists(tempGuid, Origin.outgoingMessageHandler | Origin.incomingMessageHandler)` when they resolve — whichever arrives first wins and removes the tracker; the second arrival is a no-op. The `race` completer unblocks `_sendWithRace()`'s returned future, which is what `_processNext()` awaits before moving to the next queued item — **the HTTP callback's own follow-up work (GUID replacement, error marking) keeps running in the background after the race resolves**, it does not block the queue.
+2. **Fires the HTTP call** (via the domain-specific `SendMessageInterface` method — see Step 5). The HTTP request and socket echoes carrying a `tempGuid` race to settle send-progress tracking. The first removes the tracker and unblocks the queue. A successful socket echo records confirmation, so a later HTTP failure is ignored. HTTP success follow-up work (GUID replacement) still runs after the race resolves.
 
 The tempGuid is passed to the server in the request body. Text and standalone attachment sends can echo it in a socket event. On server f2e2286, multipart sends do not create a `MessagePromise`, so their socket events omit tempGuid: the batch's HTTP success handler is its only temp→real reconciliation point.
 
@@ -129,7 +129,7 @@ OutgoingMessageHandler.sendMessage()/sendMultipart()/sendAttachment()
       (lib/services/network/api/message_api.dart)
 ```
 
-This keeps the actual `dio` call — and, for attachments, the file read and `FormData` construction — inside the isolate so an in-flight send survives the app being backgrounded.
+This keeps the actual `dio` call — and, for attachments, the file read and `FormData` construction — inside the isolate so an in-flight send survives the app being backgrounded. For send requests, network errors cross the isolate boundary as structured errors, preserving HTTP status and plain-JSON response data for error handling.
 
 For an attachment batch, `sendMultipartMessage()` also receives plain maps containing each file's GUID, path, name, and size; no ObjectBox entities or file bytes cross the isolate boundary. The action uploads files sequentially with `HttpSvc.attachment.upload()` (`POST /attachment/upload`, multipart field `attachment`) and uses each returned `data.path` to build an attachment part with its filename and index. It then sends one `POST /message/multipart`, with attachment parts first and text/mention parts afterward. These Private API endpoints require server v1.7.0 or newer.
 
@@ -147,7 +147,7 @@ Before firing, `sendMessage()`/`sendAttachment()` call `_resolveMethod()` to dec
 
 ### Step 6 — The Race: Two Paths to Confirmation
 
-After the HTTP call fires, two things can happen concurrently. Whichever arrives first wins and hands off to the other.
+HTTP and socket events can race. A socket echo carrying a `tempGuid` can settle send progress; if it confirms the send first, a later HTTP failure is ignored. An eventual HTTP success still performs GUID reconciliation.
 
 ---
 
@@ -163,7 +163,7 @@ Text and standalone attachment sends can produce a `"new-message"` socket event 
   - Completes the `race` completer, unblocking `_sendWithRace()` so `_processNext()` moves on
   - `IncomingMessageHandler` continues processing the payload (GUID swap) in its own queue, independent of the outgoing side
 
-- **If `tempGuid` is null:** the real GUID is added to `MessageHandlerSvc.outOfOrderTempGuids` in `action_handler.dart` for outgoing messages. The handler waits 500ms for a paired update carrying tempGuid, then processes the event as a regular message if none arrives. For multipart sends, no matching tempGuid update is expected.
+- **If `tempGuid` is null:** the real GUID is added to `MessageHandlerSvc.outOfOrderTempGuids` in `action_handler.dart` for outgoing messages. The handler waits 500ms for a `new-message` echo with a `tempGuid`; only that echo cancels processing of the delayed event. If no such echo arrives, the null-tempGuid event is processed normally. Multipart sends do not provide a matching tempGuid echo.
 
 When a batch's socket echo arrives first, it can save and display a real-GUID message alongside the pending temp message. The HTTP success handler later reconciles each attachment against the real record, deletes the stale temp DB message, and updates the temp UI entry to the confirmed message. `MessagesService.updateMessage()` removes an already-present real UI entry before that replacement, so only one bubble remains. When HTTP finishes first, the socket handler finds the real message and refreshes its attachments by GUID.
 
@@ -224,7 +224,7 @@ The `Obx()` wrapper around `isSending` in the message bubble widget rebuilds and
 
 ### Step 9 — Error Path
 
-If the HTTP call fails, `_sendWithRace()`'s `onError` branch fires, which every send method routes to `_finalizeOutgoingFailure()`:
+If the HTTP call fails before the socket confirms the send, `_sendWithRace()`'s `onError` branch routes the send to `_finalizeOutgoingFailure()`. A later HTTP failure is ignored after socket confirmation:
 
 1. `completeSendProgressIfExists(tempGuid, Origin.outgoingMessageHandler, error: ..., stack: ...)` runs first (clears the tracker; completes the race with an error).
 2. `handleSendError(error, m)` classifies the `DioException`/HTTP response and sets `m.error` / `m.errorMessage`. **The GUID is deliberately never mutated here** — it stays as the original `temp-XXXXXXXX` so it remains a stable reference through the retry lifecycle. (`isSending` still flips to `false` because `MessageState.updateErrorInternal()` gates on `error == 0`, not on the GUID prefix.)
@@ -258,7 +258,7 @@ An upload or multipart-send failure uses `_finalizeOutgoingFailure()` once for t
 | HTTP + socket race | `lib/services/backend/outgoing_message_handler.dart` | `_sendWithRace()`, `_handleSend()` |
 | Progress tracker | `lib/services/backend/outgoing_message_handler.dart` | `registerSendProgressTracker()`, `completeSendProgressIfExists()` |
 | Attachment upload progress | `lib/services/backend/outgoing_message_handler.dart` | `_handleAttachmentUploadProgressEvent()`, `attachmentProgress` |
-| Out-of-order handling | `lib/services/backend/action_handler.dart` | `outOfOrderTempGuids`, 500ms grace period |
+| Out-of-order handling | `lib/services/backend/action_handler.dart` | `outOfOrderTempGuids`, 500ms wait cancelled only by a `tempGuid` echo |
 | tempGuid → realGuid swap | `lib/services/backend/outgoing_message_handler.dart` | `_matchMessageWithExisting()`, `_matchAttachmentWithExisting()` |
 | DB swap | `lib/database/io/message.dart` + interfaces | `replaceMessage()` → `MessageInterface.replaceMessage()` |
 | Error classification | `lib/helpers/network/network_error_handler.dart` | `handleSendError()` (never mutates the GUID) |

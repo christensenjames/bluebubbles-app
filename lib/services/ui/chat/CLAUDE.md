@@ -3,7 +3,7 @@
 ## Files
 | File | Purpose |
 |------|---------|
-| `chats_service.dart` | Global chat list state — the source of truth for all `ChatState` objects |
+| `chats_service.dart` | Global chat list state and lifecycle of per-chat reactive state |
 | `conversation_view_controller.dart` | Per-chat controller for the active conversation screen |
 | `message_list_gate.dart` | FIFO gate that defers message list mutations while a send animation is in flight |
 
@@ -14,7 +14,8 @@
 GetIt singleton. Accessed via `ChatsSvc`.
 
 **What it owns:**
-- `chatStates` — `Map<String, ChatState>` keyed by chat GUID; every `ChatState` lives here
+- `chatStates` — `Map<String, ChatState>` for listed chats; `_activeChat` can retain a removed
+  chat state until a different chat becomes active
 - `_sortedChats` — ordered list of chats for the conversation list UI
 - `chatListVersion` — `RxInt` that increments when sort order changes; conversation list `Obx()` watches this
 

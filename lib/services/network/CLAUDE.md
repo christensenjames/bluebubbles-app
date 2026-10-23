@@ -84,6 +84,7 @@ socket_io_client connection to the BlueBubbles server. Don't create additional
 - `websocket_adapter.dart` — custom `HttpClientAdapter` for self-signed cert support
 - `http_overrides.dart` — global `HttpOverrides` for certificate validation
 - `user_certificates.dart` — user-added certificate management (Android native injection)
+- Self-signed server certificates are pinned on first use. A mismatched fingerprint is rejected and shown in the API Connection status card in Settings (Connection & Server), with instructions to re-enter the server address to trust the new certificate. The warning clears when trust is reset, a certificate is accepted, or a server HTTP/socket connection succeeds.
 
 ## Downloads (`downloads_service.dart`)
 Attachment download state machine:

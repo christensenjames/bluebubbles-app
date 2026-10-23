@@ -7,6 +7,7 @@ import 'package:bluebubbles/helpers/backend/settings_helpers.dart';
 import 'package:bluebubbles/utils/crypto_utils.dart';
 import 'package:bluebubbles/utils/logger/logger.dart';
 import 'package:bluebubbles/helpers/helpers.dart';
+import 'package:bluebubbles/services/network/http_overrides.dart';
 import 'package:bluebubbles/services/services.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter/foundation.dart';
@@ -715,6 +716,7 @@ class SocketService {
 
     switch (status) {
       case SocketState.connected:
+        serverCertificateMismatch.value = false;
         if (stateChanged) {
           state.value = SocketState.connected;
           _cancelUrlDiscovery();

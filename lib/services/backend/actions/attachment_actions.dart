@@ -10,8 +10,7 @@ import 'package:path/path.dart' as p;
 class AttachmentActions {
   static Future<void> deleteAttachmentDirs(String attachmentsPath, Iterable<String> guids) async {
     for (final guid in guids) {
-      // A guid must name exactly one direct child; './x' or 'a/b' would alias another attachment's dir, '/' the root.
-      if (guid.isEmpty || guid == '.' || guid == '..' || p.basename(guid) != guid) continue;
+      if (!Attachment.isValidGuid(guid)) continue;
       final dir = Directory(p.join(attachmentsPath, guid));
       if (!p.isWithin(attachmentsPath, dir.path)) continue;
       // Runs after the rows are removed: a surviving row whose guid differs only in case shares this dir on
