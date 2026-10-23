@@ -13,10 +13,7 @@ ActionHandler MessageHandlerSvc =
     Get.isRegistered<ActionHandler>() ? Get.find<ActionHandler>() : Get.put(ActionHandler());
 
 class ActionHandler extends GetxService {
-  /// Tracks in-flight real GUIDs (from our own `new-message` events) that
-  /// arrived without a `tempGuid`.  When a subsequent `updated-message` event
-  /// comes in with the same real GUID, it is removed here so the delayed
-  /// `new-message` processing is skipped (the updated-message will handle it).
+  /// Tracks delayed from-me `new-message` GUIDs until a `tempGuid` echo or the delay ends.
   final Set<String> outOfOrderTempGuids = {};
 
   Future<Chat> handleNewOrUpdatedChat(Chat partialData) async {
@@ -107,10 +104,7 @@ class ActionHandler extends GetxService {
           if (message.error > 0) message.errorMessage = serverErrorMessage(message.error);
           if (message.isFromMe!) {
             if (payload.data['tempGuid'] == null) {
-              // No tempGuid — we don't know which local temp message this echo
-              // belongs to.  Wait briefly for the paired updated-message event
-              // to arrive (which will carry the tempGuid and remove this entry).
-              // If nothing arrives, process the new-message normally.
+              // Wait for a tempGuid echo to reconcile the local message first.
               MessageHandlerSvc.outOfOrderTempGuids.add(message.guid!);
               await Future.delayed(const Duration(milliseconds: 500));
               if (!MessageHandlerSvc.outOfOrderTempGuids.remove(message.guid!)) return;
@@ -138,7 +132,6 @@ class ActionHandler extends GetxService {
         if (!isNullOrEmpty(data)) {
           final payload = ServerPayload.fromJson(data);
           final updatedMessage = Message.fromMap(payload.data);
-          MessageHandlerSvc.outOfOrderTempGuids.remove(updatedMessage.guid);
           if (updatedMessage.error > 0) updatedMessage.errorMessage = serverErrorMessage(updatedMessage.error);
           await IncomingMsgHandler.handle(
               IncomingPayload(
