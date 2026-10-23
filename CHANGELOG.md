@@ -1,5 +1,16 @@
 # Changelog
 
+## 2026-10-23 — One profile photo on every device
+
+- Your photo in the app is now the photo on your iMessage contact card (Name and Photo
+  Sharing). Every device downloads it at startup and after each sync.
+- Changing your photo in iMessage Profile sets it on the contact card through the server, so it
+  updates every device and the people you share your name and photo with. This needs the
+  server's `POST /api/v1/icloud/contact/avatar` route and a Private API helper with the
+  `set-personal-avatar` event, on macOS 14 or newer.
+- The photo picked for a single device and the "Remove your photo" option are gone. Old
+  per-device photos are deleted the next time the card photo downloads.
+
 ## 2026-10-23 — Audit fixes
 
 - The conversation list now picks up every new chat added in a sync burst, instead of showing

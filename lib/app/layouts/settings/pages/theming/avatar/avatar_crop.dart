@@ -86,20 +86,7 @@ class _AvatarCropState extends State<AvatarCrop> with ThemeHelpers {
     String? chatAvatarPath;
     try {
       if (widget.index == null && widget.chat == null) {
-        File file = File(p.join(FilesystemSvc.avatarsPath, "you", "avatar-${croppedData.length}.jpg"));
-        if (!(await file.exists())) {
-          await file.create(recursive: true);
-        }
-        final oldPath = SettingsSvc.settings.userAvatarPath.value;
-        // A restored settings file can point anywhere, including a chat avatar; only delete our own existing copy.
-        if (oldPath != null &&
-            p.isWithin(p.join(FilesystemSvc.avatarsPath, "you"), oldPath) &&
-            await File(oldPath).exists()) {
-          await File(oldPath).delete();
-        }
-        await file.writeAsBytes(croppedData);
-        SettingsSvc.settings.userAvatarPath.value = file.path;
-        await SettingsSvc.settings.saveOneAsync("userAvatarPath");
+        await SettingsSvc.setCardAvatar(croppedData);
       } else if (widget.chat != null) {
         File file = File(p.join(FilesystemSvc.avatarsPath, FilesystemService.sanitizeGuid(widget.chat!.guid),
             "avatar-${croppedData.length}.jpg"));

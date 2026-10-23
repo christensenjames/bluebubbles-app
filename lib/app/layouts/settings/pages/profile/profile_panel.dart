@@ -10,9 +10,7 @@ import 'package:bluebubbles/utils/logger/logger.dart';
 import 'package:collection/collection.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import 'package:path/path.dart' as p;
 import 'package:skeletonizer/skeletonizer.dart';
-import 'package:universal_io/io.dart';
 
 class ProfilePanel extends StatefulWidget {
   const ProfilePanel({super.key});
@@ -105,16 +103,6 @@ class _ProfilePanelState extends State<ProfilePanel> with WidgetsBindingObserver
     );
   }
 
-  Future<void> removePhoto() async {
-    File file = File(SettingsSvc.settings.userAvatarPath.value!);
-    // A restored settings file can point anywhere, including a chat avatar; only delete our own copy.
-    if (p.isWithin(p.join(FilesystemSvc.avatarsPath, "you"), file.path) && await file.exists()) {
-      await file.delete();
-    }
-    SettingsSvc.settings.userAvatarPath.value = null;
-    await SettingsSvc.settings.saveOneAsync("userAvatarPath");
-  }
-
   @override
   Widget build(BuildContext context) {
     return SettingsScaffold(
@@ -133,47 +121,17 @@ class _ProfilePanelState extends State<ProfilePanel> with WidgetsBindingObserver
               const SizedBox(height: 10),
               if (iOS)
                 Center(
-                  child: Stack(
-                    clipBehavior: Clip.none,
-                    children: [
-                      GestureDetector(
-                        onTap: () async {
-                          updatePhoto();
-                        },
-                        child: const ContactAvatarWidget(
-                          handle: null,
-                          borderThickness: 0.1,
-                          editable: false,
-                          fontSize: 22,
-                          size: 100,
-                        ),
-                      ),
-                      Obx(() => SettingsSvc.settings.userAvatarPath.value != null
-                          ? Positioned(
-                              right: -5,
-                              top: -5,
-                              child: InkWell(
-                                onTap: () async {
-                                  removePhoto();
-                                },
-                                child: Container(
-                                  width: 30,
-                                  height: 30,
-                                  decoration: BoxDecoration(
-                                    border: Border.all(color: context.theme.colorScheme.surface, width: 1),
-                                    shape: BoxShape.circle,
-                                    color: context.theme.colorScheme.tertiaryContainer,
-                                  ),
-                                  child: Icon(
-                                    Icons.close,
-                                    color: context.theme.colorScheme.onTertiaryContainer,
-                                    size: 20,
-                                  ),
-                                ),
-                              ),
-                            )
-                          : const SizedBox.shrink()),
-                    ],
+                  child: GestureDetector(
+                    onTap: () async {
+                      updatePhoto();
+                    },
+                    child: const ContactAvatarWidget(
+                      handle: null,
+                      borderThickness: 0.1,
+                      editable: false,
+                      fontSize: 22,
+                      size: 100,
+                    ),
                   ),
                 ),
               if (iOS)
@@ -296,25 +254,6 @@ class _ProfilePanelState extends State<ProfilePanel> with WidgetsBindingObserver
                     ),
                   ),
                 ),
-              if (!iOS)
-                Obx(() => SettingsSvc.settings.userAvatarPath.value != null
-                    ? Padding(
-                        padding: const EdgeInsets.only(bottom: 5.0),
-                        child: Material(
-                          color: Colors.transparent,
-                          child: ListTile(
-                            mouseCursor: MouseCursor.defer,
-                            onTap: () async {
-                              removePhoto();
-                            },
-                            title: Text("Remove your photo",
-                                style: context.theme.textTheme.bodyLarge!
-                                    .copyWith(color: context.theme.colorScheme.error)),
-                            trailing: Icon(Icons.close, color: context.theme.colorScheme.error),
-                          ),
-                        ),
-                      )
-                    : const SizedBox.shrink()),
               SettingsHeader(iosSubtitle: iosSubtitle, materialSubtitle: materialSubtitle, text: "iCloud Account Info"),
               Skeletonizer(
                   enabled: accountInfo.isEmpty,

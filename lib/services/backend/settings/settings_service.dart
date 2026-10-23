@@ -64,19 +64,12 @@ class SettingsService {
   bool get canAuthenticate =>
       _canAuthenticate && (Platform.isWindows || (FilesystemSvc.androidInfo?.version.sdkInt ?? 0) > 28);
 
-  /// The photo on the user's iMessage contact card, downloaded from the server. Shown as the
-  /// user's avatar on every device that has not picked its own [Settings.userAvatarPath].
-  final RxnString cardAvatarPath = RxnString();
+  /// The photo on the user's iMessage contact card, downloaded from the server and shared by every device.
+  final RxnString userAvatarPath = RxnString();
 
-  String? get userAvatarPath => settings.userAvatarPath.value ?? cardAvatarPath.value;
+  Directory get _userAvatarDir => Directory(p.join(FilesystemSvc.avatarsPath, 'you'));
 
-  Directory get _cardAvatarDir => Directory(p.join(FilesystemSvc.avatarsPath, 'you'));
-
-  Iterable<File> _cardAvatarFiles() => _cardAvatarDir.existsSync()
-      ? _cardAvatarDir.listSync().whereType<File>().where((f) => p.basename(f.path).startsWith('card-'))
-      : const [];
-
-  /// Downloads the iMessage contact card photo. Main isolate only: [cardAvatarPath] drives the UI.
+  /// Main isolate only: [userAvatarPath] drives the UI.
   Future<void> refreshCardAvatar() async {
     if (kIsWeb || isIsolate || !serverDetails.isMinBigSur) return;
     try {
@@ -84,23 +77,39 @@ class SettingsService {
       final avatar = response.data?['data']?['avatar']?.toString();
       final bytes = isNullOrEmpty(avatar) ? null : base64Decode(avatar!);
       // The byte count in the name gives a changed photo a new path, so Image.file does not serve a stale cache.
-      final target = bytes == null ? null : File(p.join(_cardAvatarDir.path, 'card-${bytes.length}.jpg'));
+      final target = bytes == null ? null : File(p.join(_userAvatarDir.path, 'card-${bytes.length}.jpg'));
       if (target != null && !await target.exists()) {
         await target.create(recursive: true);
         await target.writeAsBytes(bytes!);
       }
-      for (final old in _cardAvatarFiles()) {
-        if (old.path != target?.path) await old.delete();
+      // Also removes photos picked per device before the card photo was shared.
+      if (await _userAvatarDir.exists()) {
+        await for (final old in _userAvatarDir.list()) {
+          if (old is File && old.path != target?.path) await old.delete();
+        }
       }
-      cardAvatarPath.value = target?.path;
+      userAvatarPath.value = target?.path;
     } catch (e, s) {
       Logger.warn("Failed to refresh the iMessage contact card photo", error: e, trace: s, tag: 'SettingsService');
     }
   }
 
+  /// Throws when the server or its Private API helper cannot set the photo.
+  Future<void> setCardAvatar(Uint8List bytes) async {
+    await HttpSvc.icloud.setAccountContactAvatar(bytes);
+    await refreshCardAvatar();
+  }
+
   Future<void> init({bool headless = false}) async {
     settings = Settings.getSettings();
-    if (!kIsWeb) cardAvatarPath.value = _cardAvatarFiles().firstOrNull?.path;
+    if (!kIsWeb && _userAvatarDir.existsSync()) {
+      userAvatarPath.value = _userAvatarDir
+          .listSync()
+          .whereType<File>()
+          .where((f) => p.basename(f.path).startsWith('card-'))
+          .firstOrNull
+          ?.path;
+    }
     // Populate server details from prefs so sync getters are usable immediately.
     _serverDetails.value = ServerDetails(
       macOSVersion: PrefsSvc.server.getMacOSVersion() ?? 11,

@@ -1,3 +1,5 @@
+import 'dart:typed_data';
+
 import 'package:bluebubbles/services/network/api/base_api.dart';
 import 'package:dio/dio.dart';
 
@@ -77,6 +79,24 @@ class iCloudApi {
       final response = await _svc.dio.get(
         "${_svc.apiRoot}/icloud/contact",
         queryParameters: _svc.buildQueryParams(),
+        cancelToken: cancelToken,
+      );
+      return _svc.returnSuccessOrError(response);
+    });
+  }
+
+  /// Set the photo on the iCloud account contact card
+  Future<Response> setAccountContactAvatar(Uint8List bytes, {CancelToken? cancelToken}) async {
+    return _svc.runApiGuarded(() async {
+      final response = await _svc.dio.post(
+        "${_svc.apiRoot}/icloud/contact/avatar",
+        queryParameters: _svc.buildQueryParams(),
+        data: FormData.fromMap({"avatar": MultipartFile.fromBytes(bytes, filename: "avatar.png")}),
+        options: Options(
+          sendTimeout: _svc.dio.options.sendTimeout! * 12,
+          receiveTimeout: _svc.dio.options.receiveTimeout! * 12,
+          headers: _svc.headers,
+        ),
         cancelToken: cancelToken,
       );
       return _svc.returnSuccessOrError(response);

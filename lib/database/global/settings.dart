@@ -143,7 +143,6 @@ class Settings {
   final RxBool unarchiveOnNewMessage = true.obs;
   final RxBool scrollToLastUnread = false.obs;
   final RxString userName = "You".obs;
-  final RxnString userAvatarPath = RxnString();
   final RxBool hideNamesForReactions = false.obs;
   final RxBool replaceEmoticonsWithEmoji = false.obs;
 
@@ -494,7 +493,6 @@ class Settings {
         'finishedSetup': finishedSetup.value,
         'reachedConversationList': reachedConversationList.value,
         'colorsFromMedia': colorsFromMedia.value,
-        'userAvatarPath': userAvatarPath.value,
         'firstFcmRegisterDate': firstFcmRegisterDate.value,
         'sendSoundPath': sendSoundPath.value,
         'receiveSoundPath': receiveSoundPath.value,
@@ -675,7 +673,6 @@ class Settings {
     SettingsSvc.settings.scrollToLastUnread.value =
         map['scrollToLastUnread'] ?? SettingsSvc.settings.scrollToLastUnread.value;
     SettingsSvc.settings.userName.value = map['userName'] ?? SettingsSvc.settings.userName.value;
-    SettingsSvc.settings.userAvatarPath.value = map['userAvatarPath'] ?? SettingsSvc.settings.userAvatarPath.value;
     SettingsSvc.settings.privateAPISend.value = map['privateAPISend'] ?? SettingsSvc.settings.privateAPISend.value;
     SettingsSvc.settings.privateAPIAttachmentSend.value =
         map['privateAPIAttachmentSend'] ?? SettingsSvc.settings.privateAPIAttachmentSend.value;
@@ -901,7 +898,6 @@ class Settings {
     s.unarchiveOnNewMessage.value = map['autoUnarchiveOnNewMessage'] ?? true;
     s.scrollToLastUnread.value = map['scrollToLastUnread'] ?? false;
     s.userName.value = map['userName'] ?? "You";
-    s.userAvatarPath.value = map['userAvatarPath'];
     s.privateAPISend.value = map['privateAPISend'] ?? false;
     s.privateAPIAttachmentSend.value = map['privateAPIAttachmentSend'] ?? false;
     s.enablePrivateAPI.value = map['enablePrivateAPI'] ?? false;
