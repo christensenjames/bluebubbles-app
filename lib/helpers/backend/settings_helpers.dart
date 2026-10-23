@@ -10,9 +10,14 @@ Future<bool> saveNewServerUrl(String newServerUrl,
     {bool tryRestartForegroundService = true,
     bool restartSocket = true,
     bool force = false,
+    bool resetTrust = false,
     List<String> saveAdditionalSettings = const []}) async {
   String sanitized = sanitizeServerAddress(address: newServerUrl)!;
   final bool addressChanged = sanitized != SettingsSvc.settings.serverAddress.value;
+  if (addressChanged || resetTrust) {
+    SettingsSvc.settings.serverCertificateFingerprint.value = "";
+    await SettingsSvc.settings.saveOneAsync("serverCertificateFingerprint");
+  }
   if (force || addressChanged) {
     SettingsSvc.settings.serverAddress.value = sanitized;
 

@@ -41,6 +41,7 @@ class Settings {
   final RxString iCloudAccount = "".obs;
   final RxString guidAuthKey = "".obs;
   final RxString serverAddress = "".obs;
+  final RxString serverCertificateFingerprint = "".obs;
   final Rx<Map<String, String>> customHeaders = Rx<Map<String, String>>(<String, String>{});
   final RxBool finishedSetup = false.obs;
   final RxBool reachedConversationList = false.obs;
@@ -488,6 +489,7 @@ class Settings {
         'iCloudAccount': iCloudAccount.value,
         'guidAuthKey': guidAuthKey.value,
         'serverAddress': serverAddress.value,
+        'serverCertificateFingerprint': serverCertificateFingerprint.value,
         'customHeaders': Map<String, String>.from(customHeaders.value),
         'finishedSetup': finishedSetup.value,
         'reachedConversationList': reachedConversationList.value,
@@ -504,6 +506,7 @@ class Settings {
   }
 
   static const Set<String> _deviceLocalBackupKeys = {
+    'serverCertificateFingerprint',
     'lastIncrementalSync',
     'lastIncrementalSyncRowId',
     'contactSyncAccountName',
@@ -528,6 +531,8 @@ class Settings {
   static void updateFromMap(Map<String, dynamic> map, {bool save = true}) {
     SettingsSvc.settings.iCloudAccount.value = map['iCloudAccount'] ?? SettingsSvc.settings.iCloudAccount.value;
     SettingsSvc.settings.serverAddress.value = map['serverAddress'] ?? SettingsSvc.settings.serverAddress.value;
+    SettingsSvc.settings.serverCertificateFingerprint.value =
+        map['serverCertificateFingerprint'] ?? SettingsSvc.settings.serverCertificateFingerprint.value;
     SettingsSvc.settings.guidAuthKey.value = map['guidAuthKey'] ?? SettingsSvc.settings.guidAuthKey.value;
     if (map.containsKey('customHeaders')) {
       debugPrint('Updating custom headers from map: ${map['customHeaders']}');
@@ -811,6 +816,7 @@ class Settings {
     s.iCloudAccount.value = map['iCloudAccount'] ?? "";
     s.guidAuthKey.value = map['guidAuthKey'] ?? "";
     s.serverAddress.value = map['serverAddress'] ?? "";
+    s.serverCertificateFingerprint.value = map['serverCertificateFingerprint'] ?? "";
     debugPrint('Loading Custom Headers from map: ${map['customHeaders']}');
     s.customHeaders.value = _processCustomHeaders(map['customHeaders']);
     s.finishedSetup.value = map['finishedSetup'] ?? false;

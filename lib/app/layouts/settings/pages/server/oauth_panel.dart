@@ -47,29 +47,38 @@ class _OauthPanelState extends State<OauthPanel> with ThemeHelpers {
 
     String oldPassword = SettingsSvc.settings.guidAuthKey.value;
     String oldAddr = SettingsSvc.settings.serverAddress.value;
+    String oldFingerprint = SettingsSvc.settings.serverCertificateFingerprint.value;
 
     SettingsSvc.settings.serverAddress.value = addr;
     SettingsSvc.settings.guidAuthKey.value = password;
+    await saveNewServerUrl(addr,
+        tryRestartForegroundService: false,
+        restartSocket: false,
+        force: true,
+        resetTrust: true,
+        saveAdditionalSettings: ["guidAuthKey"]);
 
     dio.Response? serverResponse;
     await HttpSvc.server.ping().then((response) {
       serverResponse = response;
     }).catchError((err) {
-      serverResponse = err;
+      serverResponse = err is dio.DioException ? err.response : err is dio.Response ? err : null;
     });
 
     if (serverResponse?.statusCode == 401) {
       error.value = "Authentication failed. Incorrect password!";
       SettingsSvc.settings.serverAddress.value = oldAddr;
       SettingsSvc.settings.guidAuthKey.value = oldPassword;
-      await SettingsSvc.settings.saveManyAsync(["serverAddress", "guidAuthKey"]);
+      SettingsSvc.settings.serverCertificateFingerprint.value = oldFingerprint;
+      await SettingsSvc.settings.saveManyAsync(["serverAddress", "guidAuthKey", "serverCertificateFingerprint"]);
       return;
     }
     if (serverResponse?.statusCode != 200) {
       error.value = "Failed to connect to $addr! Please ensure your Server's URL is accessible from your device.";
       SettingsSvc.settings.serverAddress.value = oldAddr;
       SettingsSvc.settings.guidAuthKey.value = oldPassword;
-      await SettingsSvc.settings.saveManyAsync(["serverAddress", "guidAuthKey"]);
+      SettingsSvc.settings.serverCertificateFingerprint.value = oldFingerprint;
+      await SettingsSvc.settings.saveManyAsync(["serverAddress", "guidAuthKey", "serverCertificateFingerprint"]);
       return;
     }
 

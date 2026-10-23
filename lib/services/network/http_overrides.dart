@@ -1,5 +1,10 @@
+import 'dart:async';
+
 import 'package:bluebubbles/helpers/helpers.dart';
 import 'package:bluebubbles/services/network/user_certificates.dart';
+import 'package:bluebubbles/services/backend/settings/settings_service.dart';
+import 'package:bluebubbles/utils/logger/logger.dart';
+import 'package:crypto/crypto.dart';
 import 'package:universal_io/io.dart';
 
 /// Shared certificate validation logic for both HTTP and WebSocket connections
@@ -14,23 +19,28 @@ bool shouldAcceptCertificate(X509Certificate cert, String host, int port) {
   }
 
   String serverHost = uri.host;
-  bool isValidCert = false;
+  bool isServerHost = serverHost == host;
 
-  // Handle wildcard certificates
-  if (host.startsWith("*")) {
-    // Extract the domain from wildcard (e.g., "*.example.com" -> "example.com")
-    String domain = host.substring(2); // Remove "*."
-    // Check if server host ends with the domain and has exactly one more subdomain
-    // or matches the domain exactly
-    isValidCert = serverHost == domain ||
-        (serverHost.endsWith('.$domain') &&
-            serverHost.substring(0, serverHost.length - domain.length - 1).split('.').length == 1);
-  } else {
-    // For non-wildcard certificates, the hosts must match exactly
-    isValidCert = serverHost == host;
+  if (serverHost.startsWith("*.")) {
+    final domain = serverHost.substring(2);
+    isServerHost = host.endsWith('.$domain') &&
+        host.substring(0, host.length - domain.length - 1).split('.').length == 1;
   }
+  if (!isServerHost) return false;
 
-  return isValidCert;
+  final fingerprint = sha256.convert(cert.der).toString();
+  final settings = SettingsSvc.settings;
+  final pinnedFingerprint = settings.serverCertificateFingerprint.value;
+  if (pinnedFingerprint.isEmpty) {
+    settings.serverCertificateFingerprint.value = fingerprint;
+    unawaited(settings.saveOneAsync('serverCertificateFingerprint'));
+    return true;
+  }
+  if (pinnedFingerprint == fingerprint) return true;
+
+  Logger.warn('Server certificate fingerprint mismatch: expected $pinnedFingerprint, received $fingerprint',
+      tag: 'HttpOverrides');
+  return false;
 }
 
 class CustomHttpContext extends HttpOverrides {
