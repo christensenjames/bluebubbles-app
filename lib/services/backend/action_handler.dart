@@ -17,7 +17,7 @@ class ActionHandler extends GetxService {
   /// arrived without a `tempGuid`.  When a subsequent `updated-message` event
   /// comes in with the same real GUID, it is removed here so the delayed
   /// `new-message` processing is skipped (the updated-message will handle it).
-  final List<String> outOfOrderTempGuids = [];
+  final Set<String> outOfOrderTempGuids = {};
 
   Future<Chat> handleNewOrUpdatedChat(Chat partialData) async {
     final chat = await ChatsSvc.fetchChat(partialData.guid) ?? partialData;
@@ -113,7 +113,7 @@ class ActionHandler extends GetxService {
               // If nothing arrives, process the new-message normally.
               MessageHandlerSvc.outOfOrderTempGuids.add(message.guid!);
               await Future.delayed(const Duration(milliseconds: 500));
-              if (!MessageHandlerSvc.outOfOrderTempGuids.contains(message.guid!)) return;
+              if (!MessageHandlerSvc.outOfOrderTempGuids.remove(message.guid!)) return;
             } else {
               MessageHandlerSvc.outOfOrderTempGuids.remove(message.guid!);
             }
@@ -138,6 +138,7 @@ class ActionHandler extends GetxService {
         if (!isNullOrEmpty(data)) {
           final payload = ServerPayload.fromJson(data);
           final updatedMessage = Message.fromMap(payload.data);
+          MessageHandlerSvc.outOfOrderTempGuids.remove(updatedMessage.guid);
           if (updatedMessage.error > 0) updatedMessage.errorMessage = serverErrorMessage(updatedMessage.error);
           await IncomingMsgHandler.handle(
               IncomingPayload(
