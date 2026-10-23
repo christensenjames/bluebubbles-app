@@ -66,22 +66,22 @@ class HandleSyncManager extends SyncManager {
         await WindowsTaskbar.setProgressMode(TaskbarProgressMode.normal);
       }
 
+      if (totalHandles == 0) {
+        return await complete();
+      }
+
       // First, backup the handles so we can restore them if required later.
       backupHandles();
-      final backupByRowId = <int, Handle>{
-        for (final h in handleBackup.values)
-          if (h.originalROWID != null) h.originalROWID!: h,
-      };
+      final backupByRowId = <int, Handle>{};
+      for (final h in handleBackup.values) {
+        if (h.originalROWID != null) backupByRowId.putIfAbsent(h.originalROWID!, () => h);
+      }
       final backupByKey = {for (final h in handleBackup.values) h.uniqueAddressAndService: h};
 
       // Second, fetch all the chats and cache the chat <-> handle relationships.
       // This is so we can re-apply them later during the resync or a restore.
       List<Chat> chats = await getChatsFromDb();
       cacheChatHandleRelationships(chats);
-
-      if (totalHandles == 0) {
-        return await complete();
-      }
 
       // This flag can be used to test the restore functionality
       if (simulateError) {
@@ -93,6 +93,8 @@ class HandleSyncManager extends SyncManager {
       await for (final handleEvent in streamHandlePages(totalHandles)) {
         double handleProgress = handleEvent.progress;
         List<Handle> serverHandles = handleEvent.handles;
+        final incomingKeys = serverHandles.map((h) => h.uniqueAddressAndService).toSet();
+        final claimedBackupIds = <int>{};
 
         addToOutput('Saving chunk of ${serverHandles.length} handles(s)...');
 
@@ -100,7 +102,16 @@ class HandleSyncManager extends SyncManager {
         // And load the matching contact, if we can.
         for (Handle h in serverHandles) {
           // restore preferences from backed up handle
-          final backedUpHandle = backupByRowId[h.originalROWID] ?? backupByKey[h.uniqueAddressAndService];
+          var backedUpHandle = backupByKey[h.uniqueAddressAndService];
+          if (backedUpHandle == null) {
+            final rowIdMatch = backupByRowId[h.originalROWID];
+            if (rowIdMatch != null &&
+                !claimedBackupIds.contains(rowIdMatch.id) &&
+                !incomingKeys.contains(rowIdMatch.uniqueAddressAndService)) {
+              backedUpHandle = rowIdMatch;
+            }
+          }
+          if (backedUpHandle != null) claimedBackupIds.add(backedUpHandle.id!);
           h.color = backedUpHandle?.color;
           h.defaultEmail = backedUpHandle?.defaultEmail;
           h.defaultPhone = backedUpHandle?.defaultPhone;

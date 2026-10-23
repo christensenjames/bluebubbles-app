@@ -241,8 +241,11 @@ class Handle {
   static List<Handle> bulkSave(List<Handle> handles, {matchOnOriginalROWID = false}) {
     if (handles.isEmpty) return handles;
     Database.runInTransaction(TxMode.write, () {
-      final keys = handles.map((h) => h.uniqueAddressAndService).toSet().toList();
-      var condition = Handle_.uniqueAddressAndService.oneOf(keys);
+      final keys = handles.map((h) => h.uniqueAddressAndService).toSet();
+      if (keys.length != handles.length) {
+        throw ArgumentError('Incoming handles must have distinct address and service keys');
+      }
+      var condition = Handle_.uniqueAddressAndService.oneOf(keys.toList());
       if (matchOnOriginalROWID) {
         final rowIds = handles.map((h) => h.originalROWID).nonNulls.toSet().toList();
         if (rowIds.isNotEmpty) condition = condition | Handle_.originalROWID.oneOf(rowIds);
@@ -259,14 +262,23 @@ class Handle {
       for (final h in existingHandles) {
         if (h.originalROWID != null) existingByRowId.putIfAbsent(h.originalROWID!, () => h);
       }
+      final claimedIds = <int>{};
       for (Handle h in handles) {
-        final existing = (matchOnOriginalROWID ? existingByRowId[h.originalROWID] : null) ??
-            existingByKey[h.uniqueAddressAndService];
+        var existing = existingByKey[h.uniqueAddressAndService];
+        if (existing == null && matchOnOriginalROWID) {
+          final rowIdMatch = existingByRowId[h.originalROWID];
+          if (rowIdMatch != null &&
+              !claimedIds.contains(rowIdMatch.id) &&
+              !keys.contains(rowIdMatch.uniqueAddressAndService)) {
+            existing = rowIdMatch;
+          }
+        }
 
         if (existing != null) {
           h.id = existing.id;
           h.originalROWID ??= existing.originalROWID;
-        } else if (matchOnOriginalROWID) {
+          claimedIds.add(existing.id!);
+        } else {
           h.id = null;
         }
         // Contact matching is now handled automatically by ContactServiceV2
