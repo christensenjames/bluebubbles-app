@@ -44,10 +44,17 @@ class ChatsService {
   /// Key is the chat GUID, value is the ChatState
   /// The map itself doesn't need to be Rx because the underlying ChatState fields are
   final Map<String, ChatState> chatStates = {};
+  final Set<ChatState> _chatStatesWithListeners = {};
 
   ChatState? _activeChat;
   ChatState? get activeChat => _activeChat;
   set activeChat(ChatState? value) {
+    final previous = _activeChat;
+    if (previous != null &&
+        !identical(previous, value) &&
+        !identical(chatStates[previous.chat.guid], previous)) {
+      _disposeChatState(previous);
+    }
     _activeChat = value;
     final guid = value?.chat.guid;
     if (activeChatGuid.value != guid) activeChatGuid.value = guid;
@@ -281,18 +288,25 @@ class ChatsService {
       // watch for new chats
       final countQuery = (Database.chats.query(Chat_.dateDeleted.isNull())..order(Chat_.id, flags: Order.descending))
           .watch(triggerImmediately: true);
+      var initialDelivery = true;
       countSub = countQuery.listen((event) async {
+        final isInitialDelivery = initialDelivery;
+        initialDelivery = false;
         if (!SettingsSvc.settings.finishedSetup.value) return;
         final newCount = event.count();
-        if (newCount > currentCount && currentCount != 0) {
-          final chat = event.findFirst()!;
-          if (chat.dbOnlyLatestMessageDate == null || chat.dbOnlyLatestMessageDate!.millisecondsSinceEpoch == 0) {
-            // wait for the chat.addMessage to go through
-            await Future.delayed(const Duration(milliseconds: 500));
-          }
-          await addChat(chat, immediate: true);
-        }
+        final countIncreased = newCount > currentCount;
         currentCount = newCount;
+        if (!isInitialDelivery && countIncreased) {
+          final listedGuids = _sortedChats.map((chat) => chat.guid).toSet();
+          for (final chat in event.find()) {
+            if (chatStates.containsKey(chat.guid) && listedGuids.contains(chat.guid)) continue;
+            if (chat.dbOnlyLatestMessageDate == null || chat.dbOnlyLatestMessageDate!.millisecondsSinceEpoch == 0) {
+              // wait for the chat.addMessage to go through
+              await Future.delayed(const Duration(milliseconds: 500));
+            }
+            await addChat(chat, immediate: true);
+          }
+        }
       });
     } else {
       countSub = WebListeners.newChat.listen((chat) async {
@@ -331,12 +345,6 @@ class ChatsService {
       return;
     }
 
-    // Clear existing chats to avoid duplicates on re-init
-    if (chatStates.isNotEmpty) {
-      chatStates.clear();
-      _sortedChats.clear();
-    }
-
     final batches = (currentCount / batchSize).ceil();
     for (int i = 0; i < batches; i++) {
       final chatBatch = await Chat.getChatsAsync(limit: batchSize, offset: i * batchSize);
@@ -355,10 +363,11 @@ class ChatsService {
 
         // A chat opened before the list loads already has a bare state from getOrCreateChatState.
         final state = existing ?? (chatStates[c.guid] = ChatState(c));
+        if (existing != null) state.updateFromChat(c);
         _setupChatStateListeners(state);
 
         if (activeChatGuid.value == c.guid) {
-          _activeChat = state;
+          activeChat = state;
           state.updateActiveAndAliveInternal(true);
         }
 
@@ -449,6 +458,7 @@ class ChatsService {
 
   /// Set up listeners on a ChatState to track unread count changes
   void _setupChatStateListeners(ChatState chatState) {
+    if (!_chatStatesWithListeners.add(chatState)) return;
     // Listen to hasUnreadMessage and muteType changes to update global unread count
     chatState.hasUnreadMessage.listen((hasUnread) {
       _recalculateUnreadCount();
@@ -456,6 +466,11 @@ class ChatsService {
     chatState.muteType.listen((_) {
       _recalculateUnreadCount();
     });
+  }
+
+  void _disposeChatState(ChatState state) {
+    state.dispose();
+    _chatStatesWithListeners.remove(state);
   }
 
   /// The filter selection currently saved as default (see
@@ -726,6 +741,8 @@ class ChatsService {
     if (currentIndex == -1) {
       // Chat not found, just insert it
       _insertChatSorted(chat);
+      _setupChatStateListeners(chatStates[chat.guid]!);
+      _scheduleListVersionUpdate(immediate: immediate);
       return;
     }
 
@@ -804,6 +821,10 @@ class ChatsService {
 
   void removeChat(Chat toRemove) {
     if (headless) return;
+    final state = chatStates[toRemove.guid];
+    if (state != null && !identical(state, _activeChat)) {
+      _disposeChatState(state);
+    }
     chatStates.remove(toRemove.guid);
     _sortedChats.removeWhere((c) => c.guid == toRemove.guid);
     _scheduleListVersionUpdate(immediate: true);
@@ -1745,8 +1766,11 @@ class ChatsService {
   void reset({bool reinitWatchers = false}) {
     currentCount = 0;
     hasChats.value = false;
-    _activeChat = null;
-    chatStates.clear();
+    chatStates.removeWhere((guid, state) {
+      if (identical(state, _activeChat)) return false;
+      _disposeChatState(state);
+      return true;
+    });
     _sortedChats.clear();
     loadedAllChats = Completer();
     loadedFirstChatBatch.value = false;
