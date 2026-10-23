@@ -597,7 +597,7 @@ class NotificationsService {
   /// [persistPath] when the file must outlive this run (appTemp is wiped on startup).
   Future<(String, bool)> _chatAvatarPath(Chat chat, {String? persistPath}) async {
     if (chat.handles.length == 1 && chat.customAvatarPath == null) {
-      final avatarPath = chat.handles.first.contactsV2.map((c) => c.avatarPath).nonNulls.firstOrNull;
+      final avatarPath = chat.handles.first.contactAvatarPath;
       // A reserved character in the file name means a row written before avatar
       // names were sanitized (macOS contact IDs end in `:ABPerson`). Windows can
       // neither build a file URI for it nor read it back reliably, so regenerate

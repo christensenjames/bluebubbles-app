@@ -91,8 +91,7 @@ class HandleState {
 
   static String? _resolveAvatarPath(Handle h) {
     if (kIsWeb) return null;
-    // The server can return the same person twice (Contacts record and chat.db card), only one with a photo.
-    return h.contactsV2.map((c) => c.avatarPath).nonNulls.firstOrNull;
+    return h.contactAvatarPath;
   }
 
   // ========== Internal State Update Methods ==========

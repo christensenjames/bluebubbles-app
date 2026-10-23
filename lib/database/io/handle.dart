@@ -109,6 +109,16 @@ class Handle {
     return contactsV2.isNotEmpty ? reactionDisplayName.firstWord : reactionDisplayName;
   }
 
+  /// Avatar file of the best-matching contact, or null when none has a photo.
+  @Transient()
+  String? get contactAvatarPath {
+    // Desktop gets each person twice: Mac Contacts records (`<uuid>:ABPerson`) and phone uploads, whose
+    // photo is often a generated letter monogram, so the Mac record wins.
+    final withPhoto = contactsV2.where((c) => c.avatarPath != null);
+    return (withPhoto.where((c) => c.nativeContactId.endsWith(':ABPerson')).firstOrNull ?? withPhoto.firstOrNull)
+        ?.avatarPath;
+  }
+
   @Transient()
   String? get initials {
     if (address.startsWith("urn:biz")) return null;
