@@ -82,6 +82,7 @@ class OutgoingPartFailure implements Exception {
 class _SendProgressTracker {
   final Chat chat;
   final Completer<void> completer;
+  bool socketConfirmed = false;
 
   _SendProgressTracker(this.chat, this.completer);
 }
@@ -162,8 +163,8 @@ class OutgoingMessageHandler {
     if (tracker == null) return;
 
     if (origin == Origin.incomingMessageHandler) {
-    } else if (origin == Origin.outgoingMessageHandler) {
-    } else {
+      tracker.socketConfirmed = error == null;
+    } else if (origin != Origin.outgoingMessageHandler) {
       Logger.warn('Unknown origin $origin for send progress completion of $tempGuid', tag: _tag);
     }
 
@@ -223,6 +224,10 @@ class OutgoingMessageHandler {
     final returned = prep.result;
 
     if (returned is List<Message>) {
+      if (returned.isEmpty) {
+        _settlePart(item.completer);
+        return;
+      }
       // _persistOutgoingMessages already saved each message to the DB; create a queue
       // entry for each one with the message that was actually saved.
       for (final m in returned) {
@@ -541,6 +546,7 @@ class OutgoingMessageHandler {
   }) {
     final race = Completer<void>();
     registerSendProgressTracker(tempGuid, chat, race);
+    final tracker = _sendProgressTrackers[tempGuid]!;
 
     httpCall().then((data) async {
       completeSendProgressIfExists(tempGuid, Origin.outgoingMessageHandler);
@@ -551,6 +557,7 @@ class OutgoingMessageHandler {
       }
       if (!race.isCompleted) race.complete();
     }, onError: (Object error, StackTrace stack) async {
+      if (tracker.socketConfirmed) return;
       completeSendProgressIfExists(
         tempGuid,
         Origin.outgoingMessageHandler,
@@ -1003,10 +1010,17 @@ class OutgoingMessageHandler {
     // On web the isolate path is not supported (web is deprecated).
     if (kIsWeb) return;
 
-    // Fail fast if the file was not staged correctly during prepAttachment.
     if (!File(attachment.path).existsSync()) {
-      Logger.error('Attachment file not found at ${attachment.path}', tag: _tag);
-      return;
+      final error = FileSystemException('Staged attachment file not found', attachment.path);
+      await _finalizeOutgoingFailure(
+        c,
+        m,
+        tempGuid,
+        logMessage: 'Failed to send attachment',
+        error: error,
+        attachments: [attachment],
+      );
+      throw error;
     }
 
     return _sendWithRace(
