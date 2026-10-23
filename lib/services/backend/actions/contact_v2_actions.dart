@@ -679,14 +679,52 @@ class ContactV2Actions {
     });
   }
 
+  static Future<List<int>> linkHandlesToContacts(dynamic data) async {
+    final handleIds = (data['handleIds'] as List).cast<int>();
+    if (handleIds.isEmpty) return [];
+
+    return Database.runInTransaction(TxMode.write, () {
+      final contactsByAddress = <String, ContactV2>{};
+      for (final contact in Database.contactsV2.getAll()) {
+        for (final address in contact.addresses) {
+          final normalized =
+              address.contains('@') ? ContactV2.normalizeEmail(address) : ContactV2.normalizePhoneNumber(address);
+          contactsByAddress.putIfAbsent(normalized, () => contact);
+        }
+      }
+
+      final affectedHandleIds = <int>[];
+      final contactsToSave = <int, ContactV2>{};
+      for (final handle in Database.handles.getMany(handleIds).whereType<Handle>()) {
+        final address = handle.address;
+        final normalized =
+            address.contains('@') ? ContactV2.normalizeEmail(address) : ContactV2.normalizePhoneNumber(address);
+        final contact = contactsByAddress[normalized];
+        if (contact == null) continue;
+        contact.handles.add(handle);
+        contactsToSave[contact.id] = contact;
+        affectedHandleIds.add(handle.id!);
+        Logger.info(
+          'Linked new handle ${handle.address} to contact ${contact.computedDisplayName}',
+          tag: 'ContactV2Actions',
+        );
+      }
+      Database.contactsV2.putMany(contactsToSave.values.toList());
+      return affectedHandleIds;
+    });
+  }
+
   /// Get all contacts from the database.
   /// Returns a list of ObjectBox IDs so the interface can hydrate full objects.
   static Future<List<int>> getAllContacts(dynamic data) async {
     return await Database.runInTransaction(TxMode.read, () {
       final contactsBox = Database.contactsV2;
       final query = (contactsBox.query()..order(ContactV2_.displayName)).build();
-      final allContacts = query.find();
-      return allContacts.map((c) => c.id).toList();
+      try {
+        return query.find().map((c) => c.id).toList();
+      } finally {
+        query.close();
+      }
     });
   }
 

@@ -61,10 +61,6 @@ class HandleSyncManager extends SyncManager {
       addToOutput('Received $totalHandles handles(s) from the server!');
     }
 
-    if (totalHandles == 0) {
-      return await complete();
-    }
-
     try {
       if (kIsDesktop && Platform.isWindows) {
         await WindowsTaskbar.setProgressMode(TaskbarProgressMode.normal);
@@ -72,15 +68,20 @@ class HandleSyncManager extends SyncManager {
 
       // First, backup the handles so we can restore them if required later.
       backupHandles();
+      final backupByRowId = <int, Handle>{
+        for (final h in handleBackup.values)
+          if (h.originalROWID != null) h.originalROWID!: h,
+      };
+      final backupByKey = {for (final h in handleBackup.values) h.uniqueAddressAndService: h};
 
       // Second, fetch all the chats and cache the chat <-> handle relationships.
       // This is so we can re-apply them later during the resync or a restore.
       List<Chat> chats = await getChatsFromDb();
       cacheChatHandleRelationships(chats);
 
-      // Clearing handle database
-      addToOutput("Clearing handle database...");
-      Database.handles.removeAll();
+      if (totalHandles == 0) {
+        return await complete();
+      }
 
       // This flag can be used to test the restore functionality
       if (simulateError) {
@@ -99,7 +100,7 @@ class HandleSyncManager extends SyncManager {
         // And load the matching contact, if we can.
         for (Handle h in serverHandles) {
           // restore preferences from backed up handle
-          final backedUpHandle = handleBackup[h.originalROWID!];
+          final backedUpHandle = backupByRowId[h.originalROWID] ?? backupByKey[h.uniqueAddressAndService];
           h.color = backedUpHandle?.color;
           h.defaultEmail = backedUpHandle?.defaultEmail;
           h.defaultPhone = backedUpHandle?.defaultPhone;
@@ -117,9 +118,7 @@ class HandleSyncManager extends SyncManager {
 
         // Save the new handles to a cache
         for (Handle h in handles) {
-          if (h.originalROWID != null) {
-            newHandles[h.originalROWID!] = h;
-          }
+          newHandles[h.id!] = h;
         }
 
         if (handleProgress >= 1.0) {
@@ -142,6 +141,7 @@ class HandleSyncManager extends SyncManager {
             await WindowsTaskbar.setProgressMode(TaskbarProgressMode.noProgress);
             await WindowsTaskbar.setFlashTaskbarAppIcon(mode: TaskbarFlashMode.timernofg);
           }
+          break;
         }
       }
     } catch (e, s) {
@@ -171,9 +171,7 @@ class HandleSyncManager extends SyncManager {
     addToOutput("Backing up handles...");
     List<Handle> existingHandles = Handle.find();
     for (Handle h in existingHandles) {
-      if (h.originalROWID != null) {
-        handleBackup[h.originalROWID!] = Handle.fromMap(h.toMap());
-      }
+      handleBackup[h.id!] = h;
     }
   }
 
@@ -189,33 +187,24 @@ class HandleSyncManager extends SyncManager {
     addToOutput("Caching chat participants...");
     for (Chat c in chats) {
       List<Handle> handles = c.handles;
-      List<int> rowIds = handles.map((e) => e.originalROWID).nonNulls.toList();
-      chatHandleCache[c] = rowIds;
+      chatHandleCache[c] = handles.map((e) => e.id!).toList();
     }
   }
 
   void restoreOriginalHandles() {
-    // Don't try and restore if there is nothing backed up to re-create.
-    // Or no relationships to recreate.
-    if (handleBackup.isEmpty || chatHandleCache.isEmpty) return;
-
     addToOutput('Restoring original handles...');
-    Database.handles.removeAll();
-
-    List<Handle> newHandles = Handle.bulkSave(handleBackup.values.toList());
-    for (Handle h in newHandles) {
-      if (h.originalROWID != null) {
-        handleBackup[h.originalROWID!] = h;
-      }
-    }
-
-    rebuildRelationships(handleBackup);
+    Database.runInTransaction(TxMode.write, () {
+      Database.handles.removeMany(newHandles.keys.where((id) => !handleBackup.containsKey(id)).toList());
+      Database.handles.putMany(handleBackup.values.toList());
+      rebuildRelationships(handleBackup);
+    });
   }
 
   void rebuildRelationships(Map<int, Handle> handleMap) {
     addToOutput("Re-creating chat <-> handle relationships");
     chatHandleCache.forEach((key, value) {
       List<Handle> relations = value.map((e) => handleMap[e]).nonNulls.toList();
+      key.handles.clear();
       key.handles.addAll(relations);
       key.handles.applyToDb();
     });
@@ -258,7 +247,10 @@ class HandleSyncManager extends SyncManager {
 
   @override
   Future<void> complete() async {
-    rebuildRelationships(newHandles);
+    Database.runInTransaction(TxMode.write, () {
+      Database.handles.removeMany(handleBackup.keys.where((id) => !newHandles.containsKey(id)).toList());
+      rebuildRelationships(newHandles);
+    });
     addToOutput("Successfully synced $handlesSynced handle(s)!");
     addToOutput("Reloading your chats...");
 

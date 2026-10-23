@@ -239,19 +239,35 @@ class Handle {
 
   /// Save a list of handles
   static List<Handle> bulkSave(List<Handle> handles, {matchOnOriginalROWID = false}) {
+    if (handles.isEmpty) return handles;
     Database.runInTransaction(TxMode.write, () {
-      /// Match existing to the handles to save, where possible
+      final keys = handles.map((h) => h.uniqueAddressAndService).toSet().toList();
+      var condition = Handle_.uniqueAddressAndService.oneOf(keys);
+      if (matchOnOriginalROWID) {
+        final rowIds = handles.map((h) => h.originalROWID).nonNulls.toSet().toList();
+        if (rowIds.isNotEmpty) condition = condition | Handle_.originalROWID.oneOf(rowIds);
+      }
+      final query = Database.handles.query(condition).build();
+      final List<Handle> existingHandles;
+      try {
+        existingHandles = query.find();
+      } finally {
+        query.close();
+      }
+      final existingByKey = {for (final h in existingHandles) h.uniqueAddressAndService: h};
+      final existingByRowId = <int, Handle>{};
+      for (final h in existingHandles) {
+        if (h.originalROWID != null) existingByRowId.putIfAbsent(h.originalROWID!, () => h);
+      }
       for (Handle h in handles) {
-        Handle? existing;
-        if (matchOnOriginalROWID) {
-          existing = Handle.findOne(originalROWID: h.originalROWID);
-        } else {
-          existing = Handle.findOne(addressAndService: HandleLookupKey(h.address, h.service));
-        }
+        final existing = (matchOnOriginalROWID ? existingByRowId[h.originalROWID] : null) ??
+            existingByKey[h.uniqueAddressAndService];
 
         if (existing != null) {
           h.id = existing.id;
           h.originalROWID ??= existing.originalROWID;
+        } else if (matchOnOriginalROWID) {
+          h.id = null;
         }
         // Contact matching is now handled automatically by ContactServiceV2
       }

@@ -45,38 +45,16 @@ class HandleActions {
     final handlesData = (data['handlesData'] as List).cast<Map<String, dynamic>>();
     final matchOnOriginalROWID = data['matchOnOriginalROWID'] as bool;
 
-    final handles = handlesData.map((e) => Handle.fromMap(e)).toList();
+    final handles = handlesData
+        .map((e) => Handle.fromMap(e)..originalROWID = e['originalROWID'] as int?)
+        .toList();
 
     // Format addresses before entering the transaction (async not allowed inside)
     for (Handle h in handles) {
       await h.updateFormattedAddress();
     }
 
-    return Database.runInTransaction(TxMode.write, () {
-      /// Match existing to the handles to save, where possible
-      for (Handle h in handles) {
-        Handle? existing;
-        if (matchOnOriginalROWID) {
-          existing = Handle.findOne(originalROWID: h.originalROWID);
-        } else {
-          existing = Handle.findOne(addressAndService: HandleLookupKey(h.address, h.service));
-        }
-
-        if (existing != null) {
-          h.id = existing.id;
-          h.originalROWID ??= existing.originalROWID;
-        }
-        // Contact matching is now handled automatically by ContactServiceV2
-      }
-
-      List<int> insertedIds = Database.handles.putMany(handles);
-      for (int i = 0; i < insertedIds.length; i++) {
-        handles[i].id = insertedIds[i];
-      }
-
-      // Return just the IDs for efficient transfer across isolates
-      return handles.map((e) => e.id!).toList();
-    });
+    return Handle.bulkSave(handles, matchOnOriginalROWID: matchOnOriginalROWID).map((h) => h.id!).toList();
   }
 
   static Future<int?> findOneHandleAsync(dynamic data) async {

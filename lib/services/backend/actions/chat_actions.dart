@@ -2,7 +2,7 @@ import 'package:bluebubbles/database/database.dart';
 import 'package:bluebubbles/database/models.dart';
 import 'package:bluebubbles/helpers/helpers.dart';
 import 'package:bluebubbles/services/backend/actions/attachment_actions.dart';
-import 'package:bluebubbles/services/backend/interfaces/contact_v2_interface.dart';
+import 'package:bluebubbles/services/backend/actions/contact_v2_actions.dart';
 import 'package:bluebubbles/services/services.dart';
 import 'package:bluebubbles/utils/logger/logger.dart';
 import 'package:collection/collection.dart';
@@ -811,26 +811,12 @@ class ChatActions {
     });
 
     // 5. For any brand-new handles, attempt to find and link a matching ContactV2.
-    //    This runs after the write transaction so we can open a separate write tx per match.
-    //    Guards against web (no ObjectBox) and against an empty contacts DB (desktop).
+    //    Guards against web (no ObjectBox).
     final List<int> affectedHandleIds = [];
     if (brandNewHandles.isNotEmpty && !kIsWeb) {
-      for (final handle in brandNewHandles) {
-        if (handle.id == null) continue;
-        final contact = await ContactV2Interface.getContactByAddress(address: handle.address);
-        if (contact == null) continue;
-
-        Database.runInTransaction(TxMode.write, () {
-          contact.handles.add(handle);
-          Database.contactsV2.put(contact);
-        });
-
-        affectedHandleIds.add(handle.id!);
-        Logger.info(
-          'Linked new handle ${handle.address} to contact ${contact.computedDisplayName}',
-          tag: 'ChatActions',
-        );
-      }
+      affectedHandleIds.addAll(await ContactV2Actions.linkHandlesToContacts({
+        'handleIds': brandNewHandles.map((h) => h.id).whereType<int>().toList(),
+      }));
     }
 
     return {'chatIds': chatIds, 'affectedHandleIds': affectedHandleIds};

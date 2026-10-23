@@ -88,20 +88,12 @@ class SyncActions {
       final messageBox = Database.messages;
       final attachmentBox = Database.attachments;
 
-      // Build lookup for message→handle wiring (by originalROWID).
-      // Fetch all DB handles so we don't miss handles from previous syncs.
-      final allHandles = handleBox.getAll();
-      final handlesByRowId = <int, Handle>{};
-      for (final h in allHandles) {
-        if (h.originalROWID != null) handlesByRowId[h.originalROWID!] = h;
-      }
-
       // Step 1 – Sync chats → Map<chatGuid, Chat>
       final chatsMap = _syncChatsInTx(chatDataByGuid, handlesMap, chatBox);
 
       // Step 2 – Sync messages → (savedMessages, messagesByGuid)
       final (savedMessages, messagesByGuid) =
-          _syncMessagesInTx(messagesData, chatData, chatsMap, handlesByRowId, messageBox);
+          _syncMessagesInTx(messagesData, chatData, chatsMap, handleBox, messageBox);
 
       // Step 3 – Sync attachments (via Attachment.message.target — no applyToDb needed)
       _syncAttachmentsInTx(messagesData, messagesByGuid, attachmentBox, messageBox);
@@ -241,7 +233,7 @@ class SyncActions {
     List<Map<String, dynamic>> messagesData,
     Map<String, dynamic>? topLevelChatData,
     Map<String, Chat> chatsMap,
-    Map<int, Handle> handlesByRowId,
+    Box<Handle> handleBox,
     Box<Message> messageBox,
   ) {
     if (messagesData.isEmpty) return ([], {});
@@ -260,6 +252,24 @@ class SyncActions {
     final existingMap = <String, Message>{
       for (final m in existingMessages) m.guid!: m,
     };
+
+    final handleRowIds = inputMessages
+        .followedBy(existingMessages)
+        .map((m) => m.handleId)
+        .whereType<int>()
+        .where((id) => id > 0)
+        .toSet();
+    final handlesByRowId = <int, Handle>{};
+    if (handleRowIds.isNotEmpty) {
+      final query = handleBox.query(Handle_.originalROWID.oneOf(handleRowIds.toList())).build();
+      try {
+        for (final h in query.find()) {
+          if (h.originalROWID != null) handlesByRowId[h.originalROWID!] = h;
+        }
+      } finally {
+        query.close();
+      }
+    }
 
     // When a single top-level chat is provided all messages belong to it.
     final singleChat = topLevelChatData != null ? chatsMap[topLevelChatData['guid'] as String?] : null;
@@ -308,19 +318,30 @@ class SyncActions {
         if (m.guid != null) m.guid!: m,
     };
 
+    final missingAssociatedGuids = messagesToSave
+        .map((m) => m.associatedMessageGuid)
+        .whereType<String>()
+        .where((guid) => guid.isNotEmpty && !messagesByGuid.containsKey(guid))
+        .toSet();
+    final associatedByGuid = <String, Message>{};
+    if (missingAssociatedGuids.isNotEmpty) {
+      final query = messageBox.query(Message_.guid.oneOf(missingAssociatedGuids.toList())).build();
+      try {
+        for (final message in query.find()) {
+          associatedByGuid[message.guid!] = message;
+        }
+      } finally {
+        query.close();
+      }
+    }
+
     // Update hasReactions on associated messages.
     final reactionsUpdate = <String, Message>{};
     for (final msg in messagesToSave) {
       final associatedGuid = msg.associatedMessageGuid;
       if ((associatedGuid ?? '').isEmpty) continue;
 
-      Message? associated = messagesByGuid[associatedGuid];
-      if (associated == null) {
-        final q = messageBox.query(Message_.guid.equals(associatedGuid!)).build();
-        q.limit = 1;
-        associated = q.findFirst();
-        q.close();
-      }
+      final associated = messagesByGuid[associatedGuid] ?? associatedByGuid[associatedGuid];
       if (associated != null && !associated.hasReactions) {
         associated.hasReactions = true;
         reactionsUpdate[associated.guid!] = associated;
