@@ -10,6 +10,11 @@
   `set-personal-avatar` event, on macOS 14 or newer.
 - The photo picked for a single device and the "Remove your photo" option are gone. Old
   per-device photos are deleted the next time the card photo downloads.
+- A new card photo always replaces the old one on screen. The cached file was named by its
+  size, so a new photo with the same byte count kept showing the old one.
+- Replies sent from an Android notification show your card photo again.
+- Merging an old `iMessage;` chat that you had deleted no longer moves its chat background onto
+  the current chat.
 
 ## 2026-10-23 — Audit fixes
 

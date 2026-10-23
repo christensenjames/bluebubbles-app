@@ -16,6 +16,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart' show timeDilation;
 import 'package:flutter/services.dart';
+import 'package:crypto/crypto.dart';
 import 'package:flutter_displaymode/flutter_displaymode.dart';
 import 'package:get/get.dart';
 import 'package:github/github.dart' hide Source;
@@ -76,8 +77,9 @@ class SettingsService {
       final response = await HttpSvc.icloud.getAccountContact();
       final avatar = response.data?['data']?['avatar']?.toString();
       final bytes = isNullOrEmpty(avatar) ? null : base64Decode(avatar!);
-      // The byte count in the name gives a changed photo a new path, so Image.file does not serve a stale cache.
-      final target = bytes == null ? null : File(p.join(_userAvatarDir.path, 'card-${bytes.length}.jpg'));
+      // A content hash in the name gives a changed photo a new path, so Image.file does not serve a stale cache.
+      final target =
+          bytes == null ? null : File(p.join(_userAvatarDir.path, 'card-${md5.convert(bytes).toString()}.jpg'));
       if (target != null && !await target.exists()) {
         await target.create(recursive: true);
         await target.writeAsBytes(bytes!);
@@ -89,6 +91,10 @@ class SettingsService {
         }
       }
       userAvatarPath.value = target?.path;
+      // The Android notification-reply handler reads the photo from this pref.
+      target == null
+          ? await PrefsSvc.admin.remove('userAvatarPath')
+          : await PrefsSvc.admin.setString('userAvatarPath', target.path);
     } catch (e, s) {
       Logger.warn("Failed to refresh the iMessage contact card photo", error: e, trace: s, tag: 'SettingsService');
     }

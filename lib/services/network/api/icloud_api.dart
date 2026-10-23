@@ -85,7 +85,6 @@ class iCloudApi {
     });
   }
 
-  /// Set the photo on the iCloud account contact card
   Future<Response> setAccountContactAvatar(Uint8List bytes, {CancelToken? cancelToken}) async {
     return _svc.runApiGuarded(() async {
       final response = await _svc.dio.post(

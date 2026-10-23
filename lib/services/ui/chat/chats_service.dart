@@ -1184,13 +1184,14 @@ class ChatsService {
       Logger.info("Merged ${merged.length} legacy chat(s) into their any; chats", tag: "ChatBloc");
 
       for (final entry in merged.entries) {
+        // Only chats that aren't deleted are listed, so a missing state means the legacy chat was deleted.
         final legacy = chatStates[entry.key]?.chat;
         if (legacy != null) {
           removeChat(legacy);
           await _clearChatNotifications(legacy);
+          // ChatState reads the background from the GUID's folder, not from the Chat row.
+          FilesystemSvc.moveChatBackground(entry.key, entry.value);
         }
-        // ChatState reads the background from the GUID's folder, not from the Chat row.
-        FilesystemSvc.moveChatBackground(entry.key, entry.value);
 
         final target = Chat.findOne(guid: entry.value);
         if (target == null || target.dateDeleted != null) continue;

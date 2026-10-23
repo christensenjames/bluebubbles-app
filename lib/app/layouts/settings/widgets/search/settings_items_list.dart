@@ -535,10 +535,9 @@ List<Widget> buildSettingItemList({
         )
       : null;
 
-  // Notification Providers Tile. Desktop gets notifications over the socket and only uses Firebase to find
-  // the server, so it goes straight to the Firebase page.
+  // Desktop gets notifications over the socket and only needs Firebase to find the server.
   final notificationProvidersItem = SearchableSettingItem(
-    title: kIsDesktop ? "Google Firebase" : "Notification Providers", // Title to search
+    title: kIsDesktop ? "Google Firebase" : "Notification Providers",
     searchTags: kIsDesktop
         ? ["Google Firebase"]
         : ["Google Firebase (FCM)", "Background Service", "Unified Push"], // Search tags

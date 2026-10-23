@@ -109,7 +109,6 @@ class Handle {
     return contactsV2.isNotEmpty ? reactionDisplayName.firstWord : reactionDisplayName;
   }
 
-  /// Avatar file of the best-matching contact, or null when none has a photo.
   @Transient()
   String? get contactAvatarPath {
     // Desktop gets each person twice: Mac Contacts records (`<uuid>:ABPerson`) and phone uploads, whose

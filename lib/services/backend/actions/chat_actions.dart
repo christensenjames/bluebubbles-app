@@ -252,7 +252,6 @@ class ChatActions {
             target.customAvatarPath = legacy.customAvatarPath;
           }
           target.customAvatarPath ??= legacy.customAvatarPath;
-          target.customBackgroundPath ??= legacy.customBackgroundPath;
           target.customThemeLight ??= legacy.customThemeLight;
           target.customThemeDark ??= legacy.customThemeDark;
           if (target.wallpaperType == null) {
