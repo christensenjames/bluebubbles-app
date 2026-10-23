@@ -1,5 +1,19 @@
 # Changelog
 
+## 2026-10-23 — Upstream v2.1.4 merged and installed everywhere
+
+- Merged upstream tag `v2.1.4+desktop.94` into the fork's `master` (`ae096de83`). It brings
+  upstream's async, main-isolate-only settings save (background isolates forward saves to main),
+  per-isolate log files, keyboard-input time/date pickers on desktop, the Windows reminders view,
+  Windows notification fixes and the American-spelling pass. 16 files conflicted. The fork's
+  layouts and features were kept and upstream's fixes ported into them. The fork's synchronous
+  `Settings.save()` + `syncAllSettings` path gave way to upstream's `saveAsync`. The unused
+  `recommendPrivateApi` server-detail key is gone, as upstream removed it.
+- Installed on fedora (dev build in `~/.local/lib/bluebubbles-dev`, Flatpak updated to 2.1.4),
+  the Surface (CI installer), matebook (`~/Applications/bluebubbles-fork`, with a user
+  `bluebubbles.desktop` so the launcher opens the fork instead of the AUR `bluebubbles-bin`) and
+  the Pixel (release APK). Data was backed up to `*.bak-20261023` before each desktop install.
+
 ## 2026-10-21 — Archived chats come back on a new message
 
 - "Unarchive Chats On New Message" (Settings → Conversation List) is now on by default, so a
