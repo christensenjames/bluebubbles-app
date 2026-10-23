@@ -16,7 +16,7 @@ import 'package:get/get.dart';
 import 'package:logger/logger.dart' show Level;
 import 'package:universal_io/io.dart';
 
-/// Reads [Settings.linkPreviewPolicy], honouring the boolean that preceded it.
+/// Reads [Settings.linkPreviewPolicy], honoring the boolean that preceded it.
 ///
 /// Installs that saw the interim `fetchUrlPreviews` flag carry their choice
 /// forward: off stays off, on becomes the contacts-only default rather than
@@ -524,7 +524,8 @@ class Settings {
     return map;
   }
 
-  static void updateFromMap(Map<String, dynamic> map) {
+  /// Pass [save] false when the values are already persisted (e.g. forwarded from an isolate that saved them).
+  static void updateFromMap(Map<String, dynamic> map, {bool save = true}) {
     SettingsSvc.settings.iCloudAccount.value = map['iCloudAccount'] ?? SettingsSvc.settings.iCloudAccount.value;
     SettingsSvc.settings.serverAddress.value = map['serverAddress'] ?? SettingsSvc.settings.serverAddress.value;
     SettingsSvc.settings.guidAuthKey.value = map['guidAuthKey'] ?? SettingsSvc.settings.guidAuthKey.value;
@@ -799,10 +800,8 @@ class Settings {
     SettingsSvc.settings.lastReviewRequestTimestamp.value =
         map['lastReviewRequestTimestamp'] ?? SettingsSvc.settings.lastReviewRequestTimestamp.value;
 
-    if (!isIsolate) {
-      // Isolates hold a snapshot from spawn; a full save there would revert keys other engines wrote since.
-      SettingsSvc.settings.save();
-      unawaited(PrefsInterface.syncAllSettings());
+    if (!isIsolate && save) {
+      unawaited(SettingsSvc.settings.saveAsync());
       EventDispatcherSvc.emit("theme-update", null);
     }
   }

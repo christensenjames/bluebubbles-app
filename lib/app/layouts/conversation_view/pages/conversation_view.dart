@@ -232,6 +232,7 @@ class ConversationViewState extends State<ConversationView> with ThemeHelpers<Co
   void dispose() {
     routeObserver.unsubscribe(this);
     controller.saveReplyToMessageState(); // P8bda
+    controller.deleteIfCurrent();
     super.dispose();
   }
 
@@ -279,8 +280,8 @@ class ConversationViewState extends State<ConversationView> with ThemeHelpers<Co
 
         return Theme(
           data: material
-              ? baseTheme
-              : baseTheme.copyWith(
+              ? baseTheme.withEmojiFallback
+              : baseTheme.withEmojiFallback.copyWith(
                   primaryColor: bubbleColor,
                   colorScheme: colorScheme.copyWith(
                     primary: bubbleColor,

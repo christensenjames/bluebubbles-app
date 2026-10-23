@@ -7,6 +7,7 @@ import '../tiles/redacted_mode_tile.dart';
 import 'package:bluebubbles/app/layouts/settings/dialogs/version_dialog.dart';
 import 'package:adaptive_theme/adaptive_theme.dart';
 import 'package:bluebubbles/app/components/avatars/contact_avatar_widget.dart';
+import 'package:bluebubbles/app/layouts/settings/pages/advanced/firebase_panel.dart';
 import 'package:bluebubbles/app/layouts/settings/pages/advanced/notification_providers_panel.dart';
 import 'package:bluebubbles/app/layouts/settings/pages/advanced/private_api_panel.dart';
 import 'package:bluebubbles/app/layouts/settings/pages/advanced/redacted_mode_panel.dart';
@@ -110,7 +111,8 @@ List<Widget> buildSettingItemList({
         )
       : null;
 
-  final messageRemindersItem = Platform.isAndroid
+  // Linux can't schedule notifications.
+  final messageRemindersItem = Platform.isAndroid || Platform.isWindows
       ? SearchableSettingItem(
           title: "Message Reminders",
           searchTags: ["Message Reminders"],
@@ -233,7 +235,7 @@ List<Widget> buildSettingItemList({
       "Ask Where to Save Attachments",
       "Mute in Attachment Preview",
       "Mute in Fullscreen Player",
-      "Arrow key direction",
+      "Arrow Key Direction",
       "Swipe Direction",
     ],
     onTap: () {
@@ -419,6 +421,7 @@ List<Widget> buildSettingItemList({
           onTap: () {
             ns.pushAndRemoveSettingsUntil(context, const DesktopPanel(), (Route route) => route.isFirst);
           },
+
           child: SettingsTile(
             backgroundColor: tileColor,
             title: "Desktop Settings",
@@ -532,29 +535,42 @@ List<Widget> buildSettingItemList({
         )
       : null;
 
-  // Notification Providers Tile
+  // Notification Providers Tile. Desktop gets notifications over the socket and only uses Firebase to find
+  // the server, so it goes straight to the Firebase page.
   final notificationProvidersItem = SearchableSettingItem(
-    title: "Notification Providers", // Title to search
-    searchTags: ["Google Firebase (FCM)", "Background Service", "Unified Push"], // Search tags
+    title: kIsDesktop ? "Google Firebase" : "Notification Providers", // Title to search
+    searchTags: kIsDesktop
+        ? ["Google Firebase"]
+        : ["Google Firebase (FCM)", "Background Service", "Unified Push"], // Search tags
     onTap: () async {
-      ns.pushAndRemoveSettingsUntil(context, const NotificationProvidersPanel(), (Route route) => route.isFirst);
+      ns.pushAndRemoveSettingsUntil(
+        context,
+        kIsDesktop ? const FirebasePanel() : const NotificationProvidersPanel(),
+        (Route route) => route.isFirst,
+      );
     }, // On tap to search
     child: SettingsTile(
       backgroundColor: tileColor,
       onTap: () async {
         ns.pushAndRemoveSettingsUntil(
           context,
-          const NotificationProvidersPanel(),
+          kIsDesktop ? const FirebasePanel() : const NotificationProvidersPanel(),
           (Route route) => route.isFirst,
         );
       },
-      leading: const SettingsLeadingIcon(
-        iosIcon: CupertinoIcons.bell,
-        materialIcon: Icons.notifications,
-        containerColor: Colors.cyan,
-      ),
-      title: "Notification Providers",
-      activePage: NotificationProvidersPanel,
+      leading: kIsDesktop
+          ? const SettingsLeadingIcon(
+              iosIcon: CupertinoIcons.cloud,
+              materialIcon: Icons.cloud_outlined,
+              containerColor: Colors.cyan,
+            )
+          : const SettingsLeadingIcon(
+              iosIcon: CupertinoIcons.bell,
+              materialIcon: Icons.notifications,
+              containerColor: Colors.cyan,
+            ),
+      title: kIsDesktop ? "Google Firebase" : "Notification Providers",
+      activePage: kIsDesktop ? FirebasePanel : NotificationProvidersPanel,
       trailing: material ? null : const NextButton(),
     ),
   );
@@ -621,7 +637,7 @@ List<Widget> buildSettingItemList({
     searchTags: [
       "Fetch Contacts With Verbose Logging",
       "View Latest Log",
-      "Download / Share Logs",
+      kIsDesktop ? "Download Logs" : "Download / Share Logs",
       "Open Logs",
       "Clear Logs",
       "Open App Data Location",

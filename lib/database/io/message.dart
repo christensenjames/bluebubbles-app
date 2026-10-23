@@ -206,11 +206,11 @@ class Message {
     List<AttributedBody> attributedBody = [];
     if (json["attributedBody"] != null) {
       if (json['attributedBody'] is Map) {
-        json['attributedBody'] = [json['attributedBody']!.cast<String, Object>()];
+        json['attributedBody'] = [json['attributedBody']!.cast<String, dynamic>()];
       }
       try {
         attributedBody =
-            (json['attributedBody'] as List).map((a) => AttributedBody.fromMap(a!.cast<String, Object>())).toList();
+            (json['attributedBody'] as List).map((a) => AttributedBody.fromMap(a!.cast<String, dynamic>())).toList();
       } catch (e, stack) {
         Logger.error('Failed to parse attributed body!', error: e, trace: stack);
       }
@@ -223,14 +223,14 @@ class Message {
           metadata = jsonDecode(json["metadata"]);
         } catch (_) {}
       } else {
-        metadata = json["metadata"]?.cast<String, Object>();
+        metadata = json["metadata"]?.cast<String, dynamic>();
       }
     }
 
     List<MessageSummaryInfo> msi = [];
     try {
       msi = (json['messageSummaryInfo'] as List? ?? [])
-          .map((e) => MessageSummaryInfo.fromJson(e!.cast<String, Object>()))
+          .map((e) => MessageSummaryInfo.fromJson(e!.cast<String, dynamic>()))
           .toList();
     } catch (e, stack) {
       Logger.error('Failed to parse summary info!', error: e, trace: stack);
@@ -271,7 +271,7 @@ class Message {
       associatedMessageType: json["associatedMessageType"],
       associatedMessageEmoji: json["associatedMessageEmoji"],
       expressiveSendStyleId: json["expressiveSendStyleId"],
-      handle: json['handle'] != null ? Handle.fromMap(json['handle']!.cast<String, Object>()) : null,
+      handle: json['handle'] != null ? Handle.fromMap(json['handle']!.cast<String, dynamic>()) : null,
       hasAttachments: (json['attachments'] as List? ?? []).isNotEmpty || json['hasAttachments'] == true,
       hasReactions: json['hasReactions'] == true,
       dateDeleted: parseDate(json["dateDeleted"]),

@@ -135,10 +135,14 @@ class NotificationSettingsDialog extends StatelessWidget {
                   context: context,
                   initialDate: DateTime.now().toLocal(),
                   firstDate: DateTime.now().toLocal(),
-                  lastDate: DateTime.now().toLocal().add(const Duration(days: 365)));
+                  lastDate: DateTime.now().toLocal().add(const Duration(days: 365)),
+                  initialEntryMode: kIsDesktop ? DatePickerEntryMode.input : DatePickerEntryMode.calendar);
               if (messageDate != null) {
                 if (!context.mounted) return;
-                final messageTime = await showTimePicker(context: context, initialTime: TimeOfDay.now());
+                final messageTime = await showTimePicker(
+                    context: context,
+                    initialTime: TimeOfDay.now(),
+                    initialEntryMode: kIsDesktop ? TimePickerEntryMode.input : TimePickerEntryMode.dial);
                 if (messageTime != null) {
                   final finalDate = DateTime(
                       messageDate.year, messageDate.month, messageDate.day, messageTime.hour, messageTime.minute);

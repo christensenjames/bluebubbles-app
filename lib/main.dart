@@ -9,6 +9,7 @@ import 'package:bitsdojo_window/bitsdojo_window.dart';
 import 'package:bluebubbles/app/wrappers/bb_scaffold.dart';
 import 'package:bluebubbles/app/components/custom/custom_error_box.dart';
 import 'package:bluebubbles/app/components/custom/system_back_page_transitions_builder.dart';
+import 'package:bluebubbles/env.dart';
 import 'package:bluebubbles/helpers/backend/startup_tasks.dart';
 import 'package:bluebubbles/helpers/helpers.dart';
 import 'package:bluebubbles/services/network/http_overrides.dart';
@@ -62,6 +63,7 @@ Future<Null> main(List<String> arguments) async {
 @pragma('vm:entry-point')
 // ignore: prefer_void_to_null
 Future<Null> bubble() async {
+  logNamePrefix = 'Bubble';
   await initApp(true, []);
 }
 
@@ -304,16 +306,21 @@ class DesktopWindowListener extends WindowListener {
     LifecycleSvc.close();
   }
 
+  // A drag fires these dozens of times a second; only the final geometry needs saving.
   @override
-  void onWindowResized() async {
-    Size size = await windowManager.getSize();
-    await PrefsSvc.desktop.setWindowDimensions(width: size.width, height: size.height);
+  void onWindowResized() {
+    EasyDebounce.debounce('save-window-size', const Duration(milliseconds: 500), () async {
+      Size size = await windowManager.getSize();
+      await PrefsSvc.desktop.setWindowDimensions(width: size.width, height: size.height);
+    });
   }
 
   @override
-  void onWindowMoved() async {
-    Offset offset = await windowManager.getPosition();
-    await PrefsSvc.desktop.setWindowOffsets(x: offset.dx, y: offset.dy);
+  void onWindowMoved() {
+    EasyDebounce.debounce('save-window-position', const Duration(milliseconds: 500), () async {
+      Offset offset = await windowManager.getPosition();
+      await PrefsSvc.desktop.setWindowOffsets(x: offset.dx, y: offset.dy);
+    });
   }
 
   @override
@@ -364,7 +371,7 @@ class Main extends StatelessWidget {
       builder: (theme, darkTheme) => GetMaterialApp(
         debugShowCheckedModeBanner: false,
         title: 'BlueBubbles',
-        theme: theme.copyWith(
+        theme: theme.withEmojiFallback.copyWith(
           appBarTheme: theme.appBarTheme.copyWith(elevation: 0.0),
           pageTransitionsTheme: _pageTransitionsTheme,
           dialogTheme: DialogThemeData(
@@ -372,7 +379,7 @@ class Main extends StatelessWidget {
             backgroundColor: theme.colorScheme.surfaceContainerHighest,
           ),
         ),
-        darkTheme: darkTheme.copyWith(
+        darkTheme: darkTheme.withEmojiFallback.copyWith(
           appBarTheme: darkTheme.appBarTheme.copyWith(elevation: 0.0),
           pageTransitionsTheme: _pageTransitionsTheme,
           dialogTheme: DialogThemeData(
@@ -639,7 +646,8 @@ class _HomeState extends State<Home> with WidgetsBindingObserver, TrayListener {
           }
 
           unawaited(updateBadge(ChatsSvc.unreadCount.value));
-          ChatsSvc.unreadCount.listen(updateBadge);
+          // Each update is a shell COM call on the platform thread; syncs and mark-all-read change the count in bursts.
+          debounce<int>(ChatsSvc.unreadCount, updateBadge, time: const Duration(milliseconds: 250));
 
           /* ----- WINDOW EFFECT INITIALIZATION ----- */
           EventDispatcherSvc.stream.listen((event) async {

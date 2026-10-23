@@ -123,11 +123,11 @@ class ActionHandler extends GetxService {
               IncomingPayload(
                 type: MessageEventType.newMessage,
                 source: MessageSource.socket,
-                chat: Chat.fromMap(payload.data['chats'].first.cast<String, Object>()),
+                chat: Chat.fromMap(payload.data['chats'].first.cast<String, dynamic>()),
                 message: message,
                 attachments: ((payload.data['attachments'] as List?) ?? const [])
                     .whereType<Map>()
-                    .map((e) => Attachment.fromMap(e.cast<String, Object>()))
+                    .map((e) => Attachment.fromMap(e.cast<String, dynamic>()))
                     .toList(),
                 tempGuid: payload.data['tempGuid'],
               ),
@@ -143,11 +143,11 @@ class ActionHandler extends GetxService {
               IncomingPayload(
                 type: MessageEventType.updatedMessage,
                 source: MessageSource.socket,
-                chat: Chat.fromMap(payload.data['chats'].first.cast<String, Object>()),
+                chat: Chat.fromMap(payload.data['chats'].first.cast<String, dynamic>()),
                 message: updatedMessage,
                 attachments: ((payload.data['attachments'] as List?) ?? const [])
                     .whereType<Map>()
-                    .map((e) => Attachment.fromMap(e.cast<String, Object>()))
+                    .map((e) => Attachment.fromMap(e.cast<String, dynamic>()))
                     .toList(),
                 tempGuid: payload.data['tempGuid'],
               ),
@@ -162,7 +162,7 @@ class ActionHandler extends GetxService {
       case "participant-added":
       case "participant-left":
         try {
-          MessageHandlerSvc.handleNewOrUpdatedChat(Chat.fromMap(data['chats'].first.cast<String, Object>()));
+          MessageHandlerSvc.handleNewOrUpdatedChat(Chat.fromMap(data['chats'].first.cast<String, dynamic>()));
         } catch (e, s) {
           Logger.warn("Failed to handle chat participant change event", error: e, trace: s, tag: 'ActionHandler');
         }

@@ -140,7 +140,7 @@ class MessagesService extends GetxController {
     return messageStates[guid]!;
   }
 
-  /// Get or create a [MessageState] for [message], initialising it if new.
+  /// Get or create a [MessageState] for [message], initializing it if new.
   /// This is the widget-facing entry point (replaces getOrCreateController).
   MessageState getOrCreateState(Message message) {
     final guid = message.guid!;
@@ -206,7 +206,7 @@ class MessagesService extends GetxController {
   ///
   /// Only called for messages whose GUID starts with `temp`; non-temp messages
   /// and stale orphaned temp records (upload progress not in tracker) are
-  /// left unchanged so existing behaviour is undisturbed.
+  /// left unchanged so existing behavior is undisturbed.
   void _restoreInFlightAttachmentStates(Message message) {
     if (kIsWeb) return;
     final msgGuid = message.guid;
