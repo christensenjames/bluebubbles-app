@@ -5,7 +5,10 @@ import 'package:bluebubbles/services/network/user_certificates.dart';
 import 'package:bluebubbles/services/backend/settings/settings_service.dart';
 import 'package:bluebubbles/utils/logger/logger.dart';
 import 'package:crypto/crypto.dart';
+import 'package:get/get.dart';
 import 'package:universal_io/io.dart';
+
+final RxBool serverCertificateMismatch = false.obs;
 
 /// Shared certificate validation logic for both HTTP and WebSocket connections
 /// Returns true if the certificate should be accepted (override bad cert), false otherwise
@@ -18,15 +21,7 @@ bool shouldAcceptCertificate(X509Certificate cert, String host, int port) {
     return false;
   }
 
-  String serverHost = uri.host;
-  bool isServerHost = serverHost == host;
-
-  if (serverHost.startsWith("*.")) {
-    final domain = serverHost.substring(2);
-    isServerHost = host.endsWith('.$domain') &&
-        host.substring(0, host.length - domain.length - 1).split('.').length == 1;
-  }
-  if (!isServerHost) return false;
+  if (uri.host != host) return false;
 
   final fingerprint = sha256.convert(cert.der).toString();
   final settings = SettingsSvc.settings;
@@ -34,10 +29,15 @@ bool shouldAcceptCertificate(X509Certificate cert, String host, int port) {
   if (pinnedFingerprint.isEmpty) {
     settings.serverCertificateFingerprint.value = fingerprint;
     unawaited(settings.saveOneAsync('serverCertificateFingerprint'));
+    serverCertificateMismatch.value = false;
     return true;
   }
-  if (pinnedFingerprint == fingerprint) return true;
+  if (pinnedFingerprint == fingerprint) {
+    serverCertificateMismatch.value = false;
+    return true;
+  }
 
+  serverCertificateMismatch.value = true;
   Logger.warn('Server certificate fingerprint mismatch: expected $pinnedFingerprint, received $fingerprint',
       tag: 'HttpOverrides');
   return false;

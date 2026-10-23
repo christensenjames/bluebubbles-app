@@ -111,6 +111,9 @@ class HttpService implements BaseApi {
   @override
   Future<Response> returnSuccessOrError(Response r) {
     if (r.statusCode == 200) {
+      if (serverCertificateMismatch.value && r.realUri.origin == origin) {
+        serverCertificateMismatch.value = false;
+      }
       return Future.value(r);
     } else {
       return Future.error(r);

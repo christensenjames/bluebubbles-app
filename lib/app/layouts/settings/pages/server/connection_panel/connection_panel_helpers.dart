@@ -14,6 +14,7 @@ import 'package:bluebubbles/app/wrappers/theme_switcher.dart';
 import 'package:bluebubbles/database/models.dart';
 import 'package:bluebubbles/helpers/backend/settings_helpers.dart';
 import 'package:bluebubbles/helpers/helpers.dart';
+import 'package:bluebubbles/services/network/http_overrides.dart';
 import 'package:bluebubbles/services/services.dart';
 import 'package:bluebubbles/utils/logger/logger.dart';
 import 'package:bluebubbles/utils/share.dart';
@@ -163,6 +164,10 @@ mixin ConnectionPanelHelpersMixin {
     final bool redact = SettingsSvc.settings.redactedMode.value;
     switch (key) {
       case 'api':
+        if (serverCertificateMismatch.value) {
+          return 'The server certificate changed. Re-enter the server address in Settings '
+              '(Connection & Server) to trust the new certificate.';
+        }
         final checked = controller.hasCheckedStats.value;
         if (checked == null) return 'Disconnected';
         if (checked == true) return 'Connected';
@@ -213,6 +218,7 @@ mixin ConnectionPanelHelpersMixin {
   Color resolveStatusColor(ServerManagementPanelController controller, String key) {
     switch (key) {
       case 'api':
+        if (serverCertificateMismatch.value) return getIndicatorColor(SocketState.error);
         final checked = controller.hasCheckedStats.value;
         if (checked == null) return getIndicatorColor(SocketState.disconnected);
         if (checked == true) return getIndicatorColor(SocketState.connected);
