@@ -186,7 +186,7 @@ class _ContactAvatarWidgetState extends State<ContactAvatarWidget> with ThemeHel
       final colorfulAvatars = !iOS ||
           SettingsSvc.settings.colorfulAvatars.value ||
           (SettingsSvc.settings.skin.value == Skins.Material && ThemeSvc.isAnyMaterialYouSelected);
-      final userAvatarPath = SettingsSvc.settings.userAvatarPath.value;
+      final userAvatarPath = SettingsSvc.userAvatarPath;
 
       return Material(
         color: Colors.transparent,

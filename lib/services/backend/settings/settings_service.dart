@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:math';
 
 import 'package:bluebubbles/env.dart';
@@ -25,6 +26,7 @@ import 'package:store_checker/store_checker.dart';
 import 'package:bluebubbles/models/models.dart' show ServerDetails, AppUpdateInfo, ServerUpdateInfo;
 import 'package:bluebubbles/utils/logger/logger.dart';
 import 'package:dio/dio.dart';
+import 'package:path/path.dart' as p;
 import 'package:universal_io/io.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:version/version.dart';
@@ -62,8 +64,43 @@ class SettingsService {
   bool get canAuthenticate =>
       _canAuthenticate && (Platform.isWindows || (FilesystemSvc.androidInfo?.version.sdkInt ?? 0) > 28);
 
+  /// The photo on the user's iMessage contact card, downloaded from the server. Shown as the
+  /// user's avatar on every device that has not picked its own [Settings.userAvatarPath].
+  final RxnString cardAvatarPath = RxnString();
+
+  String? get userAvatarPath => settings.userAvatarPath.value ?? cardAvatarPath.value;
+
+  Directory get _cardAvatarDir => Directory(p.join(FilesystemSvc.avatarsPath, 'you'));
+
+  Iterable<File> _cardAvatarFiles() => _cardAvatarDir.existsSync()
+      ? _cardAvatarDir.listSync().whereType<File>().where((f) => p.basename(f.path).startsWith('card-'))
+      : const [];
+
+  /// Downloads the iMessage contact card photo. Main isolate only: [cardAvatarPath] drives the UI.
+  Future<void> refreshCardAvatar() async {
+    if (kIsWeb || isIsolate || !serverDetails.isMinBigSur) return;
+    try {
+      final response = await HttpSvc.icloud.getAccountContact();
+      final avatar = response.data?['data']?['avatar']?.toString();
+      final bytes = isNullOrEmpty(avatar) ? null : base64Decode(avatar!);
+      // The byte count in the name gives a changed photo a new path, so Image.file does not serve a stale cache.
+      final target = bytes == null ? null : File(p.join(_cardAvatarDir.path, 'card-${bytes.length}.jpg'));
+      if (target != null && !await target.exists()) {
+        await target.create(recursive: true);
+        await target.writeAsBytes(bytes!);
+      }
+      for (final old in _cardAvatarFiles()) {
+        if (old.path != target?.path) await old.delete();
+      }
+      cardAvatarPath.value = target?.path;
+    } catch (e, s) {
+      Logger.warn("Failed to refresh the iMessage contact card photo", error: e, trace: s, tag: 'SettingsService');
+    }
+  }
+
   Future<void> init({bool headless = false}) async {
     settings = Settings.getSettings();
+    if (!kIsWeb) cardAvatarPath.value = _cardAvatarFiles().firstOrNull?.path;
     // Populate server details from prefs so sync getters are usable immediately.
     _serverDetails.value = ServerDetails(
       macOSVersion: PrefsSvc.server.getMacOSVersion() ?? 11,

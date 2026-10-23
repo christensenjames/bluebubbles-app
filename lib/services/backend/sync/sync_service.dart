@@ -201,6 +201,7 @@ class SyncService {
 
     final contactSyncResult = await performContactSyncToHandles();
     final contactUploadResult = await performContactSyncToServer();
+    unawaited(SettingsSvc.refreshCardAvatar());
 
     // The chat sync is the one that matters, so its failure is reported alone and wins over the rest.
     // Contact failures get their own wording: a missing contacts permission returns early without
