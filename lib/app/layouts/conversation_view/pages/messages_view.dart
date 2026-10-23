@@ -518,11 +518,17 @@ class MessagesViewState extends State<MessagesView> with MessagesServiceMixin, T
         await player.open(Media(SettingsSvc.settings.receiveSoundPath.value!));
       } else if (ChatsSvc.isChatActive(chat.guid)) {
         PlayerController controller = PlayerController();
+        final completion = controller.onCompletion.take(1).listen((_) => controller.dispose());
         await controller
             .preparePlayer(
                 path: SettingsSvc.settings.receiveSoundPath.value!,
                 volume: SettingsSvc.settings.soundVolume.value / 100)
-            .then((_) => controller.startPlayer());
+            .then((_) => controller.startPlayer())
+            .catchError((Object error, StackTrace stack) async {
+          await completion.cancel();
+          controller.dispose();
+          Error.throwWithStackTrace(error, stack);
+        });
       }
     }
   }
@@ -530,6 +536,11 @@ class MessagesViewState extends State<MessagesView> with MessagesServiceMixin, T
   void handleUpdatedMessage(Message message, {String? oldGuid}) {
     // Check if widget is still mounted before processing
     if (!mounted) return;
+
+    if (oldGuid != null && message.guid != null && oldGuid != message.guid) {
+      final key = _messageKeys.remove(oldGuid);
+      if (key != null) _messageKeys[message.guid!] = key;
+    }
 
     Logger.debug("handleUpdatedMessage: Updating message ${oldGuid ?? message.guid}");
     final index = _messages.indexWhere((e) => e.guid == (oldGuid ?? message.guid));
@@ -736,12 +747,13 @@ class MessagesViewState extends State<MessagesView> with MessagesServiceMixin, T
 
                                     final message = _messages[index];
                                     final messageId = message.guid ?? 'unknown-$index';
+                                    final messageKey = _messageKeys.putIfAbsent(messageId, () => GlobalKey());
                                     final messageWidget = RepaintBoundary(
-                                      key: _messageKeys.putIfAbsent(messageId, () => GlobalKey()),
+                                      key: messageKey,
                                       child: Padding(
                                         padding: EdgeInsets.symmetric(horizontal: material ? 8.0 : 5.0),
                                         child: AutoScrollTag(
-                                          key: ValueKey("$messageId-scrolling"),
+                                          key: ObjectKey(messageKey),
                                           index: index,
                                           controller: scrollController,
                                           highlightColor: context.theme.colorScheme.surface.withValues(alpha: 0.7),

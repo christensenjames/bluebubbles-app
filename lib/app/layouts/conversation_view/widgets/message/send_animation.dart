@@ -185,10 +185,16 @@ class _SendAnimationState extends CustomState<SendAnimation, SendData, Conversat
             .then((_) async => Future.delayed(const Duration(milliseconds: 450), () async => await player.dispose()));
       } else {
         PlayerController controller = PlayerController();
+        final completion = controller.onCompletion.take(1).listen((_) => controller.dispose());
         controller
             .preparePlayer(
                 path: SettingsSvc.settings.sendSoundPath.value!, volume: SettingsSvc.settings.soundVolume.value / 100)
-            .then((_) => controller.startPlayer());
+            .then((_) => controller.startPlayer())
+            .catchError((Object error, StackTrace stack) async {
+          await completion.cancel();
+          controller.dispose();
+          Error.throwWithStackTrace(error, stack);
+        });
       }
     }
 
