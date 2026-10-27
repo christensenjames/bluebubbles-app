@@ -343,6 +343,30 @@ class Settings {
     }
   }
 
+  /// Per-device keys left out of backups.
+  static const deviceLocalKeys = [
+    'iCloudAccount',
+    'guidAuthKey',
+    'serverAddress',
+    'serverCertificateFingerprint',
+    'customHeaders',
+    'finishedSetup',
+    'reachedConversationList',
+    'colorsFromMedia',
+    'userAvatarPath',
+    'firstFcmRegisterDate',
+    'sendSoundPath',
+    'receiveSoundPath',
+    'desktopNotificationSoundPath',
+    'lastIncrementalSync',
+    'lastIncrementalSyncRowId',
+    'contactSyncAccountName',
+    'contactSyncAccountType',
+    'enableUnifiedPush',
+    'endpointUnifiedPush',
+    'enableFcm',
+  ];
+
   Map<String, dynamic> toMap({bool includeAll = true}) {
     Map<String, dynamic> map = {
       'autoDownload': autoDownload.value,
@@ -359,8 +383,6 @@ class Settings {
       'showIncrementalSync': showIncrementalSync.value,
       'highPerfMode': highPerfMode.value,
       'reduceMotion': reduceMotion.value,
-      'lastIncrementalSync': lastIncrementalSync.value,
-      'lastIncrementalSyncRowId': lastIncrementalSyncRowId.value,
       'refreshRate': refreshRate.value,
       'colorfulAvatars': colorfulAvatars.value,
       'colorfulBubbles': colorfulBubbles.value,
@@ -481,24 +503,22 @@ class Settings {
       'cachePurgeBackgroundLevel': cachePurgeBackgroundLevel.value,
       'cachePurgeMemoryPressureLevel': cachePurgeMemoryPressureLevel.value,
       'cachePurgeExcludedCaches': cachePurgeExcludedCaches.value,
+      'iCloudAccount': iCloudAccount.value,
+      'guidAuthKey': guidAuthKey.value,
+      'serverAddress': serverAddress.value,
+      'serverCertificateFingerprint': serverCertificateFingerprint.value,
+      'customHeaders': Map<String, String>.from(customHeaders.value),
+      'finishedSetup': finishedSetup.value,
+      'reachedConversationList': reachedConversationList.value,
+      'colorsFromMedia': colorsFromMedia.value,
+      'firstFcmRegisterDate': firstFcmRegisterDate.value,
+      'sendSoundPath': sendSoundPath.value,
+      'receiveSoundPath': receiveSoundPath.value,
+      'desktopNotificationSoundPath': desktopNotificationSoundPath.value,
+      'lastIncrementalSync': lastIncrementalSync.value,
+      'lastIncrementalSyncRowId': lastIncrementalSyncRowId.value,
     };
-
-    if (includeAll) {
-      map.addAll({
-        'iCloudAccount': iCloudAccount.value,
-        'guidAuthKey': guidAuthKey.value,
-        'serverAddress': serverAddress.value,
-        'serverCertificateFingerprint': serverCertificateFingerprint.value,
-        'customHeaders': Map<String, String>.from(customHeaders.value),
-        'finishedSetup': finishedSetup.value,
-        'reachedConversationList': reachedConversationList.value,
-        'colorsFromMedia': colorsFromMedia.value,
-        'firstFcmRegisterDate': firstFcmRegisterDate.value,
-        'sendSoundPath': sendSoundPath.value,
-        'receiveSoundPath': receiveSoundPath.value,
-        'desktopNotificationSoundPath': desktopNotificationSoundPath.value,
-      });
-    }
+    if (!includeAll) map.removeWhere((k, _) => deviceLocalKeys.contains(k));
 
     return map;
   }
@@ -526,7 +546,9 @@ class Settings {
   }
 
   /// Pass [save] false when the values are already persisted (e.g. forwarded from an isolate that saved them).
-  static void updateFromMap(Map<String, dynamic> map, {bool save = true}) {
+  /// Pass [includeAll] false to ignore [deviceLocalKeys].
+  static void updateFromMap(Map<String, dynamic> map, {bool save = true, bool includeAll = true}) {
+    if (!includeAll) map = Map.of(map)..removeWhere((k, _) => deviceLocalKeys.contains(k));
     SettingsSvc.settings.iCloudAccount.value = map['iCloudAccount'] ?? SettingsSvc.settings.iCloudAccount.value;
     SettingsSvc.settings.serverAddress.value = map['serverAddress'] ?? SettingsSvc.settings.serverAddress.value;
     SettingsSvc.settings.serverCertificateFingerprint.value =

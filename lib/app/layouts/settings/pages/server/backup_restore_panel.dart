@@ -358,7 +358,7 @@ class _BackupRestorePanelState extends State<BackupRestorePanel> with ThemeHelpe
       onYes: () async {
         Navigator.of(context, rootNavigator: true).pop();
         try {
-          Settings.updateFromMap(Settings.forBackupRestore(item));
+          Settings.updateFromMap(Settings.forBackupRestore(item), includeAll: false);
           await BackupRestoreActions.applyRestoredSettings();
           showSnackbar("Success", "Settings restored successfully", type: SnackbarType.success);
           final pinnedChats = item["pinnedChats"] as List<dynamic>?;
@@ -576,7 +576,7 @@ class _BackupRestorePanelState extends State<BackupRestorePanel> with ThemeHelpe
         try {
           String jsonString = const Utf8Decoder().convert(res.files.first.bytes!);
           Map<String, dynamic> json = jsonDecode(jsonString);
-          Settings.updateFromMap(Settings.forBackupRestore(json));
+          Settings.updateFromMap(Settings.forBackupRestore(json), includeAll: false);
           await BackupRestoreActions.applyRestoredSettings();
           showSnackbar("Success", "Settings restored successfully", type: SnackbarType.success);
           final pinnedChats = json["pinnedChats"] as List<dynamic>?;

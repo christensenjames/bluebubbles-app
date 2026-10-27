@@ -32,7 +32,7 @@ permissions:
   contents: read
 
 env:
-  FLUTTER_VERSION: "3.47.4"
+  FLUTTER_VERSION: "3.47.8"
   FVM_VERSION: "4.3.1"
   # Which SignPath policy/cert to use. Tags always sign for release; a manual run
   # can opt in when a release build needs re-signing outside a tag push.
@@ -337,9 +337,11 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
 
       - name: Install system dependencies
+        # Azure's apt mirror occasionally crawls at ~100 KB/s; fail fast so the job can be re-run.
+        timeout-minutes: 10
         run: |
           sudo apt-get update
-          sudo apt-get install -y \
+          sudo apt-get install -y --no-install-recommends \
             clang \
             cmake \
             ninja-build \

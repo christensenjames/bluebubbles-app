@@ -50,7 +50,7 @@ permissions:
 
 env:
   # Matches the pin in windows/build.ps1 and linux/build.sh.
-  FLUTTER_VERSION: "3.47.4"
+  FLUTTER_VERSION: "3.47.8"
   FVM_VERSION: "4.3.1"
   # Android toolchain, mirroring android-builds.yml and android/app/build.gradle.
   ANDROID_NDK_VERSION: "28.2.13676358"
@@ -142,9 +142,11 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
 
       - name: Install system dependencies
+        # Azure's apt mirror occasionally crawls at ~100 KB/s; fail fast so the job can be re-run.
+        timeout-minutes: 10
         run: |
           sudo apt-get update
-          sudo apt-get install -y \
+          sudo apt-get install -y --no-install-recommends \
             clang \
             cmake \
             ninja-build \
