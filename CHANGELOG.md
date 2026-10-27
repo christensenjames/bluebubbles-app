@@ -1,5 +1,22 @@
 # Changelog
 
+## 2026-10-27 — Upstream v2.1.5 merged; Flutter 3.47.8
+
+- Merged upstream tag `v2.1.5+desktop.95` into `master` (`b346d377f`, pushed); pre-merge master
+  saved as `backup/pre-v2.1.5-merge`. It brings Flutter 3.47.8 (TLS security fix), settings
+  restore that skips device-local keys and sync markers, the Windows emoji-panel fix and Windows
+  crash dumps. Local SDK `~/sdk/flutter` moved to tag 3.47.8.
+- Conflicts in `lib/database/global/settings.dart` and `backup_restore_panel.dart`: the fork's
+  restore sanitising is combined with upstream's `includeAll: false`. Fork keys now treated as
+  device-local (not restored): `serverCertificateFingerprint`, `contactSyncAccountName`,
+  `contactSyncAccountType`, `enableUnifiedPush`, `endpointUnifiedPush`, `enableFcm`,
+  `lastIncrementalSync`, `lastIncrementalSyncRowId`, `userAvatarPath`; `customGroupIds` in saved
+  chat filters are stripped. `autoUnarchiveOnNewMessage`, `lowQualityImagesOnCellular`,
+  `animationSpeed`, `recentEmojis` and `showTrayIcon` still restore.
+- Analyze: 0 errors, 0 warnings, 72 infos (unchanged). Linux and APK (`--flavor prod`) release
+  builds pass. Installed on fedora (previous build in `~/.local/lib/bluebubbles-dev.prev-20261027`)
+  and on the Pixel (18:15).
+
 ## 2026-10-23 — One profile photo on every device
 
 - Your photo in the app is now the photo on your iMessage contact card (Name and Photo
