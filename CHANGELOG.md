@@ -15,7 +15,10 @@
   `animationSpeed`, `recentEmojis` and `showTrayIcon` still restore.
 - Analyze: 0 errors, 0 warnings, 72 infos (unchanged). Linux and APK (`--flavor prod`) release
   builds pass. Installed on fedora (previous build in `~/.local/lib/bluebubbles-dev.prev-20261027`)
-  and on the Pixel (18:15).
+  and on the Pixel (18:15) and matebook (20:10; previous bundle in
+  `~/Applications/bluebubbles-fork.prev-20261027`, data backup `*.bak-20261027`). The Surface was not
+  updated: dispatching the Windows CI build fails with `HTTP 422: Actions has been disabled for this
+  repository`.
 
 ## 2026-10-23 — One profile photo on every device
 
