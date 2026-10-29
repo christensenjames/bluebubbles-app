@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-10-29 — conversation_view docs name MessagesService's real path
+
+- `lib/app/layouts/conversation_view/pages/CLAUDE.md:24` (commit `cf8dbc1b2`) now points `MessagesService` at `lib/services/ui/message/messages_service.dart`. The path a reader had been sent to, `chat/messages_service`, never existed in any commit (`git log --all -S chat/messages_service` is empty). Found by the 2026-10-29 papercuts triage.
+
 ## 2026-10-29 — Link messages no longer vanish from their chat
 
 - An incoming link (URL preview) message could disappear from its conversation while the chat
