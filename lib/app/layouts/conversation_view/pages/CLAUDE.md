@@ -21,7 +21,7 @@ Extracted orchestration logic used by `messages_view.dart` / `conversation_view.
 
 ## Key Controllers
 - `ConversationViewController` (from `lib/services/ui/chat/conversation_view_controller.dart`) — owns text field state, reply context, attachment drafts, scroll position
-- `MessagesService` (tagged by chat GUID) — owns the message data and `MessageState` map
+- `MessagesService` (from `lib/services/ui/message/messages_service.dart`, tagged by chat GUID) — owns the message data and `MessageState` map
 
 ## Related
 - Full widget tree overview: `../CLAUDE.md` (conversation_view)
