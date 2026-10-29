@@ -1,5 +1,15 @@
 # Changelog
 
+## 2026-10-29 — Link messages no longer vanish from their chat
+
+- An incoming link (URL preview) message could disappear from its conversation while the chat
+  list still showed it ("1 Link"). Saving the link-preview metadata re-saved the message without
+  its chat, so the conversation's query never found it again. `MessageActions.saveMessageAsync`
+  now keeps the message's existing chat when the input has none. Seen first on an Instagram link
+  on the Pixel; the fedora desktop DB had 8 such orphaned messages, mostly links.
+- Messages already orphaned stay hidden until re-saved with their chat: open the chat's details
+  and run Sync messages over a range that covers them.
+
 ## 2026-10-27 — Upstream v2.1.5 merged; Flutter 3.47.8
 
 - Merged upstream tag `v2.1.5+desktop.95` into `master` (`b346d377f`, pushed); pre-merge master

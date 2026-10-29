@@ -193,6 +193,10 @@ class MessageActions {
           inputMessage.handleRelation.target = existing.handleRelation.target;
           inputMessage.handle = existing.handleRelation.target;
         }
+
+        if (!inputMessage.chat.hasValue && existing.chat.hasValue) {
+          inputMessage.chat.target = existing.chat.target;
+        }
       }
 
       // Save the participant & set the handle ID to the new participant
