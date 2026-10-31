@@ -1,5 +1,16 @@
 # Changelog
 
+## 2026-10-31 — Chat list shows the chat you just left after it moves to the top
+
+- Sending in a chat moves it to the top of the conversation list, but the list kept its old scroll
+  offset, so after going back the chat you had just been in sat above the screen. Opening a chat
+  from a list tile now remembers the chat's position; on return (phone layout), if the chat moved
+  up, the list scrolls to the top (`ConversationListController.revealIfMovedUp`,
+  `conversation_list.dart`; called from `ConversationTileController.onTap`). Nothing moves when the
+  order did not change. Checked on the Pixel (Material skin) before and after.
+- Not covered: chats opened from a notification or share intent, and tablet split view (the list
+  stays visible there).
+
 ## 2026-10-29 — conversation_view docs name MessagesService's real path
 
 - `lib/app/layouts/conversation_view/pages/CLAUDE.md:24` (commit `cf8dbc1b2`) now points `MessagesService` at `lib/services/ui/message/messages_service.dart`. The path a reader had been sent to, `chat/messages_service`, never existed in any commit (`git log --all -S chat/messages_service` is empty). Found by the 2026-10-29 papercuts triage.
