@@ -107,6 +107,22 @@ class ConversationListController extends StatefulController {
     updateWidgets<ConversationListFAB>(null);
   }
 
+  ScrollController get _skinScrollController => switch (SettingsSvc.settings.skin.value) {
+        Skins.iOS => iosScrollController,
+        Skins.Material => materialScrollController,
+        Skins.Samsung => samsungScrollController,
+      };
+
+  int shownIndexOf(Chat chat) => shownChats.indexWhere((c) => c.guid == chat.guid);
+
+  // A send re-sorts the open chat to the top while this list keeps its old offset, hiding the chat just left.
+  void revealIfMovedUp(Chat chat, int indexBefore) {
+    final index = shownIndexOf(chat);
+    final scroll = _skinScrollController;
+    if (index == -1 || index >= indexBefore || !scroll.hasClients) return;
+    scroll.animateTo(0, duration: const Duration(milliseconds: 300), curve: Curves.easeOut);
+  }
+
   void openCamera(BuildContext context) async {
     bool camera = await Permission.camera.isGranted;
     if (!camera) {

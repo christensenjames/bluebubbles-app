@@ -45,13 +45,17 @@ class ConversationTileController extends StatefulController {
     if ((inSelectMode || listController.selectedChats.isNotEmpty) && onSelect != null) {
       onLongPress();
     } else if ((!kIsDesktop && !kIsWeb) || ChatsSvc.activeChat?.chat.guid != chat.guid) {
+      final tabletMode = NavigationSvc.isTabletMode(context);
+      final indexBefore = listController.shownIndexOf(chat);
       NavigationSvc.pushAndRemoveUntil(
         context,
         ConversationView(
           chat: chat,
         ),
         (route) => route.isFirst,
-      );
+      ).then((_) {
+        if (!tabletMode) listController.revealIfMovedUp(chat, indexBefore);
+      });
     } else if (NavigationSvc.isTabletMode(context) && ChatsSvc.activeChat?.isAlive.value == false) {
       // Pops chat details
       Get.back(id: 2);
