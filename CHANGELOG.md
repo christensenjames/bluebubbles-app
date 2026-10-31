@@ -12,6 +12,14 @@
   chat guid and the identity of the controller, text controller and focus node, so the ids on the
   field can be matched against the ids that were disposed. The first keystroke into a disposed
   composer logs "Typing into a disposed composer". No message text is logged.
+- First on-device export (Pixel, open, back, reopen, back on the self chat) showed the window the
+  theory needs: on back the composer was disposed at 21:14:27.505Z, but its text field detached only
+  at 27.940Z, so for ~435 ms of the pop animation the field stayed bound to a disposed controller.
+  The draft save in `ConversationTextField.dispose` then reads that disposed controller. Not yet
+  tied to the bug itself; nothing was typed in that window.
+- Side effect: each app start logs one "Created composer" line per chat in the list, and a back
+  logs a new one for the chat just closed, because each list tile's typing-indicator `Obx` calls
+  `cvc()` (`conversation_tile.dart:346`), which creates a controller when none is registered.
 
 ## 2026-10-31 — Chat list shows the chat you just left after it moves to the top
 
