@@ -70,7 +70,7 @@ class ConversationViewState extends State<ConversationView> with ThemeHelpers<Co
     controller.fromSearchResult = widget.initialScrollToGuid != null;
     ChatsSvc.setActiveChatSync(chat);
     ChatsSvc.activeChat?.controller = controller;
-    Logger.debug("Conversation View initialized for ${chat.guid}");
+    Logger.debug("Conversation View initialized for ${chat.guid} (${controller.composerIds})");
 
     controller.loadReplyToMessageState(); // P224b
 
@@ -232,6 +232,7 @@ class ConversationViewState extends State<ConversationView> with ThemeHelpers<Co
   void dispose() {
     routeObserver.unsubscribe(this);
     controller.saveReplyToMessageState(); // P8bda
+    Logger.debug("Conversation View disposed for ${chat.guid} (${controller.composerIds})");
     controller.deleteIfCurrent();
     super.dispose();
   }

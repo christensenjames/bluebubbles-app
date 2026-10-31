@@ -14,6 +14,7 @@ import 'package:bluebubbles/app/layouts/conversation_view/widgets/text_field/tex
 import 'package:bluebubbles/database/models.dart';
 import 'package:bluebubbles/helpers/helpers.dart';
 import 'package:bluebubbles/services/services.dart';
+import 'package:bluebubbles/utils/logger/logger.dart';
 import 'package:file_picker/file_picker.dart' as fp;
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -96,6 +97,7 @@ class TextFieldComponentState extends State<TextFieldComponent> {
     });
 
     _configureHandlers();
+    _logAttach('Attached');
 
     assert(!(subjectTextController == null &&
         !isChatCreator &&
@@ -106,6 +108,7 @@ class TextFieldComponentState extends State<TextFieldComponent> {
 
   @override
   void dispose() {
+    _logAttach('Detached');
     // dispose of the ValueNotifier when the state is disposed
     isRecordingNotifier.dispose();
     super.dispose();
@@ -117,7 +120,14 @@ class TextFieldComponentState extends State<TextFieldComponent> {
     if (widget.controller != oldWidget.controller) {
       controller = widget.controller;
       _configureHandlers();
+      _logAttach('Re-attached');
     }
+  }
+
+  void _logAttach(String verb) {
+    final ctrl = controller;
+    if (ctrl == null) return;
+    Logger.debug('$verb composer field for ${ctrl.chat.guid} (${ctrl.composerIds})', tag: 'Composer');
   }
 
   void _configureHandlers() {
@@ -291,6 +301,7 @@ class TextFieldComponentState extends State<TextFieldComponent> {
                         focusNode: controller?.focusNode ?? focusNode,
                         autocorrect: true,
                         controller: txtController,
+                        onChanged: (_) => controller?.logTypingIntoDisposedComposer(),
                         scrollPhysics: const CustomBouncingScrollPhysics(),
                         style: bubbleText,
                         keyboardType: TextInputType.multiline,

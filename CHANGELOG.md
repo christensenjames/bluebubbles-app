@@ -1,5 +1,18 @@
 # Changelog
 
+## 2026-10-31 — Composer lifecycle logging for the invisible-text bug
+
+- Typing into the chat text box sometimes shows nothing, and the text later comes back as a draft.
+  One theory is a text field still on screen while bound to an already-disposed composer
+  controller. To make the next occurrence readable from a Share Logs export, the composer now logs
+  at debug level (tag `Composer`) when it is created, closed and disposed
+  (`ConversationViewController`), when a text field attaches, re-attaches or detaches
+  (`TextFieldComponent`), and when the draft is saved (`ConversationTextField`, text presence
+  only). "Conversation View initialized/disposed" lines carry the same ids. Each line names the
+  chat guid and the identity of the controller, text controller and focus node, so the ids on the
+  field can be matched against the ids that were disposed. The first keystroke into a disposed
+  composer logs "Typing into a disposed composer". No message text is logged.
+
 ## 2026-10-31 — Chat list shows the chat you just left after it moves to the top
 
 - Sending in a chat moves it to the top of the conversation list, but the list kept its old scroll

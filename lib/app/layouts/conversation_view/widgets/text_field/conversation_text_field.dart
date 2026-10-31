@@ -328,6 +328,8 @@ class ConversationTextFieldState extends CustomState<ConversationTextField, void
     // Update ChatState synchronously and fire DB save in the background.
     unawaited(ChatsSvc.setChatTextFieldText(chat, draftText));
     unawaited(ChatsSvc.setChatTextFieldAttachments(chat, draftAttachments));
+    Logger.debug('Saved composer draft for ${chat.guid} (${controller.composerIds}, has text: ${draftText.isNotEmpty})',
+        tag: 'Composer');
 
     controller.focusNode.removeListener(_onFocusChange);
     controller.subjectFocusNode.removeListener(_onSubjectFocusChange);

@@ -13,6 +13,7 @@ import 'package:get/get.dart';
 import 'package:google_mlkit_entity_extraction/google_mlkit_entity_extraction.dart';
 import 'package:scroll_to_index/scroll_to_index.dart';
 import 'package:bluebubbles/services/ui/chat/send_data.dart';
+import 'package:bluebubbles/utils/logger/logger.dart';
 import 'package:bluebubbles/models/models.dart' show MessageReplyContext;
 import 'package:unicode_emojis/unicode_emojis.dart';
 
@@ -36,6 +37,18 @@ class ConversationViewController extends StatefulController with GetTickerProvid
   bool fromSearchResult = false;
   bool addedRecentPhotoReply = false;
   final AutoScrollController scrollController = AutoScrollController();
+  bool _composerDisposed = false;
+  bool _loggedTypingIntoDisposed = false;
+
+  String get composerIds => 'cvc ${identityHashCode(this).toRadixString(16)}, '
+      'text ${identityHashCode(textController).toRadixString(16)}, '
+      'focus ${identityHashCode(focusNode).toRadixString(16)}';
+
+  void logTypingIntoDisposedComposer() {
+    if (!_composerDisposed || _loggedTypingIntoDisposed) return;
+    _loggedTypingIntoDisposed = true;
+    Logger.debug('Typing into a disposed composer for ${chat.guid} ($composerIds)', tag: 'Composer');
+  }
 
   ConversationViewController(this.chat, {String? tag_}) {
     tag = tag_ ?? chat.guid;
@@ -166,6 +179,7 @@ class ConversationViewController extends StatefulController with GetTickerProvid
     super.onInit();
 
     textController.mentionables = mentionables;
+    Logger.debug('Created composer for ${chat.guid} ($composerIds)', tag: 'Composer');
     _keyboardSub = KeyboardVisibilityController().onChange.listen((bool visible) async {
       keyboardOpen = visible;
       if (scrollController.hasClients && scrollController.positions.length == 1) {
@@ -236,6 +250,7 @@ class ConversationViewController extends StatefulController with GetTickerProvid
     final entries = editing.toList();
     editing.clear();
     _disposeEditEntriesAfterFrame(entries);
+    Logger.debug('Closing composer for ${chat.guid} ($composerIds); disposing after this frame', tag: 'Composer');
     // Chat switches close this before the old route unmounts, and disposing a FocusNode that a mounted field still
     // holds corrupts the focus tree, leaving the next composer unable to take input. Wait for the unmount.
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -244,6 +259,8 @@ class ConversationViewController extends StatefulController with GetTickerProvid
       subjectFocusNode.dispose();
       textController.dispose();
       subjectTextController.dispose();
+      _composerDisposed = true;
+      Logger.debug('Disposed composer for ${chat.guid} ($composerIds)', tag: 'Composer');
     });
     super.onClose();
   }
