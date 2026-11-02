@@ -17,6 +17,7 @@ class TabletModeWrapper extends StatefulWidget {
   final bool allowResize;
   final double? minWidthLeft;
   final double? maxWidthLeft;
+  final VoidCallback? onCollapse;
 
   const TabletModeWrapper(
       {super.key,
@@ -28,7 +29,8 @@ class TabletModeWrapper extends StatefulWidget {
       this.minRatio = 0,
       this.maxRatio = 0,
       this.minWidthLeft,
-      this.maxWidthLeft})
+      this.maxWidthLeft,
+      this.onCollapse})
       : assert(initialRatio >= 0),
         assert(initialRatio <= 1);
 
@@ -78,11 +80,8 @@ class _TabletModeWrapperState extends State<TabletModeWrapper> with ThemeHelpers
   @override
   Widget build(BuildContext context) {
     if (!showAltLayout) {
-      // this forcefully closes the chat controller if rotating from landscape -> portrait
-      if ((altLayoutCache ?? false) && ChatsSvc.activeChat != null) {
-        altLayoutCache = false;
-        cvc(ChatsSvc.activeChat!.chat).close();
-      }
+      if (altLayoutCache ?? false) widget.onCollapse?.call();
+      altLayoutCache = false;
       return TitleBarWrapper(child: widget.left);
     }
     altLayoutCache = true;

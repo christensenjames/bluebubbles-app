@@ -1,5 +1,25 @@
 # Changelog
 
+## 2026-11-01 — Text box works again after rotating the phone
+
+- Turning the phone to landscape and back closed the open chat's composer while the chat stayed
+  on screen. Tapping the text box then did nothing: no focus and no keyboard until you left the
+  chat. `TabletModeWrapper` closed the active chat whenever split view collapsed. That close is
+  only needed for a chat open in split view's right pane, which collapsing removes; a chat opened
+  in portrait sits on the root navigator and survives the rotation. Found from a Pixel log export
+  (composer closed at 22:10:53Z, view still mounted until 01:11:27Z).
+- The wrapper no longer knows about chats: it calls a new `onCollapse` callback, which only
+  `ConversationList` passes (the settings split view passes none). `ConversationView` records
+  whether it lives in the right-pane navigator (`ConversationViewController.inSplitPane`, set in
+  `didChangeDependencies`), and `onCollapse` closes the active chat only when that is true. A
+  check on "the right pane has any page" was not enough: Search opened from a portrait chat while
+  in landscape is pushed into the hidden pane.
+- The collapse flag now always resets. Before, collapsing with no chat open left it set, so a
+  later portrait rebuild (a keyboard change is enough) could close a chat opened afterwards.
+- Checked on the Pixel: before the fix, rotate and tap gave `mInputShown=false`; after, the
+  keyboard opens, including after opening Search in landscape first. A chat opened in the right
+  pane in landscape still goes back to the chat list on rotating to portrait.
+
 ## 2026-10-31 — Composer lifecycle logging for the invisible-text bug
 
 - Typing into the chat text box sometimes shows nothing, and the text later comes back as a draft.

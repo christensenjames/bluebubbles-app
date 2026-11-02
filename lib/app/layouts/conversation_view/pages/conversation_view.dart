@@ -210,6 +210,7 @@ class ConversationViewState extends State<ConversationView> with ThemeHelpers<Co
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
+    controller.inSplitPane = identical(Navigator.of(context), Get.keys[2]?.currentState);
     final route = ModalRoute.of(context);
     if (route != null) {
       routeObserver.subscribe(this, route);

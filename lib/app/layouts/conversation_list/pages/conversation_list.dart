@@ -303,6 +303,14 @@ class _ConversationListState extends CustomState<ConversationList, void, Convers
         minWidthLeft: kIsDesktop || kIsWeb ? 150 : null,
         minRatio: kIsDesktop || kIsWeb ? 0.1 : 0.33,
         maxRatio: 0.5,
+        onCollapse: () {
+          // A chat on the root navigator survives the collapse and must keep its controller.
+          final guid = ChatsSvc.activeChat?.chat.guid;
+          if (guid != null && Get.isRegistered<ConversationViewController>(tag: guid)) {
+            final activeController = Get.find<ConversationViewController>(tag: guid);
+            if (activeController.inSplitPane) activeController.close();
+          }
+        },
         allowResize: true,
         left: !showAltLayout
             ? child

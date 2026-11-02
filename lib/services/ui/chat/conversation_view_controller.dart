@@ -36,6 +36,7 @@ class ConversationViewController extends StatefulController with GetTickerProvid
   bool fromChatCreator = false;
   bool fromSearchResult = false;
   bool addedRecentPhotoReply = false;
+  bool inSplitPane = false;
   final AutoScrollController scrollController = AutoScrollController();
   bool _composerDisposed = false;
   bool _loggedTypingIntoDisposed = false;
