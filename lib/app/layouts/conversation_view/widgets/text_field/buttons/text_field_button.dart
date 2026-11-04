@@ -14,19 +14,21 @@ import 'package:flutter/material.dart';
 /// [_buttonPlatformSupport] and [_buttonToText], plus the builder in the icon bar.
 /// The attachment (+) button is deliberately not here — it is always shown, always
 /// first, and is not configurable.
-enum TextFieldButton { Gif, Emoji, Location }
+enum TextFieldButton { Gif, Emoji, Location, Schedule }
 
 /// (android, windows, linux, web)
 const Map<TextFieldButton, (bool, bool, bool, bool)> _buttonPlatformSupport = {
   TextFieldButton.Gif: (false, true, true, false),
   TextFieldButton.Emoji: (false, true, true, true),
   TextFieldButton.Location: (false, true, false, false),
+  TextFieldButton.Schedule: (false, true, true, false),
 };
 
 const Map<TextFieldButton, String> _buttonToText = {
   TextFieldButton.Gif: "GIF Picker",
   TextFieldButton.Emoji: "Emoji Picker",
   TextFieldButton.Location: "Send Location",
+  TextFieldButton.Schedule: "Schedule Message",
 };
 
 /// (iOS skin, other skins) — must match the icons the real buttons use
@@ -34,6 +36,7 @@ const Map<TextFieldButton, (IconData, IconData)> _buttonToIcon = {
   TextFieldButton.Gif: (Icons.gif, Icons.gif),
   TextFieldButton.Emoji: (CupertinoIcons.smiley_fill, Icons.emoji_emotions),
   TextFieldButton.Location: (CupertinoIcons.location_solid, Icons.location_on_outlined),
+  TextFieldButton.Schedule: (CupertinoIcons.clock_fill, Icons.schedule_rounded),
 };
 
 extension TextFieldButtonExtension on TextFieldButton {

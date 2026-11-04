@@ -96,7 +96,7 @@ class _CupertinoCreateScheduledMessageState extends State<CupertinoCreateSchedul
                       );
                     }),
                     onTap: () {
-                      NavigationSvc.push(
+                      NavigationSvc.pushSettings(
                         context,
                         ChatSelectorView(
                           onSelect: (chat) {

@@ -1,5 +1,6 @@
 import 'package:bluebubbles/app/layouts/conversation_view/widgets/text_field/buttons/text_field_button.dart';
 import 'package:bluebubbles/app/layouts/conversation_view/widgets/text_field/conversation_text_field_local_controller.dart';
+import 'package:bluebubbles/app/layouts/conversation_view/widgets/text_field/helpers/schedule_message_helper.dart';
 import 'package:bluebubbles/database/io/klipy.dart';
 import 'package:bluebubbles/database/models.dart';
 import 'package:bluebubbles/helpers/helpers.dart';
@@ -61,6 +62,7 @@ class TextFieldIconBar extends StatelessWidget {
         TextFieldButton.Gif => _gifButton(context),
         TextFieldButton.Emoji => _emojiButton(context),
         TextFieldButton.Location => _locationButton(context),
+        TextFieldButton.Schedule => _scheduleButton(context),
       };
 
   Widget _attachmentButton(BuildContext context) {
@@ -272,5 +274,11 @@ class TextFieldIconBar extends StatelessWidget {
         onPressed: () async {
           await Share.location(_chat);
         },
+      );
+
+  Widget _scheduleButton(BuildContext context) => IconButton(
+        icon: Icon(_iOS ? CupertinoIcons.clock_fill : Icons.schedule_rounded,
+            color: context.theme.colorScheme.outline, size: 28),
+        onPressed: () => scheduleMessage(context, controller),
       );
 }

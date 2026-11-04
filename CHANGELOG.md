@@ -1,5 +1,22 @@
 # Changelog
 
+## 2026-11-04 — Scheduled messages work on Linux
+
+- "Select a chat" on the New Message screen did nothing on desktop. The create panels opened
+  `ChatSelectorView` with `NavigationSvc.push`, which in tablet/desktop mode targets the chat
+  list's right pane, hidden behind settings. They now use `NavigationSvc.pushSettings`.
+- The Summary section of the Material and Samsung create panels showed "An unexpected error
+  occurred when rendering." Its `Obx` read no observables (the reads sat inside a nested
+  `ValueListenableBuilder`), so GetX threw. The `Obx` now sits inside the builder and reads
+  `validationError` itself.
+- Desktop had no way to schedule a message from a chat: the attachment (+) button opens a file
+  picker directly, so the Schedule tile in the mobile attachment picker was unreachable, and
+  send long-press only schedules in the Android material composer. `TextFieldButton` has a new
+  `Schedule` value (clock icon, "Schedule Message") that calls `scheduleMessage`. It is
+  supported on Windows and Linux only, and sits last by default.
+- No migration: saved button lists without it keep it hidden, so existing users enable it under
+  Settings > Conversation Settings > Text Field Buttons.
+
 ## 2026-11-01 — Text box works again after rotating the phone
 
 - Turning the phone to landscape and back closed the open chat's composer while the chat stayed
