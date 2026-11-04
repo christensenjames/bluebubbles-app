@@ -54,6 +54,7 @@ class CreateIncomingMessageNotification: MethodCallHandlerImpl() {
     ) {
         // channel details
         val channelId: String = call.argument("channel_id")!!
+        val isLikelySpam = channelId == "com.bluebubbles.likely_spam"
         // chat details
         val chatGuid: String = call.argument("chat_guid")!!
         val chatTitle: String = call.argument("chat_title")!!
@@ -235,7 +236,7 @@ class CreateIncomingMessageNotification: MethodCallHandlerImpl() {
             .setOnlyAlertOnce(messageIsFromMe)
             .setAutoCancel(true)
             .setCategory(NotificationCompat.CATEGORY_MESSAGE)
-            .setPriority(NotificationCompat.PRIORITY_MAX)
+            .setPriority(if (isLikelySpam) NotificationCompat.PRIORITY_LOW else NotificationCompat.PRIORITY_MAX)
             .setContentIntent(openConversationIntent)
             .setDeleteIntent(deleteNotificationIntent)
             .setStyle(style)
@@ -271,7 +272,7 @@ class CreateIncomingMessageNotification: MethodCallHandlerImpl() {
         notificationBuilder.extend(wearableExtender)
 
         // Only set bubble metadata on Android 11+ (API 29+) where it's supported
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+        if (!isLikelySpam && Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
             val bubbleMetadata = NotificationCompat.BubbleMetadata.Builder(bubbleIntent, chatBitmap ?: IconCompat.createWithResource(context, R.mipmap.ic_stat_icon))
                 .setDesiredHeight(600)
                 .setDeleteIntent(deleteNotificationIntent)
@@ -303,7 +304,7 @@ class CreateIncomingMessageNotification: MethodCallHandlerImpl() {
             .setGroupAlertBehavior(NotificationCompat.GROUP_ALERT_CHILDREN)
             .setAutoCancel(true)
             .setCategory(NotificationCompat.CATEGORY_MESSAGE)
-            .setPriority(NotificationCompat.PRIORITY_MAX)
+            .setPriority(if (isLikelySpam) NotificationCompat.PRIORITY_LOW else NotificationCompat.PRIORITY_MAX)
             .setContentIntent(openSummaryIntent)
             .setColor(4888294)
 

@@ -42,6 +42,7 @@ class PendingToastItem {
 
 class NotificationsService {
   static const String NEW_MESSAGE_CHANNEL = "com.bluebubbles.new_messages";
+  static const String LIKELY_SPAM_CHANNEL = "com.bluebubbles.likely_spam";
   static const String ERROR_CHANNEL = "com.bluebubbles.errors";
   static const String REMINDER_CHANNEL = "com.bluebubbles.reminders";
   static const String FACETIME_CHANNEL = "com.bluebubbles.incoming_facetimes";
@@ -262,6 +263,13 @@ class NotificationsService {
         final String reactionType = SettingsSvc.settings.notificationReactionActionType.value;
 
         await GetIt.I.isReady<MethodChannelService>();
+        if (chat.isLikelySpam) {
+          await MethodChannelSvc.actions.createNotificationChannel(
+            channelId: LIKELY_SPAM_CHANNEL,
+            channelName: "Likely spam",
+            channelDescription: "Displays messages from likely spam chats silently",
+          );
+        }
         String? imageDownloadPath;
         String? messageImagePath;
         if (!hideContent) {
@@ -308,7 +316,7 @@ class NotificationsService {
         }
         try {
           await MethodChannelSvc.actions.createIncomingMessageNotification(
-            channelId: NEW_MESSAGE_CHANNEL,
+            channelId: chat.isLikelySpam ? LIKELY_SPAM_CHANNEL : NEW_MESSAGE_CHANNEL,
             chatId: chat.id,
             chatGuid: guid,
             chatIsGroup: isGroup,
@@ -560,7 +568,7 @@ class NotificationsService {
         ? "+$overflowCount earlier message${overflowCount > 1 ? "s" : ""}"
         : null;
 
-    await playDesktopNotificationSound();
+    if (!chat.isLikelySpam) await playDesktopNotificationSound();
 
     // Always a fresh toast: replacing one in place while its banner is still up only updates Action Center —
     // Windows plays the sound but leaves the old text on screen.
@@ -577,7 +585,7 @@ class NotificationsService {
       attributionText: attribution,
       actionLabels: actionLabels,
       replyInput: SettingsSvc.settings.showReplyField.value,
-      silent: SettingsSvc.settings.desktopNotificationSoundPath.value != null,
+      silent: chat.isLikelySpam || SettingsSvc.settings.desktopNotificationSoundPath.value != null,
       messageData: messageData,
     );
 

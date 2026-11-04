@@ -123,6 +123,11 @@ class MethodChannelService implements MethodChannelServiceDelegate {
       channelDescription: "Displays all received new messages",
     );
     await actions.createNotificationChannel(
+      channelId: NotificationsService.LIKELY_SPAM_CHANNEL,
+      channelName: "Likely spam",
+      channelDescription: "Displays messages from likely spam chats silently",
+    );
+    await actions.createNotificationChannel(
       channelId: NotificationsService.ERROR_CHANNEL,
       channelName: "Errors",
       channelDescription: "Displays message send failures, connection failures, and more",

@@ -1,4 +1,5 @@
 import 'package:bluebubbles/app/layouts/conversation_details/dialogs/chat_sync_dialog.dart';
+import 'package:bluebubbles/app/layouts/conversation_details/spam_action.dart';
 import 'package:bluebubbles/app/layouts/conversation_details/pages/chat_stats/chat_stats_page.dart';
 import 'package:bluebubbles/app/layouts/conversation_details/dialogs/sync_time_range_dialog.dart';
 import 'package:bluebubbles/app/layouts/conversation_details/dialogs/timeframe_picker.dart';
@@ -199,6 +200,18 @@ class _ChatOptionsState extends State<ChatOptions> with ThemeHelpers {
     final chatState = ChatsSvc.getChatState(chat.guid);
 
     final rows = <_OptionRow>[
+      _OptionRow(
+        enabled: (chatState?.spamVerdict.value ?? chat.spamVerdict) != 'spam',
+        build: (context) => SettingsTile(
+          title: "Mark as Spam",
+          leading: const SettingsLeadingIcon(
+            iosIcon: CupertinoIcons.exclamationmark_bubble_fill,
+            materialIcon: Icons.report_outlined,
+            containerColor: Colors.orange,
+          ),
+          onTap: () => setChatSpamVerdict(chat, 'spam'),
+        ),
+      ),
       _OptionRow(
         enabled: !kIsWeb && !kIsDesktop && (FilesystemSvc.androidInfo?.version.sdkInt ?? 0) >= 30,
         build: (context) => SettingsTile(

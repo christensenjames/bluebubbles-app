@@ -7,6 +7,7 @@ import 'package:bluebubbles/helpers/helpers.dart';
 import 'package:bluebubbles/utils/logger/logger.dart';
 import 'package:flutter/foundation.dart';
 import 'package:get/get.dart' hide Response;
+import 'package:get_it/get_it.dart';
 
 // ignore: non_constant_identifier_names
 ActionHandler MessageHandlerSvc =
@@ -160,6 +161,18 @@ class ActionHandler extends GetxService {
         } catch (e, s) {
           Logger.warn("Failed to handle chat participant change event", error: e, trace: s, tag: 'ActionHandler');
         }
+        return;
+      case "chat-spam-verdict-changed":
+        final String? spamChatGuid = data["chatGuid"];
+        final String? verdict = data["spamVerdict"];
+        if (spamChatGuid == null || (verdict != "spam" && verdict != "not_spam")) return;
+        final chatsRegistered = GetIt.I.isRegistered<ChatsService>();
+        final spamChat = (chatsRegistered ? ChatsSvc.findChatByGuid(spamChatGuid) : null) ??
+            Chat.findOne(guid: spamChatGuid);
+        if (spamChat == null) return;
+        spamChat.spamVerdict = verdict;
+        await spamChat.saveAsync(updateSpamVerdict: true);
+        if (chatsRegistered) ChatsSvc.updateChat(spamChat, override: true);
         return;
       case "chat-read-status-changed":
         final String? chatGuid = data["chatGuid"];

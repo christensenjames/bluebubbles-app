@@ -37,6 +37,7 @@ class MethodChannelHandlers {
       MethodChannelInboundMethods.replyChat: _handleReplyChat,
       MethodChannelInboundMethods.markChatRead: _handleMarkChatRead,
       MethodChannelInboundMethods.chatReadStatusChanged: _handleChatReadStatusChanged,
+      MethodChannelInboundMethods.chatSpamVerdictChanged: _handleChatSpamVerdictChanged,
       MethodChannelInboundMethods.mediaColors: _handleMediaColors,
       MethodChannelInboundMethods.incomingFacetime: _handleIncomingFacetime,
       MethodChannelInboundMethods.ftCallStatusChanged: _handleFtCallStatusChanged,
@@ -405,6 +406,23 @@ class MethodChannelHandlers {
     } catch (e, s) {
       return Future.error(e, s);
     }
+  }
+
+  Future<bool> _handleChatSpamVerdictChanged(MethodCall _, Map<String, dynamic>? arguments) async {
+    if (_socketWillDeliver) return _ok();
+    await Database.waitForInit();
+    if (arguments == null) return _retry();
+    final data = ServerPayload.fromJson(arguments).data;
+    final String? guid = data['chatGuid'];
+    final String? verdict = data['spamVerdict'];
+    if (guid == null || (verdict != 'spam' && verdict != 'not_spam')) return _ok();
+    final chatsRegistered = GetIt.I.isRegistered<ChatsService>();
+    final chat = (chatsRegistered ? ChatsSvc.findChatByGuid(guid) : null) ?? Chat.findOne(guid: guid);
+    if (chat == null) return _retry();
+    chat.spamVerdict = verdict;
+    await chat.saveAsync(updateSpamVerdict: true);
+    if (chatsRegistered) ChatsSvc.updateChat(chat, override: true);
+    return _ok();
   }
 
   Future<bool> _handleMediaColors(MethodCall call, Map<String, dynamic>? _) async {

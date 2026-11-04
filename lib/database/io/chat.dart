@@ -31,6 +31,11 @@ class Chat {
   bool? isPinned;
   bool? hasUnreadMessage;
 
+  @Property(uid: 5837765102481903712)
+  String? spamVerdict;
+
+  bool get isLikelySpam => spamVerdict == 'spam';
+
   String? displayName;
   bool? autoSendReadReceipts;
   bool? autoSendTypingIndicators;
@@ -123,6 +128,7 @@ class Chat {
     this.muteType,
     this.muteArgs,
     this.hasUnreadMessage = false,
+    this.spamVerdict,
     this.displayName,
     String? customAvatar,
     String? customBackground,
@@ -164,6 +170,7 @@ class Chat {
       muteArgs: json["muteArgs"],
       isPinned: json["isPinned"] ?? false,
       hasUnreadMessage: json["hasUnreadMessage"] ?? false,
+      spamVerdict: json["spamVerdict"],
       latestMessage: message,
       displayName: json["displayName"],
       customAvatar: json['_customAvatarPath'],
@@ -208,6 +215,7 @@ class Chat {
     bool updateLatestMessage = false,
     bool updateCustomThemes = false,
     bool updateWallpaperSettings = false,
+    bool updateSpamVerdict = false,
   }) async {
     if (kIsWeb) return this;
 
@@ -235,6 +243,7 @@ class Chat {
         'updateLatestMessage': updateLatestMessage,
         'updateCustomThemes': updateCustomThemes,
         'updateWallpaperSettings': updateWallpaperSettings,
+        'updateSpamVerdict': updateSpamVerdict,
       },
     );
 
@@ -846,6 +855,7 @@ class Chat {
       textFieldAttachments.addAll(other.textFieldAttachments);
     }
     chatIdentifier ??= other.chatIdentifier;
+    spamVerdict ??= other.spamVerdict;
     displayName ??= other.displayName;
     if (handles.isEmpty) {
       handles.addAll(other.handles);
@@ -922,6 +932,7 @@ class Chat {
       "ROWID": id,
       "guid": guid,
       "chatIdentifier": chatIdentifier,
+      "spamVerdict": spamVerdict,
       "isArchived": isArchived!,
       "muteType": muteType,
       "muteArgs": muteArgs,

@@ -150,6 +150,9 @@ class ChatActions {
         chat.dynamicWallpaperId = inputChat.dynamicWallpaperId;
         chat.dynamicWallpaperConfig = inputChat.dynamicWallpaperConfig;
       }
+      if (updateFlags['updateSpamVerdict'] == true) {
+        chat.spamVerdict = inputChat.spamVerdict;
+      }
       if (updateFlags['updateLatestMessage'] == true) {
         final latestMessageId = chatData['dbLatestMessageId'] as int?;
         final latestMessageDateMs = chatData['dbOnlyLatestMessageDate'] as int?;
@@ -772,6 +775,7 @@ class ChatActions {
           if (!chatToSave.lockChatName) {
             chatToSave.displayName = inputChat.displayName;
           }
+          chatToSave.spamVerdict = inputChat.spamVerdict;
         }
 
         // Prepare handles to link (collect them for later)

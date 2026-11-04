@@ -1,4 +1,5 @@
 import 'package:bluebubbles/app/components/wallpaper/wallpaper.dart';
+import 'package:bluebubbles/app/layouts/conversation_details/spam_action.dart';
 import 'package:bluebubbles/app/layouts/conversation_view/widgets/header/cupertino_header.dart';
 import 'package:bluebubbles/app/layouts/conversation_view/widgets/header/material_header.dart';
 import 'package:bluebubbles/app/layouts/conversation_view/widgets/messages_view_components.dart';
@@ -142,6 +143,27 @@ class ConversationViewState extends State<ConversationView> with ThemeHelpers<Co
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.end,
                   children: [
+                    Obx(() {
+                      final state = ChatsSvc.getChatState(chat.guid);
+                      if ((state?.spamVerdict.value ?? chat.spamVerdict) != 'spam') {
+                        return const SizedBox.shrink();
+                      }
+                      return Material(
+                        color: context.theme.colorScheme.surfaceContainerHighest,
+                        child: Row(
+                          children: [
+                            const Expanded(child: Padding(
+                              padding: EdgeInsets.symmetric(horizontal: 16),
+                              child: Text('Likely spam'),
+                            )),
+                            TextButton(
+                              onPressed: () => setChatSpamVerdict(chat, 'not_spam'),
+                              child: const Text('Not spam'),
+                            ),
+                          ],
+                        ),
+                      );
+                    }),
                     Expanded(
                       child: Stack(
                         children: [

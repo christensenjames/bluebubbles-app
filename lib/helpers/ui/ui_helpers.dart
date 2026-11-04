@@ -134,6 +134,7 @@ Widget buildEmptyChatListState(
   BuildContext context, {
   bool showArchived = false,
   bool showUnknown = false,
+  bool showSpam = false,
   ChatListFilters? filters,
 }) {
   final bool hasActiveFilter = filters?.hasActiveFilter ?? false;
@@ -144,17 +145,17 @@ Widget buildEmptyChatListState(
           ? Icons.archive_outlined
           : showUnknown
               ? Icons.person_search_rounded
-              : Icons.chat_bubble_outline_rounded;
+              : showSpam ? Icons.report_outlined : Icons.chat_bubble_outline_rounded;
   final String title = hasActiveFilter
       ? "No conversations match your filters"
       : showArchived
           ? "No archived chats"
           : showUnknown
               ? "No messages from unknown senders"
-              : "No conversations yet";
+              : showSpam ? "No likely spam" : "No conversations yet";
   final String? subtitle = hasActiveFilter
       ? null
-      : showArchived || showUnknown
+      : showArchived || showUnknown || showSpam
           ? null
           : "Tap the compose button to start a new one";
 

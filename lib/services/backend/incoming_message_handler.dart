@@ -372,7 +372,7 @@ class IncomingMessageHandler {
     //    The original ActionHandler gates sound on its shouldNotifyForNewMessageGuid dedup flag.
     //    Here, dedup already short-circuited at step 1, so we just gate on isFromMe:
     //    outgoing echoes never need a receive sound; real incoming messages do.
-    if (!(saved.isFromMe ?? false)) await _playReceiveSound();
+    if (!(saved.isFromMe ?? false) && !c.isLikelySpam) await _playReceiveSound();
 
     // 8. Drive UI reactivity, if not in a background isolate.
     if (!isIsolate) {
@@ -532,6 +532,7 @@ class IncomingMessageHandler {
   ///    from the server to populate them.
   /// 4. When the chat isn't in the DB at all, sync it via [ChatInterface].
   Future<({Chat chat, List<int> affectedHandleIds})> _hydrateChat(Chat partial, Message m) async {
+    final payloadVerdict = partial.spamVerdict;
     // Group events always need fresh server data.
     if (m.isGroupEvent) {
       partial = (await ChatsSvc.fetchChat(partial.guid)) ?? partial;
@@ -539,6 +540,11 @@ class IncomingMessageHandler {
       // If we have a local copy and the local copy has participants, use it — no need to fetch.
       final local = Chat.findOne(guid: partial.guid);
       if (local != null && local.handles.isNotEmpty) {
+        if (payloadVerdict != null && local.spamVerdict != payloadVerdict) {
+          local.spamVerdict = payloadVerdict;
+          await local.saveAsync(updateSpamVerdict: true);
+          if (!isIsolate) ChatsSvc.updateChat(local, override: true);
+        }
         return (chat: local, affectedHandleIds: <int>[]);
         // Cases to fetch from the server:
         // * Local chat exists but has no participants (incomplete data).
@@ -547,6 +553,7 @@ class IncomingMessageHandler {
         partial = (await ChatsSvc.fetchChat(partial.guid)) ?? partial;
       }
     }
+    if (payloadVerdict != null) partial.spamVerdict = payloadVerdict;
 
     // Chat isn't in the local DB yet — sync it from the server.
     final result = await ChatInterface.bulkSyncChats(chatsData: [partial.toMap()]);

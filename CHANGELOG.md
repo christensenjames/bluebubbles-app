@@ -1,5 +1,10 @@
 # Changelog
 
+## 2026-11-04 — Likely spam
+
+- Chats classified as likely spam appear in a separate list and use silent notifications.
+  The conversation banner and chat options let you correct the server's verdict.
+
 ## 2026-11-04 — Scheduled messages work on Linux
 
 - "Select a chat" on the New Message screen did nothing on desktop. The create panels opened
