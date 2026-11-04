@@ -97,7 +97,7 @@ class _MaterialCreateScheduledMessageState extends State<MaterialCreateScheduled
                       );
                     }),
                     onTap: () {
-                      NavigationSvc.push(
+                      NavigationSvc.pushSettings(
                         context,
                         ChatSelectorView(
                           onSelect: (chat) {
@@ -244,22 +244,27 @@ class _MaterialCreateScheduledMessageState extends State<MaterialCreateScheduled
               SettingsSection(
                 backgroundColor: tileColor,
                 children: [
-                  Obx(() => Padding(
-                        padding: const EdgeInsets.all(15),
-                        child: ValueListenableBuilder(
-                          valueListenable: messageController,
-                          builder: (context, _, _) {
-                            if (error != null) return Text(error, style: const TextStyle(color: Colors.red));
-                            final chat = ChatsSvc.findChatByGuid(selectedChat.value);
-                            return Text(
-                              "Scheduling \"${messageController.text}\" to ${chat?.getTitle() ?? selectedChat.value}.\n"
-                              "Sending ${schedule.value == "recurring" ? "every ${repeatInterval.value} ${frequencyToText[frequency.value]}(s) starting" : "once"} on "
-                              "${buildSeparatorDateSamsung(date.value)} at ${buildTime(date.value)}.",
-                              style: context.theme.textTheme.bodyMedium,
-                            );
-                          },
-                        ),
-                      )),
+                  Padding(
+                    padding: const EdgeInsets.all(15),
+                    child: ValueListenableBuilder(
+                      valueListenable: messageController,
+                      builder: (context, _, _) {
+                        return Obx(() {
+                          final summaryError = validationError;
+                          if (summaryError != null) {
+                            return Text(summaryError, style: const TextStyle(color: Colors.red));
+                          }
+                          final chat = ChatsSvc.findChatByGuid(selectedChat.value);
+                          return Text(
+                            "Scheduling \"${messageController.text}\" to ${chat?.getTitle() ?? selectedChat.value}.\n"
+                            "Sending ${schedule.value == "recurring" ? "every ${repeatInterval.value} ${frequencyToText[frequency.value]}(s) starting" : "once"} on "
+                            "${buildSeparatorDateSamsung(date.value)} at ${buildTime(date.value)}.",
+                            style: context.theme.textTheme.bodyMedium,
+                          );
+                        });
+                      },
+                    ),
+                  ),
                 ],
               ),
             ]),
