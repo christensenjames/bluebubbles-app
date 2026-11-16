@@ -17,6 +17,8 @@ class ServerApi {
       final response = await _svc.dio.get(
         customUrl != null ? "$customUrl/api/v1/ping" : "${_svc.apiRoot}/ping",
         queryParameters: _svc.buildQueryParams(),
+        // The server reported these LAN addresses as its own, and /ping requires auth.
+        options: customUrl != null ? Options(extra: {'serverProbe': true}, followRedirects: false) : null,
         cancelToken: cancelToken,
       );
       return _svc.returnSuccessOrError(response);

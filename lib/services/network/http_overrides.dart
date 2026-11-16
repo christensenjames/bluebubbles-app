@@ -10,22 +10,27 @@ import 'package:universal_io/io.dart';
 
 final RxBool serverCertificateMismatch = false.obs;
 
-/// Shared certificate validation logic for both HTTP and WebSocket connections
-/// Returns true if the certificate should be accepted (override bad cert), false otherwise
+void recordValidServerCertificate(String host, int port) {
+  final uri = Uri.tryParse(sanitizeServerAddress() ?? '');
+  if (uri == null || uri.scheme != 'https' || uri.host != host || uri.port != port) return;
+  final settings = SettingsSvc.settings;
+  if (settings.serverCertificateFingerprint.value.isNotEmpty) return;
+  // Reuse the trust slot so changing the server or resetting trust clears both modes.
+  settings.serverCertificateFingerprint.value = 'ca:${uri.origin}';
+  unawaited(settings.saveOneAsync('serverCertificateFingerprint'));
+}
+
 bool shouldAcceptCertificate(X509Certificate cert, String host, int port) {
-  String serverUrl = sanitizeServerAddress() ?? "";
-
-  // Extract hostname from the server URL
-  Uri? uri = Uri.tryParse(serverUrl);
-  if (uri == null) {
-    return false;
-  }
-
-  if (uri.host != host) return false;
+  final uri = Uri.tryParse(sanitizeServerAddress() ?? '');
+  if (uri == null || uri.scheme != 'https' || uri.host != host || uri.port != port) return false;
 
   final fingerprint = sha256.convert(cert.der).toString();
   final settings = SettingsSvc.settings;
   final pinnedFingerprint = settings.serverCertificateFingerprint.value;
+  if (pinnedFingerprint.startsWith('ca:')) {
+    serverCertificateMismatch.value = true;
+    return false;
+  }
   if (pinnedFingerprint.isEmpty) {
     settings.serverCertificateFingerprint.value = fingerprint;
     unawaited(settings.saveOneAsync('serverCertificateFingerprint'));

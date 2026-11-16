@@ -38,7 +38,7 @@ class ChatApi {
     return _svc.runApiGuarded(() async {
       final response = await _svc.dio.post(
         "${_svc.apiRoot}/chat/$guid/read",
-        queryParameters: _svc.buildQueryParams(), // adds auth GUID automatically
+        queryParameters: _svc.buildQueryParams(),
         cancelToken: cancelToken,
       );
       return _svc.returnSuccessOrError(response);
@@ -47,7 +47,9 @@ class ChatApi {
 }
 ```
 
-- `_svc.buildQueryParams()` must be called for every request — it injects the server auth key.
+- `_svc.buildQueryParams(map)` copies query parameters. `ApiInterceptor` adds the auth GUID and custom headers
+  for requests to `HttpSvc.origin` or with `options.extra['serverProbe'] == true` (used by
+  `ServerApi.ping(customUrl:)` for server-reported LAN addresses), and strips them from other origins.
 - Return `Future<Response>` for raw endpoints; typed futures when you parse the response.
 - `runApiGuarded()` handles retries on 502 and propagates all other errors via `Future.error(e, s)`.
 - Accept a `CancelToken? cancelToken` param on requests that may need to be cancelled.

@@ -42,7 +42,6 @@ class PrefsActions {
     SettingsSvc.settings = newSettings;
     if (GetIt.I.isRegistered<HttpService>()) {
       HttpSvc.updateTimeouts();
-      HttpSvc.updateHeaders();
     }
   }
 
@@ -50,7 +49,6 @@ class PrefsActions {
     Settings.updateFromMap(data);
     if (GetIt.I.isRegistered<HttpService>()) {
       if (data.containsKey('apiTimeout')) HttpSvc.updateTimeouts();
-      if (data.containsKey('customHeaders')) HttpSvc.updateHeaders();
     }
   }
 }

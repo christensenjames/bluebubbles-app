@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:isolate';
 
 import 'package:bluebubbles/helpers/helpers.dart';
 import 'package:bluebubbles/services/isolates/global_isolate.dart';
@@ -8,24 +7,10 @@ import 'package:bluebubbles/utils/logger/logger.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter/foundation.dart';
 import 'package:get_it/get_it.dart';
-import 'package:network_info_plus/network_info_plus.dart';
-import 'package:network_tools/network_tools.dart'
-    if (dart.library.html) 'package:bluebubbles/models/html/network_tools.dart';
-import 'package:universal_io/io.dart';
 
 class NetworkTasks {
-  static Future<void>? _configureNetworkToolsFuture;
-
   /// Deduplicates concurrent detectLocalhost() calls — callers share one result.
   static Future<void>? _detectLocalhostFuture;
-
-  /// Timestamp of the last completed subnet port scan (Phase 2). Used to skip
-  /// repeated full-subnet scans on rapid app resumes when the server is offline.
-  static DateTime? _lastSubnetScanTime;
-
-  /// Minimum gap between Phase-2 subnet scans. Phase 1 (server-reported IPs)
-  /// always runs; only the expensive 255-address fallback is throttled.
-  static const Duration _subnetScanThrottle = Duration(minutes: 2);
 
   /// Isolates that should receive [HttpSvc.originOverride] syncs.
   /// Populated via [registerIsolate] — no hardcoded types here.
@@ -59,24 +44,14 @@ class NetworkTasks {
   }
 
   static Future<void> _detectLocalhostImpl({bool createSnackbar = false}) async {
+    // Clear the override so fresh local IPs are queried from the remote server.
+    setOriginOverride(null);
     final port = SettingsSvc.settings.localhostPort.value;
-    if (port == null || kIsWeb) {
-      setOriginOverride(null);
-      return;
-    }
+    if (port == null || kIsWeb) return;
 
     final status = await Connectivity().checkConnectivity();
-    if (!status.contains(ConnectivityResult.wifi) && !status.contains(ConnectivityResult.ethernet)) {
-      setOriginOverride(null);
-      return;
-    }
+    if (!status.contains(ConnectivityResult.wifi) && !status.contains(ConnectivityResult.ethernet)) return;
 
-    // Reset any stale local override so serverInfo() queries the remote server
-    // for fresh local IPs, and so the port-scan fallback isn't skipped if the
-    // serverInfo call fails.
-    setOriginOverride(null);
-
-    // Phase 1: try the known local IPs reported by the server.
     try {
       final response = await HttpSvc.server.info();
       final data = response.data?['data'];
@@ -99,68 +74,7 @@ class NetworkTasks {
       if (createSnackbar) {
         showToast('Connected to ${HttpSvc.originOverride}');
       }
-      return;
     }
-
-    // Phase 2: fall back to a subnet port scan.
-    // configureNetworkTools is cached because it makes an external API call to
-    // fetch MAC vendor data. We don't want that on first boot.
-
-    // Throttle: skip the full subnet scan if one was run recently. The scan is
-    // expensive (probes all 255 addresses) and firing it on every app resume
-    // when the server is unreachable would drain battery unnecessarily.
-    final now = DateTime.now();
-    if (_lastSubnetScanTime != null && now.difference(_lastSubnetScanTime!) < _subnetScanThrottle) {
-      Logger.debug(
-        'Skipping subnet scan — last scan was ${now.difference(_lastSubnetScanTime!).inSeconds}s ago (throttle: ${_subnetScanThrottle.inMinutes}m)',
-        tag: 'NetworkTasks',
-      );
-      return;
-    }
-    _lastSubnetScanTime = now;
-    _configureNetworkToolsFuture ??= configureNetworkTools(FilesystemSvc.appDocDir.path, enableDebugging: kDebugMode);
-    await _configureNetworkToolsFuture;
-
-    Logger.debug('Falling back to port scanning', tag: 'NetworkTasks');
-    final wifiIP = await _lanIPv4();
-    if (wifiIP == null) {
-      setOriginOverride(null);
-      return;
-    }
-
-    final subnet = wifiIP.substring(0, wifiIP.lastIndexOf('.'));
-    final hosts = <ActiveHost>{};
-    final completer = Completer<void>();
-    HostScannerService.instance.scanDevicesForSinglePort(subnet, int.parse(port)).listen(
-      (host) => hosts.add(host),
-      onDone: () async {
-        setOriginOverride(await _probeAddresses(hosts.map((h) => h.address).toList(), port));
-        if (createSnackbar && HttpSvc.originOverride != null) {
-          showToast('Connected to ${HttpSvc.originOverride}');
-        }
-        completer.complete();
-      },
-      onError: (_, _) {
-        setOriginOverride(null);
-        completer.complete();
-      },
-    );
-    await completer.future;
-  }
-
-  /// The Wi-Fi IPv4 whose /24 gets scanned. On Windows network_info_plus answers through synchronous WLAN API FFI,
-  /// which can take seconds while the network is changing; on the main isolate that blocks the UI isolate and
-  /// freezes typing, so it runs in a short-lived isolate there.
-  static Future<String?> _lanIPv4() async {
-    if (kIsWeb || !Platform.isWindows) return NetworkInfo().getWifiIP();
-    return Isolate.run(() async {
-      final plugin = NetworkInfoPlusWindowsPlugin();
-      try {
-        return await plugin.getWifiIP();
-      } finally {
-        plugin.closeHandle();
-      }
-    });
   }
 
   /// Sets [HttpSvc.originOverride] and syncs the new value to registered isolates.

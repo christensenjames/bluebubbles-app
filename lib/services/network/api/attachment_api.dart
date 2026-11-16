@@ -29,7 +29,6 @@ class AttachmentApi {
         options: Options(
           sendTimeout: _svc.dio.options.sendTimeout! * 12,
           receiveTimeout: _svc.dio.options.receiveTimeout! * 12,
-          headers: _svc.headers,
         ),
       );
       return _svc.returnSuccessOrError(response);
@@ -69,7 +68,6 @@ class AttachmentApi {
         options: Options(
           responseType: savePath != null ? ResponseType.stream : ResponseType.bytes,
           receiveTimeout: _svc.dio.options.receiveTimeout! * 12,
-          headers: _svc.headers,
         ),
         cancelToken: cancelToken,
         onReceiveProgress: onReceiveProgress,
@@ -116,7 +114,6 @@ class AttachmentApi {
         options: Options(
           responseType: ResponseType.bytes,
           receiveTimeout: _svc.dio.options.receiveTimeout! * 12,
-          headers: _svc.headers,
         ),
         cancelToken: cancelToken,
         onReceiveProgress: onReceiveProgress,
@@ -138,7 +135,6 @@ class AttachmentApi {
         options: Options(
           responseType: ResponseType.bytes,
           receiveTimeout: _svc.dio.options.receiveTimeout! * 12,
-          headers: _svc.headers,
         ),
         cancelToken: cancelToken,
         onReceiveProgress: onReceiveProgress,

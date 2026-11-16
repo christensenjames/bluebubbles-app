@@ -30,7 +30,6 @@ class iCloudApi {
         cancelToken: cancelToken,
         options: Options(
           receiveTimeout: _svc.dio.options.receiveTimeout! * 12,
-          headers: _svc.headers,
         ),
       );
       return _svc.returnSuccessOrError(response);
@@ -94,7 +93,6 @@ class iCloudApi {
         options: Options(
           sendTimeout: _svc.dio.options.sendTimeout! * 12,
           receiveTimeout: _svc.dio.options.receiveTimeout! * 12,
-          headers: _svc.headers,
         ),
         cancelToken: cancelToken,
       );
