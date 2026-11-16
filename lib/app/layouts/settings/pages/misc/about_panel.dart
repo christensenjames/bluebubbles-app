@@ -1,6 +1,7 @@
 import 'package:bluebubbles/app/layouts/settings/dialogs/version_dialog.dart';
 import 'package:bluebubbles/app/layouts/settings/widgets/content/next_button.dart';
 import 'package:bluebubbles/app/wrappers/bb_app_bar.dart';
+import 'package:bluebubbles/app/wrappers/titlebar_wrapper.dart';
 import 'package:bluebubbles/helpers/helpers.dart';
 import 'package:bluebubbles/app/layouts/settings/widgets/settings_widgets.dart';
 import 'package:bluebubbles/app/wrappers/theme_switcher.dart';
@@ -133,7 +134,7 @@ class _AboutPanelState extends State<AboutPanel> with ThemeHelpers {
                                 leading: const BackButton(),
                                 iconTheme: IconThemeData(color: context.theme.colorScheme.primary),
                                 title: Padding(
-                                  padding: EdgeInsets.only(top: kIsDesktop ? 20 : 0),
+                                  padding: EdgeInsets.only(top: hasCustomTitleBar ? 20 : 0),
                                   child: Text(
                                     "Changelog",
                                     style: context.theme.textTheme.titleLarge,

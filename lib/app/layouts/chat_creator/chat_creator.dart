@@ -275,7 +275,7 @@ class ChatCreatorState extends State<ChatCreator> with ThemeHelpers {
         titleText: "New Conversation",
         leading: const BackButton(),
         backgroundColor: Colors.transparent,
-        toolbarHeight: kIsDesktop ? 90 : 50,
+        toolbarHeight: hasCustomTitleBar ? 90 : 50,
         actions: [
           if (!canCreateGroupChats)
             IconButton(

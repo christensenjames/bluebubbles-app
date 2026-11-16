@@ -374,9 +374,9 @@ class _MessagePopupState extends State<MessagePopup> with SingleTickerProviderSt
                       backgroundColor: context.theme.colorScheme.surface.oppositeLightenOrDarken(5),
                       automaticallyImplyLeading: false,
                       leadingWidth: 40,
-                      toolbarHeight: kIsDesktop ? 80 : 50,
+                      toolbarHeight: hasCustomTitleBar ? 80 : 50,
                       leading: Padding(
-                        padding: EdgeInsets.only(top: kIsDesktop ? 20 : 0, left: 10.0),
+                        padding: EdgeInsets.only(top: hasCustomTitleBar ? 20 : 0, left: 10.0),
                         child: BackButton(
                           color: context.theme.colorScheme.onSurface,
                           onPressed: () {
@@ -866,7 +866,7 @@ class _MessagePopupState extends State<MessagePopup> with SingleTickerProviderSt
             ? context.theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.5)
             : context.theme.colorScheme.onSurfaceVariant;
         return Padding(
-            padding: EdgeInsets.only(top: kIsDesktop ? 20 : 0),
+            padding: EdgeInsets.only(top: hasCustomTitleBar ? 20 : 0),
             child: IconButton(
               icon: Icon(action.nonIosIcon, color: color),
               onPressed: isDisabled ? null : action.onTap,
@@ -874,7 +874,7 @@ class _MessagePopupState extends State<MessagePopup> with SingleTickerProviderSt
             ));
       }),
       Padding(
-          padding: EdgeInsets.only(top: kIsDesktop ? 20 : 0),
+          padding: EdgeInsets.only(top: hasCustomTitleBar ? 20 : 0),
           child: PopupMenuButton<int>(
               color: context.theme.colorScheme.surfaceContainerHighest,
               shape: SettingsSvc.settings.skin.value != Skins.Material

@@ -4,6 +4,7 @@ import 'package:bluebubbles/app/wrappers/bb_scaffold.dart';
 import 'package:bluebubbles/app/wrappers/theme_switcher.dart';
 import 'package:bluebubbles/database/database.dart';
 import 'package:bluebubbles/database/models.dart';
+import 'package:bluebubbles/app/wrappers/titlebar_wrapper.dart';
 import 'package:bluebubbles/helpers/helpers.dart';
 import 'package:bluebubbles/services/services.dart';
 import 'package:flutter/foundation.dart';
@@ -59,7 +60,7 @@ class _SoftDeletedChatsPanelState extends State<SoftDeletedChatsPanel> with Them
         titleText: "Soft-Deleted Chats",
         leading: const BackButton(),
         backgroundColor: Colors.transparent,
-        toolbarHeight: kIsDesktop ? 90 : 50,
+        toolbarHeight: hasCustomTitleBar ? 90 : 50,
       ),
       body: !_loaded
           ? Center(child: buildProgressIndicator(context))

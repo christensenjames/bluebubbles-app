@@ -6,6 +6,7 @@ import 'package:bluebubbles/app/layouts/conversation_view/widgets/message/reply/
 import 'package:bluebubbles/app/state/chat_state_scope.dart';
 import 'package:bluebubbles/app/wrappers/theme_switcher.dart';
 import 'package:bluebubbles/app/wrappers/stateful_boilerplate.dart';
+import 'package:bluebubbles/app/wrappers/titlebar_wrapper.dart';
 import 'package:bluebubbles/helpers/helpers.dart';
 import 'package:bluebubbles/services/services.dart';
 import 'package:flutter/material.dart' hide BackButton;
@@ -40,11 +41,11 @@ class MaterialHeader extends StatelessWidget implements PreferredSizeWidget {
               backgroundBrightness: ThemeData.estimateBrightnessForColor(_backgroundColor.value),
             ),
             automaticallyImplyLeading: false,
-            toolbarHeight: (kIsDesktop ? 25 : 0) + kToolbarHeight,
+            toolbarHeight: (hasCustomTitleBar ? 25 : 0) + kToolbarHeight,
             leadingWidth: 48,
             titleSpacing: 0,
             leading: Padding(
-              padding: EdgeInsets.only(top: kIsDesktop ? 20 : 0),
+              padding: EdgeInsets.only(top: hasCustomTitleBar ? 20 : 0),
               child: BackButton(
                 color: _foregroundColor,
                 onPressed: () {
@@ -62,7 +63,7 @@ class MaterialHeader extends StatelessWidget implements PreferredSizeWidget {
               ),
             ),
             title: Padding(
-              padding: EdgeInsets.only(top: kIsDesktop ? 20 : 0, right: NavigationToolbar.kMiddleSpacing),
+              padding: EdgeInsets.only(top: hasCustomTitleBar ? 20 : 0, right: NavigationToolbar.kMiddleSpacing),
               child: InkWell(
                 borderRadius: BorderRadius.circular(10),
                 onTap: () {
@@ -82,7 +83,7 @@ class MaterialHeader extends StatelessWidget implements PreferredSizeWidget {
             ),
             actions: [
               Padding(
-                padding: EdgeInsets.only(top: kIsDesktop ? 20 : 0),
+                padding: EdgeInsets.only(top: hasCustomTitleBar ? 20 : 0),
                 child: ManualMark(controller: controller),
               ),
               if (Platform.isAndroid && !controller.chat.isGroup && controller.chat.handles.first.address.isPhoneNumber)
@@ -102,7 +103,7 @@ class MaterialHeader extends StatelessWidget implements PreferredSizeWidget {
                   },
                 ),
               Padding(
-                padding: EdgeInsets.only(top: kIsDesktop ? 20 : 0),
+                padding: EdgeInsets.only(top: hasCustomTitleBar ? 20 : 0),
                 child: PopupMenuButton<int>(
                   color: context.theme.colorScheme.surfaceContainerHighest,
                   shape: SettingsSvc.settings.skin.value != Skins.Material
@@ -228,7 +229,7 @@ class MaterialHeader extends StatelessWidget implements PreferredSizeWidget {
   }
 
   @override
-  Size get preferredSize => Size.fromHeight(kIsDesktop ? 90 : kToolbarHeight);
+  Size get preferredSize => Size.fromHeight(hasCustomTitleBar ? 90 : kToolbarHeight);
 }
 
 class _ChatIconAndTitle extends CustomStateful<ConversationViewController> {

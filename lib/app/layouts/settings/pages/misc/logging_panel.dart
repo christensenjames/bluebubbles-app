@@ -2,6 +2,7 @@ import 'dart:ui';
 
 import 'package:bluebubbles/app/wrappers/bb_scaffold.dart';
 import 'package:bluebubbles/app/wrappers/scrollbar_wrapper.dart';
+import 'package:bluebubbles/app/wrappers/titlebar_wrapper.dart';
 import 'package:bluebubbles/helpers/helpers.dart';
 import 'package:bluebubbles/models/parsed_log_entry.dart';
 import 'package:bluebubbles/services/backend/interfaces/log_interface.dart';
@@ -213,7 +214,7 @@ class _LoggingPanel extends State<LoggingPanel> {
                   statusBarColor: context.theme.colorScheme.surface,
                   backgroundBrightness: ThemeData.estimateBrightnessForColor(context.theme.colorScheme.surface),
                 ),
-                toolbarHeight: kIsDesktop ? 80 : 50,
+                toolbarHeight: hasCustomTitleBar ? 80 : 50,
                 elevation: 0,
                 scrolledUnderElevation: 3,
                 surfaceTintColor: context.theme.colorScheme.primary,

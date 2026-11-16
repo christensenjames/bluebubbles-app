@@ -5,6 +5,7 @@ import 'package:bluebubbles/app/layouts/chat_creator/widgets/chat_creator_tile.d
 import 'package:bluebubbles/app/wrappers/bb_app_bar.dart';
 import 'package:bluebubbles/app/wrappers/bb_scaffold.dart';
 import 'package:bluebubbles/app/wrappers/theme_switcher.dart';
+import 'package:bluebubbles/app/wrappers/titlebar_wrapper.dart';
 import 'package:bluebubbles/helpers/helpers.dart';
 import 'package:bluebubbles/database/models.dart';
 import 'package:bluebubbles/services/services.dart';
@@ -101,7 +102,7 @@ class ChatSelectorViewState extends State<ChatSelectorView> with ThemeHelpers {
         titleText: "Select a Chat",
         leading: const BackButton(),
         backgroundColor: Colors.transparent,
-        toolbarHeight: kIsDesktop ? 90 : 50,
+        toolbarHeight: hasCustomTitleBar ? 90 : 50,
         actions: widget.multiSelect
             ? [
                 TextButton(

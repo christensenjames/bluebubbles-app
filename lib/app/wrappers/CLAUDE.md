@@ -16,7 +16,7 @@ See `.claude/rules/frontend.md` for full controller tagging, `forceDelete`, and 
 - `bb_annotated_region.dart` — base page wrapper for status/nav bar color styling
 - `tablet_mode_wrapper.dart` — resizable split-view (left = chat list, right = conversation); configurable min/max pane ratios; `onCollapse` fires when the split collapses (rotation/resize), and `ConversationList` uses it to close a chat open in the right pane (`ConversationViewController.inSplitPane`)
 - `gradient_background_wrapper.dart` — animated gradient background driven by `ConversationViewController`
-- `titlebar_wrapper.dart` — custom desktop window titlebar (bitsdojo_window / window_manager)
+- `titlebar_wrapper.dart` — custom desktop window title bar; owns the context-free `hasCustomTitleBar` rule for header clearance; its `Obx` switches between `WindowBorder` and `Stack` when Linux title-bar style changes
 
 ## Navigation & Skin Switching
 - `theme_switcher.dart` — branches widget tree to iOS / Material / Samsung skin variant

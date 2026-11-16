@@ -1,5 +1,6 @@
 import 'dart:ui';
 
+import 'package:bluebubbles/app/wrappers/titlebar_wrapper.dart';
 import 'package:bluebubbles/helpers/helpers.dart';
 import 'package:bluebubbles/app/layouts/conversation_list/pages/conversation_list.dart';
 import 'package:bluebubbles/app/layouts/conversation_list/widgets/header/header_widgets.dart';
@@ -21,7 +22,7 @@ class CupertinoHeader extends StatelessWidget {
     final double topMargin = context.orientation == Orientation.landscape && context.isPhone
         ? 20
         : kIsDesktop || kIsWeb
-            ? 40
+            ? (kIsWeb || hasCustomTitleBar ? 40 : 0)
             : kToolbarHeight + 30;
 
     return SliverToBoxAdapter(
@@ -146,7 +147,7 @@ class CupertinoMiniHeader extends StatelessWidget {
     final double topMargin = context.orientation == Orientation.landscape && context.isPhone
         ? 20
         : kIsDesktop || kIsWeb
-            ? 60
+            ? (kIsWeb || hasCustomTitleBar ? 60 : 0)
             : kToolbarHeight + 30;
 
     return IgnorePointer(
@@ -160,7 +161,7 @@ class CupertinoMiniHeader extends StatelessWidget {
                 NavigationSvc.listener.value;
                 return Container(
                   width: NavigationSvc.width(context),
-                  height: (topMargin - 20).clamp(kIsDesktop ? 65 : 40, double.infinity),
+                  height: (topMargin - 20).clamp(hasCustomTitleBar ? 65 : 40, double.infinity),
                   color: context.theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
                   alignment: Alignment.bottomCenter,
                   child: Padding(

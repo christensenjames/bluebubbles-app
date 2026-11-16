@@ -6,6 +6,7 @@ import 'package:bluebubbles/app/layouts/fullscreen_media/viewer_chrome.dart';
 import 'package:bluebubbles/app/layouts/fullscreen_media/zoomable_media.dart';
 import 'package:bluebubbles/utils/share.dart';
 import 'package:bluebubbles/utils/logger/logger.dart';
+import 'package:bluebubbles/app/wrappers/titlebar_wrapper.dart';
 import 'package:bluebubbles/helpers/helpers.dart';
 import 'package:bluebubbles/app/wrappers/theme_switcher.dart';
 import 'package:bluebubbles/database/models.dart';
@@ -377,7 +378,7 @@ class _FullscreenImageState extends State<FullscreenImage>
                 opacity: showOverlay ? 1.0 : 0.0,
                 duration: const Duration(milliseconds: 125),
                 child: Container(
-                  height: kIsDesktop ? 80 : 100.0,
+                  height: kIsDesktop ? (hasCustomTitleBar ? 80 : 50) : 100.0,
                   width: NavigationSvc.width(context),
                   color: context.theme.colorScheme.shadow.withValues(alpha: samsung ? 1 : 0.65),
                   child: SafeArea(
@@ -385,7 +386,7 @@ class _FullscreenImageState extends State<FullscreenImage>
                     right: false,
                     bottom: false,
                     child: SizedBox(
-                      height: kIsDesktop ? 80 : 50,
+                      height: hasCustomTitleBar ? 80 : 50,
                       child: Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [

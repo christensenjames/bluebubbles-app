@@ -6,6 +6,7 @@ import 'package:bitsdojo_window/bitsdojo_window.dart';
 import 'package:bluebubbles/app/components/bb_back_button.dart';
 import 'package:bluebubbles/app/layouts/conversation_list/widgets/filters/chat_list_filters.dart';
 import 'package:bluebubbles/app/layouts/conversation_list/widgets/tile/conversation_tile.dart';
+import 'package:bluebubbles/app/wrappers/titlebar_wrapper.dart';
 import 'package:bluebubbles/helpers/helpers.dart';
 import 'package:bluebubbles/database/models.dart';
 import 'package:bluebubbles/services/services.dart';
@@ -490,10 +491,7 @@ void showSnackbar(String title, String message,
   }
   // Top of the screen (top-right when there's room), so it never covers the text field; on desktop it also sits
   // under the title bar to keep the window buttons clear. GetX adds the status bar inset on mobile itself.
-  // The title bar check matches TitleBarWrapper's rule for when the custom title bar is drawn.
   const width = 360.0;
-  final hasCustomTitleBar =
-      kIsDesktop && (!Platform.isLinux || SettingsSvc.settings.titleBarStyle.value == BBTitleBarStyle.custom);
   final theme = Get.theme;
   final iOS = SettingsSvc.settings.skin.value == Skins.iOS;
   // Errors use the error container. The theme has no success role, so success builds one the way M3 builds

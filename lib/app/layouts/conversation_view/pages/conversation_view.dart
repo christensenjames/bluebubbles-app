@@ -8,6 +8,7 @@ import 'package:bluebubbles/app/layouts/conversation_view/widgets/text_field/emo
 import 'package:bluebubbles/app/state/chat_state_scope.dart';
 import 'package:bluebubbles/app/wrappers/bb_scaffold.dart';
 import 'package:bluebubbles/app/wrappers/gradient_background_wrapper.dart';
+import 'package:bluebubbles/app/wrappers/titlebar_wrapper.dart';
 import 'package:bluebubbles/helpers/helpers.dart';
 import 'package:bluebubbles/app/layouts/conversation_view/pages/messages_view.dart';
 import 'package:bluebubbles/app/layouts/conversation_view/pages/handlers/drop_zone_manager.dart';
@@ -107,7 +108,7 @@ class ConversationViewState extends State<ConversationView> with ThemeHelpers<Co
     return PreferredSize(
       preferredSize: Size(
         double.infinity, // width is ignored by Scaffold
-        (kIsDesktop ? (!iOS ? 25 : 5) : 0) +
+        (hasCustomTitleBar ? (!iOS ? 25 : 5) : 0) +
             90 * (iOS ? SettingsSvc.settings.avatarScale.value : 0) +
             (!iOS ? kToolbarHeight : 0),
       ),

@@ -11,6 +11,7 @@ import 'package:bluebubbles/app/layouts/findmy/widgets/findmy_items_tab_view.dar
 import 'package:bluebubbles/app/layouts/findmy/widgets/findmy_map_widget.dart';
 import 'package:bluebubbles/app/wrappers/scrollbar_wrapper.dart';
 import 'package:bluebubbles/app/wrappers/theme_switcher.dart';
+import 'package:bluebubbles/app/wrappers/titlebar_wrapper.dart';
 import 'package:bluebubbles/helpers/helpers.dart';
 import 'package:bluebubbles/services/services.dart';
 import 'package:flutter/cupertino.dart';
@@ -76,7 +77,7 @@ class _FindMyPageState extends State<FindMyPage> with SingleTickerProviderStateM
                     children: [
                       FindMyMapWidget(controller: controller),
                       if (!context.samsung && controller.canRefresh.value) _buildRefreshButton(context, isTablet: true),
-                      if (kIsDesktop) _buildDesktopTitleBar(context),
+                      if (hasCustomTitleBar) _buildDesktopTitleBar(context),
                     ],
                   ),
                 ),
@@ -311,7 +312,10 @@ class _FindMyPageState extends State<FindMyPage> with SingleTickerProviderStateM
             ),
             if (!context.samsung)
               Positioned(
-                top: 10 + (kIsDesktop ? appWindow.titleBarHeight : MediaQuery.of(context).padding.top),
+                top: 10 +
+                    (kIsDesktop
+                        ? (hasCustomTitleBar ? appWindow.titleBarHeight : 0)
+                        : MediaQuery.of(context).padding.top),
                 left: 20,
                 child: Container(
                   width: 48,
@@ -324,7 +328,7 @@ class _FindMyPageState extends State<FindMyPage> with SingleTickerProviderStateM
                 ),
               ),
             if (!context.samsung && controller.canRefresh.value) _buildRefreshButton(context, isTablet: false),
-            if (kIsDesktop) _buildDesktopTitleBar(context),
+            if (hasCustomTitleBar) _buildDesktopTitleBar(context),
           ],
         ),
         bottomNavigationBar: _buildBottomNavBar(),
@@ -398,7 +402,10 @@ class _FindMyPageState extends State<FindMyPage> with SingleTickerProviderStateM
 
   Widget _buildRefreshButton(BuildContext context, {required bool isTablet}) {
     return Positioned(
-      top: 10 + (kIsDesktop ? appWindow.titleBarHeight : MediaQuery.of(context).padding.top),
+      top: 10 +
+          (kIsDesktop
+              ? (hasCustomTitleBar ? appWindow.titleBarHeight : 0)
+              : MediaQuery.of(context).padding.top),
       right: 20,
       child: Obx(
         () => Container(

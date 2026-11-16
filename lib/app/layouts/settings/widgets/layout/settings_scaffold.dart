@@ -1,5 +1,6 @@
 import 'package:bluebubbles/app/components/bb_back_button.dart';
 import 'package:bluebubbles/app/components/m3e/m3e_motion.dart';
+import 'package:bluebubbles/app/wrappers/titlebar_wrapper.dart';
 import 'package:bluebubbles/helpers/helpers.dart';
 import 'package:bluebubbles/app/wrappers/bb_app_bar.dart';
 import 'package:bluebubbles/app/wrappers/bb_scaffold.dart';
@@ -82,7 +83,7 @@ class _SettingsScaffoldState extends State<SettingsScaffold> {
 
   bool get _expressiveSamsung => SettingsSvc.settings.skin.value == Skins.Samsung;
 
-  bool get extend => widget.actions.isNotEmpty && kIsDesktop;
+  bool get extend => widget.actions.isNotEmpty && hasCustomTitleBar;
 
   @override
   Widget build(BuildContext context) {

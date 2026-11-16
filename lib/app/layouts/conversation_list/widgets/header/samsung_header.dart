@@ -1,3 +1,4 @@
+import 'package:bluebubbles/app/wrappers/titlebar_wrapper.dart';
 import 'package:bluebubbles/helpers/helpers.dart';
 import 'package:bluebubbles/app/layouts/conversation_list/pages/conversation_list.dart';
 import 'package:bluebubbles/app/layouts/conversation_list/widgets/header/header_widgets.dart';
@@ -43,14 +44,14 @@ class _SamsungHeaderState extends CustomState<SamsungHeader, void, ConversationL
         pinned: true,
         stretch: true,
         expandedHeight: context.height / 3,
-        toolbarHeight: kToolbarHeight + (kIsDesktop ? 20 : 0),
+        toolbarHeight: kToolbarHeight + (hasCustomTitleBar ? 20 : 0),
         elevation: 0,
         scrolledUnderElevation: 0,
         automaticallyImplyLeading: false,
         flexibleSpace: LayoutBuilder(
           builder: (context, constraints) {
-            final double expandRatio = ((constraints.maxHeight - (kToolbarHeight + (kIsDesktop ? 20 : 0))) /
-                    (context.height / 3 - (kToolbarHeight + (kIsDesktop ? 20 : 0))))
+            final double expandRatio = ((constraints.maxHeight - (kToolbarHeight + (hasCustomTitleBar ? 20 : 0))) /
+                    (context.height / 3 - (kToolbarHeight + (hasCustomTitleBar ? 20 : 0))))
                 .clamp(0, 1);
             final animation = AlwaysStoppedAnimation(expandRatio);
 
@@ -73,7 +74,7 @@ class _SamsungHeaderState extends CustomState<SamsungHeader, void, ConversationL
                     alignment: Alignment.bottomLeft,
                     child: Container(
                       padding: EdgeInsets.only(left: showArchived || showUnknown || showSpam ? 60 : 16),
-                      height: (kToolbarHeight + (kIsDesktop ? 20 : 0)),
+                      height: (kToolbarHeight + (hasCustomTitleBar ? 20 : 0)),
                       child: Align(
                         alignment: Alignment.centerLeft,
                         child: Row(
@@ -92,7 +93,7 @@ class _SamsungHeaderState extends CustomState<SamsungHeader, void, ConversationL
                 Align(
                   alignment: Alignment.bottomRight,
                   child: SizedBox(
-                    height: (kToolbarHeight + (kIsDesktop ? 20 : 0)),
+                    height: (kToolbarHeight + (hasCustomTitleBar ? 20 : 0)),
                     child: Align(
                       alignment: Alignment.center,
                       child: Row(

@@ -1,3 +1,4 @@
+import 'package:bluebubbles/app/wrappers/titlebar_wrapper.dart';
 import 'package:bluebubbles/helpers/helpers.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -12,7 +13,7 @@ import 'package:get/get.dart';
 /// - `centerTitle` defaults to `context.iOS`
 /// - `surfaceTintColor` defaults to `context.theme.colorScheme.primary`
 /// - `systemOverlayStyle` defaults to the effective background color's brightness
-/// - `toolbarHeight` defaults to 80 on desktop, 50 on mobile
+/// - `toolbarHeight` defaults to 50 plus 30 when the custom title bar is shown
 /// - `automaticallyImplyLeading` defaults to false
 ///
 /// Use [titleText] for the common case of a plain string title styled with
@@ -47,7 +48,7 @@ class BBAppBar extends StatelessWidget implements PreferredSizeWidget {
   /// Defaults to `context.headerColor`.
   final Color? backgroundColor;
 
-  /// Defaults to `kIsDesktop ? 80.0 : 50.0`.
+  /// Defaults to 50 plus 30 when the custom title bar is shown.
   final double? toolbarHeight;
 
   /// Defaults to 3.0.
@@ -95,7 +96,7 @@ class BBAppBar extends StatelessWidget implements PreferredSizeWidget {
     this.bottom,
   });
 
-  double get _resolvedToolbarHeight => toolbarHeight ?? (kIsDesktop ? 80.0 : 50.0);
+  double get _resolvedToolbarHeight => toolbarHeight ?? (hasCustomTitleBar ? 80.0 : 50.0);
 
   @override
   Size get preferredSize => Size.fromHeight(_resolvedToolbarHeight + (bottom?.preferredSize.height ?? 0));

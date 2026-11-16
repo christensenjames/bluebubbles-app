@@ -8,6 +8,7 @@ import 'package:bluebubbles/app/layouts/conversation_view/widgets/text_field/tex
 import 'package:bluebubbles/app/state/chat_state_scope.dart';
 import 'package:bluebubbles/app/wrappers/bb_app_bar.dart';
 import 'package:bluebubbles/app/wrappers/bb_scaffold.dart';
+import 'package:bluebubbles/app/wrappers/titlebar_wrapper.dart';
 import 'package:bluebubbles/helpers/helpers.dart';
 import 'package:bluebubbles/database/models.dart';
 import 'package:bluebubbles/services/services.dart';
@@ -87,7 +88,7 @@ class _NewChatCreatorState extends State<NewChatCreator> with ThemeHelpers<NewCh
         titleText: 'New Message',
         leading: const BackButton(),
         // backgroundColor: Colors.transparent,
-        toolbarHeight: kIsDesktop ? 90 : 60,
+        toolbarHeight: hasCustomTitleBar ? 90 : 60,
       ),
       body: FocusScope(
         child: Column(

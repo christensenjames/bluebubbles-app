@@ -1,4 +1,5 @@
 import 'package:bluebubbles/app/components/m3e/m3e_motion.dart';
+import 'package:bluebubbles/app/wrappers/titlebar_wrapper.dart';
 import 'package:bluebubbles/helpers/helpers.dart';
 import 'package:bluebubbles/app/layouts/conversation_list/pages/conversation_list.dart';
 import 'package:bluebubbles/app/layouts/conversation_list/widgets/header/header_widgets.dart';
@@ -79,7 +80,7 @@ class _MaterialHeaderState extends CustomState<MaterialHeader, void, Conversatio
                             : Colors.transparent,
                       ),
                       child: Padding(
-                        padding: EdgeInsets.only(left: 5.0, top: 6.0 + (kIsDesktop ? 24 : 0), bottom: 6.0),
+                        padding: EdgeInsets.only(left: 5.0, top: 6.0 + (hasCustomTitleBar ? 24 : 0), bottom: 6.0),
                         child: Row(
                           mainAxisAlignment: MainAxisAlignment.start,
                           children: [
@@ -162,7 +163,7 @@ class _MaterialHeaderState extends CustomState<MaterialHeader, void, Conversatio
                     padding: EdgeInsets.only(
                       right: 20.0,
                       left: 20.0,
-                      top: 10 + (kIsDesktop ? 24 : 0),
+                      top: 10 + (hasCustomTitleBar ? 24 : 0),
                     ),
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
