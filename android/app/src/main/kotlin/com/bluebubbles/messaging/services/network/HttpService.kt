@@ -31,11 +31,15 @@ class HttpService(private val context: Context) {
         private const val TAG = "HttpService"
         private const val DEFAULT_TIMEOUT_MS = 30000L
         private const val CLOUDFLARE_RETRY_ATTEMPTS = 2
+        private val sensitiveQuery = Regex("""(?i)([?&](?:guid|password)=)[^&#\s]*""")
     }
     
     init {
         api = createRetrofitInstance()
     }
+
+    private fun redactUrlsForLog(message: String): String =
+        sensitiveQuery.replace(message) { "${it.groupValues[1]}***" }
     
     /**
      * Create the Retrofit instance with OkHttp client
@@ -45,7 +49,7 @@ class HttpService(private val context: Context) {
         
         // Create logging interceptor
         val loggingInterceptor = HttpLoggingInterceptor { message ->
-            PersistentLog.d(context, TAG, message)
+            PersistentLog.d(context, TAG, redactUrlsForLog(message))
         }.apply {
             level = HttpLoggingInterceptor.Level.BASIC
         }
@@ -61,10 +65,10 @@ class HttpService(private val context: Context) {
             }
             
             val request = requestBuilder.build()
-            PersistentLog.d(context, TAG, "Request: [${request.method}] ${request.url}")
+            PersistentLog.d(context, TAG, redactUrlsForLog("Request: [${request.method}] ${request.url}"))
 
             val response = chain.proceed(request)
-            PersistentLog.d(context, TAG, "Response: [${response.code}] ${request.url}")
+            PersistentLog.d(context, TAG, redactUrlsForLog("Response: [${response.code}] ${request.url}"))
             
             response
         }
@@ -293,7 +297,7 @@ class HttpService(private val context: Context) {
             
             override fun onFailure(call: Call<T>, t: Throwable) {
                 val errorMsg = "API call failed: ${t.message}"
-                PersistentLog.e(context, TAG, errorMsg, t)
+                PersistentLog.e(context, TAG, redactUrlsForLog("$errorMsg\n${t.stackTraceToString()}"))
                 onError?.invoke(errorMsg)
             }
         })
