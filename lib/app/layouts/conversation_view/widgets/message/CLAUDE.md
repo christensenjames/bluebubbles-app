@@ -30,6 +30,16 @@ popup closes, so both listeners fire.
 
 See `shared/message_clone_scope.dart`.
 
+## Accessibility
+
+`_MessageSemantics` orders the sender and bubble before a separate time/delivery node.
+The trailing node fills the message bounds and sits beneath the content, so touch
+exploration still lands on the bubble; a zero-size node would be dropped from
+accessibility traversal. Keep links, attachments,
+and the error button as independent descendants rather than merging the subtree.
+`MessagePopupHolder` registers secondary taps only on desktop/web, because even a
+secondary-only tap recognizer contributes a semantics tap action.
+
 ## Related
 - Reactive state: `lib/app/state/message_state.dart`
 - DB model: `lib/database/io/message.dart`

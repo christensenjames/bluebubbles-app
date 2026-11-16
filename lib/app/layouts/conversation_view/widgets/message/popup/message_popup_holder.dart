@@ -239,10 +239,9 @@ class _MessagePopupHolderState extends State<MessagePopupHolder> with ThemeHelpe
                     !isTempMessage
                 ? () => sendTapback(null, _effectivePartIndex)
                 : () => openPopup(),
-        onSecondaryTapUp: widget.isEditing
+        onSecondaryTapUp: widget.isEditing || (!kIsWeb && !kIsDesktop)
             ? null
             : (details) {
-                if (!kIsWeb && !kIsDesktop) return;
                 openPopup();
               },
         child: widget.child,

@@ -28,6 +28,7 @@ import 'package:bluebubbles/database/models.dart';
 import 'package:bluebubbles/services/services.dart';
 import 'package:collection/collection.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/semantics.dart';
 import 'package:get/get.dart';
 
 class MessageHolder extends StatefulWidget {
@@ -724,12 +725,22 @@ class _MessageSemantics extends StatelessWidget {
       ].where((s) => s.isNotEmpty).join(", ");
       return Semantics(
         container: true,
-        label: label,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
+        explicitChildNodes: true,
+        child: Stack(
           children: [
-            child,
-            Semantics(label: trailingLabel),
+            Positioned.fill(
+              child: Semantics(
+                container: true,
+                sortKey: const OrdinalSortKey(1),
+                label: trailingLabel,
+              ),
+            ),
+            Semantics(
+              container: true,
+              sortKey: const OrdinalSortKey(0),
+              label: label,
+              child: child,
+            ),
           ],
         ),
       );
