@@ -11,7 +11,6 @@ class BackupApi {
     return _svc.runApiGuarded(() async {
       final response = await _svc.dio.get(
         "${_svc.apiRoot}/backup/theme",
-        queryParameters: _svc.buildQueryParams(),
         cancelToken: cancelToken,
       );
       return _svc.returnSuccessOrError(response);
@@ -24,7 +23,6 @@ class BackupApi {
       final response = await _svc.dio.post(
         "${_svc.apiRoot}/backup/theme",
         data: {"name": name, "data": json},
-        queryParameters: _svc.buildQueryParams(),
         cancelToken: cancelToken,
       );
       return _svc.returnSuccessOrError(response);
@@ -36,7 +34,6 @@ class BackupApi {
     return _svc.runApiGuarded(() async {
       final response = await _svc.dio.delete(
         "${_svc.apiRoot}/backup/theme",
-        queryParameters: _svc.buildQueryParams(),
         data: {"name": name},
         cancelToken: cancelToken,
       );
@@ -49,7 +46,6 @@ class BackupApi {
     return _svc.runApiGuarded(() async {
       final response = await _svc.dio.get(
         "${_svc.apiRoot}/backup/settings",
-        queryParameters: _svc.buildQueryParams(),
         cancelToken: cancelToken,
       );
       return _svc.returnSuccessOrError(response);
@@ -61,7 +57,6 @@ class BackupApi {
     return _svc.runApiGuarded(() async {
       final response = await _svc.dio.delete(
         "${_svc.apiRoot}/backup/settings",
-        queryParameters: _svc.buildQueryParams(),
         data: {"name": name},
         cancelToken: cancelToken,
       );
@@ -75,7 +70,6 @@ class BackupApi {
       final response = await _svc.dio.post(
         "${_svc.apiRoot}/backup/settings",
         data: {"name": name, "data": json},
-        queryParameters: _svc.buildQueryParams(),
         cancelToken: cancelToken,
       );
       return _svc.returnSuccessOrError(response);

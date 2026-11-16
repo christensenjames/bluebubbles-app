@@ -26,7 +26,7 @@ class MessageApi {
     return _svc.runApiGuarded(() async {
       final response = await _svc.dio.get(
         "${_svc.apiRoot}/message/count${updated ? "/updated" : onlyMe ? "/me" : ""}",
-        queryParameters: _svc.buildQueryParams(params),
+        queryParameters: params,
         cancelToken: cancelToken,
       );
       return _svc.returnSuccessOrError(response);
@@ -54,7 +54,6 @@ class MessageApi {
     return _svc.runApiGuarded(() async {
       final response = await _svc.dio.post(
         "${_svc.apiRoot}/message/query",
-        queryParameters: _svc.buildQueryParams(),
         data: {
           "with": withQuery,
           "where": where,
@@ -82,7 +81,7 @@ class MessageApi {
     return _svc.runApiGuarded(() async {
       final response = await _svc.dio.get(
         "${_svc.apiRoot}/message/$guid",
-        queryParameters: _svc.buildQueryParams({"with": withQuery}),
+        queryParameters: {"with": withQuery},
         cancelToken: cancelToken,
       );
       return _svc.returnSuccessOrError(response);
@@ -98,7 +97,6 @@ class MessageApi {
     return _svc.runApiGuarded(() async {
       final response = await _svc.dio.get(
         "${_svc.apiRoot}/message/$guid/embedded-media",
-        queryParameters: _svc.buildQueryParams(),
         options: Options(
           responseType: ResponseType.bytes,
           receiveTimeout: _svc.dio.options.receiveTimeout! * 12,
@@ -149,7 +147,6 @@ class MessageApi {
 
       final response = await _svc.dio.post(
         "${_svc.apiRoot}/message/text",
-        queryParameters: _svc.buildQueryParams(),
         data: data,
         cancelToken: cancelToken,
       );
@@ -200,7 +197,6 @@ class MessageApi {
 
       final response = await _svc.dio.post(
         "${_svc.apiRoot}/message/attachment",
-        queryParameters: _svc.buildQueryParams(),
         cancelToken: cancelToken,
         data: formData,
         onSendProgress: onSendProgress,
@@ -244,7 +240,6 @@ class MessageApi {
 
       final response = await _svc.dio.post(
         "${_svc.apiRoot}/message/multipart",
-        queryParameters: _svc.buildQueryParams(),
         data: data,
         cancelToken: cancelToken,
       );
@@ -267,7 +262,6 @@ class MessageApi {
     return _svc.runApiGuarded(() async {
       final response = await _svc.dio.post(
         "${_svc.apiRoot}/message/react",
-        queryParameters: _svc.buildQueryParams(),
         data: {
           "chatGuid": chatGuid,
           "selectedMessageText": selectedMessageText,
@@ -287,7 +281,6 @@ class MessageApi {
     return _svc.runApiGuarded(() async {
       final response = await _svc.dio.post(
         "${_svc.apiRoot}/message/$selectedMessageGuid/unsend",
-        queryParameters: _svc.buildQueryParams(),
         data: {"partIndex": partIndex ?? 0},
         cancelToken: cancelToken,
       );
@@ -306,7 +299,6 @@ class MessageApi {
     return _svc.runApiGuarded(() async {
       final response = await _svc.dio.post(
         "${_svc.apiRoot}/message/$selectedMessageGuid/edit",
-        queryParameters: _svc.buildQueryParams(),
         data: {
           "editedMessage": edit,
           "backwardsCompatibilityMessage": backwardsCompatText,
@@ -323,7 +315,6 @@ class MessageApi {
     return _svc.runApiGuarded(() async {
       final response = await _svc.dio.post(
         "${_svc.apiRoot}/message/$selectedMessageGuid/notify",
-        queryParameters: _svc.buildQueryParams(),
         cancelToken: cancelToken,
       );
       return _svc.returnSuccessOrError(response);
@@ -335,7 +326,6 @@ class MessageApi {
     return _svc.runApiGuarded(() async {
       final response = await _svc.dio.get(
         "${_svc.apiRoot}/message/schedule",
-        queryParameters: _svc.buildQueryParams(),
         cancelToken: cancelToken,
       );
       return _svc.returnSuccessOrError(response);
@@ -353,7 +343,6 @@ class MessageApi {
     return _svc.runApiGuarded(() async {
       final response = await _svc.dio.post(
         "${_svc.apiRoot}/message/schedule",
-        queryParameters: _svc.buildQueryParams(),
         cancelToken: cancelToken,
         data: {
           "type": "send-message",
@@ -385,7 +374,6 @@ class MessageApi {
     return _svc.runApiGuarded(() async {
       final response = await _svc.dio.put(
         "${_svc.apiRoot}/message/schedule/$id",
-        queryParameters: _svc.buildQueryParams(),
         cancelToken: cancelToken,
         data: {
           "type": "send-message",
@@ -403,7 +391,6 @@ class MessageApi {
     return _svc.runApiGuarded(() async {
       final response = await _svc.dio.delete(
         "${_svc.apiRoot}/message/schedule/$id",
-        queryParameters: _svc.buildQueryParams(),
         cancelToken: cancelToken,
       );
       return _svc.returnSuccessOrError(response);

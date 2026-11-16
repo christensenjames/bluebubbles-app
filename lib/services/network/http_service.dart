@@ -66,11 +66,6 @@ class HttpService implements BaseApi {
   RxnInt fontDownloadTotalSize = RxnInt();
 
   @override
-  Map<String, dynamic> buildQueryParams([Map<String, dynamic> params = const {}]) {
-    return Map<String, dynamic>.of(params);
-  }
-
-  @override
   Future<Response> runApiGuarded(Future<Response> Function() func, {bool checkOrigin = true}) async {
     if (HttpSvc.origin.isEmpty && checkOrigin) {
       return Future.error("No server URL!");

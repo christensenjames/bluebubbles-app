@@ -24,7 +24,7 @@ call through `HttpSvc.<domain>.<method>()`.
 Full method-level reference: `lib/services/network/CLAUDE.md` and `lib/services/network/api/CLAUDE.md`.
 
 Each sub-service implements against `BaseApi` (`api/base_api.dart`), an abstract interface
-(`dio`, `origin`, `apiRoot`, `headers`, `buildQueryParams()`, `runApiGuarded()`,
+(`dio`, `origin`, `apiRoot`, `headers`, `runApiGuarded()`,
 `returnSuccessOrError()`) implemented by `HttpService`. Sub-services take a `BaseApi _svc` in their
 constructor rather than importing `HttpService` directly — this avoids a circular import.
 
@@ -38,7 +38,6 @@ class ChatApi {
     return _svc.runApiGuarded(() async {
       final response = await _svc.dio.post(
         "${_svc.apiRoot}/chat/$guid/read",
-        queryParameters: _svc.buildQueryParams(),
         cancelToken: cancelToken,
       );
       return _svc.returnSuccessOrError(response);
@@ -47,7 +46,7 @@ class ChatApi {
 }
 ```
 
-- `_svc.buildQueryParams(map)` copies query parameters. `ApiInterceptor` adds the auth GUID and custom headers
+- `ApiInterceptor` adds the auth GUID and custom headers
   for requests to `HttpSvc.origin` or with `options.extra['serverProbe'] == true` (used by
   `ServerApi.ping(customUrl:)` for server-reported LAN addresses), and strips them from other origins.
 - Return `Future<Response>` for raw endpoints; typed futures when you parse the response.

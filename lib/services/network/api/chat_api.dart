@@ -21,7 +21,6 @@ class ChatApi {
     return _svc.runApiGuarded(() async {
       final response = await _svc.dio.post(
         "${_svc.apiRoot}/chat/query",
-        queryParameters: _svc.buildQueryParams(),
         data: {"with": withQuery, "offset": offset, "limit": limit, "sort": sort},
         cancelToken: cancelToken,
       );
@@ -47,8 +46,7 @@ class ChatApi {
     return _svc.runApiGuarded(() async {
       final response = await _svc.dio.get(
         "${_svc.apiRoot}/chat/$guid/message",
-        queryParameters: _svc.buildQueryParams(
-            {"with": withQuery, "sort": sort, "before": before, "after": after, "offset": offset, "limit": limit}),
+        queryParameters: {"with": withQuery, "sort": sort, "before": before, "after": after, "offset": offset, "limit": limit},
         cancelToken: cancelToken,
       );
       return _svc.returnSuccessOrError(response);
@@ -62,7 +60,6 @@ class ChatApi {
     return _svc.runApiGuarded(() async {
       final response = await _svc.dio.post(
         "${_svc.apiRoot}/chat/$guid/participant/$method",
-        queryParameters: _svc.buildQueryParams(),
         data: {"address": address},
         cancelToken: cancelToken,
       );
@@ -75,7 +72,6 @@ class ChatApi {
     return _svc.runApiGuarded(() async {
       final response = await _svc.dio.post(
         "${_svc.apiRoot}/chat/$guid/leave",
-        queryParameters: _svc.buildQueryParams(),
         cancelToken: cancelToken,
       );
       return _svc.returnSuccessOrError(response);
@@ -88,7 +84,6 @@ class ChatApi {
     return _svc.runApiGuarded(() async {
       final response = await _svc.dio.put(
         "${_svc.apiRoot}/chat/$guid",
-        queryParameters: _svc.buildQueryParams(),
         data: {"displayName": displayName},
         cancelToken: cancelToken,
       );
@@ -102,7 +97,6 @@ class ChatApi {
     return _svc.runApiGuarded(() async {
       final response = await _svc.dio.post(
         "${_svc.apiRoot}/chat/new",
-        queryParameters: _svc.buildQueryParams(),
         data: {
           "addresses": addresses,
           "message": message,
@@ -120,7 +114,6 @@ class ChatApi {
     return _svc.runApiGuarded(() async {
       final response = await _svc.dio.get(
         "${_svc.apiRoot}/chat/count",
-        queryParameters: _svc.buildQueryParams(),
         cancelToken: cancelToken,
       );
       return _svc.returnSuccessOrError(response);
@@ -136,7 +129,7 @@ class ChatApi {
     return _svc.runApiGuarded(() async {
       final response = await _svc.dio.get(
         "${_svc.apiRoot}/chat/$guid",
-        queryParameters: _svc.buildQueryParams({"with": withQuery}),
+        queryParameters: {"with": withQuery},
         cancelToken: cancelToken,
       );
       return _svc.returnSuccessOrError(response);
@@ -147,7 +140,6 @@ class ChatApi {
     return _svc.runApiGuarded(() async {
       final response = await _svc.dio.post(
         "${_svc.apiRoot}/chat/$guid/spam",
-        queryParameters: _svc.buildQueryParams(),
         data: {"verdict": verdict},
         cancelToken: cancelToken,
       );
@@ -160,7 +152,6 @@ class ChatApi {
     return _svc.runApiGuarded(() async {
       final response = await _svc.dio.post(
         "${_svc.apiRoot}/chat/$guid/read",
-        queryParameters: _svc.buildQueryParams(),
         cancelToken: cancelToken,
       );
       return _svc.returnSuccessOrError(response);
@@ -172,7 +163,6 @@ class ChatApi {
     return _svc.runApiGuarded(() async {
       final response = await _svc.dio.post(
         "${_svc.apiRoot}/chat/$guid/unread",
-        queryParameters: _svc.buildQueryParams(),
         cancelToken: cancelToken,
       );
       return _svc.returnSuccessOrError(response);
@@ -184,7 +174,6 @@ class ChatApi {
     return _svc.runApiGuarded(() async {
       final response = await _svc.dio.post(
         "${_svc.apiRoot}/chat/$guid/typing",
-        queryParameters: _svc.buildQueryParams(),
         cancelToken: cancelToken,
       );
       return _svc.returnSuccessOrError(response);
@@ -196,7 +185,6 @@ class ChatApi {
     return _svc.runApiGuarded(() async {
       final response = await _svc.dio.delete(
         "${_svc.apiRoot}/chat/$guid/typing",
-        queryParameters: _svc.buildQueryParams(),
         cancelToken: cancelToken,
       );
       return _svc.returnSuccessOrError(response);
@@ -212,7 +200,6 @@ class ChatApi {
     return _svc.runApiGuarded(() async {
       final response = await _svc.dio.get(
         "${_svc.apiRoot}/chat/$guid/icon",
-        queryParameters: _svc.buildQueryParams(),
         options: Options(
           responseType: ResponseType.bytes,
           receiveTimeout: _svc.dio.options.receiveTimeout! * 12,
@@ -237,7 +224,6 @@ class ChatApi {
       });
       final response = await _svc.dio.post(
         "${_svc.apiRoot}/chat/$guid/icon",
-        queryParameters: _svc.buildQueryParams(),
         data: formData,
         options: Options(
           sendTimeout: _svc.dio.options.sendTimeout! * 12,
@@ -255,7 +241,6 @@ class ChatApi {
     return _svc.runApiGuarded(() async {
       final response = await _svc.dio.delete(
         "${_svc.apiRoot}/chat/$guid/icon",
-        queryParameters: _svc.buildQueryParams(),
         cancelToken: cancelToken,
       );
       return _svc.returnSuccessOrError(response);
@@ -267,7 +252,6 @@ class ChatApi {
     return _svc.runApiGuarded(() async {
       final response = await _svc.dio.delete(
         "${_svc.apiRoot}/chat/$guid",
-        queryParameters: _svc.buildQueryParams(),
         cancelToken: cancelToken,
       );
       return _svc.returnSuccessOrError(response);
@@ -279,7 +263,6 @@ class ChatApi {
     return _svc.runApiGuarded(() async {
       final response = await _svc.dio.delete(
         "${_svc.apiRoot}/chat/$guid/$messageGuid",
-        queryParameters: _svc.buildQueryParams(),
         cancelToken: cancelToken,
       );
       return _svc.returnSuccessOrError(response);

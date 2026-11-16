@@ -12,7 +12,6 @@ class FcmApi {
       final response = await _svc.dio.post(
         "${_svc.apiRoot}/fcm/device",
         data: {"name": name, "identifier": identifier},
-        queryParameters: _svc.buildQueryParams(),
         cancelToken: cancelToken,
       );
       return _svc.returnSuccessOrError(response);
@@ -24,7 +23,6 @@ class FcmApi {
     return _svc.runApiGuarded(() async {
       final response = await _svc.dio.get(
         "${_svc.apiRoot}/fcm/client",
-        queryParameters: _svc.buildQueryParams(),
         cancelToken: cancelToken,
       );
       return _svc.returnSuccessOrError(response);

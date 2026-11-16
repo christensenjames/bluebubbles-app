@@ -14,7 +14,6 @@ class iCloudApi {
     return _svc.runApiGuarded(() async {
       final response = await _svc.dio.get(
         "${_svc.apiRoot}/icloud/findmy/devices",
-        queryParameters: _svc.buildQueryParams(),
         cancelToken: cancelToken,
       );
       return _svc.returnSuccessOrError(response);
@@ -26,7 +25,6 @@ class iCloudApi {
     return _svc.runApiGuarded(() async {
       final response = await _svc.dio.post(
         "${_svc.apiRoot}/icloud/findmy/devices/refresh",
-        queryParameters: _svc.buildQueryParams(),
         cancelToken: cancelToken,
         options: Options(
           receiveTimeout: _svc.dio.options.receiveTimeout! * 12,
@@ -41,7 +39,6 @@ class iCloudApi {
     return _svc.runApiGuarded(() async {
       final response = await _svc.dio.get(
         "${_svc.apiRoot}/icloud/findmy/friends",
-        queryParameters: _svc.buildQueryParams(),
         cancelToken: cancelToken,
       );
       return _svc.returnSuccessOrError(response);
@@ -53,7 +50,6 @@ class iCloudApi {
     return _svc.runApiGuarded(() async {
       final response = await _svc.dio.post(
         "${_svc.apiRoot}/icloud/findmy/friends/refresh",
-        queryParameters: _svc.buildQueryParams(),
         cancelToken: cancelToken,
       );
       return _svc.returnSuccessOrError(response);
@@ -65,7 +61,6 @@ class iCloudApi {
     return _svc.runApiGuarded(() async {
       final response = await _svc.dio.get(
         "${_svc.apiRoot}/icloud/account",
-        queryParameters: _svc.buildQueryParams(),
         cancelToken: cancelToken,
       );
       return _svc.returnSuccessOrError(response);
@@ -77,7 +72,6 @@ class iCloudApi {
     return _svc.runApiGuarded(() async {
       final response = await _svc.dio.get(
         "${_svc.apiRoot}/icloud/contact",
-        queryParameters: _svc.buildQueryParams(),
         cancelToken: cancelToken,
       );
       return _svc.returnSuccessOrError(response);
@@ -88,7 +82,6 @@ class iCloudApi {
     return _svc.runApiGuarded(() async {
       final response = await _svc.dio.post(
         "${_svc.apiRoot}/icloud/contact/avatar",
-        queryParameters: _svc.buildQueryParams(),
         data: FormData.fromMap({"avatar": MultipartFile.fromBytes(bytes, filename: "avatar.png")}),
         options: Options(
           sendTimeout: _svc.dio.options.sendTimeout! * 12,
@@ -106,7 +99,6 @@ class iCloudApi {
       final response = await _svc.dio.post(
         "${_svc.apiRoot}/icloud/account/alias",
         data: {"alias": alias},
-        queryParameters: _svc.buildQueryParams(),
         cancelToken: cancelToken,
       );
       return _svc.returnSuccessOrError(response);

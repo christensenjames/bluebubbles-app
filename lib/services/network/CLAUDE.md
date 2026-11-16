@@ -21,7 +21,7 @@ sub-service instances. Each sub-service lives in `api/` and handles one domain a
 
 **Core utilities (on `HttpService` directly):**
 - `runApiGuarded()` — wraps every call; handles retries on 502, propagates errors
-- `buildQueryParams(map)` — copies query parameters; `ApiInterceptor` adds the auth GUID and custom headers
+- `ApiInterceptor` adds the auth GUID and custom headers
   for `HttpSvc.origin` or `options.extra['serverProbe'] == true` (used by `ServerApi.ping(customUrl:)` for
   server-reported LAN addresses), and strips them from other origins
 - `returnSuccessOrError(response)` — validates status code

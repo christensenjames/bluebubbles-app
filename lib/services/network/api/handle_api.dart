@@ -11,7 +11,6 @@ class HandleApi {
     return _svc.runApiGuarded(() async {
       final response = await _svc.dio.get(
         "${_svc.apiRoot}/handle/count",
-        queryParameters: _svc.buildQueryParams(),
         cancelToken: cancelToken,
       );
       return _svc.returnSuccessOrError(response);
@@ -33,7 +32,6 @@ class HandleApi {
     return _svc.runApiGuarded(() async {
       final response = await _svc.dio.post(
         "${_svc.apiRoot}/handle/query",
-        queryParameters: _svc.buildQueryParams(),
         data: {"with": withQuery, "address": address, "offset": offset, "limit": limit},
         cancelToken: cancelToken,
       );
@@ -46,7 +44,6 @@ class HandleApi {
     return _svc.runApiGuarded(() async {
       final response = await _svc.dio.get(
         "${_svc.apiRoot}/handle/$guid",
-        queryParameters: _svc.buildQueryParams(),
         cancelToken: cancelToken,
       );
       return _svc.returnSuccessOrError(response);
@@ -58,7 +55,6 @@ class HandleApi {
     return _svc.runApiGuarded(() async {
       final response = await _svc.dio.get(
         "${_svc.apiRoot}/handle/$address/focus",
-        queryParameters: _svc.buildQueryParams(),
         cancelToken: cancelToken,
       );
       return _svc.returnSuccessOrError(response);
@@ -70,7 +66,7 @@ class HandleApi {
     return _svc.runApiGuarded(() async {
       final response = await _svc.dio.get(
         "${_svc.apiRoot}/handle/availability/imessage",
-        queryParameters: _svc.buildQueryParams({"address": address}),
+        queryParameters: {"address": address},
         cancelToken: cancelToken,
       );
       return _svc.returnSuccessOrError(response);
@@ -82,7 +78,7 @@ class HandleApi {
     return _svc.runApiGuarded(() async {
       final response = await _svc.dio.get(
         "${_svc.apiRoot}/handle/availability/facetime",
-        queryParameters: _svc.buildQueryParams({"address": address}),
+        queryParameters: {"address": address},
         cancelToken: cancelToken,
       );
       return _svc.returnSuccessOrError(response);

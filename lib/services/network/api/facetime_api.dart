@@ -12,7 +12,6 @@ class FaceTimeApi {
     return _svc.runApiGuarded(() async {
       final response = await _svc.dio.post(
         "${_svc.apiRoot}/facetime/answer/$callUuid",
-        queryParameters: _svc.buildQueryParams(),
         data: {},
         cancelToken: cancelToken,
       );
@@ -25,7 +24,6 @@ class FaceTimeApi {
     return _svc.runApiGuarded(() async {
       final response = await _svc.dio.post(
         "${_svc.apiRoot}/facetime/leave/$callUuid",
-        queryParameters: _svc.buildQueryParams(),
         data: {},
         cancelToken: cancelToken,
       );

@@ -11,7 +11,7 @@ class ContactApi {
     return _svc.runApiGuarded(() async {
       final response = await _svc.dio.get(
         "${_svc.apiRoot}/contact",
-        queryParameters: _svc.buildQueryParams(withAvatars ? {"extraProperties": "avatar"} : {}),
+        queryParameters: withAvatars ? {"extraProperties": "avatar"} : {},
         cancelToken: cancelToken,
       );
       return _svc.returnSuccessOrError(response);
@@ -24,7 +24,6 @@ class ContactApi {
     return _svc.runApiGuarded(() async {
       final response = await _svc.dio.post(
         "${_svc.apiRoot}/contact/query",
-        queryParameters: _svc.buildQueryParams(),
         data: {"addresses": addresses},
         cancelToken: cancelToken,
       );
@@ -41,7 +40,6 @@ class ContactApi {
     return _svc.runApiGuarded(() async {
       final response = await _svc.dio.post(
         "${_svc.apiRoot}/contact",
-        queryParameters: _svc.buildQueryParams(),
         data: contacts,
         onSendProgress: onSendProgress,
         options: Options(
