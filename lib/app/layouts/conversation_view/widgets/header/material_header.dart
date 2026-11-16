@@ -41,9 +41,10 @@ class MaterialHeader extends StatelessWidget implements PreferredSizeWidget {
             ),
             automaticallyImplyLeading: false,
             toolbarHeight: (kIsDesktop ? 25 : 0) + kToolbarHeight,
-            leadingWidth: 30,
+            leadingWidth: 48,
+            titleSpacing: 0,
             leading: Padding(
-              padding: EdgeInsets.only(left: 5.0, top: kIsDesktop ? 20 : 0),
+              padding: EdgeInsets.only(top: kIsDesktop ? 20 : 0),
               child: BackButton(
                 color: _foregroundColor,
                 onPressed: () {
@@ -61,7 +62,7 @@ class MaterialHeader extends StatelessWidget implements PreferredSizeWidget {
               ),
             ),
             title: Padding(
-              padding: EdgeInsets.only(top: kIsDesktop ? 20 : 0),
+              padding: EdgeInsets.only(top: kIsDesktop ? 20 : 0, right: NavigationToolbar.kMiddleSpacing),
               child: InkWell(
                 borderRadius: BorderRadius.circular(10),
                 onTap: () {
@@ -86,6 +87,7 @@ class MaterialHeader extends StatelessWidget implements PreferredSizeWidget {
               ),
               if (Platform.isAndroid && !controller.chat.isGroup && controller.chat.handles.first.address.isPhoneNumber)
                 IconButton(
+                  tooltip: "Call",
                   icon: Icon(Icons.call_outlined, color: _foregroundColor),
                   onPressed: () {
                     launchUrl(Uri(scheme: "tel", path: controller.chat.handles.first.address));
@@ -93,6 +95,7 @@ class MaterialHeader extends StatelessWidget implements PreferredSizeWidget {
                 ),
               if (Platform.isAndroid && !controller.chat.isGroup && controller.chat.handles.first.address.isEmail)
                 IconButton(
+                  tooltip: "Send email",
                   icon: Icon(Icons.mail_outlined, color: _foregroundColor),
                   onPressed: () {
                     launchUrl(Uri(scheme: "mailto", path: controller.chat.handles.first.address));

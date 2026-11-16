@@ -1,37 +1,22 @@
+import 'package:bluebubbles/app/components/m3e/m3e_motion.dart';
 import 'package:flutter/material.dart';
 
 /// Centralizes all animation configuration for the message list.
 /// This makes animation timing and curves easy to tune without touching the orchestrator logic.
 class MessageListAnimationConfig {
-  static const Curve entranceCurve = Easing.emphasizedDecelerate;
+  static const M3EMotionSpec entrance = M3EMotion.spatialFast;
 
-  /// Slightly longer duration delays the outgoing fade-in handoff so the
-  /// temporary send bubble and list row don't visually overlap as tightly.
-  static const Duration sentInsertionDuration = Duration(milliseconds: 475);
+  // The iOS/Samsung send flight (300ms) is removed the moment it lands, so the hidden row underneath must be
+  // opaque by then, with margin for the DB write that precedes its insertion.
+  static const Interval sentFadeInterval = Interval(0.8, 1.0, curve: Easing.standard);
 
-  /// Receiving is a high-frequency event with no send-bubble handoff, so it stays inside the 300ms UI budget.
-  static const Duration receivedInsertionDuration = Durations.short4;
+  /// Material sent rows fade in over the first 150ms (`M3EMotion.effectsFast`) of the 200ms grow.
+  static const Interval materialSentFadeInterval = Interval(0.0, 0.75, curve: Easing.standard);
 
-  /// Google Messages grows a sent bubble in place from its corner; measured on a Pixel at ~200ms to settle.
-  static const Duration materialSentInsertionDuration = Durations.medium1;
-
-  /// Curve for insertion slide animation
-  static const Curve insertionSlideCurve = entranceCurve;
-
-  /// Curve for insertion size animation
-  static const Curve insertionSizeCurve = entranceCurve;
-
-  /// Curve for insertion fade animation (only for sent messages)
-  static const Curve insertionFadeCurve = Easing.standard;
-
-  /// Fade interval for sent messages (0.9-1.0 of animation)
-  static const Interval fadeInterval = Interval(0.9, 1.0, curve: Easing.standard);
+  static const double materialSentScaleStart = 0.95;
 
   /// Size transition start ratio (messages start at 30% height)
   static const double sizeTransitionStartRatio = 0.3;
-
-  /// Slide transition start offset (messages slide up from bottom)
-  static const Offset slideStartOffset = Offset(0.0, 1.0);
 
   /// Size transition axis alignment (-1.0 = top aligned, 1.0 = bottom aligned)
   static const double sizeTransitionAxisAlignment = -1.0;

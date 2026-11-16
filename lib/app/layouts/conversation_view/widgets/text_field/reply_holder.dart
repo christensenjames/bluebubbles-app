@@ -135,6 +135,7 @@ class _CloseButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return IconButton(
+      tooltip: "Cancel",
       constraints: kIsWeb || kIsDesktop ? null : const BoxConstraints(maxWidth: 30),
       padding: EdgeInsets.symmetric(
         horizontal: kIsWeb || kIsDesktop ? 12 : 8,

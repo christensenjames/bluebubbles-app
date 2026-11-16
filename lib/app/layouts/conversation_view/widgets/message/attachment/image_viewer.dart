@@ -2,6 +2,7 @@ import 'dart:math';
 import 'dart:io';
 
 import 'package:bluebubbles/app/components/image_blur_canvas.dart';
+import 'package:bluebubbles/app/components/m3e/m3e_motion.dart';
 import 'package:bluebubbles/app/layouts/conversation_view/widgets/message/attachment/live_photo_mixin.dart';
 import 'package:bluebubbles/app/layouts/conversation_view/widgets/message/attachment/parts/media_unavailable_placeholder.dart';
 import 'package:bluebubbles/helpers/helpers.dart';
@@ -12,6 +13,19 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:gif_view/gif_view.dart';
+
+Widget fadeInFirstFrame(BuildContext context, Widget child, int? frame, bool wasSynchronouslyLoaded,
+    {Widget Function()? placeholder}) {
+  if (wasSynchronouslyLoaded) return child;
+  if (frame == null) return placeholder?.call() ?? child;
+  return TweenAnimationBuilder<double>(
+    tween: Tween(begin: 0, end: 1),
+    duration: M3EMotion.effectsFast.durationOf(context),
+    curve: M3EMotion.effectsFast.curve,
+    builder: (context, opacity, child) => Opacity(opacity: opacity, child: child),
+    child: child,
+  );
+}
 
 class ImageViewer extends StatefulWidget {
   final PlatformFile file;
@@ -141,10 +155,12 @@ class _ImageViewerState extends State<ImageViewer> with AutomaticKeepAliveClient
         Widget imageContent;
         if (needsBlur) {
           imageContent = ImageBlurCanvas(filePath: imagePath, bytes: imageBytes);
-        } else if (imagePath != null) {
-          imageContent = Image.file(File(imagePath), fit: BoxFit.contain);
         } else {
-          imageContent = Image.memory(imageBytes!, fit: BoxFit.contain);
+          // Width only, so the decode keeps the image's aspect ratio.
+          final cacheWidth = (containerW * MediaQuery.devicePixelRatioOf(context)).round();
+          imageContent = imagePath != null
+              ? Image.file(File(imagePath), fit: BoxFit.contain, cacheWidth: cacheWidth)
+              : Image.memory(imageBytes!, fit: BoxFit.contain, cacheWidth: cacheWidth);
         }
 
         return SizedBox(
@@ -158,52 +174,49 @@ class _ImageViewerState extends State<ImageViewer> with AutomaticKeepAliveClient
     // Reduce Motion (desktop): keep GIFs paused on their first frame and only
     // animate while hovered. GifView decodes every frame up front, so the native
     // (streaming) Image path stays the default — routing all GIFs through GifView
-    // stalls the UI on large/many GIFs. Only opt in when Reduce Motion is on.
-    if (_isGif && kIsDesktop) {
-      return Obx(() {
-        if (!SettingsSvc.settings.reduceMotion.value) return _buildStandardImage(context);
-        return FutureBuilder<Uint8List?>(
-          future: _gifBytesFuture ??= _loadGifBytes(),
-          builder: (context, snapshot) {
-            final bytes = snapshot.data;
-            // Until bytes are loaded (or if unavailable), show the native path.
-            if (bytes == null) return _buildStandardImage(context);
-            _gifController ??= GifController();
-            // Same explicit sizing as the native path, so swapping from
-            // _buildStandardImage to GifView once the bytes land doesn't
-            // resize the bubble.
-            final size = _displaySize(context);
-            return ConstrainedBox(
-              constraints: const BoxConstraints(minHeight: 40, minWidth: 100),
-              child: MouseRegion(
-                onEnter: (_) {
-                  _gifHovering.value = true;
-                  _gifController?.play();
-                },
-                onExit: (_) {
-                  _gifHovering.value = false;
-                  _gifController?.pause();
-                },
-                child: Stack(
-                  alignment: !widget.isFromMe ? Alignment.topRight : Alignment.topLeft,
-                  children: [
-                    GifView.memory(
-                      bytes,
-                      controller: _gifController,
-                      autoPlay: false,
-                      width: size.width,
-                      height: size.height,
-                      fit: BoxFit.contain,
-                    ),
-                    // GIF badge, mirroring the LIVE badge — hidden while playing (hovered).
-                    Obx(() => _gifHovering.value ? const SizedBox.shrink() : _buildGifBadge()),
-                  ],
-                ),
+    // stalls the UI on large/many GIFs. Only opt in under reduced motion.
+    if (_isGif && kIsDesktop && MediaQuery.disableAnimationsOf(context)) {
+      return FutureBuilder<Uint8List?>(
+        future: _gifBytesFuture ??= _loadGifBytes(),
+        builder: (context, snapshot) {
+          final bytes = snapshot.data;
+          // Until bytes are loaded (or if unavailable), show the native path.
+          if (bytes == null) return _buildStandardImage(context);
+          _gifController ??= GifController();
+          // Same explicit sizing as the native path, so swapping from
+          // _buildStandardImage to GifView once the bytes land doesn't
+          // resize the bubble.
+          final size = _displaySize(context);
+          return ConstrainedBox(
+            constraints: const BoxConstraints(minHeight: 40, minWidth: 100),
+            child: MouseRegion(
+              onEnter: (_) {
+                _gifHovering.value = true;
+                _gifController?.play();
+              },
+              onExit: (_) {
+                _gifHovering.value = false;
+                _gifController?.pause();
+              },
+              child: Stack(
+                alignment: !widget.isFromMe ? Alignment.topRight : Alignment.topLeft,
+                children: [
+                  GifView.memory(
+                    bytes,
+                    controller: _gifController,
+                    autoPlay: false,
+                    width: size.width,
+                    height: size.height,
+                    fit: BoxFit.contain,
+                  ),
+                  // GIF badge, mirroring the LIVE badge — hidden while playing (hovered).
+                  Obx(() => _gifHovering.value ? const SizedBox.shrink() : _buildGifBadge()),
+                ],
               ),
-            );
-          },
-        );
-      });
+            ),
+          );
+        },
+      );
     }
 
     return _buildStandardImage(context);
@@ -266,24 +279,13 @@ class _ImageViewerState extends State<ImageViewer> with AutomaticKeepAliveClient
           // aspect ratio.
           cacheWidth: calculatedWidth,
           fit: BoxFit.contain,
-          frameBuilder: (context, child, frame, wasSynchronouslyLoaded) {
-            if (wasSynchronouslyLoaded) return child;
-            if (frame == null) {
-              // Show placeholder while loading
-              return Container(
-                width: displayWidth,
-                height: displayHeight,
-                color: context.theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
-                child: Center(
-                  child: CircularProgressIndicator(
-                    strokeWidth: 2,
-                    valueColor: AlwaysStoppedAnimation<Color>(context.theme.colorScheme.outline),
-                  ),
-                ),
-              );
-            }
-            return child;
-          },
+          frameBuilder: (context, child, frame, wasSynchronouslyLoaded) => fadeInFirstFrame(
+            context,
+            child,
+            frame,
+            wasSynchronouslyLoaded,
+            placeholder: () => _loadingBox(context, displayWidth, displayHeight),
+          ),
           errorBuilder: (context, object, stacktrace) =>
               _buildImageError(context, displayWidth, displayHeight, object, stacktrace),
         );
@@ -299,17 +301,9 @@ class _ImageViewerState extends State<ImageViewer> with AutomaticKeepAliveClient
       final qualityFactor = SettingsSvc.settings.previewImageQuality.value;
       final calculatedWidth = (displayWidth * Get.pixelRatio * qualityFactor).round().abs().nonZero;
 
-      Widget placeholder() => Container(
-        width: displayWidth,
-        height: displayHeight,
-        color: context.theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
-        child: Center(
-          child: CircularProgressIndicator(
-            strokeWidth: 2,
-            valueColor: AlwaysStoppedAnimation<Color>(context.theme.colorScheme.outline),
-          ),
-        ),
-      );
+      Widget placeholder() => _loadingBox(context, displayWidth, displayHeight);
+      Widget frameBuilder(BuildContext context, Widget child, int? frame, bool wasSynchronouslyLoaded) =>
+          fadeInFirstFrame(context, child, frame, wasSynchronouslyLoaded, placeholder: placeholder);
 
       // Fallback: render the original file directly, used when preview
       // generation fails.
@@ -324,11 +318,7 @@ class _ImageViewerState extends State<ImageViewer> with AutomaticKeepAliveClient
           // when an image exists in the same message as text.
           // height: displayHeight,
           cacheWidth: calculatedWidth,
-          frameBuilder: (context, child, frame, wasSynchronouslyLoaded) {
-            if (wasSynchronouslyLoaded) return child;
-            if (frame == null) return placeholder();
-            return child;
-          },
+          frameBuilder: frameBuilder,
           errorBuilder: (context, object, stacktrace) => FutureBuilder<String?>(
             future: AttachmentsSvc.ensureImageCompatibility(attachment, actualPath: file.path),
             builder: (context, snapshot) {
@@ -352,11 +342,7 @@ class _ImageViewerState extends State<ImageViewer> with AutomaticKeepAliveClient
                   // height: displayHeight,
                   cacheWidth: calculatedWidth,
                   fit: BoxFit.contain,
-                  frameBuilder: (context, child, frame, wasSynchronouslyLoaded) {
-                    if (wasSynchronouslyLoaded) return child;
-                    if (frame == null) return placeholder();
-                    return child;
-                  },
+                  frameBuilder: frameBuilder,
                 );
               }
 
@@ -378,11 +364,7 @@ class _ImageViewerState extends State<ImageViewer> with AutomaticKeepAliveClient
           // height: displayHeight,
           cacheWidth: calculatedWidth,
           fit: BoxFit.contain,
-          frameBuilder: (context, child, frame, wasSynchronouslyLoaded) {
-            if (wasSynchronouslyLoaded) return child;
-            if (frame == null) return placeholder();
-            return child;
-          },
+          frameBuilder: frameBuilder,
           errorBuilder: (context, object, stacktrace) => buildOriginalFallback(),
         );
       }
@@ -478,6 +460,18 @@ class _ImageViewerState extends State<ImageViewer> with AutomaticKeepAliveClient
       ),
     );
   }
+
+  Widget _loadingBox(BuildContext context, double width, double height) => Container(
+        width: width,
+        height: height,
+        color: context.theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
+        child: Center(
+          child: CircularProgressIndicator(
+            strokeWidth: 2,
+            valueColor: AlwaysStoppedAnimation<Color>(context.theme.colorScheme.outline),
+          ),
+        ),
+      );
 
   Widget _buildImageError(BuildContext context, double width, double height, Object error, StackTrace? stacktrace) {
     return MediaUnavailablePlaceholder(

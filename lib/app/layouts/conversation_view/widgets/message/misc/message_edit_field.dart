@@ -134,6 +134,7 @@ class MessageEditField extends StatelessWidget {
                       ),
                   prefixIconConstraints: const BoxConstraints(minHeight: 0, minWidth: 40),
                   prefixIcon: IconButton(
+                    tooltip: "Cancel edit",
                     constraints: const BoxConstraints(maxWidth: 27),
                     padding: const EdgeInsets.only(left: 5),
                     visualDensity: VisualDensity.compact,
@@ -146,6 +147,7 @@ class MessageEditField extends StatelessWidget {
                   ),
                   suffixIconConstraints: const BoxConstraints(minHeight: 0, minWidth: 40),
                   suffixIcon: IconButton(
+                    tooltip: "Save edit",
                     constraints: const BoxConstraints(maxWidth: 27),
                     padding: const EdgeInsets.only(right: 5),
                     visualDensity: VisualDensity.compact,

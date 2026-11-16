@@ -26,6 +26,8 @@ class SendButton extends StatefulWidget {
 }
 
 class SendButtonState extends State<SendButton> with SingleTickerProviderStateMixin, ThemeHelpers {
+  // The fill counts down the real send delay, so it keeps running under reduced motion; `preserve` stops
+  // the OS flag from cutting the delay itself to 5%.
   late final controller = AnimationController(
       vsync: this,
       duration: Duration(seconds: SettingsSvc.settings.sendDelay.value),
@@ -97,7 +99,7 @@ class SendButtonState extends State<SendButton> with SingleTickerProviderStateMi
           padding: const EdgeInsets.all(0),
           maximumSize: Size.square(side),
           minimumSize: Size.square(side),
-          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+          tapTargetSize: MaterialTapTargetSize.padded,
         ),
         onPressed: widget.enabled ? onSendPressed : null,
         onLongPress: widget.enabled ? _handleLongPress : null,
@@ -188,6 +190,7 @@ class _SendButtonIcon extends StatelessWidget {
           animationValue == 0
               ? (isIOS ? CupertinoIcons.arrow_up : Icons.send_outlined)
               : (isIOS ? CupertinoIcons.xmark : Icons.close),
+          semanticLabel: animationValue == 0 ? "Send" : "Cancel send",
           color: animationValue != 0
               ? onError
               : isIOS

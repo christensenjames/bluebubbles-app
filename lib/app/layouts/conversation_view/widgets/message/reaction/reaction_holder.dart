@@ -1,3 +1,4 @@
+import 'package:bluebubbles/app/components/m3e/m3e_motion.dart';
 import 'package:bluebubbles/app/state/message_state_scope.dart';
 import 'package:bluebubbles/app/layouts/conversation_view/widgets/message/reaction/reaction.dart';
 import 'package:bluebubbles/helpers/helpers.dart';
@@ -11,11 +12,15 @@ class _ReactionAnimator extends StatefulWidget {
     super.key,
     required this.stableKey,
     required this.shouldAnimate,
+    required this.alignment,
     required this.child,
   });
 
   final String stableKey;
   final bool shouldAnimate;
+
+  /// The reaction's corner that overlaps the bubble; the pop-in grows out of it.
+  final Alignment alignment;
   final Widget child;
 
   @override
@@ -25,18 +30,22 @@ class _ReactionAnimator extends StatefulWidget {
 class _ReactionAnimatorState extends State<_ReactionAnimator> with SingleTickerProviderStateMixin {
   late AnimationController _controller;
   late Animation<double> _scaleAnimation;
+  late Animation<double> _fadeAnimation;
 
   @override
   void initState() {
     super.initState();
     _controller = AnimationController(
-      duration: const Duration(milliseconds: 200),
+      duration: M3EMotion.spatialFast.duration,
       vsync: this,
     );
 
-    _scaleAnimation = CurvedAnimation(
-      parent: _controller,
-      curve: Curves.easeOutBack,
+    _scaleAnimation = _controller.drive(
+      Tween<double>(begin: 0.9, end: 1.0).chain(CurveTween(curve: M3EMotion.spatialFast.curve)),
+    );
+    // Opacity finishes in effectsFast's 150ms of the 200ms scale.
+    _fadeAnimation = _controller.drive(
+      Tween<double>(begin: 0.01, end: 1.0).chain(CurveTween(curve: const Interval(0.0, 0.75, curve: Easing.standard))),
     );
 
     // Animate in only if this is a new reaction
@@ -49,6 +58,12 @@ class _ReactionAnimatorState extends State<_ReactionAnimator> with SingleTickerP
   }
 
   @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _controller.matchReducedMotion(context, M3EMotion.spatialFast.duration);
+  }
+
+  @override
   void dispose() {
     _controller.dispose();
     super.dispose();
@@ -56,9 +71,14 @@ class _ReactionAnimatorState extends State<_ReactionAnimator> with SingleTickerP
 
   @override
   Widget build(BuildContext context) {
-    return ScaleTransition(
-      scale: _scaleAnimation,
-      child: widget.child,
+    if (MediaQuery.disableAnimationsOf(context)) return widget.child;
+    return FadeTransition(
+      opacity: _fadeAnimation,
+      child: ScaleTransition(
+        scale: _scaleAnimation,
+        alignment: widget.alignment,
+        child: widget.child,
+      ),
     );
   }
 }
@@ -154,6 +174,7 @@ class _ReactionHolderState extends State<ReactionHolder> {
                     key: ValueKey(stableKey),
                     stableKey: stableKey,
                     shouldAnimate: shouldAnimate,
+                    alignment: isFromMe ? Alignment.bottomRight : Alignment.bottomLeft,
                     child: ReactionWidget(
                       reaction: e,
                       reactions: _cachedReactions,

@@ -2,18 +2,14 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:bluebubbles/database/global/platform_file.dart';
+import 'package:bluebubbles/helpers/helpers.dart';
 import 'package:bluebubbles/services/services.dart';
 import 'package:desktop_drop/desktop_drop.dart';
+import 'package:flutter/widgets.dart';
 import 'package:get/get.dart';
 import 'package:universal_io/io.dart';
 
-/// Manages drag-and-drop file operations on the message list.
-///
-/// Responsibilities:
-/// - Track drag state (files over the drop zone)
-/// - Validate dropped files
-/// - Convert dropped files to PlatformFile objects
-/// - Add files to the attachment picker
+/// Manages drag-and-drop file operations on the conversation body.
 class DropZoneManager {
   final ConversationViewController controller;
 
@@ -31,27 +27,58 @@ class DropZoneManager {
     dragging.value = false;
   }
 
-  Future<void> onPerformDrop(
-    DropDoneDetails event,
-    ConversationViewController controller,
-  ) async {
-    for (DropItem item in event.files) {
-      if (await FileSystemEntity.type(item.path) != FileSystemEntityType.file) continue;
+  Widget target({required Widget child}) {
+    return DropTarget(
+      onDragEntered: onDropOver,
+      onDragUpdated: onDropOver,
+      onDragExited: onDropLeave,
+      onDragDone: onPerformDrop,
+      child: child,
+    );
+  }
 
-      String fileName = item.name;
+  Future<void> onPerformDrop(DropDoneDetails event) async {
+    int skipped = 0;
+    try {
+      for (DropItem item in event.files) {
+        if (await FileSystemEntity.type(item.path) != FileSystemEntityType.file) {
+          skipped++;
+          continue;
+        }
 
-      if (fileName.isEmpty) {
-        fileName = "Dragged_File_${controller.pickedAttachments.length + 1}";
+        final int size;
+        try {
+          size = await item.length();
+        } on FileSystemException {
+          skipped++;
+          continue;
+        }
+
+        String fileName = item.name;
+
+        if (fileName.isEmpty) {
+          fileName = "Dragged_File_${controller.pickedAttachments.length + 1}";
+        }
+
+        controller.pickedAttachments.add(PlatformFile(
+          name: fileName,
+          path: item.path,
+          size: size,
+          bytes: null,
+        ));
       }
-
-      controller.pickedAttachments.add(PlatformFile(
-        name: fileName,
-        path: item.path,
-        size: await item.length(),
-        bytes: null,
-      ));
+    } finally {
+      dragging.value = false;
     }
 
-    dragging.value = false;
+    if (skipped > 0) {
+      showSnackbar(
+        "Not attached",
+        skipped == 1
+            ? "1 item isn't a readable file, so it wasn't attached."
+            : "$skipped items aren't readable files, so they weren't attached.",
+        type: SnackbarType.error,
+      );
+    }
   }
 }

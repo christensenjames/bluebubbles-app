@@ -10,10 +10,12 @@ import 'package:bluebubbles/app/wrappers/bb_scaffold.dart';
 import 'package:bluebubbles/app/wrappers/gradient_background_wrapper.dart';
 import 'package:bluebubbles/helpers/helpers.dart';
 import 'package:bluebubbles/app/layouts/conversation_view/pages/messages_view.dart';
+import 'package:bluebubbles/app/layouts/conversation_view/pages/handlers/drop_zone_manager.dart';
 import 'package:bluebubbles/app/layouts/conversation_view/widgets/effects/screen_effects_widget.dart';
 import 'package:bluebubbles/database/models.dart';
 import 'package:bluebubbles/services/services.dart';
 import 'package:bluebubbles/utils/logger/logger.dart';
+import 'package:flutter/gestures.dart' show kTouchSlop;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_acrylic/window_effect.dart';
@@ -39,6 +41,8 @@ class ConversationView extends StatefulWidget {
 
 class ConversationViewState extends State<ConversationView> with ThemeHelpers<ConversationView>, RouteAware {
   late final ConversationViewController controller = cvc(chat, tag: widget.customService?.tag);
+  late final DropZoneManager _dropZoneManager = DropZoneManager(controller: controller);
+  double _composerPanDy = 0;
 
   // Cache actions map to avoid rebuilding on every frame
   late final Map<Type, Action<Intent>> _actionsMap;
@@ -56,10 +60,12 @@ class ConversationViewState extends State<ConversationView> with ThemeHelpers<Co
 
   void _onPanUpdate(DragUpdateDetails details) {
     if (!mounted) return;
-    if (SettingsSvc.settings.swipeToCloseKeyboard.value && details.delta.dy > 0 && controller.keyboardOpen) {
+    _composerPanDy += details.delta.dy;
+    if (_composerPanDy.abs() < kTouchSlop * 2) return;
+    if (SettingsSvc.settings.swipeToCloseKeyboard.value && _composerPanDy > 0 && controller.keyboardOpen) {
       controller.focusNode.unfocus();
       controller.subjectFocusNode.unfocus();
-    } else if (SettingsSvc.settings.swipeToOpenKeyboard.value && details.delta.dy < 0 && !controller.keyboardOpen) {
+    } else if (SettingsSvc.settings.swipeToOpenKeyboard.value && _composerPanDy < 0 && !controller.keyboardOpen) {
       controller.focusNode.requestFocus();
     }
   }
@@ -138,9 +144,11 @@ class ConversationViewState extends State<ConversationView> with ThemeHelpers<Co
           Builder(
             builder: (context) {
               final bottomInset = MediaQuery.paddingOf(context).bottom;
+              final textField = ConversationTextField(parentController: controller);
               final body = Padding(
                 padding: EdgeInsets.only(bottom: bottomInset),
-                child: Column(
+                child: _dropZoneManager.target(
+                  child: Column(
                   mainAxisAlignment: MainAxisAlignment.end,
                   children: [
                     Obx(() {
@@ -171,20 +179,25 @@ class ConversationViewState extends State<ConversationView> with ThemeHelpers<Co
                             key: Key(chat.guid),
                             customService: widget.customService,
                             initialScrollToGuid: widget.initialScrollToGuid,
+                            dropZoneManager: _dropZoneManager,
                             controller: controller,
                           ),
                           ScrollDownButton(controller: controller),
                         ],
                       ),
                     ),
-                    GestureDetector(
-                      onPanUpdate: _onPanUpdate,
-                      child: ConversationTextField(
-                        parentController: controller,
-                      ),
-                    ),
+                    Obx(() {
+                      final enabled = SettingsSvc.settings.swipeToCloseKeyboard.value ||
+                          SettingsSvc.settings.swipeToOpenKeyboard.value;
+                      return GestureDetector(
+                        onPanStart: enabled ? (_) => _composerPanDy = 0 : null,
+                        onPanUpdate: enabled ? _onPanUpdate : null,
+                        child: textField,
+                      );
+                    }),
                     EmojiRow(parentController: controller),
                   ],
+                  ),
                 ),
               );
               if (!context.material) return body;

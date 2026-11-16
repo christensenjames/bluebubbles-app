@@ -1,5 +1,6 @@
 import 'dart:math';
 
+import 'package:bluebubbles/app/components/m3e/m3e_motion.dart';
 import 'package:bluebubbles/app/layouts/conversation_view/widgets/message/attachment/attachment_holder.dart';
 import 'package:bluebubbles/app/layouts/conversation_view/widgets/message/popup/message_popup.dart';
 import 'package:bluebubbles/app/state/chat_state_scope.dart';
@@ -122,7 +123,8 @@ class _MessagePopupHolderState extends State<MessagePopupHolder> with ThemeHelpe
     final result = await Navigator.push(
       iOS ? Get.context! : context,
       PageRouteBuilder(
-        transitionDuration: const Duration(milliseconds: 150),
+        transitionDuration: M3EMotion.spatialFast.durationOf(context),
+        reverseTransitionDuration: M3EMotion.effectsFast.durationOf(context),
         pageBuilder: (ctx, animation, secondaryAnimation) {
           return FadeTransition(
             opacity: animation,

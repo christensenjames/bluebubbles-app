@@ -1,3 +1,4 @@
+import 'package:bluebubbles/app/components/m3e/m3e_motion.dart';
 import 'package:bluebubbles/app/components/avatars/contact_avatar_widget.dart';
 import 'package:bluebubbles/app/layouts/conversation_view/widgets/message/typing/typing_indicator.dart';
 import 'package:bluebubbles/app/state/chat_state_scope.dart';
@@ -64,7 +65,7 @@ class NotificationsSilencedBanner extends StatelessWidget {
 
     return AnimatedSize(
       key: controller.focusInfoKey,
-      duration: const Duration(milliseconds: 250),
+      duration: MediaQuery.disableAnimationsOf(context) ? Duration.zero : const Duration(milliseconds: 250),
       child: Obx(() => controller.recipientNotifsSilenced.value
           ? Padding(
               padding: const EdgeInsets.all(10.0),
@@ -150,7 +151,8 @@ class SmartRepliesRow extends StatelessWidget {
       controller.updateSmartReplyLayout(visible: visible, height: totalHeight);
 
       return AnimatedSize(
-        duration: const Duration(milliseconds: 400),
+        duration: M3EMotion.spatialFast.durationOf(context),
+        curve: M3EMotion.spatialFast.curve,
         child: visible
             ? Padding(
                 padding: EdgeInsets.only(top: topPadding, right: 5),
@@ -238,7 +240,7 @@ class ScrollDownButton extends StatelessWidget {
             ignoring: !controller.showScrollDown.value,
             child: AnimatedOpacity(
               opacity: controller.showScrollDown.value ? 1 : 0,
-              duration: const Duration(milliseconds: 300),
+              duration: MediaQuery.disableAnimationsOf(context) ? Duration.zero : Durations.short3,
               child: iOS
                   ? TextButton(
                       style: TextButton.styleFrom(
@@ -294,7 +296,7 @@ class DragDropOverlay extends StatelessWidget {
   Widget build(BuildContext context) {
     return Obx(
       () => AnimatedContainer(
-        duration: const Duration(milliseconds: 150),
+        duration: MediaQuery.disableAnimationsOf(context) ? Duration.zero : const Duration(milliseconds: 150),
         color: context.theme.colorScheme.surface.withValues(alpha: dragging.value ? 0.4 : 0),
         child: dragging.value
             ? Center(

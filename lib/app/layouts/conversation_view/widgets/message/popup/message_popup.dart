@@ -13,6 +13,7 @@ import 'package:bluebubbles/app/layouts/conversation_view/widgets/message/popup/
 import 'package:bluebubbles/app/layouts/conversation_view/widgets/message/popup/message_popup_action_context.dart';
 import 'package:bluebubbles/app/layouts/conversation_view/widgets/message/popup/reaction_picker_clipper.dart';
 import 'package:bluebubbles/app/layouts/conversation_view/widgets/message/popup/widgets/reaction_details.dart';
+import 'package:bluebubbles/app/components/m3e/m3e_motion.dart';
 import 'package:bluebubbles/app/layouts/findmy/findmy_pin_clipper.dart';
 import 'package:bluebubbles/app/wrappers/bb_app_bar.dart';
 import 'package:bluebubbles/app/wrappers/bb_scaffold.dart';
@@ -32,7 +33,6 @@ import 'package:flutter/services.dart';
 import 'package:flutter_acrylic/flutter_acrylic.dart';
 import 'package:flutter_svg/svg.dart';
 import 'package:get/get.dart';
-import 'package:sprung/sprung.dart';
 import 'package:universal_io/io.dart';
 
 export 'package:bluebubbles/app/layouts/conversation_view/widgets/message/popup/message_popup_action_context.dart'
@@ -67,12 +67,11 @@ class MessagePopup extends StatefulWidget {
 }
 
 class _MessagePopupState extends State<MessagePopup> with SingleTickerProviderStateMixin, ThemeHelpers {
-  late final AnimationController controller = AnimationController(
-    vsync: this,
-    duration: const Duration(milliseconds: 150),
-    animationBehavior: AnimationBehavior.preserve,
-  );
+  static const _menuFade = Duration(milliseconds: 150);
+  late final AnimationController controller = AnimationController(vsync: this, duration: _menuFade);
   final double itemHeight = kIsDesktop || kIsWeb ? 56 : 48;
+  CurvedAnimation? _menuCurve;
+  late Animation<double> _menuScale;
 
   List<Message> reactions = [];
   late double messageOffset = Get.height - widget.childPosition.dy - widget.size.height;
@@ -171,7 +170,21 @@ class _MessagePopupState extends State<MessagePopup> with SingleTickerProviderSt
   }
 
   @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (_menuCurve != null) return;
+    _menuCurve = CurvedAnimation(
+      parent: ModalRoute.of(context)!.animation!,
+      curve: M3EMotion.spatialFast.curve,
+      reverseCurve: M3EMotion.effectsFast.curve,
+    );
+    _menuScale = Tween<double>(begin: 0.95, end: 1).animate(_menuCurve!);
+    controller.matchReducedMotion(context, _menuFade);
+  }
+
+  @override
   void dispose() {
+    _menuCurve?.dispose();
     controller.dispose();
     super.dispose();
   }
@@ -325,6 +338,7 @@ class _MessagePopupState extends State<MessagePopup> with SingleTickerProviderSt
     // + container padding
     final double reactionRowContentWidth = reactionItemWidth * (ReactionTypes.toList().length + 1) + 10;
     bool narrowScreen = reactionRowContentWidth > reactionPickerAvailableWidth;
+    final reduceMotion = MediaQuery.disableAnimationsOf(context);
 
     return Theme(
       data: context.theme.copyWith(
@@ -399,14 +413,14 @@ class _MessagePopupState extends State<MessagePopup> with SingleTickerProviderSt
                   ),
                   if (iOS)
                     AnimatedPositioned(
-                      duration: Durations.medium1,
+                      duration: reduceMotion ? Duration.zero : Durations.medium1,
                       curve: Easing.emphasizedDecelerate,
                       left: widget.childPosition.dx,
                       bottom: messageOffset,
                       child: TweenAnimationBuilder<double>(
                         tween: Tween<double>(begin: 0.8, end: 1),
                         curve: Curves.easeOutBack,
-                        duration: Durations.medium2,
+                        duration: reduceMotion ? Duration.zero : Durations.medium2,
                         child: NotificationListener<SizeChangedLayoutNotification>(
                           onNotification: (_) {
                             _remeasureChild();
@@ -444,8 +458,8 @@ class _MessagePopupState extends State<MessagePopup> with SingleTickerProviderSt
                       left: 15,
                       right: 15,
                       child: AnimatedSize(
-                        duration: const Duration(milliseconds: 500),
-                        curve: Sprung.underDamped,
+                        duration: reduceMotion ? Duration.zero : Durations.medium1,
+                        curve: Easing.emphasizedDecelerate,
                         alignment: Alignment.center,
                         child: reactions.isNotEmpty ? ReactionDetails(reactions: reactions) : const SizedBox.shrink(),
                       ),
@@ -461,7 +475,7 @@ class _MessagePopupState extends State<MessagePopup> with SingleTickerProviderSt
                       child: AnimatedSize(
                         curve: Curves.easeInOut,
                         alignment: message.isFromMe! ? Alignment.centerRight : Alignment.centerLeft,
-                        duration: const Duration(milliseconds: 250),
+                        duration: reduceMotion ? Duration.zero : const Duration(milliseconds: 250),
                         child: currentlySelectedReaction == "init"
                             ? const SizedBox(height: 80)
                             : ClipShadowPath(
@@ -574,10 +588,9 @@ class _MessagePopupState extends State<MessagePopup> with SingleTickerProviderSt
                       right: message.isFromMe! ? 15 : null,
                       left: !message.isFromMe! ? widget.childPosition.dx + 10 : null,
                       bottom: 30,
-                      child: TweenAnimationBuilder<double>(
-                        tween: Tween<double>(begin: 0.8, end: 1),
-                        curve: Easing.emphasizedDecelerate,
-                        duration: Durations.medium2,
+                      child: ScaleTransition(
+                        scale: _menuScale,
+                        alignment: message.isFromMe! ? Alignment.topRight : Alignment.topLeft,
                         child: FadeTransition(
                           opacity: CurvedAnimation(
                             parent: controller,
@@ -592,12 +605,6 @@ class _MessagePopupState extends State<MessagePopup> with SingleTickerProviderSt
                             ],
                           ),
                         ),
-                        builder: (context, size, child) {
-                          return Transform.scale(
-                            scale: size,
-                            child: child,
-                          );
-                        },
                       ),
                     ),
                   if (!iOS && SettingsSvc.settings.enablePrivateAPI.value && minBigSur && chat.isIMessage && isSent)

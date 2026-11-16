@@ -16,7 +16,6 @@ A message renders as a composition of specialized sub-widgets.
 | `interactive/` | Apple Pay, Game Pigeon, URL previews, maps, embedded media | → CLAUDE.md inside |
 | `chat_event/` | System messages (member added, subject changed) | |
 | `misc/` | Message editing, selection, swipe-to-reply dispatcher, bubble effect overlay (`bubble_effects.dart`) | → CLAUDE.md inside |
-| `parts/` | Per-part-type renderers (a message can have multiple parts) | |
 | `shared/` | Shared utilities across message widgets | |
 
 ## Message Clones

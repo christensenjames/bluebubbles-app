@@ -96,6 +96,7 @@ class TextFieldEmojiPickerSection extends StatelessWidget {
                               Padding(
                                 padding: const EdgeInsets.all(12),
                                 child: IconButton(
+                                  tooltip: "Close",
                                   icon: Icon(
                                     iOS ? CupertinoIcons.xmark : Icons.close,
                                     color: context.theme.colorScheme.outline,

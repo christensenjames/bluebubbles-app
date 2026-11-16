@@ -1,10 +1,9 @@
 import 'dart:async';
-import 'dart:math';
-import 'dart:ui';
 
 import 'package:async_task/async_task_extension.dart';
 import 'package:audio_waveforms/audio_waveforms.dart';
 import 'package:bluebubbles/app/components/custom_text_editing_controllers.dart';
+import 'package:bluebubbles/app/components/m3e/m3e_motion.dart';
 import 'package:bluebubbles/app/layouts/conversation_view/widgets/message/misc/tail_clipper.dart';
 import 'package:bluebubbles/app/wrappers/stateful_boilerplate.dart';
 import 'package:bluebubbles/helpers/helpers.dart';
@@ -16,7 +15,6 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:mime_type/mime_type.dart';
-import 'package:simple_animations/simple_animations.dart';
 
 class SendAnimation extends CustomStateful<ConversationViewController> {
   const SendAnimation({super.key, required super.parentController});
@@ -27,8 +25,6 @@ class SendAnimation extends CustomStateful<ConversationViewController> {
 
 class _SendAnimationState extends CustomState<SendAnimation, SendData, ConversationViewController> {
   Message? message;
-  Tween<double> tween = Tween<double>(begin: 1, end: 0);
-  Control control = Control.stop;
 
   // The padding applied to the ConversationTextField in its closed state
   // (bottom: 10 + top: 10) plus
@@ -41,7 +37,7 @@ class _SendAnimationState extends CustomState<SendAnimation, SendData, Conversat
   // Height of the text field component at its resting (empty, single-line) size,
   // measured from the RenderBox once after the first frame. We avoid using a
   // live getter because during a multi-line send the AnimatedSize is still
-  // shrinking the text field, which causes AnimatedPositioned to chase a moving
+  // shrinking the text field, which causes the flight to chase a moving
   // target and overshoot. Using the frozen resting height keeps the target
   // constant so the animated bubble always lands where the permanent message is.
   double _textFieldSize = 0;
@@ -83,12 +79,12 @@ class _SendAnimationState extends CustomState<SendAnimation, SendData, Conversat
   // animate their height (AnimatedSize). The message list gate keeps *new* events
   // from starting such a transition mid-flight, but it can't rewind one that was
   // already running when the user hit send. Freezing the whole sum closes that
-  // window: once the flight begins the target is a constant, so AnimatedPositioned
+  // window: once the flight begins the target is a constant, so the flight
   // can never chase it regardless of what moves underneath.
   double? _frozenBottomOffset;
 
-  // Total bottom offset for the AnimatedPositioned — how far above the bottom
-  // of the Stack the animation bubble should land at the end of its travel.
+  // Total bottom offset for the flight — how far above the bottom of the Stack
+  // the animation bubble should land at the end of its travel.
   double get _animationBottomOffset => _frozenBottomOffset ?? _liveBottomOffset;
 
   // Uses the stored resting text field height (_textFieldSize) so the target
@@ -162,17 +158,20 @@ class _SendAnimationState extends CustomState<SendAnimation, SendData, Conversat
     final attachments = List<PlatformFile>.from(data.attachments);
     // text is mutable — reassigned during mention processing below
     String text = data.text;
+    // Read before the awaits below. Material has no flight; under reduced motion it would land instantly.
+    final fly = !material && !MediaQuery.disableAnimationsOf(context);
     // Hide the smart reply row immediately, before the send animation's target
     // is computed below. Otherwise the row disappears mid-flight (once the
     // outgoing message is inserted and messages_view.dart clears the smart
-    // reply suggestions), shrinking _animationBottomOffset while
-    // AnimatedPositioned is still animating toward the old, taller target —
+    // reply suggestions), shrinking _animationBottomOffset while the flight
+    // is still heading toward the old, taller target —
     // which is what caused the bubble to land too high and snap back down.
     if (controller.showSmartReplyRow.value) {
       controller.updateSmartReplyLayout(visible: false, height: 0);
     }
     if (SettingsSvc.settings.scrollToBottomOnSend.value) {
-      await controller.scrollToBottom();
+      // Not awaited: the scroll (≤300ms) runs alongside the 300ms flight, so the send need not wait for it.
+      unawaited(controller.scrollToBottom());
     }
     if (SettingsSvc.settings.sendSoundPath.value != null &&
         !(isNullOrEmptyString(text) && isNullOrEmptyString(data.subject) && controller.pickedAttachments.isEmpty)) {
@@ -354,15 +353,15 @@ class _SendAnimationState extends CustomState<SendAnimation, SendData, Conversat
       // that a message arriving during the flight can't insert into the list or
       // toggle the rows below it and move the landing target computed by
       // _animationBottomOffset. Nothing waits on this — deferred work replays
-      // as soon as the bubble is torn down below (or on dispose, or via the
-      // gate's watchdog if this frame's onEnd never fires).
+      // as soon as the bubble lands (or on dispose, or via the gate's watchdog
+      // if the flight's onEnd never fires).
       //
       // The outgoing message this animation lands on is queued *after* the hold
       // but bypasses the gate in MessagesView.handleNewMessage, so the send is
       // never delayed by its own hold.
       // Material matches Google Messages: no flying bubble, the list row grows in place
       // (MessageAnimationOrchestrator.buildMaterialSentMessageAnimation), so there is no target to hold.
-      if (!material) controller.messageListGate.hold();
+      if (fly) controller.messageListGate.hold();
       OutgoingMsgHandler.queue(
         (_message.attributedBody.isNotEmpty)
             ? OutgoingMultipartMessage(
@@ -375,18 +374,13 @@ class _SendAnimationState extends CustomState<SendAnimation, SendData, Conversat
                 message: _message,
               ),
       );
-      if (!material) {
+      if (fly) {
         setState(() {
           // Freeze the landing target for the whole flight. Computed here rather
           // than in build() so it reflects the layout at the moment of the send —
           // notably after updateSmartReplyLayout() above has already zeroed the
           // smart reply row.
           _frozenBottomOffset = _liveBottomOffset;
-          tween = Tween<double>(
-            begin: 0.9,
-            end: 0,
-          );
-          control = Control.play;
           message = _message;
         });
       }
@@ -394,100 +388,77 @@ class _SendAnimationState extends CustomState<SendAnimation, SendData, Conversat
     super.updateWidget(data);
   }
 
+  // The list row underneath is already opaque when the flight lands (MessageListAnimationConfig.sentFadeInterval).
+  void _land() {
+    setState(() {
+      _frozenBottomOffset = null;
+      message = null;
+    });
+    controller.messageListGate.release();
+  }
+
   @override
   Widget build(BuildContext context) {
-    final typicalWidth = message?.isBigEmoji ?? false
-        ? NavigationSvc.width(context)
-        : SettingsSvc.settings.skin.value == Skins.Material
-            ? NavigationSvc.width(context) * MessageState.materialBubbleSizeFactor
-            : NavigationSvc.width(context) * MessageState.maxBubbleSizeFactor - 40;
-    const duration = 450;
-    const curve = Curves.easeInOut;
-    const buttonSize = 88;
-    final messageBoxSize = NavigationSvc.width(context) - buttonSize;
-    return AnimatedPositioned(
-      duration: Duration(milliseconds: message != null ? duration : 0),
-      bottom: message != null ? _animationBottomOffset : 0,
+    final flying = message;
+    return Positioned(
+      bottom: 0,
       right: samsung ? -38 : -5.0,
-      curve: curve,
-      onEnd: () async {
-        if (message != null) {
-          await Future.delayed(const Duration(milliseconds: 200));
-          // If we were disposed during the delay, dispose() has already opened
-          // the gate — bail before touching state.
-          if (!mounted) return;
-          setState(() {
-            _frozenBottomOffset = null;
-            tween = Tween<double>(begin: 1, end: 0);
-            control = Control.stop;
-            message = null;
-          });
-          // Released only once the animated bubble is gone, not when it lands,
-          // so nothing shifts underneath it while it is still overlaid.
-          controller.messageListGate.release();
-        }
-      },
-      child: Visibility(
-        visible: message != null,
-        child: CustomAnimationBuilder<double>(
-          control: control,
-          tween: tween,
-          duration: Duration(milliseconds: message != null ? duration : 0),
-          builder: (context, linear, child) {
-            var value = curve.transform(linear);
-            var exp = Curves.easeIn.transform(linear);
-            return Transform.scale(
-              scale: (1 - value) < .5 ? lerpDouble(1.1, .9, (1 - value) / .5) : lerpDouble(.9, 1, (.5 - value) / .5),
-              alignment: Alignment.centerRight,
-              child: ClipPath(
-                clipper: TailClipper(
-                  isFromMe: true,
-                  showTail: true,
-                  connectLower: false,
-                  connectUpper: false,
-                ),
-                child: BackdropFilter(
-                  filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
-                  child: Container(
-                      constraints: BoxConstraints(
-                        maxWidth: max(messageBoxSize * exp, typicalWidth),
-                        minWidth: messageBoxSize * exp,
-                        minHeight: 36,
-                      ),
-                      color: !message!.isBigEmoji
-                          ? context.theme.colorScheme
-                              .bubble(context, message!.chat.target?.isIMessage ?? true)
-                              .darkenAmount(0.2)
-                          : null,
-                      padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 15).add(EdgeInsets.only(
-                          left: message!.isFromMe! || message!.isBigEmoji ? 0 : 10,
-                          right: message!.isFromMe! && !message!.isBigEmoji ? 10 : 0)),
-                      child: Align(
-                        alignment: Alignment.centerLeft,
-                        widthFactor: 1,
-                        child: Padding(
-                          padding: message!.fullText.length == 1
-                              ? const EdgeInsets.only(left: 3, right: 3)
-                              : EdgeInsets.zero,
-                          child: RichText(
-                            text: TextSpan(
-                              children: buildMessageSpans(context,
-                                  MessagePart(part: 0, text: message!.text, subject: message!.subject), message!,
-                                  colorOverride: Color.lerp(
-                                      context.theme.colorScheme.onSurfaceVariant,
-                                      context.theme.colorScheme.onBubble(
-                                        context,
-                                        message!.chat.target?.isIMessage ?? true,
-                                      ),
-                                      1 - value)),
-                            ),
-                          ),
-                        ),
-                      )),
+      child: flying == null
+          ? const SizedBox.shrink()
+          : TweenAnimationBuilder<double>(
+              key: ObjectKey(flying),
+              tween: Tween<double>(begin: 0, end: 1),
+              duration: M3EMotion.spatialDefault.duration,
+              curve: M3EMotion.spatialDefault.curve,
+              onEnd: _land,
+              // Painted once; each frame only moves, scales and fades this layer.
+              child: RepaintBoundary(child: _buildBubble(context, flying)),
+              builder: (context, t, child) => Transform.translate(
+                offset: Offset(0, -_animationBottomOffset * t),
+                child: Transform.scale(
+                  scale: 0.95 + 0.05 * t,
+                  alignment: Alignment.centerRight,
+                  child: Opacity(opacity: clampDouble(t * 3, 0.01, 1), child: child),
                 ),
               ),
-            );
-          },
+            ),
+    );
+  }
+
+  Widget _buildBubble(BuildContext context, Message message) {
+    final isIMessage = message.chat.target?.isIMessage ?? true;
+    return ClipPath(
+      clipper: TailClipper(
+        isFromMe: true,
+        showTail: true,
+        connectLower: false,
+        connectUpper: false,
+      ),
+      child: Container(
+        constraints: BoxConstraints(
+          maxWidth: message.isBigEmoji
+              ? NavigationSvc.width(context)
+              : NavigationSvc.width(context) * MessageState.maxBubbleSizeFactor - 40,
+          minHeight: 36,
+        ),
+        color: message.isBigEmoji ? null : context.theme.colorScheme.bubble(context, isIMessage).darkenAmount(0.2),
+        padding: EdgeInsets.fromLTRB(15, 8, message.isBigEmoji ? 15 : 25, 8),
+        child: Align(
+          alignment: Alignment.centerLeft,
+          widthFactor: 1,
+          child: Padding(
+            padding: message.fullText.length == 1 ? const EdgeInsets.symmetric(horizontal: 3) : EdgeInsets.zero,
+            child: RichText(
+              text: TextSpan(
+                children: buildMessageSpans(
+                  context,
+                  MessagePart(part: 0, text: message.text, subject: message.subject),
+                  message,
+                  colorOverride: context.theme.colorScheme.onBubble(context, isIMessage),
+                ),
+              ),
+            ),
+          ),
         ),
       ),
     );

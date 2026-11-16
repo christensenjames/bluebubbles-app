@@ -92,36 +92,39 @@ class _AttachmentPickerFileState extends State<AttachmentPickerFile> with ThemeH
 
   @override
   Widget build(BuildContext context) {
-    return Obx(() {
-      final hideAttachments = SettingsSvc.settings.redactedMode.value && SettingsSvc.settings.hideAttachments.value;
-      bool containsThis = widget.controller.pickedAttachments.firstWhereOrNull((e) => e.path == filePath) != null;
+    return LayoutBuilder(
+      builder: (context, constraints) => Obx(() {
+        final hideAttachments = SettingsSvc.settings.redactedMode.value && SettingsSvc.settings.hideAttachments.value;
+        bool containsThis = widget.controller.pickedAttachments.firstWhereOrNull((e) => e.path == filePath) != null;
 
-      return AnimatedContainer(
-        duration: const Duration(milliseconds: 250),
-        margin: EdgeInsets.all(containsThis ? 10 : 0),
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(10),
-        ),
-        clipBehavior: Clip.antiAlias,
-        child: InkWell(
-          borderRadius: BorderRadius.circular(10),
-          onTap: widget.onTap,
-          child: Stack(
-            alignment: Alignment.center,
-            children: <Widget>[
-              // Show image/thumbnail
-              if (!isLoading && !hasError && !hideAttachments) _buildImage(),
+        // Scaled down by a 10dp inset on each side; scaling avoids relaying out the grid.
+        return AnimatedScale(
+          scale: containsThis ? 1 - 20 / constraints.maxWidth : 1,
+          duration: MediaQuery.disableAnimationsOf(context) ? Duration.zero : Durations.short3,
+          curve: Easing.emphasizedDecelerate,
+          child: Container(
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(10),
+            ),
+            clipBehavior: Clip.antiAlias,
+            child: InkWell(
+              borderRadius: BorderRadius.circular(10),
+              onTap: widget.onTap,
+              child: Stack(
+                alignment: Alignment.center,
+                children: <Widget>[
+                  if (!isLoading && !hasError && !hideAttachments) _buildImage(),
 
-              // Show placeholder while loading or on error
-              if (isLoading || hasError || hideAttachments) _buildPlaceholder(context),
+                  if (isLoading || hasError || hideAttachments) _buildPlaceholder(context),
 
-              // Show selection indicator or video icon
-              if (containsThis || widget.data.type == AssetType.video) _buildOverlayIcon(context, containsThis),
-            ],
+                  if (containsThis || widget.data.type == AssetType.video) _buildOverlayIcon(context, containsThis),
+                ],
+              ),
+            ),
           ),
-        ),
-      );
-    });
+        );
+      }),
+    );
   }
 
   Widget _buildImage() {

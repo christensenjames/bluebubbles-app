@@ -14,7 +14,6 @@ import 'package:bluebubbles/services/services.dart';
 import 'package:bluebubbles/utils/logger/logger.dart';
 import 'package:collection/collection.dart';
 import 'package:defer_pointer/defer_pointer.dart';
-import 'package:desktop_drop/desktop_drop.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -24,17 +23,20 @@ import 'package:scroll_to_index/scroll_to_index.dart';
 
 import 'handlers/drop_zone_manager.dart';
 import 'handlers/message_animation_orchestrator.dart';
+import 'handlers/message_list_animation_config.dart';
 import 'handlers/smart_replies_manager.dart';
 
 class MessagesView extends StatefulWidget {
   final MessagesService? customService;
   final ConversationViewController controller;
   final String? initialScrollToGuid;
+  final DropZoneManager? dropZoneManager;
 
   const MessagesView({
     super.key,
     this.customService,
     this.initialScrollToGuid,
+    this.dropZoneManager,
     required this.controller,
   });
 
@@ -51,9 +53,6 @@ class MessagesViewState extends State<MessagesView> with MessagesServiceMixin, T
   // GlobalKey for SliverAnimatedList
   GlobalKey<SliverAnimatedListState> _listKey = GlobalKey<SliverAnimatedListState>();
 
-  // Notifier for list structure changes only (add/remove)
-  final ValueNotifier<int> _listVersion = ValueNotifier<int>(0);
-
   // Per-message GlobalKeys so that element state (e.g. UrlPreview) survives
   // index shifts when a new message is inserted at the front of the list.
   final Map<String, GlobalKey> _messageKeys = {};
@@ -66,7 +65,7 @@ class MessagesViewState extends State<MessagesView> with MessagesServiceMixin, T
 
   // Managers for different responsibilities
   late final SmartRepliesManager smartRepliesManager;
-  late final DropZoneManager dropZoneManager;
+  late final DropZoneManager dropZoneManager = widget.dropZoneManager ?? DropZoneManager(controller: controller);
   late final MessageAnimationOrchestrator animationOrchestrator;
 
   RxMap<String, Widget> internalSmartReplies = <String, Widget>{}.obs;
@@ -86,7 +85,6 @@ class MessagesViewState extends State<MessagesView> with MessagesServiceMixin, T
   void initState() {
     super.initState();
     smartRepliesManager = SmartRepliesManager();
-    dropZoneManager = DropZoneManager(controller: controller);
     animationOrchestrator = MessageAnimationOrchestrator();
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -252,7 +250,6 @@ class MessagesViewState extends State<MessagesView> with MessagesServiceMixin, T
     // Controllers are now disposed by MessagesService.onClose()
     _setStateDebouncer?.cancel();
     _eventSubscription?.cancel();
-    _listVersion.dispose();
     smartRepliesManager.dispose();
     super.dispose();
   }
@@ -421,7 +418,6 @@ class MessagesViewState extends State<MessagesView> with MessagesServiceMixin, T
       for (int i = 0; i < addedCount; i++) {
         _listKey.currentState?.insertItem(previousLength + i, duration: Duration.zero);
       }
-      _listVersion.value++;
     } else {
       // Fallback: structure changed in a way we can't express as a simple append.
       _listKey = GlobalKey<SliverAnimatedListState>();
@@ -478,15 +474,12 @@ class MessagesViewState extends State<MessagesView> with MessagesServiceMixin, T
     // Mark this message for animation (all new messages)
     animationOrchestrator.markAnimating(message);
 
-    // Use insertItem to animate the list sliding up to make space (all messages)
-    final duration = animationOrchestrator.getInsertionDuration(message, material: material);
+    final duration =
+        MediaQuery.disableAnimationsOf(context) ? Duration.zero : MessageListAnimationConfig.entrance.duration;
     _listKey.currentState?.insertItem(
       insertIndex,
       duration: duration,
     );
-
-    // Update version tracker
-    _listVersion.value++;
 
     // When the first message arrives via socket into an empty view, the
     // "Loading surrounding message context..." SliverToBoxAdapter won't
@@ -576,9 +569,20 @@ class MessagesViewState extends State<MessagesView> with MessagesServiceMixin, T
     final index = _messages.indexWhere((e) => e.guid == message.guid);
     if (index != -1) {
       _messages.removeAt(index);
-      _messageKeys.remove(message.guid);
+      final row = _messageKeys.remove(message.guid)?.currentWidget;
+      // retryFailedMessage removes the message (fresh temp GUID, error cleared) and re-inserts it at once.
+      final retrying = message.isSending && message.error == 0;
+      _listKey.currentState?.removeItem(
+        index,
+        (context, animation) => SizeTransition(
+          // Removal runs the animation from 1 to 0, so the flipped curve accelerates over time.
+          sizeFactor: CurvedAnimation(parent: animation, curve: Easing.emphasizedAccelerate.flipped),
+          child: FadeTransition(opacity: animation, child: row ?? const SizedBox.shrink()),
+        ),
+        duration: retrying || MediaQuery.disableAnimationsOf(context) ? Duration.zero : Durations.short4,
+      );
       Logger.debug("handleDeletedMessage: Removed message at index $index");
-      _listVersion.value++;
+      // Neighboring rows recompute their grouping and tails, and the empty-list loader may need to show.
       _setStateDebouncer?.cancel();
       _setStateDebouncer = Timer(const Duration(milliseconds: 16), () {
         if (mounted) setState(() {});
@@ -645,36 +649,33 @@ class MessagesViewState extends State<MessagesView> with MessagesServiceMixin, T
 
   @override
   Widget build(BuildContext context) {
-    return DropTarget(
-      onDragEntered: (DropEventDetails details) => dropZoneManager.onDropOver(details),
-      onDragUpdated: (DropEventDetails details) => dropZoneManager.onDropOver(details),
-      onDragExited: (DropEventDetails details) => dropZoneManager.onDropLeave(details),
-      onDragDone: (DropDoneDetails details) async => await dropZoneManager.onPerformDrop(details, controller),
-      child: GestureDetector(
-          behavior: HitTestBehavior.deferToChild,
-          onHorizontalDragUpdate: (details) {
-            if (controller.isGalleryDragging) return;
-            if (SettingsSvc.settings.skin.value != Skins.Samsung && !kIsWeb && !kIsDesktop) {
-              controller.timestampOffset.value += details.delta.dx * 0.3;
-            }
-          },
-          onHorizontalDragEnd: (details) {
-            if (SettingsSvc.settings.skin.value != Skins.Samsung) {
-              controller.timestampOffset.value = 0;
-            }
-          },
-          onHorizontalDragCancel: () {
-            if (SettingsSvc.settings.skin.value != Skins.Samsung) {
-              controller.timestampOffset.value = 0;
-            }
-          },
-          child: Stack(
-            children: [
-              Obx(
+    final list = GestureDetector(
+        behavior: HitTestBehavior.deferToChild,
+        onHorizontalDragUpdate: (details) {
+          if (controller.isGalleryDragging) return;
+          // Only the iOS skin renders the swipe-revealed MessageTimestamp.
+          if (iOS && !kIsWeb && !kIsDesktop) {
+            controller.timestampOffset.value += details.delta.dx * 0.3;
+          }
+        },
+        onHorizontalDragEnd: (details) {
+          if (iOS) {
+            controller.timestampOffset.value = 0;
+          }
+        },
+        onHorizontalDragCancel: () {
+          if (iOS) {
+            controller.timestampOffset.value = 0;
+          }
+        },
+        child: Stack(
+          children: [
+            // Hidden until the first messages load, then shown at once: fading in replayed on every chat switch.
+            Opacity(
+              opacity: _messages.isEmpty && widget.customService == null ? 0 : 1,
+              child: Obx(
                 () => AnimatedOpacity(
-                  opacity: _messages.isEmpty && widget.customService == null
-                      ? 0
-                      : (dropZoneManager.dragging.value ? 0.3 : 1),
+                  opacity: dropZoneManager.dragging.value ? 0.3 : 1,
                   duration: Durations.short3,
                   curve: Easing.standard,
                   child: DeferredPointerHandler(
@@ -767,7 +768,7 @@ class MessagesViewState extends State<MessagesView> with MessagesServiceMixin, T
                                       ),
                                     );
 
-                                    // Animate sent messages with size + slide + fade (only if outgoing from this device)
+                                    // Sent from this device: the skin decides how the row enters.
                                     final isFromMe = message.isFromMe ?? false;
                                     if (isFromMe &&
                                         message.isSending &&
@@ -778,7 +779,7 @@ class MessagesViewState extends State<MessagesView> with MessagesServiceMixin, T
                                       return build(child: messageWidget, animation: animation);
                                     }
 
-                                    // Animate other messages with size + slide only (received or from other devices)
+                                    // Received or sent from another device: grow only.
                                     if (animationOrchestrator.isMessageAnimating(message)) {
                                       return animationOrchestrator.buildReceivedMessageAnimation(
                                         child: messageWidget,
@@ -811,12 +812,14 @@ class MessagesViewState extends State<MessagesView> with MessagesServiceMixin, T
                   ),
                 ),
               ),
-              DragDropOverlay(
-                dragging: dropZoneManager.dragging,
-              ),
-            ],
-          )),
-    );
+            ),
+            DragDropOverlay(
+              dragging: dropZoneManager.dragging,
+            ),
+          ],
+        ));
+    if (widget.dropZoneManager != null) return list;
+    return dropZoneManager.target(child: list);
   }
 }
 

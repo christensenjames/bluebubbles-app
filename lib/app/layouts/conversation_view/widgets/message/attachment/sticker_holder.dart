@@ -1,3 +1,4 @@
+import 'package:bluebubbles/app/layouts/conversation_view/widgets/message/attachment/image_viewer.dart';
 import 'package:bluebubbles/database/models.dart';
 import 'package:bluebubbles/services/services.dart';
 import 'package:flutter/material.dart';
@@ -69,15 +70,8 @@ class _StickerHolderState extends State<StickerHolder> {
                       File(attachment.path),
                       gaplessPlayback: true,
                       filterQuality: FilterQuality.none,
-                      frameBuilder: (context, child, frame, wasSynchronouslyLoaded) {
-                        if (wasSynchronouslyLoaded) return child;
-                        return AnimatedOpacity(
-                          opacity: frame == null ? 0.0 : 1.0,
-                          duration: const Duration(milliseconds: 300),
-                          curve: Curves.easeOut,
-                          child: child,
-                        );
-                      },
+                      frameBuilder: (context, child, frame, wasSynchronouslyLoaded) =>
+                          fadeInFirstFrame(context, child, frame, wasSynchronouslyLoaded),
                     ),
                   ),
                 )

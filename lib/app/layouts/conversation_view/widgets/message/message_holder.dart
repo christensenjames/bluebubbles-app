@@ -1,3 +1,4 @@
+import 'package:bluebubbles/app/components/m3e/m3e_motion.dart';
 import 'package:bluebubbles/app/state/message_state.dart';
 import 'package:bluebubbles/app/layouts/conversation_view/widgets/message/chat_event/chat_event.dart';
 import 'package:bluebubbles/app/layouts/conversation_view/widgets/message/message_holder/message_holder_indicators.dart';
@@ -263,7 +264,11 @@ class _MessageHolderState extends State<MessageHolder> with AutomaticKeepAliveCl
               // large timestamp between messages
               TimestampSeparator(olderMessage: olderMessage),
               // use stack so avatar can be placed at bottom
-              Row(
+              _MessageSemantics(
+                ms: controller,
+                isGroup: chat.isGroup,
+                parts: messageParts,
+                child: Row(
                 children: [
                   if (!isFromMe && !message.isGroupEvent) SelectCheckbox(controller: widget.cvController),
                   Expanded(
@@ -336,10 +341,10 @@ class _MessageHolderState extends State<MessageHolder> with AutomaticKeepAliveCl
                                                   color: context.theme.colorScheme.surfaceContainerHighest,
                                                   isFromMe: message.isFromMe!,
                                                 ),
-                                                child: MessageSender(olderMessage: olderMessage),
+                                                child: ExcludeSemantics(child: MessageSender(olderMessage: olderMessage)),
                                               ),
                                             )
-                                          : MessageSender(olderMessage: olderMessage),
+                                          : ExcludeSemantics(child: MessageSender(olderMessage: olderMessage)),
                                     ),
                                   // add a box to account for height of reactions
                                   iOS &&
@@ -435,9 +440,12 @@ class _MessageHolderState extends State<MessageHolder> with AutomaticKeepAliveCl
                                           child: SelectModeWrapper(
                                             cvController: widget.cvController,
                                             tapped: tapped,
-                                            child: Align(
+                                            child: _ReplyRevealAlign(
                                               alignment:
                                                   message.isFromMe! ? Alignment.centerRight : Alignment.centerLeft,
+                                              replyOffset: iOS && message.isFromMe! && !widget.isReplyThread
+                                                  ? replyOffsets[index]
+                                                  : null,
                                               child: Row(
                                                 mainAxisSize: MainAxisSize.min,
                                                 children: [
@@ -447,11 +455,13 @@ class _MessageHolderState extends State<MessageHolder> with AutomaticKeepAliveCl
                                                       part: e,
                                                     ),
                                                   if (samsung)
-                                                    SamsungTimestampObserver(
-                                                      messageParts: messageParts,
-                                                      part: e,
-                                                      cvController: widget.cvController,
-                                                      reactionsForPart: reactionsForPart,
+                                                    ExcludeSemantics(
+                                                      child: SamsungTimestampObserver(
+                                                        messageParts: messageParts,
+                                                        part: e,
+                                                        cvController: widget.cvController,
+                                                        reactionsForPart: reactionsForPart,
+                                                      ),
                                                     ),
                                                   // otherwise show content
                                                   if (!message.isGroupEvent && !e.isUnsent)
@@ -663,21 +673,67 @@ class _MessageHolderState extends State<MessageHolder> with AutomaticKeepAliveCl
                               ),
                             )),
                         // delivered / read receipt
-                        DeliveredIndicatorObserver(tapped: tapped),
+                        ExcludeSemantics(child: DeliveredIndicatorObserver(tapped: tapped)),
                       ],
                     ),
                   ),
                   if (isFromMe && !message.isGroupEvent) SelectCheckbox(controller: widget.cvController),
                   ErrorIndicatorObserver(chat: chat, service: service),
                   // slide to view timestamp
-                  if (iOS) MessageTimestamp(controller: controller, cvController: widget.cvController),
+                  if (iOS)
+                    ExcludeSemantics(child: MessageTimestamp(controller: controller, cvController: widget.cvController)),
                 ],
+              ),
               ),
             ],
           ),
         );
       }),
     );
+  }
+}
+
+class _MessageSemantics extends StatelessWidget {
+  const _MessageSemantics({required this.ms, required this.isGroup, required this.parts, required this.child});
+
+  final MessageState ms;
+  final bool isGroup;
+  final List<MessagePart> parts;
+  final Widget child;
+
+  String get _deliveryState {
+    if (ms.isSending.value) return "Sending";
+    if (ms.dateRead.value != null) return "Read";
+    if (ms.dateDelivered.value != null || ms.isDelivered.value) return "Delivered";
+    return "Sent";
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Obx(() {
+      final isEvent = ms.message.isGroupEvent;
+      final label = [
+        if (isGroup && !isEvent) ms.senderDisplayName,
+        for (final part in parts)
+          for (final a in part.attachments) (a.mimeType?.startsWith("image") ?? false) ? "Photo" : "Attachment",
+      ].join(", ");
+      // The error icon already reads "Not delivered", so the failed state is left out here.
+      final trailingLabel = [
+        buildTime(ms.dateCreated.value),
+        if (ms.isFromMe.value && !isEvent && !ms.hasError.value) _deliveryState,
+      ].where((s) => s.isNotEmpty).join(", ");
+      return Semantics(
+        container: true,
+        label: label,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            child,
+            Semantics(label: trailingLabel),
+          ],
+        ),
+      );
+    });
   }
 }
 
@@ -708,4 +764,31 @@ class _ReplyLinePainter extends CustomPainter {
 
   @override
   bool shouldRepaint(_ReplyLinePainter oldDelegate) => oldDelegate.color != color || oldDelegate.isFromMe != isFromMe;
+}
+
+// iOS skin: a sent bubble swiped right slides away from its reply indicator (on its left), revealing it.
+class _ReplyRevealAlign extends StatelessWidget {
+  const _ReplyRevealAlign({required this.alignment, required this.replyOffset, required this.child});
+
+  final Alignment alignment;
+  final RxDouble? replyOffset;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    final align = Align(alignment: alignment, child: child);
+    final offset = replyOffset;
+    if (offset == null) return align;
+    final reduceMotion = MediaQuery.disableAnimationsOf(context);
+    return Obx(() {
+      final dx = offset.value;
+      return TweenAnimationBuilder<double>(
+        tween: Tween<double>(end: dx),
+        duration: dx == 0 && !reduceMotion ? M3EMotion.spatialFast.duration : Duration.zero,
+        curve: M3EMotion.spatialFast.curve,
+        builder: (context, value, child) => Transform.translate(offset: Offset(value, 0), child: child),
+        child: align,
+      );
+    });
+  }
 }

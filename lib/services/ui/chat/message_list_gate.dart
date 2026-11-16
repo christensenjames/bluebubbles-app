@@ -17,8 +17,8 @@ typedef GatedWork = FutureOr<void> Function();
 /// everything sitting below the list — the text field, the typing indicator row
 /// and the smart reply row. A message arriving mid-flight inserts into the
 /// [SliverAnimatedList], can toggle the smart reply row, and can shift the
-/// typing indicator, all of which move that target while `AnimatedPositioned`
-/// is still animating toward the old one. The bubble then lands in the wrong
+/// typing indicator, all of which move that target while the bubble is still
+/// flying toward the old one. The bubble then lands in the wrong
 /// place and snaps into position.
 ///
 /// This is deliberately **not** a mutual-exclusion lock. No caller ever blocks
@@ -32,9 +32,9 @@ typedef GatedWork = FutureOr<void> Function();
 /// is landing on) must bypass the gate and mutate the list directly — see
 /// `MessagesViewState.handleNewMessage`.
 class MessageListGate {
-  MessageListGate({Duration? maxHold}) : _maxHold = maxHold ?? const Duration(milliseconds: 2000);
+  MessageListGate({Duration? maxHold}) : _maxHold = maxHold ?? const Duration(milliseconds: 1000);
 
-  /// Upper bound on a single hold. The send animation runs ~650ms end to end;
+  /// Upper bound on a single hold. The send animation runs ~300ms end to end;
   /// this only exists so a hold whose release is lost (dropped frame, animation
   /// callback that never fires) can't strand queued messages forever.
   final Duration _maxHold;

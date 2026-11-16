@@ -11,20 +11,11 @@ Three files. The header follows the standard skin pattern — each skin has its 
 
 ## Skin Pattern
 
-The parent `ConversationView` page uses `ThemeSwitcher` to route to the correct header:
-```dart
-ThemeSwitcher(
-  iOSSkin:      CupertinoHeader(controller: controller),
-  materialSkin: MaterialHeader(controller: controller),
-  samsungSkin:  MaterialHeader(controller: controller),  // Samsung reuses Material header
-)
-```
-
-All three variants receive the same `ConversationViewController`. Header state (chat title, avatar, typing indicator) is read from the controller or directly from `ChatState`.
+The parent `ConversationView` page selects `CupertinoHeader` for the iOS skin and `MaterialHeader` otherwise. Both receive the same `ConversationViewController`. Header state (chat title, avatar, typing indicator) is read from the controller or directly from `ChatState`.
 
 ## Shared Widgets (`header_widgets.dart`)
 
-**`ManualMark`** — appears when Private API is enabled and the conversation is open. Lets the user manually mark the chat as read on the server. Visibility is gated on `SettingsSvc.settings.enablePrivateAPI.value`.
+**`ManualMark`** — lets the user manually mark the chat as read on the server when Private API and `privateManualMarkAsRead` are enabled and the chat does not automatically send read receipts.
 
 When adding new header features, add shared logic or sub-widgets to `header_widgets.dart` and reference them from the skin-specific files rather than duplicating.
 
