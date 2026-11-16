@@ -46,11 +46,11 @@ class SettingsTile extends StatelessWidget {
     final material = SettingsSvc.settings.skin.value == Skins.Material;
     final showLeading = leading != null && (!material || SettingsLeadingIcons.shown(context));
     return Material(
-      color: Colors.transparent,
+      color: active ? context.theme.colorScheme.primary : Colors.transparent,
       child: InkWell(
         onTap: onTap as void Function()?,
         onLongPress: onLongPress as void Function()?,
-        splashColor: context.theme.colorScheme.surfaceVariant,
+        splashColor: context.theme.colorScheme.surfaceContainerHighest,
         splashFactory: context.theme.splashFactory,
         child: GestureDetector(
           onSecondaryTapUp: (details) async {
@@ -59,78 +59,73 @@ class SettingsTile extends StatelessWidget {
             }
             onLongPress?.call();
           },
-          // painted above the ink layer, so it just switches on and off instead of
-          // cross-fading with hover/splash
-          child: ColoredBox(
-            color: active ? context.theme.colorScheme.primary : Colors.transparent,
-            child: ListTile(
-              mouseCursor: MouseCursor.defer,
-              enableFeedback: true,
-              minVerticalPadding: minVerticalPadding ??
-                  (SettingsSvc.settings.skin.value == Skins.iOS ? 14 : (material ? 12 : 6)),
-              horizontalTitleGap: material ? 13 : 10,
-              dense: false,
-              leading: !showLeading
-                  ? null
-                  : Padding(
-                      padding: material
-                          ? EdgeInsets.zero
-                          : EdgeInsets.only(bottom: isThreeLine ? 10 : 0.0, right: 5, left: 5),
-                      child: leading,
+          child: ListTile(
+            mouseCursor: MouseCursor.defer,
+            enableFeedback: true,
+            minVerticalPadding: minVerticalPadding ??
+                (SettingsSvc.settings.skin.value == Skins.iOS ? 14 : (material ? 12 : 6)),
+            horizontalTitleGap: material ? 13 : 10,
+            dense: false,
+            leading: !showLeading
+                ? null
+                : Padding(
+                    padding: material
+                        ? EdgeInsets.zero
+                        : EdgeInsets.only(bottom: isThreeLine ? 10 : 0.0, right: 5, left: 5),
+                    child: leading,
+                  ),
+            title: title != null
+                ? Text(
+                    title!,
+                    style: context.theme.textTheme.bodyLarge!.copyWith(
+                      fontWeight: active ? FontWeight.w600 : (material ? FontWeight.w500 : null),
+                      color: active ? context.theme.colorScheme.onPrimary : null,
                     ),
-              title: title != null
-                  ? Text(
-                      title!,
-                      style: context.theme.textTheme.bodyLarge!.copyWith(
-                        fontWeight: active ? FontWeight.w600 : (material ? FontWeight.w500 : null),
-                        color: active ? context.theme.colorScheme.onPrimary : null,
-                      ),
-                    )
-                  : null,
-              trailing: trailing == null
-                  ? null
-                  : ConstrainedBox(
-                      constraints: const BoxConstraints(maxWidth: 160),
-                      child: Padding(
-                        padding: EdgeInsets.only(bottom: isThreeLine ? 10 : 0.0),
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            // trailing widgets (status text, caret) bake their colors in at the
-                            // call site, so recolor what they paint rather than the theme
-                            // they read — alpha survives, hue doesn't
-                            if (active)
-                              ColorFiltered(
-                                colorFilter:
-                                    ColorFilter.mode(context.theme.colorScheme.onPrimary, BlendMode.srcATop),
-                                child: trailing!,
-                              )
-                            else
-                              trailing!,
-                          ],
-                        ),
+                  )
+                : null,
+            trailing: trailing == null
+                ? null
+                : ConstrainedBox(
+                    constraints: const BoxConstraints(maxWidth: 160),
+                    child: Padding(
+                      padding: EdgeInsets.only(bottom: isThreeLine ? 10 : 0.0),
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          // trailing widgets (status text, caret) bake their colors in at the
+                          // call site, so recolor what they paint rather than the theme
+                          // they read — alpha survives, hue doesn't
+                          if (active)
+                            ColorFiltered(
+                              colorFilter:
+                                  ColorFilter.mode(context.theme.colorScheme.onPrimary, BlendMode.srcATop),
+                              child: trailing!,
+                            )
+                          else
+                            trailing!,
+                        ],
                       ),
                     ),
-              subtitle: subtitle != null
-                  ? Text(
-                      subtitle!,
-                      style: material
-                          ? context.theme.textTheme.bodyMedium!.copyWith(
-                              color: active
-                                  ? context.theme.colorScheme.onPrimary
-                                  : context.theme.colorScheme.onSurfaceVariant)
-                          : context.theme.textTheme.bodySmall!.copyWith(
-                              color: (active
-                                      ? context.theme.colorScheme.onPrimary
-                                      : context.theme.colorScheme.onSurfaceVariant)
-                                  .withValues(alpha: 0.75),
-                              height: 1.5),
-                    )
-                  : null,
-              contentPadding: EdgeInsets.symmetric(
-                  horizontal: 16.0,
-                  vertical: material ? 0.0 : (SettingsSvc.settings.skin.value == Skins.iOS ? 0.0 : 4.0)),
-            ),
+                  ),
+            subtitle: subtitle != null
+                ? Text(
+                    subtitle!,
+                    style: material
+                        ? context.theme.textTheme.bodyMedium!.copyWith(
+                            color: active
+                                ? context.theme.colorScheme.onPrimary
+                                : context.theme.colorScheme.onSurfaceVariant)
+                        : context.theme.textTheme.bodySmall!.copyWith(
+                            color: (active
+                                    ? context.theme.colorScheme.onPrimary
+                                    : context.theme.colorScheme.onSurfaceVariant)
+                                .withValues(alpha: 0.75),
+                            height: 1.5),
+                  )
+                : null,
+            contentPadding: EdgeInsets.symmetric(
+                horizontal: 16.0,
+                vertical: material ? 0.0 : (SettingsSvc.settings.skin.value == Skins.iOS ? 0.0 : 4.0)),
           ),
         ),
       ),

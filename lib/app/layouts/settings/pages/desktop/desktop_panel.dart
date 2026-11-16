@@ -204,22 +204,23 @@ class _DesktopPanelState extends State<DesktopPanel> with ThemeHelpers {
                         ),
                       )),
                   Obx(() {
-                    if (SettingsSvc.settings.showTrayIcon.value &&
-                        (SettingsSvc.settings.titleBarStyle.value == BBTitleBarStyle.custom || !Platform.isLinux)) {
-                      return Container(
+                    return AnimatedSizeAndFade.showHide(
+                      show: SettingsSvc.settings.showTrayIcon.value &&
+                        (SettingsSvc.settings.titleBarStyle.value == BBTitleBarStyle.custom || !Platform.isLinux),
+                      child: Container(
                         color: tileColor,
                         child: Padding(
                           padding: const EdgeInsets.only(left: 15.0),
                           child: SettingsDivider(color: context.theme.colorScheme.surfaceVariant),
                         ),
-                      );
-                    }
-                    return const SizedBox.shrink();
+                      ),
+                    );
                   }),
                   Obx(() {
-                    if (SettingsSvc.settings.showTrayIcon.value &&
-                        (SettingsSvc.settings.titleBarStyle.value == BBTitleBarStyle.custom || !Platform.isLinux)) {
-                      return SettingsSwitch(
+                    return AnimatedSizeAndFade.showHide(
+                      show: SettingsSvc.settings.showTrayIcon.value &&
+                        (SettingsSvc.settings.titleBarStyle.value == BBTitleBarStyle.custom || !Platform.isLinux),
+                      child: SettingsSwitch(
                         onChanged: (bool val) async {
                           SettingsSvc.settings.minimizeToTray.value = val;
                           await SettingsSvc.settings.saveOneAsync('minimizeToTray');
@@ -233,25 +234,24 @@ class _DesktopPanelState extends State<DesktopPanel> with ThemeHelpers {
                           materialIcon: Icons.expand_circle_down_outlined,
                           containerColor: Colors.indigo,
                         ),
-                      );
-                    }
-                    return const SizedBox.shrink();
+                      ),
+                    );
                   }),
                   Obx(() {
-                    if (SettingsSvc.settings.showTrayIcon.value) {
-                      return Container(
+                    return AnimatedSizeAndFade.showHide(
+                      show: SettingsSvc.settings.showTrayIcon.value,
+                      child: Container(
                         color: tileColor,
                         child: Padding(
                           padding: const EdgeInsets.only(left: 15.0),
                           child: SettingsDivider(color: context.theme.colorScheme.surfaceVariant),
                         ),
-                      );
-                    }
-                    return const SizedBox.shrink();
+                      ),
+                    );
                   }),
-                  Obx(() => !SettingsSvc.settings.showTrayIcon.value
-                      ? const SizedBox.shrink()
-                      : SettingsSwitch(
+                  Obx(() => AnimatedSizeAndFade.showHide(
+                      show: SettingsSvc.settings.showTrayIcon.value,
+                      child: SettingsSwitch(
                           onChanged: (bool val) async {
                             SettingsSvc.settings.closeToTray.value = val;
                             await windowManager.setPreventClose(val);
@@ -266,7 +266,7 @@ class _DesktopPanelState extends State<DesktopPanel> with ThemeHelpers {
                             materialIcon: Icons.expand_circle_down,
                             containerColor: Colors.green,
                           ),
-                        )),
+                        ))),
                 ],
               ),
               SettingsHeader(iosSubtitle: iosSubtitle, materialSubtitle: materialSubtitle, text: "Notifications"),
@@ -339,6 +339,7 @@ class _DesktopPanelState extends State<DesktopPanel> with ThemeHelpers {
                                   mainAxisSize: MainAxisSize.min,
                                   children: [
                                     IconButton(
+                                        tooltip: playingNotificationSound.value ? 'Stop sound' : 'Play sound',
                                         icon: playingNotificationSound.value
                                             ? Icon(SettingsSvc.settings.skin.value == Skins.iOS
                                                 ? CupertinoIcons.stop
@@ -358,6 +359,7 @@ class _DesktopPanelState extends State<DesktopPanel> with ThemeHelpers {
                                           }
                                         }),
                                     IconButton(
+                                      tooltip: 'Delete sound',
                                       icon: Icon(SettingsSvc.settings.skin.value == Skins.iOS
                                           ? CupertinoIcons.trash
                                           : Icons.delete_outline),

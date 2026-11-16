@@ -150,18 +150,16 @@ class _EditButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Tooltip(
-      message: tooltip,
-      child: IconButton(
-        onPressed: onPressed,
-        icon: const Icon(Icons.edit_outlined),
-        iconSize: 18,
-        color: context.theme.colorScheme.primary,
-        style: IconButton.styleFrom(
-          minimumSize: const Size(32, 32),
-          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-          padding: const EdgeInsets.all(6),
-        ),
+    return IconButton(
+      tooltip: tooltip,
+      onPressed: onPressed,
+      icon: const Icon(Icons.edit_outlined),
+      iconSize: 18,
+      color: context.theme.colorScheme.primary,
+      style: IconButton.styleFrom(
+        minimumSize: const Size(32, 32),
+        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+        padding: const EdgeInsets.all(6),
       ),
     );
   }
@@ -176,18 +174,16 @@ class _InfoButton extends StatelessWidget {
   Widget build(BuildContext context) {
     final desc = ThemeStruct.colorDescriptions[colorKey];
     if (desc == null) return const SizedBox.shrink();
-    return Tooltip(
-      message: 'About this color',
-      child: IconButton(
-        onPressed: () => _showInfo(context, desc),
-        icon: const Icon(Icons.info_outline),
-        iconSize: 18,
-        color: context.theme.colorScheme.onSurfaceVariant,
-        style: IconButton.styleFrom(
-          minimumSize: const Size(32, 32),
-          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-          padding: const EdgeInsets.all(6),
-        ),
+    return IconButton(
+      tooltip: 'About this color',
+      onPressed: () => _showInfo(context, desc),
+      icon: const Icon(Icons.info_outline),
+      iconSize: 18,
+      color: context.theme.colorScheme.onSurfaceVariant,
+      style: IconButton.styleFrom(
+        minimumSize: const Size(32, 32),
+        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+        padding: const EdgeInsets.all(6),
       ),
     );
   }

@@ -186,8 +186,10 @@ class _ProfilePanelState extends State<ProfilePanel> with WidgetsBindingObserver
                   child: TextButton(
                     child: Text(
                       "Change Name",
-                      style: context.theme.textTheme.bodyMedium!.apply(color: context.theme.colorScheme.primary),
-                      textScaler: const TextScaler.linear(1.15),
+                      style: context.theme.textTheme.bodyMedium!.copyWith(
+                        color: context.theme.colorScheme.primary,
+                        fontSize: context.theme.textTheme.bodyMedium!.fontSize! * 1.15,
+                      ),
                     ),
                     onPressed: () async {
                       updateName();

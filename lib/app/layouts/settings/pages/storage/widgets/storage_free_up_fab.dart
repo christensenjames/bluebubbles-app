@@ -1,3 +1,4 @@
+import 'package:bluebubbles/app/components/m3e/m3e_motion.dart';
 import 'package:bluebubbles/app/layouts/settings/pages/storage/storage_analyzer_controller.dart';
 import 'package:bluebubbles/app/layouts/settings/pages/storage/storage_analyzer_helpers.dart';
 import 'package:bluebubbles/app/layouts/settings/pages/storage/widgets/storage_cleanup_sheet.dart';
@@ -6,22 +7,10 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 
-/// Floating "Free up N" action, shared by all three skins via
-/// `SettingsScaffold(fab: ...)`. Replaces the old inline footer button that
-/// used to live at the bottom of the results list.
-///
-/// Always mounted (never swapped for `null`) so the scale/fade below is what
-/// drives visibility — pops in with a little overshoot when the selection
-/// goes from empty to non-empty, and eases back out when it's cleared.
-/// `IgnorePointer` keeps the invisible FAB from eating taps in its footprint.
 class StorageFreeUpFab extends StatelessWidget with StorageAnalyzerHelpersMixin {
   const StorageFreeUpFab({super.key, required this.controller});
 
   final StorageAnalyzerController controller;
-
-  // Deliberately not a snappy 150-200ms (reads as a glitch), but 450ms felt
-  // sluggish — this splits the difference.
-  static const _duration = Duration(milliseconds: 280);
 
   @override
   Widget build(BuildContext context) {
@@ -32,13 +21,13 @@ class StorageFreeUpFab extends StatelessWidget with StorageAnalyzerHelpersMixin 
       return IgnorePointer(
         ignoring: !hasSelection,
         child: AnimatedScale(
-          scale: hasSelection ? 1.0 : 0.0,
-          duration: _duration,
-          curve: hasSelection ? Curves.easeOutBack : Curves.easeInCubic,
+          scale: hasSelection ? 1.0 : 0.9,
+          duration: hasSelection ? M3EMotion.spatialFast.durationOf(context) : M3EMotion.effectsFast.durationOf(context),
+          curve: hasSelection ? M3EMotion.spatialFast.curve : M3EMotion.effectsFast.curve,
           child: AnimatedOpacity(
             opacity: hasSelection ? 1.0 : 0.0,
-            duration: _duration,
-            curve: Curves.easeOut,
+            duration: M3EMotion.effectsFast.durationOf(context),
+            curve: M3EMotion.effectsFast.curve,
             child: FloatingActionButton.extended(
               onPressed: () => showStorageCleanupSheet(context, controller),
               backgroundColor: context.theme.colorScheme.primary,

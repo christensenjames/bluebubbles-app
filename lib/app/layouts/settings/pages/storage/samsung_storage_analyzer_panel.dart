@@ -10,12 +10,6 @@ import 'package:bluebubbles/helpers/helpers.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 
-/// Samsung M3 Expressive skin — identical structure to the Material skin;
-/// `SettingsScaffold` already branches Samsung internally (collapsing
-/// `SliverAppBar`, `bodySlivers` re-wrapped in a `NeverScrollableScrollPhysics`
-/// inner scroll view). No pull-to-refresh and no manual refresh button, on
-/// any skin — the page only ever re-analyzes on the initial "Analyze" tap,
-/// on a filter change, or automatically after a delete (to verify it landed).
 class SamsungStorageAnalyzerPanel extends StatelessWidget with StorageAnalyzerHelpersMixin {
   const SamsungStorageAnalyzerPanel({super.key, required this.controller});
 

@@ -1,3 +1,4 @@
+import 'package:animated_size_and_fade/animated_size_and_fade.dart';
 import 'dart:async';
 
 import 'package:audio_waveforms/audio_waveforms.dart' as aw;
@@ -301,6 +302,7 @@ class _ConversationPanelState extends State<ConversationPanel> with ThemeHelpers
                                 mainAxisSize: MainAxisSize.min,
                                 children: [
                                   IconButton(
+                                      tooltip: playingSendSound.value ? 'Stop sound' : 'Play sound',
                                       icon: playingSendSound.value
                                           ? Icon(SettingsSvc.settings.skin.value == Skins.iOS
                                               ? CupertinoIcons.stop
@@ -335,6 +337,7 @@ class _ConversationPanelState extends State<ConversationPanel> with ThemeHelpers
                                         }
                                       }),
                                   IconButton(
+                                    tooltip: 'Delete sound',
                                     icon: Icon(SettingsSvc.settings.skin.value == Skins.iOS
                                         ? CupertinoIcons.trash
                                         : Icons.delete_outline),
@@ -375,6 +378,7 @@ class _ConversationPanelState extends State<ConversationPanel> with ThemeHelpers
                                 mainAxisSize: MainAxisSize.min,
                                 children: [
                                   IconButton(
+                                      tooltip: playingReceiveSound.value ? 'Stop sound' : 'Play sound',
                                       icon: playingReceiveSound.value
                                           ? Icon(SettingsSvc.settings.skin.value == Skins.iOS
                                               ? CupertinoIcons.stop
@@ -411,6 +415,7 @@ class _ConversationPanelState extends State<ConversationPanel> with ThemeHelpers
                                         }
                                       }),
                                   IconButton(
+                                    tooltip: 'Delete sound',
                                     icon: Icon(SettingsSvc.settings.skin.value == Skins.iOS
                                         ? CupertinoIcons.trash
                                         : Icons.delete_outline),
@@ -608,9 +613,10 @@ class _ConversationPanelState extends State<ConversationPanel> with ThemeHelpers
                             iosIcon: CupertinoIcons.timer, materialIcon: Icons.timer, containerColor: Colors.green),
                       )),
                   Obx(() {
-                    if (!isNullOrZero(SettingsSvc.settings.sendDelay.value)) {
-                      return SettingsSlider(
-                          startingVal: SettingsSvc.settings.sendDelay.toDouble(),
+                    return AnimatedSizeAndFade.showHide(
+                      show: !isNullOrZero(SettingsSvc.settings.sendDelay.value),
+                      child: SettingsSlider(
+                          startingVal: SettingsSvc.settings.sendDelay.toDouble().clamp(1, 10),
                           update: (double val) {
                             SettingsSvc.settings.sendDelay.value = val.toInt();
                           },
@@ -621,10 +627,8 @@ class _ConversationPanelState extends State<ConversationPanel> with ThemeHelpers
                           backgroundColor: tileColor,
                           min: 1,
                           max: 10,
-                          divisions: 9);
-                    } else {
-                      return const SizedBox.shrink();
-                    }
+                          divisions: 9),
+                    );
                   }),
                   const SettingsDivider(padding: EdgeInsets.only(left: 16.0)),
                   Obx(() => SettingsSwitch(

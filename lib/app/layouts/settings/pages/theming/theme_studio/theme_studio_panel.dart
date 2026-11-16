@@ -809,6 +809,7 @@ class _PendingBackButton extends StatelessWidget {
       child: SizedBox(
         width: 48,
         child: IconButton(
+          tooltip: 'Back',
           iconSize: SettingsSvc.settings.skin.value != Skins.Material ? 30 : 24,
           icon: Obx(() => Icon(
                 SettingsSvc.settings.skin.value != Skins.Material ? CupertinoIcons.back : Icons.arrow_back,
