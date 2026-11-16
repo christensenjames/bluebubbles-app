@@ -8,8 +8,9 @@ class M3EMotionSpec {
 }
 
 extension M3EMotionX on M3EMotionSpec {
-  /// Convenience for driving an [AnimatedContainer] / [AnimatedSwitcher] with this spec.
+  /// Uses [context] to disable the container transition under reduced motion.
   Widget container({
+    required BuildContext context,
     required Widget child,
     Color? color,
     BoxDecoration? decoration,
@@ -19,7 +20,7 @@ extension M3EMotionX on M3EMotionSpec {
     double? height,
   }) {
     return AnimatedContainer(
-      duration: duration,
+      duration: durationOf(context),
       curve: curve,
       color: decoration == null ? color : null,
       decoration: decoration ?? (borderRadius != null ? BoxDecoration(borderRadius: borderRadius) : null),
@@ -28,6 +29,19 @@ extension M3EMotionX on M3EMotionSpec {
       height: height,
       child: child,
     );
+  }
+
+  /// [duration], or zero when `MediaQuery.disableAnimationsOf` is on.
+  Duration durationOf(BuildContext context) => MediaQuery.disableAnimationsOf(context) ? Duration.zero : duration;
+}
+
+extension ReducedMotionController on AnimationController {
+  /// Sets [duration] to [full], or to zero under reduced motion, settling any run already in flight.
+  /// Call from `didChangeDependencies`; `initState` can't read MediaQuery.
+  void matchReducedMotion(BuildContext context, Duration full) {
+    final reduceMotion = MediaQuery.disableAnimationsOf(context);
+    duration = reduceMotion ? Duration.zero : full;
+    if (reduceMotion && isAnimating) value = status == AnimationStatus.forward ? upperBound : lowerBound;
   }
 }
 

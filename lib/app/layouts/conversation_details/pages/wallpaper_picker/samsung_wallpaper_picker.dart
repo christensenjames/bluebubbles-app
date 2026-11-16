@@ -3,7 +3,7 @@ import 'package:bluebubbles/app/layouts/conversation_details/pages/wallpaper_pic
 import 'package:bluebubbles/app/wrappers/bb_app_bar.dart';
 import 'package:bluebubbles/app/wrappers/bb_scaffold.dart';
 import 'package:bluebubbles/helpers/helpers.dart';
-import 'package:flutter/material.dart';
+import 'package:flutter/material.dart' hide BackButton;
 
 /// Samsung M3 Expressive skin — identical structure to the Material skin;
 /// `BBAppBar`/theming already branch Samsung internally.
@@ -17,7 +17,7 @@ class SamsungWallpaperPicker extends StatelessWidget {
     return BBScaffold(
       extendBodyBehindAppBar: false,
       backgroundColor: context.headerColor,
-      appBar: BBAppBar(titleText: "Wallpaper", leading: buildBackButton(context)),
+      appBar: const BBAppBar(titleText: "Wallpaper", leading: BackButton()),
       body: WallpaperExpressiveBody(controller: controller),
     );
   }

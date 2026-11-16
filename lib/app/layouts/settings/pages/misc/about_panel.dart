@@ -7,7 +7,7 @@ import 'package:bluebubbles/app/wrappers/theme_switcher.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/gestures.dart';
-import 'package:flutter/material.dart';
+import 'package:flutter/material.dart' hide BackButton;
 import 'package:flutter_markdown_plus/flutter_markdown_plus.dart';
 import 'package:get/get.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -130,7 +130,7 @@ class _AboutPanelState extends State<AboutPanel> with ThemeHelpers {
                               backgroundColor: context.theme.colorScheme.surface,
                               appBar: BBAppBar(
                                 toolbarHeight: 50,
-                                leading: buildBackButton(context),
+                                leading: const BackButton(),
                                 iconTheme: IconThemeData(color: context.theme.colorScheme.primary),
                                 title: Padding(
                                   padding: EdgeInsets.only(top: kIsDesktop ? 20 : 0),

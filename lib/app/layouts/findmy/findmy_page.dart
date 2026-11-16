@@ -1,6 +1,7 @@
 import 'dart:math';
 import 'dart:ui';
 
+import 'package:bluebubbles/app/components/m3e/m3e_motion.dart';
 import 'package:bluebubbles/app/wrappers/bb_scaffold.dart';
 import 'package:bitsdojo_window/bitsdojo_window.dart';
 import 'package:bluebubbles/app/layouts/findmy/findmy_controller.dart';
@@ -14,7 +15,7 @@ import 'package:bluebubbles/helpers/helpers.dart';
 import 'package:bluebubbles/services/services.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/foundation.dart';
-import 'package:flutter/material.dart';
+import 'package:flutter/material.dart' hide BackButton;
 import 'package:get/get.dart';
 import 'package:sliding_up_panel2/sliding_up_panel2.dart';
 
@@ -93,7 +94,7 @@ class _FindMyPageState extends State<FindMyPage> with SingleTickerProviderStateM
                           width: 48,
                           height: 48,
                           margin: const EdgeInsets.symmetric(horizontal: 8),
-                          child: buildBackButton(context),
+                          child: const BackButton(),
                         ),
                         Expanded(child: Text("Find My", style: context.theme.textTheme.titleLarge)),
                       ],
@@ -268,7 +269,7 @@ class _FindMyPageState extends State<FindMyPage> with SingleTickerProviderStateM
               disableDraggableOnScrolling: true,
               backdropEnabled: true,
               parallaxEnabled: true,
-              panelSnapping: false,
+              panelSnapping: true,
               header: ForceDraggableWidget(
                 child: SizedBox(
                   width: MediaQuery.of(context).size.width,
@@ -319,7 +320,7 @@ class _FindMyPageState extends State<FindMyPage> with SingleTickerProviderStateM
                     shape: BoxShape.circle,
                     color: Theme.of(context).colorScheme.surfaceContainerHighest.withValues(alpha: 0.9),
                   ),
-                  child: buildBackButton(context, padding: const EdgeInsets.only(right: 2)),
+                  child: const BackButton(padding: EdgeInsets.only(right: 2)),
                 ),
               ),
             if (!context.samsung && controller.canRefresh.value) _buildRefreshButton(context, isTablet: false),
@@ -340,8 +341,15 @@ class _FindMyPageState extends State<FindMyPage> with SingleTickerProviderStateM
         if (scrollController.hasClients && scrollController.offset > 0 && scrollController.offset < scrollDistance) {
           final double snapOffset = scrollController.offset / scrollDistance > 0.5 ? scrollDistance : 0;
 
-          Future.microtask(() => scrollController.animateTo(snapOffset,
-              duration: const Duration(milliseconds: 200), curve: Curves.linear));
+          final reduceMotion = MediaQuery.disableAnimationsOf(context);
+          Future.microtask(() {
+            if (reduceMotion) {
+              scrollController.jumpTo(snapOffset);
+            } else {
+              scrollController.animateTo(snapOffset,
+                  duration: M3EMotion.spatialDefault.duration, curve: M3EMotion.spatialDefault.curve);
+            }
+          });
         }
         return false;
       },
@@ -405,6 +413,7 @@ class _FindMyPageState extends State<FindMyPage> with SingleTickerProviderStateM
             child: controller.refreshing.value || controller.refreshing2.value
                 ? buildProgressIndicator(context)
                 : IconButton(
+                    tooltip: "Refresh locations",
                     iconSize: 22,
                     icon: Icon(context.iOS ? CupertinoIcons.arrow_counterclockwise : Icons.refresh,
                         color: context.theme.colorScheme.onSurface, size: 22),
@@ -491,15 +500,15 @@ class _FindMyPageState extends State<FindMyPage> with SingleTickerProviderStateM
                     ),
                   ),
                 ),
-                Padding(
-                  padding: const EdgeInsets.only(left: 8.0),
+                const Padding(
+                  padding: EdgeInsets.only(left: 8.0),
                   child: Align(
                     alignment: Alignment.bottomLeft,
                     child: SizedBox(
                       height: 50,
                       child: Align(
                         alignment: Alignment.centerLeft,
-                        child: buildBackButton(context),
+                        child: BackButton(),
                       ),
                     ),
                   ),
@@ -523,6 +532,7 @@ class _FindMyPageState extends State<FindMyPage> with SingleTickerProviderStateM
                                 child: controller.refreshing.value || controller.refreshing2.value
                                     ? buildProgressIndicator(context)
                                     : IconButton(
+                                        tooltip: "Refresh locations",
                                         iconSize: 22,
                                         icon: Icon(context.iOS ? CupertinoIcons.arrow_counterclockwise : Icons.refresh,
                                             color: context.theme.colorScheme.onSurface, size: 22),

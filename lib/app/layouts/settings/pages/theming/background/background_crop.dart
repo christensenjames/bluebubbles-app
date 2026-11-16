@@ -9,7 +9,7 @@ import 'package:bluebubbles/services/services.dart';
 import 'package:crop_your_image/crop_your_image.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/cupertino.dart';
-import 'package:flutter/material.dart';
+import 'package:flutter/material.dart' hide BackButton;
 import 'package:flutter/services.dart';
 import 'package:get/get.dart';
 import 'package:image/image.dart' as img;
@@ -169,19 +169,19 @@ class _BackgroundCropState extends State<BackgroundCrop> with ThemeHelpers {
   PreferredSizeWidget _buildAppBar(BuildContext context, double screenAspectRatio) {
     switch (_currentStep) {
       case _EditStep.selectImage:
-        return BBAppBar(
+        return const BBAppBar(
           titleText: "Set Custom Background",
-          leading: buildBackButton(context),
+          leading: BackButton(),
         );
       case _EditStep.crop:
         return BBAppBar(
           titleText: "Crop Image",
-          leading: buildBackButton(context, callback: () {
+          leading: BackButton(onPressed: () {
             setState(() {
               _currentStep = _EditStep.selectImage;
               _isLoading = false;
             });
-            return false;
+            return true;
           }),
           actions: [
             IconButton(
@@ -215,13 +215,13 @@ class _BackgroundCropState extends State<BackgroundCrop> with ThemeHelpers {
       case _EditStep.blur:
         return BBAppBar(
           titleText: "Adjust Blur",
-          leading: buildBackButton(context, callback: () {
+          leading: BackButton(onPressed: () {
             setState(() {
               _currentStep = _EditStep.crop;
               _croppedData = null;
               _isLoading = true;
             });
-            return false;
+            return true;
           }),
           actions: [
             TextButton(

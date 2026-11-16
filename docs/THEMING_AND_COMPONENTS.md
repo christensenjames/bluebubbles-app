@@ -67,7 +67,7 @@ given.
 ```dart
 appBar: BBAppBar(
   titleText: 'Settings',
-  leading: buildBackButton(context),
+  leading: const BackButton(),
   actions: [IconButton(...)],
 ),
 ```

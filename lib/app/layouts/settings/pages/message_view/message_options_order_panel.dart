@@ -3,7 +3,7 @@ import 'package:bluebubbles/app/wrappers/bb_scaffold.dart';
 import 'package:bluebubbles/app/layouts/conversation_view/widgets/message/popup/details_menu_action.dart';
 import 'package:bluebubbles/helpers/helpers.dart';
 import 'package:bluebubbles/services/services.dart';
-import 'package:flutter/material.dart';
+import 'package:flutter/material.dart' hide BackButton;
 import 'package:get/get.dart';
 
 class MessageOptionsOrderPanel extends StatefulWidget {
@@ -30,7 +30,7 @@ class _MessageOptionsOrderPanelState extends State<MessageOptionsOrderPanel> wit
       extendBodyBehindAppBar: false,
       appBar: BBAppBar(
         titleText: "Message Options Order",
-        leading: buildBackButton(context),
+        leading: const BackButton(),
         actions: [
           TextButton(
             child: Text("Reset",
@@ -78,12 +78,13 @@ class _MessageOptionsOrderPanelState extends State<MessageOptionsOrderPanel> wit
                         ),
                       ),
                       MouseRegion(
-                        cursor: MouseCursor.defer,
+                        cursor: SystemMouseCursors.grab,
                         child: ReorderableDragStartListener(
                           index: index,
-                          child: Icon(
-                            Icons.drag_handle,
-                            color: context.theme.colorScheme.outline,
+                          child: SizedBox(
+                            width: 48,
+                            height: 48,
+                            child: Icon(Icons.drag_handle, color: context.theme.colorScheme.outline),
                           ),
                         ),
                       ),

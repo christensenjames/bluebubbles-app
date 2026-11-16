@@ -11,7 +11,7 @@ import 'package:get/get.dart';
 /// - `backgroundColor` defaults to `context.headerColor`
 /// - `centerTitle` defaults to `context.iOS`
 /// - `surfaceTintColor` defaults to `context.theme.colorScheme.primary`
-/// - `systemOverlayStyle` defers to Flutter's AppBar behavior unless provided
+/// - `systemOverlayStyle` defaults to the effective background color's brightness
 /// - `toolbarHeight` defaults to 80 on desktop, 50 on mobile
 /// - `automaticallyImplyLeading` defaults to false
 ///
@@ -26,8 +26,8 @@ import 'package:get/get.dart';
 /// ```dart
 /// appBar: BBAppBar(
 ///   titleText: 'Settings',
-///   leading: buildBackButton(context),
-///   actions: [IconButton(...)],
+///   leading: const BackButton(),
+///   actions: [IconButton(tooltip: 'Search', ...)],
 /// ),
 /// ```
 class BBAppBar extends StatelessWidget implements PreferredSizeWidget {
@@ -61,8 +61,7 @@ class BBAppBar extends StatelessWidget implements PreferredSizeWidget {
 
   /// Optional manual override for the status/navigation bar overlay style.
   ///
-  /// When null, Flutter's [AppBar] chooses the overlay style from the effective
-  /// app bar background color and theme defaults.
+  /// When null, the effective app bar background color determines the overlay style.
   final SystemUiOverlayStyle? systemOverlayStyle;
 
   /// Defaults to false.

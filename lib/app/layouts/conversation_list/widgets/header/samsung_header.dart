@@ -4,7 +4,7 @@ import 'package:bluebubbles/app/layouts/conversation_list/widgets/header/header_
 import 'package:bluebubbles/app/layouts/conversation_list/pages/search/search_view.dart';
 import 'package:bluebubbles/app/wrappers/stateful_boilerplate.dart';
 import 'package:bluebubbles/services/services.dart';
-import 'package:flutter/material.dart';
+import 'package:flutter/material.dart' hide BackButton;
 import 'package:flutter_acrylic/flutter_acrylic.dart';
 import 'package:get/get.dart';
 
@@ -98,13 +98,7 @@ class _SamsungHeaderState extends CustomState<SamsungHeader, void, ConversationL
                       child: Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          if (showArchived || showUnknown || showSpam)
-                            IconButton(
-                                onPressed: () async {
-                                  Navigator.of(context).pop();
-                                },
-                                padding: EdgeInsets.zero,
-                                icon: buildBackButton(context)),
+                          if (showArchived || showUnknown || showSpam) const BackButton(),
                           if (!showArchived && !showUnknown && !showSpam) const SizedBox.shrink(),
                           Row(
                             mainAxisAlignment: MainAxisAlignment.end,
@@ -114,6 +108,7 @@ class _SamsungHeaderState extends CustomState<SamsungHeader, void, ConversationL
                                 Padding(
                                     padding: const EdgeInsets.only(left: 2),
                                     child: IconButton(
+                                      tooltip: "Camera",
                                       onPressed: () async {
                                         controller.openCamera(context);
                                       },
@@ -124,6 +119,7 @@ class _SamsungHeaderState extends CustomState<SamsungHeader, void, ConversationL
                                     )),
                               if (!showArchived && !showUnknown && !showSpam)
                                 IconButton(
+                                    tooltip: "Search",
                                     onPressed: () async {
                                       NavigationSvc.pushLeft(
                                         context,

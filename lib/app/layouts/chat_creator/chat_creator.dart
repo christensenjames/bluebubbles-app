@@ -24,7 +24,7 @@ import 'package:bluebubbles/utils/logger/logger.dart';
 import 'package:bluebubbles/utils/string_utils.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/foundation.dart';
-import 'package:flutter/material.dart';
+import 'package:flutter/material.dart' hide BackButton;
 import 'package:flutter/scheduler.dart';
 import 'package:flutter/services.dart';
 import 'package:dio/dio.dart' show Response;
@@ -273,12 +273,13 @@ class ChatCreatorState extends State<ChatCreator> with ThemeHelpers {
     return BBScaffold(
       appBar: BBAppBar(
         titleText: "New Conversation",
-        leading: buildBackButton(context),
+        leading: const BackButton(),
         backgroundColor: Colors.transparent,
         toolbarHeight: kIsDesktop ? 90 : 50,
         actions: [
           if (!canCreateGroupChats)
             IconButton(
+              tooltip: "Group chat limitations",
               icon: Icon(iOS ? CupertinoIcons.exclamationmark_circle : Icons.error_outline,
                   color: context.theme.colorScheme.error),
               onPressed: () {

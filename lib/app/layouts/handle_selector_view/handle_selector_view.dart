@@ -9,7 +9,7 @@ import 'package:bluebubbles/database/database.dart';
 import 'package:bluebubbles/database/models.dart';
 import 'package:bluebubbles/services/services.dart';
 import 'package:bluebubbles/utils/string_utils.dart';
-import 'package:flutter/material.dart';
+import 'package:flutter/material.dart' hide BackButton;
 import 'package:flutter/scheduler.dart';
 import 'package:get/get.dart' hide Response;
 import 'package:slugify/slugify.dart';
@@ -116,7 +116,7 @@ class HandleSelectorViewState extends State<HandleSelectorView> with ThemeHelper
     return BBScaffold(
       appBar: BBAppBar(
         titleText: "Select an Address",
-        leading: buildBackButton(context),
+        leading: const BackButton(),
         backgroundColor: Colors.transparent,
         toolbarHeight: kIsDesktop ? 90 : 50,
       ),
@@ -138,6 +138,7 @@ class HandleSelectorViewState extends State<HandleSelectorView> with ThemeHelper
                     ),
                     suffixIcon: searchController.text.isNotEmpty
                         ? IconButton(
+                            tooltip: "Clear search",
                             icon: const Icon(Icons.clear),
                             onPressed: () {
                               searchController.clear();
@@ -155,88 +156,86 @@ class HandleSelectorViewState extends State<HandleSelectorView> with ThemeHelper
               child: Obx(() {
                 return Align(
                     alignment: Alignment.topCenter,
-                    child: AnimatedSwitcher(
-                        duration: const Duration(milliseconds: 150),
-                        child: CustomScrollView(
-                          shrinkWrap: true,
-                          physics: ThemeSwitcher.getScrollPhysics(),
-                          slivers: <Widget>[
-                            SliverList(
-                              delegate: SliverChildBuilderDelegate((context, index) {
-                                if (filteredHandles.isEmpty) {
-                                  return Column(
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: [
-                                      Padding(
-                                        padding: const EdgeInsets.all(8.0),
-                                        child: Text(
-                                          "Loading handles...",
-                                          style: context.theme.textTheme.labelLarge,
-                                        ),
-                                      ),
-                                      buildProgressIndicator(context, size: 15),
-                                    ],
-                                  );
-                                }
-                                final handle = filteredHandles[index];
+                    child: CustomScrollView(
+                      shrinkWrap: true,
+                      physics: ThemeSwitcher.getScrollPhysics(),
+                      slivers: <Widget>[
+                        SliverList(
+                          delegate: SliverChildBuilderDelegate((context, index) {
+                            if (filteredHandles.isEmpty) {
+                              return Column(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Padding(
+                                    padding: const EdgeInsets.all(8.0),
+                                    child: Text(
+                                      "Loading handles...",
+                                      style: context.theme.textTheme.labelLarge,
+                                    ),
+                                  ),
+                                  buildProgressIndicator(context, size: 15),
+                                ],
+                              );
+                            }
+                            final handle = filteredHandles[index];
 
-                                return Obx(() {
-                                  final hideInfo = SettingsSvc.settings.redactedMode.value &&
-                                      SettingsSvc.settings.hideContactInfo.value;
-                                  final handleState = HandleSvc.getOrCreateHandleState(handle);
-                                  final _title = hideInfo
-                                      ? handleState.fakeName
-                                      : handleState.displayName.value ?? handle.displayName;
+                            return Obx(() {
+                              final hideInfo = SettingsSvc.settings.redactedMode.value &&
+                                  SettingsSvc.settings.hideContactInfo.value;
+                              final handleState = HandleSvc.getOrCreateHandleState(handle);
+                              final _title = hideInfo
+                                  ? handleState.fakeName
+                                  : handleState.displayName.value ?? handle.displayName;
 
-                                  return Material(
-                                    color: Colors.transparent,
-                                    child: InkWell(
-                                        onTap: () {
-                                          widget.onSelect(handle);
-                                          Navigator.of(context).pop();
-                                        },
-                                        child: ListTile(
-                                            mouseCursor: MouseCursor.defer,
-                                            enableFeedback: true,
-                                            dense: SettingsSvc.settings.denseChatTiles.value,
-                                            minVerticalPadding: 10,
-                                            horizontalTitleGap: 10,
-                                            title: RichText(
-                                              text: TextSpan(
-                                                children: MessageHelper.buildEmojiText(
-                                                  _title,
-                                                  context.theme.textTheme.bodyLarge!,
-                                                ),
-                                              ),
-                                              overflow: TextOverflow.ellipsis,
+                              return Material(
+                                color: Colors.transparent,
+                                child: InkWell(
+                                    onTap: () {
+                                      widget.onSelect(handle);
+                                      Navigator.of(context).pop();
+                                    },
+                                    child: ListTile(
+                                        mouseCursor: MouseCursor.defer,
+                                        enableFeedback: true,
+                                        dense: SettingsSvc.settings.denseChatTiles.value,
+                                        minVerticalPadding: 10,
+                                        horizontalTitleGap: 10,
+                                        title: RichText(
+                                          text: TextSpan(
+                                            children: MessageHelper.buildEmojiText(
+                                              _title,
+                                              context.theme.textTheme.bodyLarge!,
                                             ),
-                                            subtitle: handle.address.isPhoneNumber
-                                                ? Text(
-                                                    formatPhoneNumber(cleansePhoneNumber(handle.address)),
-                                                    style: context.theme.textTheme.bodySmall!
-                                                        .copyWith(color: context.theme.colorScheme.outline),
-                                                  )
-                                                : Text(
-                                                    handle.address,
-                                                    style: context.theme.textTheme.bodySmall!
-                                                        .copyWith(color: context.theme.colorScheme.outline),
-                                                  ),
-                                            leading: Padding(
-                                              padding: const EdgeInsets.only(right: 5.0),
-                                              child: ContactAvatarWidget(
-                                                handle: handle,
-                                                editable: false,
+                                          ),
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
+                                        subtitle: handle.address.isPhoneNumber
+                                            ? Text(
+                                                formatPhoneNumber(cleansePhoneNumber(handle.address)),
+                                                style: context.theme.textTheme.bodySmall!
+                                                    .copyWith(color: context.theme.colorScheme.outline),
+                                              )
+                                            : Text(
+                                                handle.address,
+                                                style: context.theme.textTheme.bodySmall!
+                                                    .copyWith(color: context.theme.colorScheme.outline),
                                               ),
-                                            ))),
-                                  );
-                                });
-                              },
-                                  childCount: filteredHandles.length
-                                      .clamp(loadedAllHandles.isCompleted ? 0 : 1, double.infinity)
-                                      .toInt()),
-                            )
-                          ],
-                        )));
+                                        leading: Padding(
+                                          padding: const EdgeInsets.only(right: 5.0),
+                                          child: ContactAvatarWidget(
+                                            handle: handle,
+                                            editable: false,
+                                          ),
+                                        ))),
+                              );
+                            });
+                          },
+                              childCount: filteredHandles.length
+                                  .clamp(loadedAllHandles.isCompleted ? 0 : 1, double.infinity)
+                                  .toInt()),
+                        )
+                      ],
+                    ));
               }),
             ),
           ],

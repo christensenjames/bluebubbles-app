@@ -1,10 +1,8 @@
 import 'dart:async';
 
+import 'package:bluebubbles/app/components/bb_back_button.dart';
 import 'package:bluebubbles/app/layouts/settings/widgets/search/settings_search_bar_ios.dart';
-import 'package:bluebubbles/helpers/helpers.dart';
 import 'package:flutter/material.dart';
-import 'package:get/get.dart';
-import 'package:gesture_x_detector/gesture_x_detector.dart';
 
 class SettingsSearchBar extends StatefulWidget {
   final ValueChanged<String>? onChanged;
@@ -59,9 +57,8 @@ class _SettingsSearchBarState extends State<SettingsSearchBar> {
 
   List<Widget> get _trailing => <Widget>[
         if (searchValue.isNotEmpty)
-          Tooltip(
-            message: 'Clear search',
-            child: IconButton(
+          IconButton(
+              tooltip: 'Clear search',
               onPressed: () {
                 _debounceTimer?.cancel();
                 setState(() {
@@ -72,16 +69,8 @@ class _SettingsSearchBarState extends State<SettingsSearchBar> {
                 widget.onChanged?.call('');
               },
               icon: const Icon(Icons.clear),
-            ),
           ),
       ];
-
-  void _goBack(BuildContext context) {
-    if (Get.isSnackbarOpen) {
-      Get.closeAllSnackbars();
-    }
-    Navigator.of(context).pop();
-  }
 
   Widget _buildMaterialPill(BuildContext context) {
     final colors = Theme.of(context).colorScheme;
@@ -100,17 +89,7 @@ class _SettingsSearchBarState extends State<SettingsSearchBar> {
       padding: WidgetStatePropertyAll<EdgeInsets>(EdgeInsets.fromLTRB(widget.showBack ? 12 : 24, 0, 24, 0)),
       onChanged: _onSearchChanged,
       leading: widget.showBack
-          ? XGestureDetector(
-              supportTouch: true,
-              onTap: kIsDesktop ? (_) => _goBack(context) : null,
-              child: IconButton(
-                icon: Icon(Icons.arrow_back, color: colors.onSurfaceVariant),
-                tooltip: 'Back',
-                onPressed: () {
-                  if (!kIsDesktop) _goBack(context);
-                },
-              ),
-            )
+          ? BBBackButton(icon: Icon(Icons.arrow_back, color: colors.onSurfaceVariant))
           : Icon(Icons.search, color: colors.onSurfaceVariant),
       trailing: _trailing,
     );

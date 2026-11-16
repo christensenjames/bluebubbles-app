@@ -1,3 +1,4 @@
+import 'package:bluebubbles/app/components/m3e/m3e_motion.dart';
 import 'package:bluebubbles/helpers/helpers.dart';
 import 'package:bluebubbles/app/wrappers/bb_app_bar.dart';
 import 'package:bluebubbles/app/wrappers/bb_scaffold.dart';
@@ -13,7 +14,7 @@ import 'package:bluebubbles/services/services.dart';
 import 'package:animated_size_and_fade/animated_size_and_fade.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/foundation.dart';
-import 'package:flutter/material.dart';
+import 'package:flutter/material.dart' hide BackButton;
 import 'package:get/get.dart';
 import 'package:universal_html/html.dart' as uh;
 
@@ -244,9 +245,9 @@ class _NotificationPanelState extends State<NotificationPanel> with SingleTicker
                       surfaceTintColor: Colors.transparent,
                       scrolledUnderElevation: 0,
                     )
-                  : BBAppBar(
+                  : const BBAppBar(
                       titleText: "Notifications",
-                      leading: buildBackButton(context),
+                      leading: BackButton(),
                       toolbarHeight: 50,
                     ),
           body: TabBarView(
@@ -261,8 +262,15 @@ class _NotificationPanelState extends State<NotificationPanel> with SingleTicker
                   if (controller1.offset > 0 && controller1.offset < scrollDistance) {
                     final double snapOffset = controller1.offset / scrollDistance > 0.5 ? scrollDistance : 0;
 
-                    Future.microtask(() => controller1.animateTo(snapOffset,
-                        duration: const Duration(milliseconds: 200), curve: Curves.linear));
+                    final reduceMotion = MediaQuery.disableAnimationsOf(context);
+                    Future.microtask(() {
+                      if (reduceMotion) {
+                        controller1.jumpTo(snapOffset);
+                      } else {
+                        controller1.animateTo(snapOffset,
+                            duration: M3EMotion.spatialDefault.duration, curve: M3EMotion.spatialDefault.curve);
+                      }
+                    });
                   }
                   return false;
                 },
@@ -325,15 +333,15 @@ class _NotificationPanelState extends State<NotificationPanel> with SingleTicker
                                         ),
                                       ),
                                     ),
-                                    Padding(
-                                      padding: const EdgeInsets.only(left: 8.0),
+                                    const Padding(
+                                      padding: EdgeInsets.only(left: 8.0),
                                       child: Align(
                                         alignment: Alignment.bottomLeft,
                                         child: SizedBox(
                                           height: 50,
                                           child: Align(
                                             alignment: Alignment.centerLeft,
-                                            child: buildBackButton(context),
+                                            child: BackButton(),
                                           ),
                                         ),
                                       ),

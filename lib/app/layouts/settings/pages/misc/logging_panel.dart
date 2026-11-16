@@ -6,7 +6,7 @@ import 'package:bluebubbles/helpers/helpers.dart';
 import 'package:bluebubbles/models/parsed_log_entry.dart';
 import 'package:bluebubbles/services/backend/interfaces/log_interface.dart';
 import 'package:bluebubbles/services/services.dart';
-import 'package:flutter/material.dart';
+import 'package:flutter/material.dart' hide BackButton;
 import 'package:flutter_acrylic/flutter_acrylic.dart';
 import 'package:get/get.dart';
 import 'package:scroll_to_index/scroll_to_index.dart';
@@ -217,7 +217,7 @@ class _LoggingPanel extends State<LoggingPanel> {
                 elevation: 0,
                 scrolledUnderElevation: 3,
                 surfaceTintColor: context.theme.colorScheme.primary,
-                leading: buildBackButton(context),
+                leading: const BackButton(),
                 backgroundColor: SettingsSvc.settings.windowEffect.value != WindowEffect.disabled
                     ? Colors.transparent
                     : context.theme.colorScheme.surface,
