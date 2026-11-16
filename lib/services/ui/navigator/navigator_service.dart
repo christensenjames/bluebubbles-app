@@ -77,7 +77,7 @@ class NavigatorService {
   /// Push a new route onto the chat list right side navigator
   void push(BuildContext context, Widget widget) {
     if (Get.keys.containsKey(2) && isTabletMode(context)) {
-      Get.to(() => widget, transition: Transition.rightToLeft, id: 2);
+      Get.to(() => widget, transition: Transition.noTransition, duration: Duration.zero, id: 2);
     } else {
       Navigator.of(context).push(ThemeSwitcher.buildPageRoute(
         builder: (BuildContext context) => TitleBarWrapper(child: widget),
@@ -88,7 +88,7 @@ class NavigatorService {
   /// Push a new route onto the chat list left side navigator
   Future<void> pushLeft(BuildContext context, Widget widget) async {
     if (Get.keys.containsKey(1) && isTabletMode(context)) {
-      await Get.to(() => widget, transition: Transition.leftToRight, id: 1);
+      await Get.to(() => widget, transition: Transition.noTransition, duration: Duration.zero, id: 1);
     } else {
       await Navigator.of(context).push(ThemeSwitcher.buildPageRoute(
         builder: (BuildContext context) => TitleBarWrapper(child: widget),
@@ -99,7 +99,8 @@ class NavigatorService {
   /// Push a new route onto the settings navigator
   Future<dynamic> pushSettings(BuildContext context, Widget widget, {Bindings? binding}) async {
     if (Get.keys.containsKey(3) && isTabletMode(context)) {
-      return await Get.to(() => widget, transition: Transition.rightToLeft, id: 3, binding: binding);
+      return await Get.to(() => widget,
+          transition: Transition.noTransition, duration: Duration.zero, id: 3, binding: binding);
     } else {
       binding?.dependencies();
       return await Navigator.of(context).push(ThemeSwitcher.buildPageRoute(

@@ -15,7 +15,7 @@ import 'package:flutter_acrylic/window_effect.dart';
 /// @override
 /// Widget build(BuildContext context) {
 ///   return BBScaffold(
-///     appBar: AppBar(title: Text('My Page')),
+///     appBar: BBAppBar(titleText: 'My Page'),
 ///     body: YourContent(),
 ///   );
 /// }

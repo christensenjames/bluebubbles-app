@@ -264,6 +264,9 @@ class _ParticlesWallpaperView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    if (MediaQuery.disableAnimationsOf(context)) {
+      return ColoredBox(color: context.theme.colorScheme.surface, child: const SizedBox.expand());
+    }
     final palette = ThemeWallpaperPalette.fromContext(context, isIMessage: true);
     final colors = ParticlesWallpaperDefinition._colors(config, palette);
     final preset = ParticlesWallpaperDefinition._preset(config);

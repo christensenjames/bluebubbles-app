@@ -244,6 +244,7 @@ class PageButtons extends StatelessWidget {
                   if (proceed) nextPage();
                 },
                 child: Shimmer.fromColors(
+                  enabled: !MediaQuery.disableAnimationsOf(context),
                   baseColor: Colors.white70,
                   highlightColor: Colors.white,
                   child: Stack(
@@ -258,13 +259,13 @@ class PageButtons extends StatelessWidget {
                       Positioned(
                         left: 40,
                         child: CustomAnimationBuilder<double>(
-                          control: animation,
+                          control: MediaQuery.disableAnimationsOf(context) ? Control.stop : animation,
                           tween: tween,
                           duration: const Duration(milliseconds: 600),
                           curve: Curves.easeOut,
                           builder: (context, anim, _) {
                             return Padding(
-                              padding: EdgeInsets.only(left: anim),
+                              padding: EdgeInsets.only(left: MediaQuery.disableAnimationsOf(context) ? 0 : anim),
                               child: const Icon(Icons.arrow_forward, color: Colors.white, size: 20),
                             );
                           },

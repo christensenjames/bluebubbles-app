@@ -15,7 +15,17 @@ class SectionSkeleton extends StatefulWidget {
 
 class _SectionSkeletonState extends State<SectionSkeleton> with SingleTickerProviderStateMixin {
   late final AnimationController _controller =
-      AnimationController(vsync: this, duration: const Duration(milliseconds: 1200))..repeat(reverse: true);
+      AnimationController(vsync: this, duration: const Duration(milliseconds: 1200));
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (MediaQuery.disableAnimationsOf(context)) {
+      _controller.value = 0.5;
+    } else if (!_controller.isAnimating) {
+      _controller.repeat(reverse: true);
+    }
+  }
 
   @override
   void dispose() {

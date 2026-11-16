@@ -44,6 +44,7 @@ class MacSetupCheck extends StatelessWidget {
                     mode: LaunchMode.externalApplication);
               },
               child: Shimmer.fromColors(
+                enabled: !MediaQuery.disableAnimationsOf(context),
                 baseColor: Colors.white70,
                 highlightColor: Colors.white,
                 child: Row(

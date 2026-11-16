@@ -48,6 +48,12 @@ class _SyncProgressState extends State<SyncProgress> {
     }
   }
 
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (MediaQuery.disableAnimationsOf(context)) confettiController.stop();
+  }
+
   Future<void> _onStatus(SyncStatus event) async {
     String err = syncManager.error ?? "Unknown Error";
     if (event == SyncStatus.COMPLETED_ERROR) {
@@ -65,7 +71,7 @@ class _SyncProgressState extends State<SyncProgress> {
       setState(() {
         hasPlayed = true;
       });
-      confettiController.play();
+      if (!MediaQuery.disableAnimationsOf(context)) confettiController.play();
     }
   }
 
@@ -231,13 +237,14 @@ class _SyncProgressState extends State<SyncProgress> {
                           Get.delete<SetupViewController>(force: true);
                         },
                         child: Shimmer.fromColors(
+                          enabled: !MediaQuery.disableAnimationsOf(context),
                           baseColor: Colors.white70,
                           highlightColor: Colors.white,
                           child: Row(
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
                               CustomAnimationBuilder<double>(
-                                control: animationController,
+                                control: MediaQuery.disableAnimationsOf(context) ? Control.stop : animationController,
                                 tween: tween,
                                 duration: const Duration(milliseconds: 600),
                                 curve: Curves.easeOut,

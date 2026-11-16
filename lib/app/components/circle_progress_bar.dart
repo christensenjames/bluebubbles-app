@@ -1,5 +1,6 @@
 import 'dart:math' as math;
 
+import 'package:bluebubbles/app/components/m3e/m3e_motion.dart';
 import 'package:flutter/widgets.dart';
 
 /// Draws a circular animated progress bar.
@@ -38,18 +39,7 @@ class CircleProgressBarState extends State<CircleProgressBar> with SingleTickerP
   @override
   void initState() {
     super.initState();
-    int duration = 500;
-
-    // Don't go lower than 200 ms or higher than 800
-    // These are arbitrary, but just what I found worked best
-    // What works best may vary depending on network speeds
-    duration = duration.clamp(200, 800);
-
-    _controller = AnimationController(
-      duration: widget.animationDuration ?? Duration(milliseconds: duration),
-      vsync: this,
-      animationBehavior: AnimationBehavior.preserve,
-    );
+    _controller = AnimationController(duration: _duration, vsync: this);
 
     curve = CurvedAnimation(
       parent: _controller,
@@ -63,6 +53,14 @@ class CircleProgressBarState extends State<CircleProgressBar> with SingleTickerP
     );
 
     _controller.forward();
+  }
+
+  Duration get _duration => widget.animationDuration ?? const Duration(milliseconds: 500);
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _controller.matchReducedMotion(context, _duration);
   }
 
   @override
