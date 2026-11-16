@@ -168,17 +168,20 @@ class MaterialAvatarMenu extends StatelessWidget {
   Widget build(BuildContext context) {
     return AnimatedDropdownMenu(
       menuWidth: 240,
-      trigger: (context, showMenu) => GestureDetector(
-        onTap: showMenu,
-        child: Container(
-          padding: const EdgeInsets.all(2),
-          child: const ContactAvatarWidget(
-            size: 32,
-            preferHighResAvatar: true,
-            borderThickness: 0.1,
-            editable: false,
-            fontSize: 12,
-            scaleSize: false,
+      trigger: (context, showMenu) => Tooltip(
+        message: "Menu",
+        child: GestureDetector(
+          onTap: showMenu,
+          child: Container(
+            padding: const EdgeInsets.all(2),
+            child: const ContactAvatarWidget(
+              size: 32,
+              preferHighResAvatar: true,
+              borderThickness: 0.1,
+              editable: false,
+              fontSize: 12,
+              scaleSize: false,
+            ),
           ),
         ),
       ),
@@ -495,10 +498,13 @@ class CupertinoOverflowMenu extends StatelessWidget {
                 height: 30,
                 child: InkWell(
                   onTap: showMenu,
-                  child: Icon(
-                    Icons.more_horiz,
-                    color: context.theme.colorScheme.onSurfaceVariant,
-                    size: 20,
+                  child: Tooltip(
+                    message: "Menu",
+                    child: Icon(
+                      Icons.more_horiz,
+                      color: context.theme.colorScheme.onSurfaceVariant,
+                      size: 20,
+                    ),
                   ),
                 ),
               ),
