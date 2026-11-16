@@ -12,24 +12,11 @@ import 'package:bluebubbles/services/backend/actions/prefs_actions.dart';
 import 'package:bluebubbles/services/backend/actions/server_actions.dart';
 import 'package:bluebubbles/services/backend/actions/storage_actions.dart';
 import 'package:bluebubbles/services/backend/actions/sync_actions.dart';
-import 'package:bluebubbles/services/backend/actions/test_actions.dart';
 import 'package:bluebubbles/services/isolates/global_isolate.dart';
 import 'package:bluebubbles/services/network/http_service.dart';
 
 class IsolateActons {
   static final Map<IsolateRequestType, IsolateAction> actions = {
-    // Testing — sync and/or fixed-type params, so wrap as async lambdas.
-    // NOTE: Sync functions and no-arg functions MUST be wrapped as async lambdas
-    // because IsolateAction = Future<dynamic> Function(dynamic).
-    // Async Future<void>/Future<T> functions can be referenced directly.
-    IsolateRequestType.testReturnInput: (data) async => TestActions.executeTestReturnInput(data as String),
-    IsolateRequestType.testPrintInput: (data) async {
-      TestActions.executeTestPrintInput(data as String);
-    },
-    IsolateRequestType.testThrowError: (data) async {
-      TestActions.executeTestThrowError(data as String);
-    },
-
     // App — no-arg, wrap to accept and ignore the data param
     IsolateRequestType.checkForUpdate: (_) => AppActions.checkForUpdate(),
 
