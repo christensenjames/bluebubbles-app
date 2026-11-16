@@ -75,6 +75,10 @@ Future<Null> initApp(bool bubble, List<String> arguments) async {
   runZonedGuarded<Future<void>>(() async {
     WidgetsFlutterBinding.ensureInitialized();
 
+    if (kIsWeb) {
+      await BrowserContextMenu.disableContextMenu();
+    }
+
     /* ----- DESKTOP NATIVE SPLASH STATUS ----- */
     // Pushes startup status to the native splash; detached once it's dismissed.
     void Function()? detachSplashStatus;

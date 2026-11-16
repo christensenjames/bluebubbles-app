@@ -1,10 +1,8 @@
 import 'package:bluebubbles/app/layouts/settings/widgets/layout/settings_leading_icons.dart';
 import 'package:bluebubbles/helpers/helpers.dart';
 import 'package:bluebubbles/services/services.dart';
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import 'package:universal_html/html.dart' as html;
 
 class SettingsTile extends StatelessWidget {
   const SettingsTile({
@@ -53,10 +51,7 @@ class SettingsTile extends StatelessWidget {
         splashColor: context.theme.colorScheme.surfaceContainerHighest,
         splashFactory: context.theme.splashFactory,
         child: GestureDetector(
-          onSecondaryTapUp: (details) async {
-            if (kIsWeb) {
-              (await html.document.onContextMenu.first).preventDefault();
-            }
+          onSecondaryTapUp: (details) {
             onLongPress?.call();
           },
           child: ListTile(
