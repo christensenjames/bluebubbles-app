@@ -118,6 +118,7 @@ for messages anyone can send. The protections and where they live:
 |---|---|
 | Loopback / private / link-local targets | `UrlSafetyGuard`, called from `MetadataHttpClient` |
 | Redirects into the LAN | `followRedirects: false` + per-hop guard in `MetadataHttpClient.fetch` |
+| DNS rebinding between check and connect | `MetadataHttpClient`'s `connectionFactory` connects to the address the guard validated (TLS still verifies the original hostname); no proxy |
 | Permissive IPv4 literals (`127.1`, `0177.0.0.1`) | `UrlSafetyGuard.parseLooseIpv4` |
 | Server credential leakage | dedicated `Dio`, never `HttpSvc.dio` |
 | Oversized bodies | streaming caps in `MetadataHttpClient` |
@@ -128,15 +129,19 @@ for messages anyone can send. The protections and where they live:
 | Bidi text spoofing | `MetadataText.clean` |
 | IP disclosure to unknown senders | `LinkPreviewPolicy` + `MetadataHelper.shouldAutoFetch` |
 
-**`UrlSafetyGuard` is called in exactly one place** — inside `MetadataHttpClient.fetch`, per hop.
-Do not add call sites elsewhere; do not re-enable dio's own redirect following. That combination
-is what makes the guard cover the page fetch, discovered oEmbed endpoints, image downloads, and
-every redirect between them.
+**`UrlSafetyGuard` is called only inside `MetadataHttpClient`**: `check` per hop in `fetch`, and
+`resolveValidated` in the connection factory. Do not add call sites elsewhere; do not re-enable
+dio's own redirect following. That combination is what makes the guard cover the page fetch,
+discovered oEmbed endpoints, image downloads, and every redirect between them.
 
-**Known limitation:** the guard resolves a hostname and the socket layer resolves it again, so DNS
-rebinding is not prevented. Dart's `HttpClient` does not expose enough control to connect to a
-pinned address with the original Host header and SNI. `LinkPreviewPolicy.contactsOnly` (the
-default) is the mitigation — it limits who can trigger an automatic fetch at all.
+**The socket goes to a validated address.** `resolveValidated` resolves once and rejects empty
+or unsafe address sets. The connection factory tries the validated addresses in order without
+resolving again. DNS errors and timeouts fail closed with retryable statuses, not `blockedHost`.
+HTTPS uses `SecureSocket.secure(host: <original host>, context: SecurityContext.defaultContext)`
+so SNI and certificate checks still use the hostname and include Android user-installed CAs.
+Cancellation destroys sockets whose TLS handshake finishes late; a handshake that never finishes
+remains open until the peer closes it.
+Web keeps browser-managed connections, so rebinding is not prevented there.
 
 **A manual tap bypasses the policy and the retry TTL, and nothing else.** Every other protection
 still applies to a user-initiated load.

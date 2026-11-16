@@ -1,10 +1,12 @@
 import 'dart:async';
+import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:bluebubbles/helpers/network/metadata/models/metadata_fetch_result.dart';
 import 'package:bluebubbles/helpers/network/metadata/network/fetch_concurrency_limiter.dart';
 import 'package:bluebubbles/helpers/network/metadata/network/url_safety_guard.dart';
 import 'package:dio/dio.dart';
+import 'package:dio/io.dart';
 import 'package:flutter/foundation.dart';
 
 /// What kind of resource a response body holds.
@@ -120,7 +122,7 @@ class MetadataHttpClient {
       'BlueBubbles/1.0 (+https://bluebubbles.app)';
 
   static Dio _buildDio(Duration connectTimeout, Duration receiveTimeout) {
-    return Dio(BaseOptions(
+    final dio = Dio(BaseOptions(
       connectTimeout: connectTimeout,
       receiveTimeout: receiveTimeout,
       sendTimeout: connectTimeout,
@@ -142,6 +144,70 @@ class MetadataHttpClient {
         'Accept-Encoding': 'gzip',
       },
     ));
+    if (!kIsWeb) {
+      dio.httpClientAdapter = IOHttpClientAdapter(
+        createHttpClient: () {
+          final client = HttpClient();
+          client.findProxy = (_) => 'DIRECT';
+          client.connectionFactory = _connectValidated;
+          return client;
+        },
+      );
+    }
+    return dio;
+  }
+
+  static Future<ConnectionTask<Socket>> _connectValidated(Uri uri, String? proxyHost, int? proxyPort) async {
+    final addresses = await UrlSafetyGuard.resolveValidated(uri);
+    if (addresses == null) throw MetadataFetchException(MetadataFetchStatus.blockedHost);
+
+    ConnectionTask<Socket>? activeTask;
+    Socket? rawSocket;
+    SecureSocket? secureSocket;
+    var cancelled = false;
+
+    Future<Socket> connect() async {
+      for (var index = 0; index < addresses.length; index++) {
+        if (cancelled) throw const SocketException('Metadata connection cancelled');
+        try {
+          activeTask = await Socket.startConnect(addresses[index], uri.port);
+          if (cancelled) {
+            activeTask!.cancel();
+            throw const SocketException('Metadata connection cancelled');
+          }
+          rawSocket = await activeTask!.socket;
+          break;
+        } on SocketException {
+          if (cancelled || index == addresses.length - 1) rethrow;
+        }
+      }
+
+      try {
+        if (cancelled) throw const SocketException('Metadata connection cancelled');
+        if (uri.scheme != 'https') return rawSocket!;
+        // UserCertificates adds Android user CAs to this same default context.
+        secureSocket = await SecureSocket.secure(
+          rawSocket!,
+          host: uri.host,
+          context: SecurityContext.defaultContext,
+        );
+        if (cancelled) {
+          secureSocket!.destroy();
+          throw const SocketException('Metadata connection cancelled');
+        }
+        return secureSocket!;
+      } catch (_) {
+        rawSocket?.destroy();
+        rethrow;
+      }
+    }
+
+    return ConnectionTask.fromSocket(connect(), () {
+      cancelled = true;
+      activeTask?.cancel();
+      rawSocket?.destroy();
+      secureSocket?.destroy();
+    });
   }
 
   /// Status codes that carry a `Location` header.
@@ -150,9 +216,7 @@ class MetadataHttpClient {
   /// Fetches [uri], reading at most [maxBytes] of the body.
   ///
   /// Redirects are followed manually so that [UrlSafetyGuard] runs against
-  /// **every** hop. This is the only place the guard is applied, which means it
-  /// covers the page fetch, the oEmbed endpoint discovered from page markup,
-  /// preview image downloads, and every redirect in between.
+  /// every hop; each new socket connects only to a validated address.
   ///
   /// Throws [MetadataFetchException] with a specific status for every failure
   /// mode so the orchestrator can decide whether the attempt is retryable.
@@ -175,7 +239,7 @@ class MetadataHttpClient {
     final visited = <String>{};
 
     for (var hop = 0; hop <= maxRedirects; hop++) {
-      final blocked = await UrlSafetyGuard.checkResolved(current);
+      final blocked = UrlSafetyGuard.check(current);
       if (blocked != null) throw MetadataFetchException(blocked);
 
       // A fresh token per hop: aborting one hop's body must not poison the
@@ -351,6 +415,7 @@ class MetadataHttpClient {
   }
 
   static MetadataFetchStatus _statusForDioError(DioException ex) {
+    if (ex.error is MetadataFetchException) return (ex.error as MetadataFetchException).status;
     switch (ex.type) {
       case DioExceptionType.connectionTimeout:
       case DioExceptionType.sendTimeout:
