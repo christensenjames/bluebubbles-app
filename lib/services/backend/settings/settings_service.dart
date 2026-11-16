@@ -544,7 +544,8 @@ class SettingsService {
     if (Platform.isAndroid) {
       buildNumber =
           FilesystemSvc.packageInfo.buildNumber.lastChars(min(4, FilesystemSvc.packageInfo.buildNumber.length));
-      if (int.parse(code) <= int.parse(buildNumber) || PrefsSvc.server.getClientUpdateCheckCode() == code) {
+      if (int.parse(code.split('.').last) <= int.parse(buildNumber) ||
+          PrefsSvc.server.getClientUpdateCheckCode() == code) {
         available = false;
       }
     } else {
