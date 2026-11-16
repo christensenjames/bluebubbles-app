@@ -173,7 +173,6 @@ The main ObjectBox entities are:
 - Relations:
   - `ToMany<ContactV2>` - New contact system (backlink)
   - `ToMany<Chat>` - Chats this handle participates in
-  - `ToOne<Contact>` - Legacy contact relation (**DEPRECATED** - use ContactV2)
 
 **Attachment** (`lib/database/io/attachment.dart`)
 
@@ -183,14 +182,10 @@ The main ObjectBox entities are:
 
 **ContactV2** (`lib/database/io/contact_v2.dart`)
 
-- New contact system (replaces deprecated Contact model)
+- Contact model
 - Relations:
   - `ToMany<Handle>` - Linked handles for this contact
 
-**Contact** (`lib/database/io/contact.dart`) - **DEPRECATED**
-
-- Legacy contact system - **DO NOT USE for new code**
-- Use ContactV2 instead for all contact-related operations
 
 **Important**: Always access ObjectBox relationships within a transaction context to avoid performance issues.
 

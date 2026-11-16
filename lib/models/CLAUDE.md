@@ -1,6 +1,6 @@
 # lib/models/ — Cross-Cutting DTOs & View Models
 
-See `docs/MODELS.md` for the consolidated cross-directory entity/DTO field reference.
+See `docs/models.md` for the consolidated cross-directory entity/DTO field reference.
 
 Plain data classes used across multiple layers. Not ObjectBox entities — no `@Entity` annotations. All serializable and safe to cross isolate boundaries.
 

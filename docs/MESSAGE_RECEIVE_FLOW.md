@@ -204,13 +204,13 @@ When a `ChatState` does exist:
 
 `MessagesView.handleNewMessage` does not insert into the list directly. It submits the insertion to `ConversationViewController.messageListGate`, a per-conversation FIFO gate that `SendAnimation` holds while its bubble is in flight.
 
-The send animation flies a bubble from the text field to the bottom of the message list, and computes its landing target (`_animationBottomOffset`) from the live layout of everything below the list — text field, typing indicator row, smart reply row. A message landing mid-flight inserts into the `SliverAnimatedList`, can trigger smart reply generation, and can shift the typing indicator; each of those moves the target while `AnimatedPositioned` is still animating toward the old one, so the bubble lands short and snaps.
+The send animation flies a bubble from the text field to the bottom of the message list, and computes its landing target (`_animationBottomOffset`) from the live layout of everything below the list — text field, typing indicator row, smart reply row. A message landing mid-flight inserts into the `SliverAnimatedList`, can trigger smart reply generation, and can shift the typing indicator; each of those can move the landing target during the flight.
 
 **Gate semantics:**
 
 - **Open (the normal case):** work runs inline, synchronously — identical to not having a gate.
 - **Held:** work is queued and replayed in submission order the instant the gate opens. Nothing ever blocks or awaits on it; it cannot delay a send.
-- **Held by:** `SendAnimation.send()`, from just before the outgoing text message is queued until the animated bubble is torn down (~650ms: 450ms flight + 200ms hold). Also released by `SendAnimation.dispose()`, and by a watchdog timer if a release is ever lost. Never held in the Material skin, which has no flying bubble: the new list row grows in place (`MessageAnimationOrchestrator.buildMaterialSentMessageAnimation`).
+- **Held by:** `SendAnimation.send()`, from just before the outgoing text message is queued until the animated bubble is torn down after its 300ms flight, with no extra hold. Also released by `SendAnimation.dispose()`, and by a 1000ms watchdog if a release is ever lost. Never held in the Material skin, which has no flying bubble: the new list row grows in place (`MessageAnimationOrchestrator.buildMaterialSentMessageAnimation`).
 
 **Bypasses the gate:**
 
@@ -220,7 +220,7 @@ The send animation flies a bubble from the text field to the bottom of the messa
 
 Also gated: the `typing-indicator` socket event in `action_handler.dart`, since that row sits between the list and the text field and feeds the same offset calculation.
 
-**Frozen target (the other half of the fix).** The gate stops new events from starting a layout transition mid-flight, but it can't rewind one that was already running when the user hit send — `TypingIndicator` takes ~400ms to settle on hide (200ms paint-only `ScaleTransition`, *then* a 200ms `AnimatedSize` height collapse), so an event landing shortly before the send is still moving the row during the flight. `SendAnimation` therefore snapshots the whole offset into `_frozenBottomOffset` when the animation starts and clears it on teardown, so `AnimatedPositioned` animates toward a constant. This generalizes what `_textFieldSize` already did for the composer. Relatedly, `_typingIndicatorOffset` resolves a hidden indicator from `showTypingIndicator` rather than the RenderBox — measuring during the settle tail returns the stale pre-collapse height and would freeze the target ~55px too high.
+**Frozen target (the other half of the fix).** The gate stops new events from starting a layout transition mid-flight, but it can't rewind one that was already running when the user hit send — `TypingIndicator` takes ~400ms to settle on hide (200ms paint-only `ScaleTransition`, *then* a 200ms `AnimatedSize` height collapse), so an event landing shortly before the send is still moving the row during the flight. `SendAnimation` therefore snapshots the whole offset into `_frozenBottomOffset` when the animation starts and clears it on teardown, so the flight uses a constant target. This generalizes what `_textFieldSize` already did for the composer. Relatedly, `_typingIndicatorOffset` resolves a hidden indicator from `showTypingIndicator` rather than the RenderBox — measuring during the settle tail returns the stale pre-collapse height and would freeze the target ~55px too high.
 
 **Key files:** `lib/services/ui/chat/message_list_gate.dart`, `lib/app/layouts/conversation_view/pages/messages_view.dart`, `lib/app/layouts/conversation_view/widgets/message/send_animation.dart`
 

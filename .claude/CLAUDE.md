@@ -14,7 +14,7 @@ Detailed coding standards live in `.claude/rules/`:
 - `docs/COMMON_TASKS.md` — step-by-step recipes for frequent development tasks
 - `docs/MESSAGE_RECEIVE_FLOW.md` — end-to-end trace: socket → queue → DB → state → UI
 - `docs/MESSAGE_SEND_FLOW.md` — end-to-end trace: send button → tempGuid → HTTP + socket race → real GUID swap
-- `docs/MODELS.md` — reference for the DB entity / DTO model landscape (`lib/database/`, `lib/models/`)
+- `docs/models.md` — reference for the DB entity / DTO model landscape (`lib/database/`, `lib/models/`)
 - `docs/THEMING_AND_COMPONENTS.md` — reusable `BBScaffold`/`BBAppBar`/`BBChip`/dialog wrappers, skin vs. theme mechanics, color access patterns
 
 ## Before Making Changes
@@ -36,4 +36,4 @@ After editing `@Entity` classes in `lib/database/io/`:
 No automated test suite. Verify changes by running the target platform.
 
 ## Branches
-Branch off `master`; PRs target `master`. No CI/CD.
+Branch off `master`; PRs target `master`. Upstream has GitHub workflows; Actions and the PR check workflow are disabled on James's fork.

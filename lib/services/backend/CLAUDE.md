@@ -4,7 +4,7 @@
 Each resource has an interface and a concrete action file → `interfaces/CLAUDE.md` + `actions/CLAUDE.md`
 - `interfaces/chat_interface.dart` → `actions/chat_actions.dart`
 - `interfaces/message_interface.dart` → `actions/message_actions.dart`
-- (same for: app, attachment, contact_v2, handle, image, log, prefs, send_message, server, sync, test)
+- (same for: app, attachment, contact_v2, handle, image, log, prefs, send_message, server, sync)
 
 ## Sync System (`sync/`) → `sync/CLAUDE.md`
 - `sync_service.dart` — coordinator

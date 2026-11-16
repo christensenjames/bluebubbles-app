@@ -9,7 +9,7 @@ C++ code: `main.cc` + `my_application.cc/h` — standard GTK-based Flutter app w
 ## Notable Dependencies
 - `desktop_webview_auth` — WebKit2GTK 4.1 (custom fork) for OAuth WebView
 - ALSA audio support configured via snap layout
-- GTK plugs: network, camera, desktop, wayland, x11, home, opengl
+- GTK plugs include network, camera, desktop, wayland, x11, and opengl
 
 ## Flutter-Side Linux Code
 - `lib/utils/window_effects.dart` — window transparency (limited on Linux)
