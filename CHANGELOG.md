@@ -56,7 +56,17 @@
   separately reachable; icon buttons across the app have labels; small targets (send, mic, back,
   drag handles, settings back) reach 48dp; settings switches announce their title; profile and
   OAuth text follow the system text size; on desktop the back buttons (one shared
-  `BBBackButton`) work from the keyboard and keep their hover highlight and tooltip.
+  `BBBackButton`) work from the keyboard and keep their hover highlight and tooltip. The chat
+  list's avatar menu button reads "Menu".
+- **Desktop:** headers, app bars, snackbars and Find My's buttons leave room for the title bar
+  only while the custom title bar is drawn (`hasCustomTitleBar` in `titlebar_wrapper.dart`). With
+  the native or hidden style on Linux they sit at the top of the window, and switching the style
+  updates the open pages.
+- **Web:** the browser's context menu is turned off once at startup
+  (`BrowserContextMenu.disableContextMenu()`) instead of each right-click handler awaiting the
+  next `contextmenu` event; text fields show Flutter's menu in place of the browser's.
+- **Updates (Android):** the update check no longer throws on platform-tagged releases such as
+  `v2.1.5+android.95`; it compares the number after the platform name.
 - **Settings:** action snackbars last at least 4s and swipe away; destructive dialog actions use
   the error color; reordering custom groups auto-scrolls on every skin; hover and focus
   highlights show on active settings tiles. One settings decoder (`Settings._applyMap`) replaces
@@ -65,7 +75,8 @@
 - **Cleanup:** removed the test isolate actions, the dead `MessagePartWrapper`, the duplicate
   `buildBackButton` (every caller uses `BackButton`), per-request copies of the server headers the
   interceptor already adds, unused `native_dio_adapter`, direct
-  `csslib`/`win32`/`rxdart` entries, and the never-wired web stub for `network_tools`. Dropping
+  `csslib`/`win32`/`rxdart` entries, the never-wired web stub for `network_tools`, and
+  `buildQueryParams`, which only copied its map. Dropping
   `native_dio_adapter` also drops `jni`, so the Android background worker no longer registers
   `JniPlugin` and the Windows SignPath list no longer names `dartjni.dll` or the sqlite3 DLLs.
   Pinned the snap's alsa and gpu-snap sources and corrected stale docs and CLAUDE.md files.
