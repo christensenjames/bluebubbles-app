@@ -15,8 +15,7 @@ Displayed as a right-side panel on tablet or pushed screen on mobile.
 
 ## Material 3 Expressive (`material/`)
 The Material/Samsung-only expressive tree — `conversation_details.dart` routes to these instead
-of the iOS widgets below based on `SettingsSvc.settings.skin.value`. See
-[the M3E redesign plan](../../../../docs/feature-planning/m3e-conversation-details/M3E_CONVERSATION_DETAILS_PLAN.md).
+of the iOS widgets below based on `SettingsSvc.settings.skin.value`.
 - `chat_detail_theme.dart` — resolves the per-chat theme + scaffold header/tile colors
 - `chat_photo_actions.dart` — chat avatar update/delete logic, shared with the iOS `ChatInfo`
 - `material_chat_header.dart` — `ExpressiveChatHeader`: hero avatar, title, and quick-action button group

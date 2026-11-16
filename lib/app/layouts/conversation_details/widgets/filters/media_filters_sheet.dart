@@ -25,6 +25,7 @@ void showAttachmentFiltersSheet(
   const chipRadius = M3EShapes.radiusLg;
   showModalBottomSheet<void>(
     context: context,
+    showDragHandle: true,
     backgroundColor: Colors.transparent,
     isScrollControlled: true,
     builder: (sheetContext) {
@@ -435,6 +436,7 @@ class AttachmentFiltersButton extends StatelessWidget {
                 ),
               ),
             IconButton(
+              tooltip: "Filter attachments",
               onPressed: () {
                 HapticFeedback.lightImpact();
                 onPressed();

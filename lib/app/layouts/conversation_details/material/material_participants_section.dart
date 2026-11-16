@@ -65,9 +65,14 @@ class _ExpressiveParticipantsSectionState extends State<ExpressiveParticipantsSe
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             const M3ESectionHeader(label: "Members"),
-            M3ESection(
-              backgroundColor: context.tileColor,
-              children: children,
+            AnimatedSize(
+              duration: M3EMotion.spatialFast.durationOf(context),
+              curve: M3EMotion.spatialFast.curve,
+              alignment: Alignment.topCenter,
+              child: M3ESection(
+                backgroundColor: context.tileColor,
+                children: children,
+              ),
             ),
           ],
         );
@@ -101,7 +106,7 @@ class _ShowMoreRow extends StatelessWidget {
                 const SizedBox(width: 4),
                 AnimatedRotation(
                   turns: expanded ? 0.5 : 0,
-                  duration: M3EMotion.spatialFast.duration,
+                  duration: M3EMotion.spatialFast.durationOf(context),
                   curve: M3EMotion.spatialFast.curve,
                   child: Icon(Icons.expand_more, color: context.theme.colorScheme.primary),
                 ),

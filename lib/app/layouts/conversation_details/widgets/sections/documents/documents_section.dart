@@ -128,36 +128,13 @@ class _DocumentsSectionState extends State<DocumentsSection> with ThemeHelpers {
               );
             }),
           ),
-        if (widget.isLoading)
-          SliverToBoxAdapter(
-            child: Padding(
-              padding: const EdgeInsets.symmetric(vertical: 20.0, horizontal: 20.0),
-              child: Center(child: buildProgressIndicator(context, size: 24)),
-            ),
-          )
-        else if (hideWhenEmpty)
-          SliverToBoxAdapter(
-            child: AnimatedSize(
-              duration: M3EMotion.spatialFast.duration,
-              curve: M3EMotion.spatialFast.curve,
-              child: const SizedBox.shrink(),
-            ),
-          )
-        else if (_displayedDocs.isEmpty)
-          SliverToBoxAdapter(
-            child: Padding(
-              padding: const EdgeInsets.symmetric(vertical: 20.0, horizontal: 20.0),
-              child: Center(
-                child: Text(
-                  widget.docs.isEmpty ? "No files" : "No matching files",
-                  style: context.theme.textTheme.bodyMedium!.copyWith(
-                    color: context.theme.colorScheme.outline,
-                  ),
-                ),
-              ),
-            ),
-          )
-        else ...[
+        AttachmentSectionStatus(
+          isLoading: widget.isLoading,
+          isEmpty: _displayedDocs.isEmpty,
+          hideWhenEmpty: hideWhenEmpty,
+          emptyMessage: widget.docs.isEmpty ? "No files" : "No matching files",
+        ),
+        if (!widget.isLoading && _displayedDocs.isNotEmpty) ...[
           SliverPadding(
             padding: attachmentSectionListPadding(),
             sliver: SliverGrid(
@@ -189,6 +166,50 @@ class _DocumentsSectionState extends State<DocumentsSection> with ThemeHelpers {
             ),
         ],
       ],
+    );
+  }
+}
+
+class AttachmentSectionStatus extends StatelessWidget {
+  final bool isLoading;
+  final bool isEmpty;
+  final bool hideWhenEmpty;
+  final String emptyMessage;
+
+  const AttachmentSectionStatus({
+    super.key = const ValueKey('attachment-section-status'),
+    required this.isLoading,
+    required this.isEmpty,
+    required this.hideWhenEmpty,
+    required this.emptyMessage,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return SliverToBoxAdapter(
+      child: AnimatedSize(
+        duration: M3EMotion.spatialFast.durationOf(context),
+        curve: M3EMotion.spatialFast.curve,
+        alignment: Alignment.topCenter,
+        child: isLoading
+            ? Padding(
+                padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 20),
+                child: Center(child: buildProgressIndicator(context, size: 24)),
+              )
+            : isEmpty && !hideWhenEmpty
+                ? Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 20),
+                    child: Center(
+                      child: Text(
+                        emptyMessage,
+                        style: context.theme.textTheme.bodyMedium!.copyWith(
+                          color: context.theme.colorScheme.outline,
+                        ),
+                      ),
+                    ),
+                  )
+                : const SizedBox.shrink(),
+      ),
     );
   }
 }

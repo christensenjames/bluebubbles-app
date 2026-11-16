@@ -62,6 +62,7 @@ class _FullscreenImageState extends State<FullscreenImage>
   // flushing every chat thumbnail out of the shared 100 MB imageCache.
   bool _fullResolution = false;
   bool _fullResolutionRequested = false;
+  bool _zoomed = false;
   late PlatformFile _currentFile;
   Worker? _resolvedFileWorker;
 
@@ -206,6 +207,7 @@ class _FullscreenImageState extends State<FullscreenImage>
   }
 
   void _onZoomChanged(bool zoomed) {
+    if (zoomed != _zoomed) setState(() => _zoomed = zoomed);
     if (zoomed && !_fullResolution && !_fullResolutionRequested && compatiblePath != null) {
       _fullResolutionRequested = true;
       var loadFailed = false;
@@ -340,8 +342,6 @@ class _FullscreenImageState extends State<FullscreenImage>
       childSize: size,
       onTap: widget.onTap ?? _toggleOverlay,
       onZoomChanged: _onZoomChanged,
-      onDismissProgress: widget.onDismissProgress,
-      onDismiss: widget.onDismiss,
       child: _hero(_image(provider, failed)),
     );
     if (hasSize) return zoomable(Size(width.toDouble(), height.toDouble()));
@@ -365,7 +365,11 @@ class _FullscreenImageState extends State<FullscreenImage>
         },
         child: Stack(
           children: [
-            _buildPhotoView(context),
+            SwipeToDismiss(
+              onDismissProgress: widget.onDismissProgress,
+              onDismiss: _zoomed ? null : widget.onDismiss,
+              child: _buildPhotoView(context),
+            ),
             // Live photo video overlay
             if (attachment.hasLivePhoto) buildLivePhotoOverlay(),
             if (!iOS && !_sharedChrome)
@@ -485,6 +489,7 @@ class _FullscreenImageState extends State<FullscreenImage>
                         mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                         children: [
                           IconButton(
+                            tooltip: "Save",
                             icon: Icon(
                               CupertinoIcons.cloud_download,
                               color: samsung ? Colors.white : context.theme.colorScheme.primary,
@@ -493,6 +498,7 @@ class _FullscreenImageState extends State<FullscreenImage>
                           ),
                           if (!kIsWeb && !kIsDesktop)
                             IconButton(
+                              tooltip: "Share",
                               icon: Icon(
                                 CupertinoIcons.share,
                                 color: samsung ? Colors.white : context.theme.colorScheme.primary,
@@ -504,6 +510,7 @@ class _FullscreenImageState extends State<FullscreenImage>
                               },
                             ),
                           IconButton(
+                            tooltip: "Details",
                             icon: Icon(
                               CupertinoIcons.info,
                               color: samsung ? Colors.white : context.theme.colorScheme.primary,
@@ -511,6 +518,7 @@ class _FullscreenImageState extends State<FullscreenImage>
                             onPressed: () => showMetadataDialog(widget.attachment, context),
                           ),
                           IconButton(
+                            tooltip: "Download again",
                             icon: Icon(
                               CupertinoIcons.refresh,
                               color: samsung ? Colors.white : context.theme.colorScheme.primary,
