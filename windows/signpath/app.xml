@@ -19,7 +19,6 @@
       <include path="avformat-62.dll" />
       <include path="avutil-60.dll" />
       <include path="connectivity_plus_plugin.dll" />
-      <include path="dartjni.dll" />
       <include path="desktop_drop_plugin.dll" />
       <include path="desktop_webview_auth_plugin.dll" />
       <include path="dynamic_color_plugin.dll" />
@@ -57,8 +56,6 @@
       <include path="screen_retriever_windows_plugin.dll" />
       <include path="secure_application_plugin.dll" />
       <include path="share_plus_plugin.dll" />
-      <include path="sqlite3_flutter_libs_plugin.dll" />
-      <include path="sqlite3.dll" />
       <include path="swresample-6.dll" />
       <include path="swscale-9.dll" />
       <include path="tray_manager_plugin.dll" />

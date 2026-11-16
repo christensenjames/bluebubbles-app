@@ -65,6 +65,7 @@ parts:
   alsa-mixin:
     plugin: dump
     source: https://github.com/diddlesnaps/snapcraft-alsa.git
+    source-commit: d3038f97ef05ed854a83882cc3054736431b95e6
     source-subdir: snapcraft-assets
     build-packages:
       - libasound2-dev
@@ -185,6 +186,7 @@ parts:
     after:
       - bluebubbles
     source: https://github.com/canonical/gpu-snap.git
+    source-commit: 7c4091ddcea8f969b98a752c48841af9b0a659d8
     plugin: dump
     override-prime: |
       craftctl default

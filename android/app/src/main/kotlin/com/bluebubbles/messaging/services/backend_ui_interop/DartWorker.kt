@@ -38,7 +38,6 @@ import kotlinx.coroutines.guava.future
 
 // Background worker plugins — only those required for notification/sync processing
 import com.dexterous.flutterlocalnotifications.FlutterLocalNotificationsPlugin
-import com.github.dart_lang.jni.JniPlugin
 import com.fluttercandies.flutter_image_compress.ImageCompressPlugin
 import com.johnstef.flutter_user_certificates_android.FlutterUserCertificatesAndroidPlugin
 import dev.fluttercommunity.plus.device_info.DeviceInfoPlusPlugin
@@ -324,8 +323,7 @@ class DartWorker(context: Context, workerParams: WorkerParameters): ListenableWo
         plugins.add(FlutterLocalNotificationsPlugin())
         // Rotates the image attached to message notifications
         plugins.add(ImageCompressPlugin())
-        // Transport security (custom user certificates; JniPlugin is a required dependency)
-        plugins.add(JniPlugin())
+        // Transport security (custom user certificates)
         plugins.add(FlutterUserCertificatesAndroidPlugin())
         // Timezone (used during message date handling)
         plugins.add(FlutterTimezonePlugin())
