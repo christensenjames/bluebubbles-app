@@ -43,5 +43,8 @@ Plain Dart classes — no ObjectBox annotations. Safe to use on web. All have `f
 | `isolate.dart` | Isolate communication marker type |
 
 ## Adding a New Setting
-Edit `settings.dart` — add an `Rx*` field and persist it in `toMap()`/`fromMap()`.
+Edit `settings.dart` — add an `Rx*` field with its load default, persist it in `toMap()`,
+and decode it in `_applyMap()`, falling back to the field's current value.
+`fromMap()` applies that shared decoder to fresh defaults; `updateFromMap()` applies it
+to the live settings after device-local filtering and keeps the existing save behavior.
 Then add the UI tile in `lib/app/layouts/settings/` (see that directory's `CLAUDE.md`).
