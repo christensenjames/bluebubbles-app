@@ -1,5 +1,75 @@
 # Changelog
 
+## 2026-11-16 — Upkeep: security, accessibility, motion and gesture fixes
+
+- **Security:** server credentials (the `guid` password and custom headers) are now added only to
+  requests whose origin matches the configured server, inside the `HttpSvc` interceptor. Pasted
+  GIF URLs download through the plain downloader, and Google/Firebase calls carry no server
+  credentials. A server once seen with a CA-valid certificate is remembered (`ca:<origin>` in the
+  existing fingerprint slot), so an invalid certificate for it is rejected instead of being
+  trusted and pinned on first use; existing self-signed pins keep working.
+- **Security:** localhost detection no longer port-scans the subnet and sends the authenticated
+  ping to every host with the port open. It probes only the LAN addresses the server reports, and
+  only those probes carry the credentials, since the server's `/ping` requires them.
+  `network_tools`, `network_info_plus` and `sqlite3_flutter_libs` are gone with it.
+- **Security (Android):** a shared file's name can no longer escape the cache directory: each
+  share is copied into a fresh random subdirectory, the name is reduced to
+  its last path segment, and the canonical path is checked. Native HTTP logs redact
+  `guid`/`password` query values. The opt-in Tasker broadcast now targets Tasker's package only,
+  and UnifiedPush's misspelled `taserm` action is fixed (`TaskerEventSender.kt`). Dropped the
+  unused `firebase-iid` dependency.
+- **Security:** link previews connect to an address they validated (HTTPS still checks the
+  hostname's certificate), so a hostname can no longer re-resolve to a LAN or loopback address
+  between the check and the connection. Each validated address is tried in turn. A host that
+  resolves to any private address gets no preview; a failed or slow lookup counts as a network
+  error and is retried later. Previews no longer go through a system proxy.
+- **Chat list:** swiping to pin, mute or mark read slides the row back instead of collapsing it;
+  swipe-delete offers Undo (`unDeleteChat` + `addChat`); desktop and web get no hidden swipe
+  actions; swipe colors use theme container pairs; scroll-to-top from far down jumps then
+  animates; the split-view divider follows the pointer. Tiles no longer stay mounted off screen.
+  A large group's "more people" avatar badge is a solid circle instead of a blurred one, so
+  group rows no longer run a backdrop blur.
+- **Conversation:** deleted messages fold out and keep `SliverAnimatedList`'s count in step;
+  dropping a file on the composer attaches it; skipped dropped items are reported; small composer
+  swipes no longer toggle the keyboard; messages sent from your other devices use the receive
+  animation; scroll-to-bottom from far up is quick.
+- **Motion:** sent messages grow from 0.95 with a fade instead of scaling from 0; received
+  messages no longer slide up from below; tapbacks scale from 0.9 at the bubble corner without
+  overshoot. The iOS/Samsung send flight is a 300ms transform with no hold and no per-frame blur,
+  so incoming messages wait about 300ms behind a send instead of 650ms. Message and peek menus
+  grow from the bubble or tile over 200ms and shrink back over 150ms. The composer's reply area
+  and reaction details resize without bouncing; chat images and stickers fade in once and show
+  at once from cache; tablet and desktop pages open without a transition.
+- **Gestures:** swipe-to-reply follows the finger 1:1 to 40px, then stretches, and also triggers
+  on a 700px/s flick. On the iOS skin a left swipe on any bubble shows timestamps and a right
+  swipe replies. In the media viewer, swipe-down closes videos and iOS/Samsung-skin images too
+  (not while zoomed, not from the seek bar), an upward flick no longer closes it, video pages
+  follow the finger, and vertical drags no longer change pages.
+- **Reduce Motion:** one rule on every platform: the in-app switch (now shown everywhere) or the
+  system setting turns it on, folded into the app root's `MediaQuery` (`_ReduceMotionScope` in
+  `main.dart`). Under it, M3E motion tokens resolve to zero (`durationOf`,
+  `matchReducedMotion`), menus and peek previews cut in and out, chat gradients, wallpapers,
+  typing dots, skeletons and setup loops hold still, bubble effects wait for a tap, and GIFs
+  pause. The send-delay ring still counts down in real time.
+- **Accessibility:** screen readers read each chat tile as one item, and a message's sender, text
+  and then time and delivery state as one item while its attachments, links and error button stay
+  separately reachable; icon buttons across the app have labels; small targets (send, mic, back,
+  drag handles, settings back) reach 48dp; settings switches announce their title; profile and
+  OAuth text follow the system text size; on desktop the back buttons (one shared
+  `BBBackButton`) work from the keyboard and keep their hover highlight and tooltip.
+- **Settings:** action snackbars last at least 4s and swipe away; destructive dialog actions use
+  the error color; reordering custom groups auto-scrolls on every skin; hover and focus
+  highlights show on active settings tiles. One settings decoder (`Settings._applyMap`) replaces
+  the duplicate `fromMap` / `updateFromMap` decoding; output is byte-identical on 24 captured
+  cases, including the real preferences file.
+- **Cleanup:** removed the test isolate actions, the dead `MessagePartWrapper`, the duplicate
+  `buildBackButton` (every caller uses `BackButton`), per-request copies of the server headers the
+  interceptor already adds, unused `native_dio_adapter`, direct
+  `csslib`/`win32`/`rxdart` entries, and the never-wired web stub for `network_tools`. Dropping
+  `native_dio_adapter` also drops `jni`, so the Android background worker no longer registers
+  `JniPlugin` and the Windows SignPath list no longer names `dartjni.dll` or the sqlite3 DLLs.
+  Pinned the snap's alsa and gpu-snap sources and corrected stale docs and CLAUDE.md files.
+
 ## 2026-11-04 — Likely spam
 
 - Chats classified as likely spam appear in a separate list and use silent notifications.
