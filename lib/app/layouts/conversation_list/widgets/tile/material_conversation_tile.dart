@@ -40,48 +40,52 @@ class _MaterialConversationTileState extends CustomState<MaterialConversationTil
         onSecondaryTapUp: (details) => controller.onSecondaryTap(Get.context!, details),
         onLongPress: controller.onLongPress,
         borderRadius: BorderRadius.circular(20),
-        child: ListTile(
-          mouseCursor: MouseCursor.defer,
-          dense: SettingsSvc.settings.denseChatTiles.value,
-          visualDensity: SettingsSvc.settings.denseChatTiles.value ? VisualDensity.compact : null,
-          minVerticalPadding: SettingsSvc.settings.denseChatTiles.value ? 7.5 : 10,
-          title: Obx(() => ChatTitle(
-                parentController: controller,
-                style: context.theme.textTheme.bodyLarge!
-                    .copyWith(
-                      fontWeight: controller.shouldHighlight.value
-                          ? FontWeight.w500
-                          : (ChatsSvc.getChatState(controller.chat.guid)?.hasUnreadMessage.value ?? false)
-                              ? FontWeight.bold
-                              : null,
-                      color: ThemeSvc.isAnyMaterialYouSelected ? context.theme.colorScheme.onSurface : null,
-                    )
-                    .apply(fontSizeFactor: 1.1),
-              )),
-          subtitle: controller.subtitle ??
-              Obx(() {
-                final unread = ChatsSvc.getChatState(controller.chat.guid)?.hasUnreadMessage.value ?? false;
-                final isMonet = ThemeSvc.isAnyMaterialYouSelected;
-                return ChatSubtitle(
+        child: ChatTileSemantics(
+          controller: controller,
+          formatDate: buildChatListDateMaterial,
+          child: ListTile(
+            mouseCursor: MouseCursor.defer,
+            dense: SettingsSvc.settings.denseChatTiles.value,
+            visualDensity: SettingsSvc.settings.denseChatTiles.value ? VisualDensity.compact : null,
+            minVerticalPadding: SettingsSvc.settings.denseChatTiles.value ? 7.5 : 10,
+            title: Obx(() => ChatTitle(
                   parentController: controller,
-                  style: context.theme.textTheme.bodyMedium!
+                  style: context.theme.textTheme.bodyLarge!
                       .copyWith(
-                        fontWeight: unread ? FontWeight.w500 : null,
-                        color: controller.shouldHighlight.value || unread
-                            ? isMonet
-                                ? context.theme.colorScheme.onSurface
-                                : context.textTheme.bodyMedium!.color
-                            : isMonet
-                                ? context.theme.colorScheme.onSurfaceVariant
-                                : context.theme.colorScheme.outline,
-                        height: 1.5,
+                        fontWeight: controller.shouldHighlight.value
+                            ? FontWeight.w500
+                            : (ChatsSvc.getChatState(controller.chat.guid)?.hasUnreadMessage.value ?? false)
+                                ? FontWeight.bold
+                                : null,
+                        color: ThemeSvc.isAnyMaterialYouSelected ? context.theme.colorScheme.onSurface : null,
                       )
-                      .apply(fontSizeFactor: 1.05),
-                );
-              }),
-          contentPadding: const EdgeInsets.only(left: 6, right: 16),
-          leading: leading,
-          trailing: MaterialTrailing(parentController: controller),
+                      .apply(fontSizeFactor: 1.1),
+                )),
+            subtitle: controller.subtitle ??
+                Obx(() {
+                  final unread = ChatsSvc.getChatState(controller.chat.guid)?.hasUnreadMessage.value ?? false;
+                  final isMonet = ThemeSvc.isAnyMaterialYouSelected;
+                  return ChatSubtitle(
+                    parentController: controller,
+                    style: context.theme.textTheme.bodyMedium!
+                        .copyWith(
+                          fontWeight: unread ? FontWeight.w500 : null,
+                          color: controller.shouldHighlight.value || unread
+                              ? isMonet
+                                  ? context.theme.colorScheme.onSurface
+                                  : context.textTheme.bodyMedium!.color
+                              : isMonet
+                                  ? context.theme.colorScheme.onSurfaceVariant
+                                  : context.theme.colorScheme.outline,
+                          height: 1.5,
+                        )
+                        .apply(fontSizeFactor: 1.05),
+                  );
+                }),
+            contentPadding: const EdgeInsets.only(left: 6, right: 16),
+            leading: leading,
+            trailing: MaterialTrailing(parentController: controller),
+          ),
         ),
       ),
     );
@@ -113,9 +117,13 @@ class _MaterialConversationTileState extends CustomState<MaterialConversationTil
                   onSecondaryTapUp: (details) => controller.onSecondaryTap(Get.context!, details),
                   onLongPress: controller.onLongPress,
                   borderRadius: BorderRadius.circular(20),
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 10.0, horizontal: 15.0),
-                    child: Center(child: leading),
+                  child: ChatTileSemantics(
+                    controller: controller,
+                    formatDate: buildChatListDateMaterial,
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 10.0, horizontal: 15.0),
+                      child: Center(child: leading),
+                    ),
                   ),
                 )
               : child,

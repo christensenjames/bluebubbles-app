@@ -1,6 +1,7 @@
 import 'dart:math';
 import 'dart:ui';
 
+import 'package:bluebubbles/app/components/m3e/m3e_motion.dart';
 import 'package:bluebubbles/app/layouts/conversation_view/mixins/messages_service_mixin.dart';
 import 'package:bluebubbles/app/layouts/conversation_view/widgets/message/message_holder.dart';
 import 'package:bluebubbles/app/state/chat_state_scope.dart';
@@ -25,7 +26,8 @@ Future<void> peekChat(BuildContext context, Chat c, Offset offset) async {
   await Navigator.push(
     Get.context!,
     PageRouteBuilder(
-      transitionDuration: const Duration(milliseconds: 150),
+      transitionDuration: M3EMotion.spatialFast.durationOf(context),
+      reverseTransitionDuration: M3EMotion.effectsFast.durationOf(context),
       pageBuilder: (context, animation, secondaryAnimation) {
         return FadeTransition(
           opacity: animation,
@@ -55,6 +57,7 @@ class ConversationPeekView extends StatefulWidget {
 
 class _ConversationPeekViewState extends State<ConversationPeekView>
     with SingleTickerProviderStateMixin, MessagesServiceMixin, ThemeHelpers {
+  static const _menuFade = Duration(milliseconds: 150);
   late final AnimationController controller;
   late final ConversationViewController cvController;
   late final Chat? _previousChat;
@@ -62,6 +65,8 @@ class _ConversationPeekViewState extends State<ConversationPeekView>
   late final bool _ownsCvController;
   final double itemHeight = kIsDesktop || kIsWeb ? 56 : 48;
   bool disposed = false;
+  CurvedAnimation? _scaleCurve;
+  late Animation<double> _scale;
 
   // close() resets the global active chat and deletes by tag; another view may own either by now.
   void _releaseCvController() {
@@ -106,11 +111,7 @@ class _ConversationPeekViewState extends State<ConversationPeekView>
       );
     }
 
-    controller = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 150),
-      animationBehavior: AnimationBehavior.preserve,
-    );
+    controller = AnimationController(vsync: this, duration: _menuFade);
     controller.forward();
   }
 
@@ -128,6 +129,19 @@ class _ConversationPeekViewState extends State<ConversationPeekView>
   }
 
   @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (_scaleCurve != null) return;
+    _scaleCurve = CurvedAnimation(
+      parent: ModalRoute.of(context)!.animation!,
+      curve: M3EMotion.spatialFast.curve,
+      reverseCurve: M3EMotion.effectsFast.curve,
+    );
+    _scale = Tween<double>(begin: 0.95, end: 1).animate(_scaleCurve!);
+    controller.matchReducedMotion(context, _menuFade);
+  }
+
+  @override
   void dispose() {
     if (!disposed) {
       _releaseCvController();
@@ -135,6 +149,7 @@ class _ConversationPeekViewState extends State<ConversationPeekView>
       disposeMessagesService(force: true);
       controller.dispose();
     }
+    _scaleCurve?.dispose();
     super.dispose();
   }
 
@@ -172,6 +187,7 @@ class _ConversationPeekViewState extends State<ConversationPeekView>
                   max(min(availableHeight / 2, availableHeight - menuHeight - 25), itemHeight * 2), availableHeight);
               final maxLeft = max(availableWidth - previewWidth - 25, 0.0);
               final maxTop = max(availableHeight - previewHeight - menuHeight - 25, 0.0);
+              final scaleOrigin = Alignment(widget.position.dx > maxLeft ? 1 : -1, widget.position.dy > maxTop ? 1 : -1);
 
               return Stack(
                 fit: StackFit.expand,
@@ -191,10 +207,9 @@ class _ConversationPeekViewState extends State<ConversationPeekView>
                   Positioned(
                     left: min(widget.position.dx, maxLeft),
                     top: min(widget.position.dy, maxTop),
-                    child: TweenAnimationBuilder<double>(
-                      tween: Tween<double>(begin: 0.8, end: 1),
-                      curve: Easing.emphasizedDecelerate,
-                      duration: Durations.medium2,
+                    child: ScaleTransition(
+                      scale: _scale,
+                      alignment: scaleOrigin,
                       child: FadeTransition(
                         opacity: CurvedAnimation(
                           parent: controller,
@@ -271,12 +286,6 @@ class _ConversationPeekViewState extends State<ConversationPeekView>
                           ],
                         ),
                       ),
-                      builder: (context, size, child) {
-                        return Transform.scale(
-                          scale: size,
-                          child: child,
-                        );
-                      },
                     ),
                   ),
                 ],

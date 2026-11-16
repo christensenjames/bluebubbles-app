@@ -84,6 +84,7 @@ class ChatListFilterButton extends StatelessWidget {
         // Extra breathing room before the profile/overflow button that follows.
         padding: const EdgeInsets.only(right: 6),
         child: IconButton(
+          tooltip: "Filter chats",
           onPressed: () => openChatListFilterSheet(context),
           icon: Icon(
             hasActiveFilter ? Icons.filter_list : Icons.filter_list_outlined,

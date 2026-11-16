@@ -1,3 +1,4 @@
+import 'package:bluebubbles/app/components/m3e/m3e_motion.dart';
 import 'package:bluebubbles/helpers/helpers.dart';
 import 'package:bluebubbles/app/layouts/conversation_list/pages/conversation_list.dart';
 import 'package:bluebubbles/app/layouts/conversation_list/widgets/header/header_widgets.dart';
@@ -63,7 +64,9 @@ class _MaterialHeaderState extends CustomState<MaterialHeader, void, Conversatio
                   : Colors.transparent,
             )),
         AnimatedSwitcher(
-          duration: const Duration(milliseconds: 500),
+          duration: M3EMotion.effectsFast.durationOf(context),
+          switchInCurve: M3EMotion.effectsFast.curve,
+          switchOutCurve: M3EMotion.effectsFast.curve,
           child: controller.selectedChats.isEmpty
               ? SafeArea(
                   child: Obx(() {
@@ -97,6 +100,7 @@ class _MaterialHeaderState extends CustomState<MaterialHeader, void, Conversatio
                                         colorFilter: ColorFilter.mode(
                                             context.theme.colorScheme.onSurfaceVariant, BlendMode.srcIn))
                                     : IconButton(
+                                        tooltip: "Back",
                                         onPressed: () async {
                                           Navigator.of(context).pop();
                                         },
@@ -115,6 +119,7 @@ class _MaterialHeaderState extends CustomState<MaterialHeader, void, Conversatio
                                   mainAxisSize: MainAxisSize.min,
                                   children: [
                                     IconButton(
+                                      tooltip: "Camera",
                                       onPressed: () async {
                                         controller.openCamera(context);
                                       },
@@ -126,6 +131,7 @@ class _MaterialHeaderState extends CustomState<MaterialHeader, void, Conversatio
                                     Padding(
                                         padding: const EdgeInsets.only(left: 2),
                                         child: IconButton(
+                                          tooltip: "Search",
                                           onPressed: () async {
                                             NavigationSvc.pushLeft(
                                               context,
@@ -165,6 +171,7 @@ class _MaterialHeaderState extends CustomState<MaterialHeader, void, Conversatio
                           mainAxisSize: MainAxisSize.min,
                           children: [
                             IconButton(
+                              tooltip: "Clear selection",
                               onPressed: () {
                                 controller.clearSelectedChats();
                               },
@@ -190,6 +197,8 @@ class _MaterialHeaderState extends CustomState<MaterialHeader, void, Conversatio
                               controller.selectedChats.length
                             ]).contains(controller.selectedChats.where((element) => element.hasUnreadMessage!).length))
                               IconButton(
+                                tooltip:
+                                    controller.selectedChats[0].hasUnreadMessage! ? "Mark as read" : "Mark as unread",
                                 onPressed: () {
                                   for (Chat element in controller.selectedChats) {
                                     final chatState = ChatsSvc.getChatState(element.guid);
@@ -213,6 +222,7 @@ class _MaterialHeaderState extends CustomState<MaterialHeader, void, Conversatio
                               controller.selectedChats.length
                             ]).contains(controller.selectedChats.where((element) => element.muteType == "mute").length))
                               IconButton(
+                                tooltip: controller.selectedChats[0].muteType == "mute" ? "Show alerts" : "Hide alerts",
                                 onPressed: () {
                                   for (Chat element in controller.selectedChats) {
                                     final chatState = ChatsSvc.getChatState(element.guid);
@@ -234,6 +244,7 @@ class _MaterialHeaderState extends CustomState<MaterialHeader, void, Conversatio
                             if (([0, controller.selectedChats.length])
                                 .contains(controller.selectedChats.where((element) => element.isPinned!).length))
                               IconButton(
+                                tooltip: controller.selectedChats[0].isPinned! ? "Unpin" : "Pin",
                                 onPressed: () {
                                   for (Chat element in controller.selectedChats) {
                                     final chatState = ChatsSvc.getChatState(element.guid);
@@ -247,6 +258,7 @@ class _MaterialHeaderState extends CustomState<MaterialHeader, void, Conversatio
                                 ),
                               ),
                             IconButton(
+                              tooltip: showArchived ? "Unarchive" : "Archive",
                               onPressed: () {
                                 for (Chat element in controller.selectedChats) {
                                   final chatState = ChatsSvc.getChatState(element.guid);

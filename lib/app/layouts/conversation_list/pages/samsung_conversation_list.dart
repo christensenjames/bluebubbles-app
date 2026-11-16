@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:bluebubbles/app/components/m3e/m3e_motion.dart';
 import 'package:bluebubbles/app/components/sliver_decoration.dart';
 import 'package:bluebubbles/helpers/helpers.dart';
 import 'package:bluebubbles/app/layouts/conversation_list/pages/conversation_list.dart';
@@ -73,8 +74,15 @@ class _SamsungConversationListState extends State<SamsungConversationList> with 
                 final double snapOffset =
                     controller.samsungScrollController.offset / scrollDistance > 0.5 ? scrollDistance : 0;
 
-                Future.microtask(() => controller.samsungScrollController
-                    .animateTo(snapOffset, duration: const Duration(milliseconds: 200), curve: Curves.linear));
+                final reduceMotion = MediaQuery.disableAnimationsOf(context);
+                Future.microtask(() {
+                  if (reduceMotion) {
+                    controller.samsungScrollController.jumpTo(snapOffset);
+                  } else {
+                    controller.samsungScrollController.animateTo(snapOffset,
+                        duration: M3EMotion.spatialDefault.duration, curve: M3EMotion.spatialDefault.curve);
+                  }
+                });
               }
               return false;
             },

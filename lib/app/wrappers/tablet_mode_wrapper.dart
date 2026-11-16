@@ -50,6 +50,8 @@ class _TabletModeWrapperState extends State<TabletModeWrapper> with ThemeHelpers
 
   double get _width2 => _maxWidth! - _width1;
 
+  double get _dragTargetWidth => max(widget.dividerWidth, 16);
+
   @override
   void initState() {
     super.initState();
@@ -91,66 +93,66 @@ class _TabletModeWrapperState extends State<TabletModeWrapper> with ThemeHelpers
         return TitleBarWrapper(
           child: SizedBox(
             width: constraints.maxWidth,
-            child: Obx(() => Row(
-                  children: <Widget>[
-                    SizedBox(
-                      width: _width1,
-                      child: widget.left,
-                    ),
-                    (widget.allowResize)
-                        ? MouseRegion(
-                            cursor: SystemMouseCursors.resizeLeftRight,
-                            child: GestureDetector(
-                              behavior: HitTestBehavior.translucent,
-                              child: Container(
-                                color: context.theme.colorScheme.surfaceContainerHighest,
-                                width: widget.dividerWidth,
-                                height: constraints.maxHeight,
-                                child: Column(
+            child: Obx(() => Stack(
+                  children: [
+                    Row(
+                      children: <Widget>[
+                        SizedBox(
+                          width: _width1,
+                          child: widget.left,
+                        ),
+                        Container(
+                          color: context.theme.colorScheme.surfaceContainerHighest,
+                          width: widget.dividerWidth,
+                          height: constraints.maxHeight,
+                          child: widget.allowResize
+                              ? Column(
                                   crossAxisAlignment: CrossAxisAlignment.center,
                                   mainAxisAlignment: MainAxisAlignment.center,
                                   children: [
-                                    Container(
-                                        height: 4,
-                                        width: 4,
-                                        decoration: BoxDecoration(
-                                          borderRadius: BorderRadius.circular(25),
-                                          color: context.theme.colorScheme.onSurfaceVariant,
-                                        )),
-                                    const SizedBox(height: 20),
-                                    Container(
-                                        height: 4,
-                                        width: 4,
-                                        decoration: BoxDecoration(
-                                          borderRadius: BorderRadius.circular(25),
-                                          color: context.theme.colorScheme.onSurfaceVariant,
-                                        )),
-                                    const SizedBox(height: 20),
-                                    Container(
-                                        height: 4,
-                                        width: 4,
-                                        decoration: BoxDecoration(
-                                          borderRadius: BorderRadius.circular(25),
-                                          color: context.theme.colorScheme.onSurfaceVariant,
-                                        )),
+                                    for (int i = 0; i < 3; i++) ...[
+                                      if (i > 0) const SizedBox(height: 20),
+                                      Container(
+                                          height: 4,
+                                          width: 4,
+                                          decoration: BoxDecoration(
+                                            borderRadius: BorderRadius.circular(25),
+                                            color: context.theme.colorScheme.onSurfaceVariant,
+                                          )),
+                                    ],
                                   ],
-                                ),
-                              ),
-                              onPanUpdate: (DragUpdateDetails details) {
-                                _ratio.value = (_ratio.value + (details.delta.dx / _maxWidth!))
-                                    .clamp(widget.minRatio, widget.maxRatio);
-                                NavigationSvc.listener.refresh();
-                              },
-                            ),
-                          )
-                        : Container(
-                            width: widget.dividerWidth,
-                            height: constraints.maxHeight,
-                            color: context.theme.colorScheme.surfaceContainerHighest),
-                    SizedBox(
-                      width: _width2,
-                      child: widget.right,
+                                )
+                              : null,
+                        ),
+                        SizedBox(
+                          width: _width2,
+                          child: widget.right,
+                        ),
+                      ],
                     ),
+                    if (widget.allowResize)
+                      Positioned(
+                        left: _width1 + (widget.dividerWidth - _dragTargetWidth) / 2,
+                        top: 0,
+                        bottom: 0,
+                        width: _dragTargetWidth,
+                        child: MouseRegion(
+                          cursor: SystemMouseCursors.resizeLeftRight,
+                          child: GestureDetector(
+                            behavior: HitTestBehavior.opaque,
+                            onPanUpdate: (DragUpdateDetails details) {
+                              final box = context.findRenderObject() as RenderBox;
+                              final pointerX = box.globalToLocal(details.globalPosition).dx;
+                              final width = max(
+                                  min(pointerX - widget.dividerWidth / 2,
+                                      min(widget.maxRatio * _maxWidth!, widget.maxWidthLeft ?? double.infinity)),
+                                  max(widget.minRatio * _maxWidth!, widget.minWidthLeft ?? double.negativeInfinity));
+                              _ratio.value = width / _maxWidth!;
+                              NavigationSvc.listener.refresh();
+                            },
+                          ),
+                        ),
+                      ),
                   ],
                 )),
           ),

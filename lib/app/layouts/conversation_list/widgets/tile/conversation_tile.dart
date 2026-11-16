@@ -104,32 +104,37 @@ class ConversationTile extends CustomStateful<ConversationTileController> {
     Function(bool)? onSelect,
     bool inSelectMode = false,
     Widget? subtitle,
-  }) : super(
-            parentController: !inSelectMode && Get.isRegistered<ConversationTileController>(tag: chat.guid)
-                ? Get.find<ConversationTileController>(tag: chat.guid)
-                : Get.put(
-                    ConversationTileController(
-                      chatState: ChatsSvc.getOrCreateChatState(chat),
-                      listController: controller,
-                      onSelect: onSelect,
-                      inSelectMode: inSelectMode,
-                      subtitle: subtitle,
-                    ),
-                    tag: inSelectMode ? randomString(8) : chat.guid,
-                    permanent: kIsDesktop || kIsWeb));
+  }) : super(parentController: _tileController(chat, controller, onSelect, inSelectMode, subtitle));
+
+  static ConversationTileController _tileController(Chat chat, ConversationListController listController,
+      Function(bool)? onSelect, bool inSelectMode, Widget? subtitle) {
+    if (!inSelectMode && Get.isRegistered<ConversationTileController>(tag: chat.guid)) {
+      final existing = Get.find<ConversationTileController>(tag: chat.guid);
+      final current = ChatsSvc.getChatState(chat.guid);
+      // A deleted chat restored by swipe undo gets a new ChatState; the old controller would show the dead one.
+      if (current == null || identical(existing.chatState, current)) return existing;
+      Get.delete<ConversationTileController>(tag: chat.guid, force: true);
+    }
+    return Get.put(
+        ConversationTileController(
+          chatState: ChatsSvc.getOrCreateChatState(chat),
+          listController: listController,
+          onSelect: onSelect,
+          inSelectMode: inSelectMode,
+          subtitle: subtitle,
+        ),
+        tag: inSelectMode ? randomString(8) : chat.guid,
+        permanent: kIsDesktop || kIsWeb);
+  }
 
   @override
   State<ConversationTile> createState() => _ConversationTileState();
 }
 
-class _ConversationTileState extends CustomState<ConversationTile, void, ConversationTileController>
-    with AutomaticKeepAliveClientMixin {
+class _ConversationTileState extends CustomState<ConversationTile, void, ConversationTileController> {
   ConversationListController get listController => controller.listController;
   StreamSubscription? _activeSub;
   bool _isTabletMode = false;
-
-  @override
-  bool get wantKeepAlive => true;
 
   @override
   void initState() {
@@ -164,7 +169,6 @@ class _ConversationTileState extends CustomState<ConversationTile, void, Convers
 
   @override
   Widget build(BuildContext context) {
-    super.build(context);
     return MouseRegion(
       child: ThemeSwitcher(
         iOSSkin: CupertinoConversationTile(
@@ -247,15 +251,7 @@ class _ChatSubtitleState extends CustomState<ChatSubtitle, void, ConversationTil
       final isDelivered =
           controller.chat.isGroup || !isFromMe || latestMessage?.isDelivered == true || latestMessage?.dateRead != null;
 
-      // subtitle.value is already contact-info-free when redacted mode is on
-      // (ChatState.redactContactInfo / updateChatLatestMessage ensure this).
-      final String _subtitle = chatState.subtitle.value ?? '';
-
-      // Draft detection — show "Draft: ..." when there is staged text or attachments.
-      final draftText = chatState.textFieldText.value ?? '';
-      final hasDraftText = draftText.isNotEmpty;
-      final hasDraftAttachments = chatState.textFieldAttachments.isNotEmpty;
-      final hasDraft = hasDraftText || hasDraftAttachments;
+      final draftBody = _draftPreview(chatState);
 
       final maxLines = SettingsSvc.settings.denseChatTiles.value ? 1 : 2;
       final lineHeight = (widget.style.fontSize ?? 14) * (widget.style.height ?? 1.5);
@@ -263,13 +259,12 @@ class _ChatSubtitleState extends CustomState<ChatSubtitle, void, ConversationTil
       // For material DMs with a message from me, show a delivery check icon
       // instead of italic styling — mirrors the Google Messages visual pattern.
       // Suppress when showing a draft so the layout stays clean.
-      final showDeliveryIcon = material && isFromMe && !controller.chat.isGroup && !hasDraft;
+      final showDeliveryIcon = material && isFromMe && !controller.chat.isGroup && draftBody == null;
       final isMonet = ThemeSvc.isAnyMaterialYouSelected;
       final iconColor = isMonet ? context.theme.colorScheme.primary : context.theme.colorScheme.outline;
 
       final TextSpan subtitleSpan;
-      if (hasDraft) {
-        final draftBody = hasDraftText ? draftText : 'Attachment';
+      if (draftBody != null) {
         subtitleSpan = TextSpan(children: [
           TextSpan(
             text: 'Draft: ',
@@ -283,7 +278,7 @@ class _ChatSubtitleState extends CustomState<ChatSubtitle, void, ConversationTil
       } else {
         subtitleSpan = TextSpan(
           children: MessageHelper.buildEmojiText(
-            "${!iOS && isFromMe ? "You: " : ""}$_subtitle",
+            _messagePreview(chatState, iOS),
             widget.style.copyWith(fontStyle: !iOS && !material && !isDelivered ? FontStyle.italic : null),
           ),
         );
@@ -321,6 +316,47 @@ class _ChatSubtitleState extends CustomState<ChatSubtitle, void, ConversationTil
               : richText,
         ),
       );
+    });
+  }
+}
+
+// subtitle.value is already contact-info-free when redacted mode is on
+// (ChatState.redactContactInfo / updateChatLatestMessage ensure this).
+String _messagePreview(ChatState chatState, bool iOS) =>
+    "${!iOS && (chatState.latestMessage.value?.isFromMe ?? false) ? "You: " : ""}${chatState.subtitle.value ?? ''}";
+
+String? _draftPreview(ChatState chatState) {
+  final text = chatState.textFieldText.value ?? '';
+  if (text.isNotEmpty) return text;
+  return chatState.textFieldAttachments.isNotEmpty ? 'Attachment' : null;
+}
+
+/// Gives a conversation tile one screen-reader label in place of its visual parts. Wrap the tile's content
+/// inside its [InkWell] so the label lands on the same semantics node as the tap actions.
+class ChatTileSemantics extends StatelessWidget {
+  const ChatTileSemantics({super.key, required this.controller, required this.child, this.formatDate = buildDate});
+
+  final ConversationTileController controller;
+  final String Function(DateTime?) formatDate;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    // A caller-supplied subtitle widget can't be read into the label, so its tile keeps the default semantics.
+    if (controller.subtitle != null) return child;
+    return Obx(() {
+      final chatState = controller.chatState;
+      final message = chatState.latestMessage.value;
+      final draft = _draftPreview(chatState);
+      final label = [
+        chatState.title.value ?? controller.chat.getTitle(),
+        if (chatState.hasUnreadMessage.value) "unread",
+        if (chatState.isPinned.value) "pinned",
+        if (chatState.muteType.value == "mute") "muted",
+        draft != null ? "Draft: $draft" : _messagePreview(chatState, context.iOS),
+        (message?.error ?? 0) > 0 ? "Error" : formatDate(message?.dateCreated),
+      ].where((part) => part.isNotEmpty).join(", ");
+      return Semantics(label: label, child: ExcludeSemantics(child: child));
     });
   }
 }

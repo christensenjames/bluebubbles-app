@@ -106,65 +106,68 @@ class _PinnedConversationTileState extends CustomState<PinnedConversationTile, v
                         await peekChat(context, controller.chat, longPressPosition ?? Offset.zero);
                       },
                 onSecondaryTapUp: (details) => controller.onSecondaryTap(context, details),
-                child: Padding(
-                  padding: const EdgeInsets.only(
-                    top: 4,
-                    left: 11,
-                    right: 11,
-                    bottom: 2,
-                  ),
-                  child: ConstrainedBox(
-                    constraints: BoxConstraints(maxWidth: widget.avatarSize),
-                    child: Stack(
-                      clipBehavior: Clip.none,
-                      alignment: Alignment.center,
-                      children: <Widget>[
-                        Column(
-                          children: [
-                            Stack(
-                              clipBehavior: Clip.none,
-                              children: <Widget>[
-                                ContactAvatarGroupWidget(
-                                  chat: controller.chat,
-                                  size: widget.avatarSize,
-                                  editable: false,
-                                ),
-                                MuteIcon(width: widget.avatarSize, parentController: controller),
-                                PinnedIndicators(width: widget.avatarSize, controller: controller),
-                                // SenderIcon is inside the avatar Stack so its Positioned
-                                // coordinates are unambiguously relative to the avatar bounds.
-                                SenderIcon(width: widget.avatarSize, parentController: controller),
-                                ReactionIcon(width: widget.avatarSize, parentController: controller),
-                                // Group bubble: anchored so its bottom aligns with the
-                                // sender avatar bottom (senderSize=0.25w, top=0.375w, bottom=0.625w).
-                                if (controller.chat.isGroup)
-                                  Positioned(
-                                    bottom: widget.avatarSize * 0.575,
-                                    left: widget.avatarSize * 0.05,
-                                    width: widget.avatarSize * 1.15,
-                                    child: PinnedTileTextBubble(
-                                      chat: controller.chat,
-                                      size: widget.avatarSize,
-                                      parentController: controller,
-                                    ),
+                child: ChatTileSemantics(
+                  controller: controller,
+                  child: Padding(
+                    padding: const EdgeInsets.only(
+                      top: 4,
+                      left: 11,
+                      right: 11,
+                      bottom: 2,
+                    ),
+                    child: ConstrainedBox(
+                      constraints: BoxConstraints(maxWidth: widget.avatarSize),
+                      child: Stack(
+                        clipBehavior: Clip.none,
+                        alignment: Alignment.center,
+                        children: <Widget>[
+                          Column(
+                            children: [
+                              Stack(
+                                clipBehavior: Clip.none,
+                                children: <Widget>[
+                                  ContactAvatarGroupWidget(
+                                    chat: controller.chat,
+                                    size: widget.avatarSize,
+                                    editable: false,
                                   ),
-                              ],
-                            ),
-                            ChatTitle(width: widget.avatarSize, parentController: controller),
-                          ],
-                        ),
-                        // DM bubble: wider than the avatar so the bubble has room to grow.
-                        if (!controller.chat.isGroup)
-                          Positioned(
-                            top: 0,
-                            width: widget.avatarSize * 1.35,
-                            child: PinnedTileTextBubble(
-                              chat: controller.chat,
-                              size: widget.avatarSize,
-                              parentController: controller,
-                            ),
+                                  MuteIcon(width: widget.avatarSize, parentController: controller),
+                                  PinnedIndicators(width: widget.avatarSize, controller: controller),
+                                  // SenderIcon is inside the avatar Stack so its Positioned
+                                  // coordinates are unambiguously relative to the avatar bounds.
+                                  SenderIcon(width: widget.avatarSize, parentController: controller),
+                                  ReactionIcon(width: widget.avatarSize, parentController: controller),
+                                  // Group bubble: anchored so its bottom aligns with the
+                                  // sender avatar bottom (senderSize=0.25w, top=0.375w, bottom=0.625w).
+                                  if (controller.chat.isGroup)
+                                    Positioned(
+                                      bottom: widget.avatarSize * 0.575,
+                                      left: widget.avatarSize * 0.05,
+                                      width: widget.avatarSize * 1.15,
+                                      child: PinnedTileTextBubble(
+                                        chat: controller.chat,
+                                        size: widget.avatarSize,
+                                        parentController: controller,
+                                      ),
+                                    ),
+                                ],
+                              ),
+                              ChatTitle(width: widget.avatarSize, parentController: controller),
+                            ],
                           ),
-                      ],
+                          // DM bubble: wider than the avatar so the bubble has room to grow.
+                          if (!controller.chat.isGroup)
+                            Positioned(
+                              top: 0,
+                              width: widget.avatarSize * 1.35,
+                              child: PinnedTileTextBubble(
+                                chat: controller.chat,
+                                size: widget.avatarSize,
+                                parentController: controller,
+                              ),
+                            ),
+                        ],
+                      ),
                     ),
                   ),
                 ),

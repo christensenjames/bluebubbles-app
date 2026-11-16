@@ -29,6 +29,7 @@ class _SamsungFooterState extends CustomState<SamsungFooter, void, ConversationL
                 if (([0, controller.selectedChats.length])
                     .contains(controller.selectedChats.where((element) => element.hasUnreadMessage!).length))
                   IconButton(
+                    tooltip: controller.selectedChats[0].hasUnreadMessage! ? "Mark as read" : "Mark as unread",
                     onPressed: () {
                       for (Chat element in controller.selectedChats) {
                         final chatState = ChatsSvc.getChatState(element.guid);
@@ -50,6 +51,7 @@ class _SamsungFooterState extends CustomState<SamsungFooter, void, ConversationL
                 if (([0, controller.selectedChats.length])
                     .contains(controller.selectedChats.where((element) => element.muteType == "mute").length))
                   IconButton(
+                    tooltip: controller.selectedChats[0].muteType == "mute" ? "Show alerts" : "Hide alerts",
                     onPressed: () {
                       for (Chat element in controller.selectedChats) {
                         final chatState = ChatsSvc.getChatState(element.guid);
@@ -71,6 +73,7 @@ class _SamsungFooterState extends CustomState<SamsungFooter, void, ConversationL
                 if (([0, controller.selectedChats.length])
                     .contains(controller.selectedChats.where((element) => element.isPinned!).length))
                   IconButton(
+                    tooltip: controller.selectedChats[0].isPinned! ? "Unpin" : "Pin",
                     onPressed: () {
                       for (Chat element in controller.selectedChats) {
                         final chatState = ChatsSvc.getChatState(element.guid);
@@ -84,6 +87,7 @@ class _SamsungFooterState extends CustomState<SamsungFooter, void, ConversationL
                     ),
                   ),
                 IconButton(
+                  tooltip: showArchived ? "Unarchive" : "Archive",
                   onPressed: () {
                     for (Chat element in controller.selectedChats) {
                       final chatState = ChatsSvc.getChatState(element.guid);
@@ -97,6 +101,7 @@ class _SamsungFooterState extends CustomState<SamsungFooter, void, ConversationL
                   ),
                 ),
                 IconButton(
+                  tooltip: "Delete",
                   onPressed: () {
                     for (Chat element in controller.selectedChats) {
                       ChatsSvc.removeChat(element);

@@ -49,46 +49,49 @@ class _CupertinoConversationTileState extends CustomState<CupertinoConversationT
         onTapDown: (details) {
           longPressPosition = details.globalPosition;
         },
-        child: Obx(() => ListTile(
-            mouseCursor: MouseCursor.defer,
-            enableFeedback: true,
-            dense: SettingsSvc.settings.denseChatTiles.value,
-            contentPadding: const EdgeInsets.only(left: 0),
-            visualDensity: SettingsSvc.settings.denseChatTiles.value ? VisualDensity.compact : null,
-            minVerticalPadding: 6,
-            horizontalTitleGap: 10,
-            title: Row(
-              children: [
-                Expanded(
-                  child: ChatTitle(
-                    parentController: controller,
-                    style: context.theme.textTheme.bodyLarge!.copyWith(
-                        fontWeight: controller.shouldHighlight.value ? FontWeight.w600 : FontWeight.w500,
-                        color: controller.shouldHighlight.value
-                            ? context.theme.colorScheme.onBubble(context, controller.chat.isIMessage)
-                            : null),
-                  ),
-                ),
-                const SizedBox(width: 10),
-                CupertinoTrailing(parentController: controller),
-              ],
-            ),
-            subtitle: Padding(
-              padding: const EdgeInsets.only(right: 20.0),
-              child: controller.subtitle ??
-                  ChatSubtitle(
-                    parentController: controller,
-                    style: context.theme.textTheme.bodyMedium!.copyWith(
-                      color: controller.shouldHighlight.value
-                          ? context.theme.colorScheme
-                              .onBubble(context, controller.chat.isIMessage)
-                              .withValues(alpha: 0.85)
-                          : context.theme.colorScheme.outline,
-                      height: 1.5,
+        child: ChatTileSemantics(
+          controller: controller,
+          child: Obx(() => ListTile(
+              mouseCursor: MouseCursor.defer,
+              enableFeedback: true,
+              dense: SettingsSvc.settings.denseChatTiles.value,
+              contentPadding: const EdgeInsets.only(left: 0),
+              visualDensity: SettingsSvc.settings.denseChatTiles.value ? VisualDensity.compact : null,
+              minVerticalPadding: 6,
+              horizontalTitleGap: 10,
+              title: Row(
+                children: [
+                  Expanded(
+                    child: ChatTitle(
+                      parentController: controller,
+                      style: context.theme.textTheme.bodyLarge!.copyWith(
+                          fontWeight: controller.shouldHighlight.value ? FontWeight.w600 : FontWeight.w500,
+                          color: controller.shouldHighlight.value
+                              ? context.theme.colorScheme.onBubble(context, controller.chat.isIMessage)
+                              : null),
                     ),
                   ),
-            ),
-            leading: leading)),
+                  const SizedBox(width: 10),
+                  CupertinoTrailing(parentController: controller),
+                ],
+              ),
+              subtitle: Padding(
+                padding: const EdgeInsets.only(right: 20.0),
+                child: controller.subtitle ??
+                    ChatSubtitle(
+                      parentController: controller,
+                      style: context.theme.textTheme.bodyMedium!.copyWith(
+                        color: controller.shouldHighlight.value
+                            ? context.theme.colorScheme
+                                .onBubble(context, controller.chat.isIMessage)
+                                .withValues(alpha: 0.85)
+                            : context.theme.colorScheme.outline,
+                        height: 1.5,
+                      ),
+                    ),
+              ),
+              leading: leading)),
+        ),
       ),
     );
 
@@ -120,10 +123,14 @@ class _CupertinoConversationTileState extends CustomState<CupertinoConversationT
                   onTapDown: (details) {
                     longPressPosition = details.globalPosition;
                   },
-                  child: Padding(
-                    padding: EdgeInsets.symmetric(vertical: 10.0, horizontal: (NavigationSvc.width(context) - 100) / 2)
-                        .add(const EdgeInsets.only(right: 15)),
-                    child: leading,
+                  child: ChatTileSemantics(
+                    controller: controller,
+                    child: Padding(
+                      padding:
+                          EdgeInsets.symmetric(vertical: 10.0, horizontal: (NavigationSvc.width(context) - 100) / 2)
+                              .add(const EdgeInsets.only(right: 15)),
+                      child: leading,
+                    ),
                   ),
                 )
               : child,

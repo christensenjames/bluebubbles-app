@@ -122,7 +122,14 @@ class ConversationListController extends StatefulController {
     final index = shownIndexOf(chat);
     final scroll = _skinScrollController;
     if (index == -1 || index >= indexBefore || !scroll.hasClients) return;
-    scroll.animateTo(0, duration: const Duration(milliseconds: 300), curve: Curves.easeOut);
+    scrollToTop(scroll);
+  }
+
+  // Far down a long list, jump to one screen from the top so the animation stays short.
+  Future<void> scrollToTop(ScrollController scroll) async {
+    final viewport = scroll.position.viewportDimension;
+    if (scroll.offset > viewport * 2) scroll.jumpTo(viewport);
+    await scroll.animateTo(0, duration: const Duration(milliseconds: 300), curve: Curves.easeOut);
   }
 
   void openCamera(BuildContext context) async {
