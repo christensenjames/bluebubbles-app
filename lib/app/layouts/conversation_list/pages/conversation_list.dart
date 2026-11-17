@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:bluebubbles/app/components/avatars/contact_avatar_widget.dart';
+import 'package:bluebubbles/app/components/m3e/m3e_motion.dart';
 import 'package:bluebubbles/app/layouts/chat_creator/new_chat_creator.dart';
 import 'package:bluebubbles/app/layouts/conversation_list/widgets/conversation_list_fab.dart';
 import 'package:bluebubbles/app/layouts/conversation_list/widgets/footer/samsung_footer.dart';
@@ -127,9 +128,13 @@ class ConversationListController extends StatefulController {
 
   // Far down a long list, jump to one screen from the top so the animation stays short.
   Future<void> scrollToTop(ScrollController scroll) async {
+    if (MediaQuery.disableAnimationsOf(scroll.position.context.storageContext)) {
+      scroll.jumpTo(0);
+      return;
+    }
     final viewport = scroll.position.viewportDimension;
     if (scroll.offset > viewport * 2) scroll.jumpTo(viewport);
-    await scroll.animateTo(0, duration: const Duration(milliseconds: 300), curve: Curves.easeOut);
+    await scroll.animateTo(0, duration: const Duration(milliseconds: 300), curve: M3EMotion.strongEaseOut);
   }
 
   void openCamera(BuildContext context) async {

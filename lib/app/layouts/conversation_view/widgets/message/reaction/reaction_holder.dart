@@ -30,7 +30,7 @@ class _ReactionAnimator extends StatefulWidget {
 class _ReactionAnimatorState extends State<_ReactionAnimator> with SingleTickerProviderStateMixin {
   late AnimationController _controller;
   late Animation<double> _scaleAnimation;
-  late Animation<double> _fadeAnimation;
+  late CurvedAnimation _fadeAnimation;
 
   @override
   void initState() {
@@ -38,15 +38,11 @@ class _ReactionAnimatorState extends State<_ReactionAnimator> with SingleTickerP
     _controller = AnimationController(
       duration: M3EMotion.spatialFast.duration,
       vsync: this,
+      animationBehavior: AnimationBehavior.preserve,
     );
 
-    _scaleAnimation = _controller.drive(
-      Tween<double>(begin: 0.9, end: 1.0).chain(CurveTween(curve: M3EMotion.spatialFast.curve)),
-    );
-    // Opacity finishes in effectsFast's 150ms of the 200ms scale.
-    _fadeAnimation = _controller.drive(
-      Tween<double>(begin: 0.01, end: 1.0).chain(CurveTween(curve: const Interval(0.0, 0.75, curve: Easing.standard))),
-    );
+    _fadeAnimation = CurvedAnimation(parent: _controller, curve: M3EMotion.strongEaseOut);
+    _scaleAnimation = _fadeAnimation.drive(Tween<double>(begin: 0.9, end: 1.0));
 
     // Animate in only if this is a new reaction
     if (widget.shouldAnimate) {
@@ -60,25 +56,27 @@ class _ReactionAnimatorState extends State<_ReactionAnimator> with SingleTickerP
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    _controller.matchReducedMotion(context, M3EMotion.spatialFast.duration);
+    _fadeAnimation.curve = MediaQuery.disableAnimationsOf(context) ? Curves.ease : M3EMotion.strongEaseOut;
   }
 
   @override
   void dispose() {
+    _fadeAnimation.dispose();
     _controller.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    if (MediaQuery.disableAnimationsOf(context)) return widget.child;
     return FadeTransition(
       opacity: _fadeAnimation,
-      child: ScaleTransition(
-        scale: _scaleAnimation,
-        alignment: widget.alignment,
-        child: widget.child,
-      ),
+      child: MediaQuery.disableAnimationsOf(context)
+          ? widget.child
+          : ScaleTransition(
+              scale: _scaleAnimation,
+              alignment: widget.alignment,
+              child: widget.child,
+            ),
     );
   }
 }

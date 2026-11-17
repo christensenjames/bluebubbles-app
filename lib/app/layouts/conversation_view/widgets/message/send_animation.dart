@@ -409,18 +409,24 @@ class _SendAnimationState extends CustomState<SendAnimation, SendData, Conversat
               key: ObjectKey(flying),
               tween: Tween<double>(begin: 0, end: 1),
               duration: M3EMotion.spatialDefault.duration,
-              curve: M3EMotion.spatialDefault.curve,
+              curve: Curves.linear,
               onEnd: _land,
               // Painted once; each frame only moves, scales and fades this layer.
               child: RepaintBoundary(child: _buildBubble(context, flying)),
-              builder: (context, t, child) => Transform.translate(
-                offset: Offset(0, -_animationBottomOffset * t),
-                child: Transform.scale(
-                  scale: 0.95 + 0.05 * t,
-                  alignment: Alignment.centerRight,
-                  child: Opacity(opacity: clampDouble(t * 3, 0.01, 1), child: child),
-                ),
-              ),
+              builder: (context, t, child) {
+                final p = M3EMotion.emphasized.transform(t);
+                return Transform.translate(
+                  offset: Offset(0, -_animationBottomOffset * p),
+                  child: Transform.scale(
+                    scale: 0.95 + 0.05 * p,
+                    alignment: Alignment.centerRight,
+                    child: Opacity(
+                      opacity: M3EMotion.strongEaseOut.transform(clampDouble(t * 3, 0, 1)).clamp(0.01, 1),
+                      child: child,
+                    ),
+                  ),
+                );
+              },
             ),
     );
   }

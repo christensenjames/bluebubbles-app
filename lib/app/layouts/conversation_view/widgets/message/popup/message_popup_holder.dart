@@ -126,7 +126,7 @@ class _MessagePopupHolderState extends State<MessagePopupHolder> with ThemeHelpe
         reverseTransitionDuration: M3EMotion.effectsFast.durationOf(context),
         pageBuilder: (ctx, animation, secondaryAnimation) {
           return FadeTransition(
-            opacity: animation,
+            opacity: CurvedAnimation(parent: animation, curve: M3EMotion.strongEaseOut),
             child: Theme(
               data: capturedTheme.copyWith(
                 // in case some components still use legacy theming

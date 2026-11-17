@@ -779,7 +779,7 @@ class MessagesViewState extends State<MessagesView> with MessagesServiceMixin, T
                                       return build(child: messageWidget, animation: animation);
                                     }
 
-                                    // Received or sent from another device: grow only.
+                                    // Received or sent from another device: fade and grow into place.
                                     if (animationOrchestrator.isMessageAnimating(message)) {
                                       return animationOrchestrator.buildReceivedMessageAnimation(
                                         child: messageWidget,

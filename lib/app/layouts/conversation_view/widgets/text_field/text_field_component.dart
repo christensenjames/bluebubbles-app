@@ -207,7 +207,7 @@ class TextFieldComponentState extends State<TextFieldComponent> {
               ),
               clipBehavior: Clip.antiAlias,
               child: AnimatedSize(
-                duration: Durations.medium1,
+                duration: MediaQuery.disableAnimationsOf(context) ? Duration.zero : Durations.medium1,
                 curve: Easing.emphasizedDecelerate,
                 alignment: Alignment.bottomCenter,
                 child: Column(

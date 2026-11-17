@@ -1,3 +1,4 @@
+import 'package:bluebubbles/app/components/m3e/m3e_motion.dart';
 import 'package:bluebubbles/app/layouts/conversation_view/pages/handlers/message_list_animation_config.dart';
 import 'package:bluebubbles/database/models.dart';
 import 'package:flutter/material.dart';
@@ -37,7 +38,7 @@ class MessageAnimationOrchestrator {
     required Widget child,
     required Animation<double> animation,
   }) {
-    return buildReceivedMessageAnimation(
+    return _buildSizeTransition(
       animation: animation,
       child: FadeTransition(
         opacity: animation.drive(
@@ -71,8 +72,24 @@ class MessageAnimationOrchestrator {
     );
   }
 
-  /// Received rows, and sent rows from other devices, grow into place without a fade.
   Widget buildReceivedMessageAnimation({
+    required Widget child,
+    required Animation<double> animation,
+  }) {
+    return Builder(
+      builder: (context) => TweenAnimationBuilder<double>(
+        tween: Tween<double>(begin: 0.01, end: 1),
+        duration: M3EMotion.effectsFast.duration,
+        curve: M3EMotion.strongEaseOut,
+        builder: (context, opacity, child) => Opacity(opacity: opacity, child: child),
+        child: MediaQuery.disableAnimationsOf(context)
+            ? child
+            : _buildSizeTransition(child: child, animation: animation),
+      ),
+    );
+  }
+
+  Widget _buildSizeTransition({
     required Widget child,
     required Animation<double> animation,
   }) {
