@@ -14,6 +14,7 @@ class StorageExpressiveAnalyzePrompt extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return M3EMotion.spatialDefault.container(
+      context: context,
       child: Center(
         child: Padding(
           padding: const EdgeInsets.all(24.0),

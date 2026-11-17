@@ -6,6 +6,7 @@ import 'package:bluebubbles/app/layouts/conversation_view/widgets/message/reply/
 import 'package:bluebubbles/app/state/chat_state_scope.dart';
 import 'package:bluebubbles/app/wrappers/theme_switcher.dart';
 import 'package:bluebubbles/app/wrappers/stateful_boilerplate.dart';
+import 'package:bluebubbles/app/wrappers/titlebar_wrapper.dart';
 import 'package:bluebubbles/helpers/helpers.dart';
 import 'package:bluebubbles/services/services.dart';
 import 'package:flutter/material.dart' hide BackButton;
@@ -40,10 +41,11 @@ class MaterialHeader extends StatelessWidget implements PreferredSizeWidget {
               backgroundBrightness: ThemeData.estimateBrightnessForColor(_backgroundColor.value),
             ),
             automaticallyImplyLeading: false,
-            toolbarHeight: (kIsDesktop ? 25 : 0) + kToolbarHeight,
-            leadingWidth: 30,
+            toolbarHeight: (hasCustomTitleBar ? 25 : 0) + kToolbarHeight,
+            leadingWidth: 48,
+            titleSpacing: 0,
             leading: Padding(
-              padding: EdgeInsets.only(left: 5.0, top: kIsDesktop ? 20 : 0),
+              padding: EdgeInsets.only(top: hasCustomTitleBar ? 20 : 0),
               child: BackButton(
                 color: _foregroundColor,
                 onPressed: () {
@@ -61,7 +63,7 @@ class MaterialHeader extends StatelessWidget implements PreferredSizeWidget {
               ),
             ),
             title: Padding(
-              padding: EdgeInsets.only(top: kIsDesktop ? 20 : 0),
+              padding: EdgeInsets.only(top: hasCustomTitleBar ? 20 : 0, right: NavigationToolbar.kMiddleSpacing),
               child: InkWell(
                 borderRadius: BorderRadius.circular(10),
                 onTap: () {
@@ -81,11 +83,12 @@ class MaterialHeader extends StatelessWidget implements PreferredSizeWidget {
             ),
             actions: [
               Padding(
-                padding: EdgeInsets.only(top: kIsDesktop ? 20 : 0),
+                padding: EdgeInsets.only(top: hasCustomTitleBar ? 20 : 0),
                 child: ManualMark(controller: controller),
               ),
               if (Platform.isAndroid && !controller.chat.isGroup && controller.chat.handles.first.address.isPhoneNumber)
                 IconButton(
+                  tooltip: "Call",
                   icon: Icon(Icons.call_outlined, color: _foregroundColor),
                   onPressed: () {
                     launchUrl(Uri(scheme: "tel", path: controller.chat.handles.first.address));
@@ -93,13 +96,14 @@ class MaterialHeader extends StatelessWidget implements PreferredSizeWidget {
                 ),
               if (Platform.isAndroid && !controller.chat.isGroup && controller.chat.handles.first.address.isEmail)
                 IconButton(
+                  tooltip: "Send email",
                   icon: Icon(Icons.mail_outlined, color: _foregroundColor),
                   onPressed: () {
                     launchUrl(Uri(scheme: "mailto", path: controller.chat.handles.first.address));
                   },
                 ),
               Padding(
-                padding: EdgeInsets.only(top: kIsDesktop ? 20 : 0),
+                padding: EdgeInsets.only(top: hasCustomTitleBar ? 20 : 0),
                 child: PopupMenuButton<int>(
                   color: context.theme.colorScheme.surfaceContainerHighest,
                   shape: SettingsSvc.settings.skin.value != Skins.Material
@@ -225,7 +229,7 @@ class MaterialHeader extends StatelessWidget implements PreferredSizeWidget {
   }
 
   @override
-  Size get preferredSize => Size.fromHeight(kIsDesktop ? 90 : kToolbarHeight);
+  Size get preferredSize => Size.fromHeight(hasCustomTitleBar ? 90 : kToolbarHeight);
 }
 
 class _ChatIconAndTitle extends CustomStateful<ConversationViewController> {
@@ -270,25 +274,50 @@ class _ChatIconAndTitleState extends CustomState<_ChatIconAndTitle, void, Conver
                 final _title = controller.inSelectMode.value
                     ? "${controller.selected.length} selected"
                     : chatState.title.value ?? controller.chat.getTitle();
-                return Text(
-                  _title,
-                  style: context.theme.textTheme.titleLarge!
-                      .apply(color: context.theme.colorScheme.onSurfaceVariant, fontSizeFactor: 0.85),
+                return Text.rich(
+                  TextSpan(
+                    children: MessageHelper.buildEmojiText(
+                      _title,
+                      context.theme.textTheme.titleLarge!
+                          .apply(color: context.theme.colorScheme.onSurfaceVariant, fontSizeFactor: 0.85),
+                    ),
+                  ),
                   maxLines: 1,
                   overflow: TextOverflow.fade,
                 );
               }),
-              if (samsung &&
-                  (controller.chat.isGroup ||
-                      (!controller.chat.getTitle().isPhoneNumber && !controller.chat.getTitle().isEmail)))
-                Text(
-                  controller.chat.isGroup
-                      ? "${controller.chat.handles.length} recipients"
-                      : controller.chat.handles[0].address,
-                  style: context.theme.textTheme.labelLarge!.apply(color: context.theme.colorScheme.outline),
-                  maxLines: 1,
-                  overflow: TextOverflow.fade,
-                ),
+              Obx(() {
+                final hideAddress =
+                    SettingsSvc.settings.redactedMode.value && SettingsSvc.settings.hideContactInfo.value;
+                final style = context.theme.textTheme.labelLarge!.apply(color: context.theme.colorScheme.outline);
+                final title = controller.chat.getTitle();
+                if (samsung && controller.chat.isGroup) {
+                  return Text("${controller.chat.handles.length} recipients",
+                      style: style, maxLines: 1, overflow: TextOverflow.fade);
+                }
+                if (hideAddress) return const SizedBox.shrink();
+                if (samsung && !controller.chat.isGroup && !title.isPhoneNumber && !title.isEmail) {
+                  return Text(controller.chat.handles[0].address,
+                      style: style, maxLines: 1, overflow: TextOverflow.fade);
+                }
+                if (material &&
+                    !controller.chat.isGroup &&
+                    controller.chat.handles.length == 1 &&
+                    controller.chat.handles.first.address.isEmail) {
+                  return LayoutBuilder(
+                    // Reversed so a long address opens on its end: the domain is what exposes a spoofed sender.
+                    builder: (context, constraints) => SingleChildScrollView(
+                      scrollDirection: Axis.horizontal,
+                      reverse: true,
+                      child: ConstrainedBox(
+                        constraints: BoxConstraints(minWidth: constraints.maxWidth),
+                        child: Text(controller.chat.handles.first.address, style: style),
+                      ),
+                    ),
+                  );
+                }
+                return const SizedBox.shrink();
+              }),
             ],
           ),
         ),

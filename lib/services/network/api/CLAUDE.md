@@ -19,13 +19,13 @@ One file per server API domain. Each class implements `BaseApi` and is exposed o
 | `firebase_api.dart` | `FirebaseApi` | `firebase` |
 
 ## `BaseApi`
-`base_api.dart` defines the minimal interface (`dio`, `origin`, `apiRoot`, `headers`, `buildQueryParams()`, `runApiGuarded()`, `returnSuccessOrError()`) that `HttpService` implements. Every sub-service is constructed with a `BaseApi` reference (`HttpService` itself) rather than importing it directly — this avoids a circular import between `HttpService` and the sub-services it owns.
+`base_api.dart` defines the minimal interface (`dio`, `origin`, `apiRoot`, `headers`, `runApiGuarded()`, `returnSuccessOrError()`) that `HttpService` implements. Every sub-service is constructed with a `BaseApi` reference (`HttpService` itself) rather than importing it directly — this avoids a circular import between `HttpService` and the sub-services it owns.
 
 ## Adding a new endpoint
-1. Add the method to the relevant sub-service file here, calling `_svc.dio`, `_svc.apiRoot`, `_svc.buildQueryParams()`, `_svc.runApiGuarded()` as needed.
+1. Add the method to the relevant sub-service file here, calling `_svc.dio`, `_svc.apiRoot`, `_svc.runApiGuarded()` as needed. `ApiInterceptor` adds the auth GUID and custom headers for server requests.
 2. For a new domain, create `<domain>_api.dart` implementing against `BaseApi`, then wire it up as a named property on `HttpService`.
 3. Never add request methods directly to `HttpService` — see `../CLAUDE.md` and `.claude/rules/api.md`.
 
 ## Related
 - Full method-level reference table: `../CLAUDE.md`
-- HTTP conventions (`runApiGuarded`, `buildQueryParams`, error handling): `.claude/rules/api.md`
+- HTTP conventions (`runApiGuarded`, authentication, error handling): `.claude/rules/api.md`

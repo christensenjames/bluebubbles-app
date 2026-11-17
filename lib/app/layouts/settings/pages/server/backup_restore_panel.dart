@@ -73,6 +73,7 @@ class _BackupRestorePanelState extends State<BackupRestorePanel> with ThemeHelpe
         headerColor: headerColor,
         actions: [
           IconButton(
+            tooltip: 'Refresh',
             icon: Icon(iOS ? CupertinoIcons.arrow_counterclockwise : Icons.refresh,
                 color: context.theme.colorScheme.onSurface),
             onPressed: refresh,
@@ -472,8 +473,8 @@ class _BackupRestorePanelState extends State<BackupRestorePanel> with ThemeHelpe
         showSnackbar(
           "Success",
           "Settings exported successfully to ${kIsDesktop ? filePath : "downloads folder"}",
-          durationMs: kIsDesktop ? 4000 : 2000,
-          actionLabel: kIsDesktop ? "OPEN FOLDER" : "SHARE",
+          durationMs: 4000,
+          actionLabel: kIsDesktop ? "Open folder" : "Share",
           onAction: () => kIsDesktop ? revealInFileManager(filePath) : Share.files([filePath]),
           type: SnackbarType.success,
         );
@@ -714,8 +715,8 @@ class _BackupRestorePanelState extends State<BackupRestorePanel> with ThemeHelpe
       showSnackbar(
         "Success",
         "Theming exported successfully to ${kIsDesktop ? filePath : "downloads folder"}",
-        durationMs: kIsDesktop ? 4000 : 2000,
-        actionLabel: kIsDesktop ? "OPEN FOLDER" : "SHARE",
+        durationMs: 4000,
+        actionLabel: kIsDesktop ? "Open folder" : "Share",
         onAction: () => kIsDesktop ? revealInFileManager(filePath) : Share.files([filePath]),
         type: SnackbarType.success,
       );

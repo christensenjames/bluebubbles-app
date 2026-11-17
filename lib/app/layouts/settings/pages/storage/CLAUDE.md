@@ -38,9 +38,9 @@ preview reloads on demand the next time its message is shown, subject to the sam
   container KPI tiles), `DonutChart`, `M3ESection`-grouped segment rows (internal `_SegmentTile`
   composes `M3EListTile` + a progress bar, since `M3EListTile` has no built-in progress slot)
 - `storage_free_up_fab.dart` — `StorageFreeUpFab`: the floating "Free up N" action, shared by all
-  three skins via `SettingsScaffold(fab: ...)`. Always mounted; pops in/out with `AnimatedScale` +
-  `AnimatedOpacity` (450ms, `easeOutBack` on entry) as `selectedSegments` goes non-empty/empty —
-  never swapped for `null`, so the animation (not a widget swap) drives visibility.
+  three skins via `SettingsScaffold(fab: ...)`. Always mounted; scales from 0.9 to 1 with
+  `M3EMotion.spatialFast` on entry (200ms) and `effectsFast` on exit (150ms). Opacity uses
+  `effectsFast` in both directions. Hidden state ignores pointer input.
 - `storage_cleanup_sheet.dart` — `showStorageCleanupSheet()`: yes/no confirm (`showAreYouSure`) for the
   currently-selected segments, shared by all three skins; also owns the post-delete summary dialog
   (`_showDeleteSummary`, via `showBBDialog`) showing bytes freed / files removed / items that will

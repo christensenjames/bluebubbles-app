@@ -39,7 +39,6 @@ class ChatCreatorController extends StatefulController {
   final RxList<ContactV2> filteredContacts = <ContactV2>[].obs;
   final Rxn<ConversationViewController> activeController = Rxn(null);
   final Rx<ChatServiceType> selectedService = ChatServiceType.iMessage.obs;
-  final RxBool isHeaderVisible = true.obs;
 
   // ---- Text / Focus ----
   late final MentionTextEditingController textController;
@@ -681,7 +680,6 @@ class ChatCreatorController extends StatefulController {
 
     FocusManager.instance.primaryFocus?.unfocus();
 
-    isHeaderVisible.value = false;
     // Null the active controller so the inline MessagesView is removed from the
     // tree before the new ConversationView mounts — prevents GlobalKey conflicts
     // (the shared focusInfoKey on the CVC would otherwise appear in both trees).

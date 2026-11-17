@@ -16,7 +16,8 @@ class ServerApi {
     return _svc.runApiGuarded(() async {
       final response = await _svc.dio.get(
         customUrl != null ? "$customUrl/api/v1/ping" : "${_svc.apiRoot}/ping",
-        queryParameters: _svc.buildQueryParams(),
+        // The server reported these LAN addresses as its own, and /ping requires auth.
+        options: customUrl != null ? Options(extra: {'serverProbe': true}, followRedirects: false) : null,
         cancelToken: cancelToken,
       );
       return _svc.returnSuccessOrError(response);
@@ -28,7 +29,6 @@ class ServerApi {
     return _svc.runApiGuarded(() async {
       final response = await _svc.dio.post(
         "${_svc.apiRoot}/mac/lock",
-        queryParameters: _svc.buildQueryParams(),
         cancelToken: cancelToken,
       );
       return _svc.returnSuccessOrError(response);
@@ -40,7 +40,6 @@ class ServerApi {
     return _svc.runApiGuarded(() async {
       final response = await _svc.dio.post(
         "${_svc.apiRoot}/mac/imessage/restart",
-        queryParameters: _svc.buildQueryParams(),
         cancelToken: cancelToken,
       );
       return _svc.returnSuccessOrError(response);
@@ -60,7 +59,6 @@ class ServerApi {
     return _svc.runApiGuarded(() async {
       final response = await _svc.dio.get(
         "${_svc.apiRoot}/server/info",
-        queryParameters: _svc.buildQueryParams(),
         cancelToken: cancelToken,
       );
 
@@ -78,7 +76,6 @@ class ServerApi {
     return _svc.runApiGuarded(() async {
       final response = await _svc.dio.get(
         "${_svc.apiRoot}/server/restart/soft",
-        queryParameters: _svc.buildQueryParams(),
         cancelToken: cancelToken,
       );
       return _svc.returnSuccessOrError(response);
@@ -90,7 +87,6 @@ class ServerApi {
     return _svc.runApiGuarded(() async {
       final response = await _svc.dio.get(
         "${_svc.apiRoot}/server/restart/hard",
-        queryParameters: _svc.buildQueryParams(),
         cancelToken: cancelToken,
       );
       return _svc.returnSuccessOrError(response);
@@ -102,7 +98,6 @@ class ServerApi {
     return _svc.runApiGuarded(() async {
       final response = await _svc.dio.get(
         "${_svc.apiRoot}/server/update/check",
-        queryParameters: _svc.buildQueryParams(),
         cancelToken: cancelToken,
       );
       return _svc.returnSuccessOrError(response);
@@ -114,7 +109,6 @@ class ServerApi {
     return _svc.runApiGuarded(() async {
       final response = await _svc.dio.post(
         "${_svc.apiRoot}/server/update/install",
-        queryParameters: _svc.buildQueryParams(),
         cancelToken: cancelToken,
       );
       return _svc.returnSuccessOrError(response);
@@ -126,7 +120,6 @@ class ServerApi {
     return _svc.runApiGuarded(() async {
       final response = await _svc.dio.get(
         "${_svc.apiRoot}/server/statistics/totals",
-        queryParameters: _svc.buildQueryParams(),
         cancelToken: cancelToken,
       );
       return _svc.returnSuccessOrError(response);
@@ -140,7 +133,6 @@ class ServerApi {
     return _svc.runApiGuarded(() async {
       final response = await _svc.dio.get(
         "${_svc.apiRoot}/server/statistics/media${byChat ? "/chat" : ""}",
-        queryParameters: _svc.buildQueryParams(),
         cancelToken: cancelToken,
       );
       return _svc.returnSuccessOrError(response);
@@ -152,7 +144,7 @@ class ServerApi {
     return _svc.runApiGuarded(() async {
       final response = await _svc.dio.get(
         "${_svc.apiRoot}/server/logs",
-        queryParameters: _svc.buildQueryParams({"count": count}),
+        queryParameters: {"count": count},
         cancelToken: cancelToken,
       );
       return _svc.returnSuccessOrError(response);
@@ -164,7 +156,6 @@ class ServerApi {
     return _svc.runApiGuarded(() async {
       final response = await _svc.dio.get(
         _svc.origin,
-        queryParameters: _svc.buildQueryParams(),
         cancelToken: cancelToken,
       );
       return _svc.returnSuccessOrError(response);

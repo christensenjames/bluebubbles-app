@@ -154,11 +154,15 @@ class _MaterialCustomGroupsPanelState extends State<MaterialCustomGroupsPanel> w
                     tooltip: "More options",
                     onPressed: () => _onOptions(group),
                   ),
-                  ReorderableDragStartListener(
-                    index: index,
-                    child: Icon(
-                      Icons.drag_handle,
-                      color: context.theme.colorScheme.outline,
+                  MouseRegion(
+                    cursor: SystemMouseCursors.grab,
+                    child: ReorderableDragStartListener(
+                      index: index,
+                      child: SizedBox(
+                        width: 48,
+                        height: 48,
+                        child: Icon(Icons.drag_handle, color: context.theme.colorScheme.outline),
+                      ),
                     ),
                   ),
                 ],
@@ -206,38 +210,29 @@ class _MaterialCustomGroupsPanelState extends State<MaterialCustomGroupsPanel> w
               ),
             );
           }
-          return SliverToBoxAdapter(
-            child: ReorderableListView.builder(
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              buildDefaultDragHandles: false,
-              onReorderItem: _onReorder,
-              itemCount: controller.groups.length,
-              itemBuilder: (context, index) {
-                final group = controller.groups[index];
-                return _buildGroupCard(group, index);
-              },
-              // The default proxyDecorator paints an opaque, square Material surface
-              // across the full (margin-included) item bounds while dragging, hiding
-              // our rounded card. Keep it transparent with a matching border radius
-              // so the card keeps its shape and the drop shadow is rounded too.
-              proxyDecorator: (child, index, animation) {
-                return AnimatedBuilder(
-                  animation: animation,
-                  builder: (context, _) {
-                    final t = Curves.easeInOut.transform(animation.value);
-                    return Material(
-                      color: Colors.transparent,
-                      elevation: t * 6,
-                      shadowColor: Colors.black54,
-                      borderRadius: BorderRadius.circular(M3EShapes.lg),
-                      child: child,
-                    );
-                  },
-                  child: child,
-                );
-              },
-            ),
+          return SliverReorderableList(
+            onReorderItem: _onReorder,
+            itemCount: controller.groups.length,
+            itemBuilder: (context, index) {
+              final group = controller.groups[index];
+              return _buildGroupCard(group, index);
+            },
+            proxyDecorator: (child, index, animation) {
+              return AnimatedBuilder(
+                animation: animation,
+                builder: (context, _) {
+                  final t = Curves.easeInOut.transform(animation.value);
+                  return Material(
+                    color: Colors.transparent,
+                    elevation: t * 6,
+                    shadowColor: Colors.black54,
+                    borderRadius: BorderRadius.circular(M3EShapes.lg),
+                    child: child,
+                  );
+                },
+                child: child,
+              );
+            },
           );
         }),
       ],

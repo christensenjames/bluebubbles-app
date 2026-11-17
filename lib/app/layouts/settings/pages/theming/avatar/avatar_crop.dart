@@ -6,7 +6,7 @@ import 'package:bluebubbles/services/services.dart';
 import 'package:crop_your_image/crop_your_image.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/foundation.dart';
-import 'package:flutter/material.dart';
+import 'package:flutter/material.dart' hide BackButton;
 import 'package:get/get.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:bluebubbles/utils/logger/logger.dart';
@@ -120,7 +120,7 @@ class _AvatarCropState extends State<AvatarCrop> with ThemeHelpers {
     return BBScaffold(
       appBar: BBAppBar(
         titleText: "Select & Crop Avatar",
-        leading: buildBackButton(context),
+        leading: const BackButton(),
         actions: [
           AbsorbPointer(
             absorbing: _imageData == null || _isLoading,

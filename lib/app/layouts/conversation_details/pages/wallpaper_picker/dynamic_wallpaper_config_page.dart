@@ -8,7 +8,7 @@ import 'package:bluebubbles/app/wrappers/theme_switcher.dart';
 import 'package:bluebubbles/database/models.dart';
 import 'package:bluebubbles/helpers/helpers.dart';
 import 'package:bluebubbles/services/services.dart';
-import 'package:flutter/material.dart';
+import 'package:flutter/material.dart' hide BackButton;
 import 'package:get/get.dart';
 
 /// Config screen for a single dynamic wallpaper. Fully generic — it doesn't
@@ -74,7 +74,7 @@ class _DynamicWallpaperConfigPageState extends State<DynamicWallpaperConfigPage>
               backgroundColor: context.headerColor,
               appBar: BBAppBar(
                 titleText: widget.definition.displayName,
-                leading: buildBackButton(context),
+                leading: const BackButton(),
                 actions: [
                   TextButton(
                     onPressed: _applying ? null : _apply,

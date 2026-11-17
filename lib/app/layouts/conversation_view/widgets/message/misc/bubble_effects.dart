@@ -75,9 +75,11 @@ class _BubbleEffectsState extends State<BubbleEffects> with SingleTickerProvider
         rxControl.value = Control.play;
       });
     } else if (effect.isBubble && !widget.messageState.hasEffectPlayed.value) {
-      _pendingAutoPlay = true;
       _whenSized((s) {
         _size.value = s;
+        // Under reduced motion the bubble rests in its final state; a tapped replay still plays.
+        if (MediaQuery.disableAnimationsOf(context)) return;
+        _pendingAutoPlay = true;
         widget.messageState.triggerBubbleEffect(widget.part);
       });
     }
@@ -180,6 +182,7 @@ class _BubbleEffectsState extends State<BubbleEffects> with SingleTickerProvider
   @override
   Widget build(BuildContext context) {
     final message = widget.messageState.message;
+    final reduceMotion = MediaQuery.disableAnimationsOf(context);
     final effectStr =
         effectMap.entries.firstWhereOrNull((e) => e.value == message.expressiveSendStyleId)?.key ?? "unknown";
     final effect = stringToMessageEffect[effectStr] ?? MessageEffect.none;
@@ -204,7 +207,7 @@ class _BubbleEffectsState extends State<BubbleEffects> with SingleTickerProvider
                       if ((details.primaryDelta ?? 0).abs() > 1) {
                         message.setPlayedDate();
                         // Fade out, then mark stopped once the animation finishes.
-                        _fadeController.animateTo(0.0).then((_) {
+                        _fadeController.animateTo(0.0, duration: reduceMotion ? Duration.zero : null).then((_) {
                           if (mounted) rxControl.value = Control.stop;
                         });
                       }
@@ -237,7 +240,9 @@ class _BubbleEffectsState extends State<BubbleEffects> with SingleTickerProvider
                                   (index) => CircularParticle(
                                         color: Colors.white.withAlpha(150),
                                         radius: Random().nextDouble() * (_size.value.height / 75).clamp(0.5, 1),
-                                        velocity: Offset(Random().nextDouble() * 10, Random().nextDouble() * 10),
+                                        velocity: reduceMotion
+                                            ? Offset.zero
+                                            : Offset(Random().nextDouble() * 10, Random().nextDouble() * 10),
                                       )),
                             ),
                           ),

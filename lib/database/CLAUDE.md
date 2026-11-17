@@ -1,6 +1,6 @@
 # lib/database/ — Data Persistence
 
-See `docs/MODELS.md` for the consolidated cross-directory entity/DTO field reference.
+See `docs/models.md` for the consolidated cross-directory entity/DTO field reference.
 
 ## Platform Abstraction
 | Directory | Platform | Role |

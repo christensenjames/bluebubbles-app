@@ -3,13 +3,14 @@ import 'package:bluebubbles/app/wrappers/bb_scaffold.dart';
 import 'package:bluebubbles/app/wrappers/theme_switcher.dart';
 import 'package:bluebubbles/database/database.dart';
 import 'package:bluebubbles/database/models.dart';
+import 'package:bluebubbles/app/wrappers/titlebar_wrapper.dart';
 import 'package:bluebubbles/helpers/helpers.dart';
 import 'package:bluebubbles/models/models.dart';
 import 'package:bluebubbles/services/services.dart';
 import 'package:bluebubbles/utils/logger/logger.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
-import 'package:flutter/material.dart';
+import 'package:flutter/material.dart' hide BackButton;
 import 'package:get/get.dart' hide Response;
 
 /// Developer Tools panel that scans local handles for a missing
@@ -291,9 +292,9 @@ class _HandleAuditPanelState extends State<HandleAuditPanel> with ThemeHelpers {
       safeAreaTop: true,
       appBar: BBAppBar(
         titleText: "Handle Audit",
-        leading: buildBackButton(context),
+        leading: const BackButton(),
         backgroundColor: Colors.transparent,
-        toolbarHeight: kIsDesktop ? 90 : 50,
+        toolbarHeight: hasCustomTitleBar ? 90 : 50,
         actions: [
           if (!_loading && _results.isNotEmpty)
             Padding(

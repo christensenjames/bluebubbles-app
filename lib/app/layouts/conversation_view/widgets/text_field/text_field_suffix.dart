@@ -86,25 +86,19 @@ class _TextFieldSuffixState extends State<TextFieldSuffix> with ThemeHelpers {
               final hasAttachments = widget.controller!.pickedAttachments.isNotEmpty;
               final canSend = alwaysShowSend || hasText || hasAttachments || widget.hasInitialAttachments;
               if (!canSend) return const SizedBox.shrink();
-              return Padding(
-                padding: const EdgeInsets.all(3.0),
-                child: SendButton(
-                  key: widget.controller!.sendButtonKey,
-                  sendMessage: widget.sendMessage,
-                  onLongPress: () {},
-                ),
+              return SendButton(
+                key: widget.controller!.sendButtonKey,
+                sendMessage: widget.sendMessage,
+                onLongPress: () {},
               );
             });
           }
           // No controller — check static values only.
           final canSendInCreator = hasText || widget.hasInitialAttachments;
           if (!canSendInCreator) return const SizedBox.shrink();
-          return Padding(
-            padding: const EdgeInsets.all(3.0),
-            child: SendButton(
-              sendMessage: widget.sendMessage,
-              onLongPress: () {},
-            ),
+          return SendButton(
+            sendMessage: widget.sendMessage,
+            onLongPress: () {},
           );
         }
 
@@ -114,36 +108,33 @@ class _TextFieldSuffixState extends State<TextFieldSuffix> with ThemeHelpers {
           final showRecording = widget.controller!.showRecording.value && widget.recorderController != null;
           final canSend = alwaysShowSend || hasText || hasSubject || hasAttachments;
 
-          return Padding(
-            padding: const EdgeInsets.all(3.0),
-            child: AnimatedCrossFade(
-              crossFadeState: canSend && !showRecording ? CrossFadeState.showSecond : CrossFadeState.showFirst,
-              duration: const Duration(milliseconds: 150),
-              firstChild: _RecordingButton(
-                isWeb: _isWeb,
-                isDesktop: _isDesktop,
-                isChatCreator: isChatCreator,
-                alwaysShowSend: alwaysShowSend,
-                showRecording: showRecording,
-                controller: widget.controller,
-                recorderController: widget.recorderController,
-                audioRecorder: audioRecorder,
-                onDeleteRecording: deleteAudioRecording,
-              ),
-              secondChild: SendButton(
-                key: widget.controller!.sendButtonKey,
-                sendMessage: widget.sendMessage,
-                visible: canSend && !showRecording,
-                onLongPress: () => sendTextFieldEffects(
-                  context,
-                  widget.controller!,
-                  widget.textController.text.trim(),
-                  widget.subjectTextController?.text.trim() ?? "",
-                  widget.sendMessage,
-                  widget.textController is MentionTextEditingController
-                      ? (widget.textController as MentionTextEditingController).mentionables
-                      : [],
-                ),
+          return AnimatedCrossFade(
+            crossFadeState: canSend && !showRecording ? CrossFadeState.showSecond : CrossFadeState.showFirst,
+            duration: const Duration(milliseconds: 150),
+            firstChild: _RecordingButton(
+              isWeb: _isWeb,
+              isDesktop: _isDesktop,
+              isChatCreator: isChatCreator,
+              alwaysShowSend: alwaysShowSend,
+              showRecording: showRecording,
+              controller: widget.controller,
+              recorderController: widget.recorderController,
+              audioRecorder: audioRecorder,
+              onDeleteRecording: deleteAudioRecording,
+            ),
+            secondChild: SendButton(
+              key: widget.controller!.sendButtonKey,
+              sendMessage: widget.sendMessage,
+              visible: canSend && !showRecording,
+              onLongPress: () => sendTextFieldEffects(
+                context,
+                widget.controller!,
+                widget.textController.text.trim(),
+                widget.subjectTextController?.text.trim() ?? "",
+                widget.sendMessage,
+                widget.textController is MentionTextEditingController
+                    ? (widget.textController as MentionTextEditingController).mentionables
+                    : [],
               ),
             ),
           );
@@ -241,9 +232,16 @@ class _RecordingButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (isWeb) {
-      return const SizedBox(height: 32, width: 32);
+      return const SizedBox.square(dimension: kMinInteractiveDimension);
     }
 
+    return Tooltip(
+      message: showRecording ? "Stop recording" : "Record audio message",
+      child: _button(context),
+    );
+  }
+
+  Widget _button(BuildContext context) {
     return Obx(() {
       final isIOS = SettingsSvc.settings.skin.value == Skins.iOS;
 
@@ -258,7 +256,7 @@ class _RecordingButton extends StatelessWidget {
           padding: const EdgeInsets.all(0),
           maximumSize: isDesktop ? const Size(40, 40) : const Size(32, 32),
           minimumSize: isDesktop ? const Size(40, 40) : const Size(32, 32),
-          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+          tapTargetSize: MaterialTapTargetSize.padded,
         ),
         child: !isChatCreator && !showRecording
             ? CupertinoIconWrapper(

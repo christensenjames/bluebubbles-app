@@ -1,10 +1,11 @@
+import 'package:bluebubbles/app/wrappers/titlebar_wrapper.dart';
 import 'package:bluebubbles/helpers/helpers.dart';
 import 'package:bluebubbles/app/layouts/conversation_list/pages/conversation_list.dart';
 import 'package:bluebubbles/app/layouts/conversation_list/widgets/header/header_widgets.dart';
 import 'package:bluebubbles/app/layouts/conversation_list/pages/search/search_view.dart';
 import 'package:bluebubbles/app/wrappers/stateful_boilerplate.dart';
 import 'package:bluebubbles/services/services.dart';
-import 'package:flutter/material.dart';
+import 'package:flutter/material.dart' hide BackButton;
 import 'package:flutter_acrylic/flutter_acrylic.dart';
 import 'package:get/get.dart';
 
@@ -43,14 +44,14 @@ class _SamsungHeaderState extends CustomState<SamsungHeader, void, ConversationL
         pinned: true,
         stretch: true,
         expandedHeight: context.height / 3,
-        toolbarHeight: kToolbarHeight + (kIsDesktop ? 20 : 0),
+        toolbarHeight: kToolbarHeight + (hasCustomTitleBar ? 20 : 0),
         elevation: 0,
         scrolledUnderElevation: 0,
         automaticallyImplyLeading: false,
         flexibleSpace: LayoutBuilder(
           builder: (context, constraints) {
-            final double expandRatio = ((constraints.maxHeight - (kToolbarHeight + (kIsDesktop ? 20 : 0))) /
-                    (context.height / 3 - (kToolbarHeight + (kIsDesktop ? 20 : 0))))
+            final double expandRatio = ((constraints.maxHeight - (kToolbarHeight + (hasCustomTitleBar ? 20 : 0))) /
+                    (context.height / 3 - (kToolbarHeight + (hasCustomTitleBar ? 20 : 0))))
                 .clamp(0, 1);
             final animation = AlwaysStoppedAnimation(expandRatio);
 
@@ -73,7 +74,7 @@ class _SamsungHeaderState extends CustomState<SamsungHeader, void, ConversationL
                     alignment: Alignment.bottomLeft,
                     child: Container(
                       padding: EdgeInsets.only(left: showArchived || showUnknown || showSpam ? 60 : 16),
-                      height: (kToolbarHeight + (kIsDesktop ? 20 : 0)),
+                      height: (kToolbarHeight + (hasCustomTitleBar ? 20 : 0)),
                       child: Align(
                         alignment: Alignment.centerLeft,
                         child: Row(
@@ -92,19 +93,13 @@ class _SamsungHeaderState extends CustomState<SamsungHeader, void, ConversationL
                 Align(
                   alignment: Alignment.bottomRight,
                   child: SizedBox(
-                    height: (kToolbarHeight + (kIsDesktop ? 20 : 0)),
+                    height: (kToolbarHeight + (hasCustomTitleBar ? 20 : 0)),
                     child: Align(
                       alignment: Alignment.center,
                       child: Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          if (showArchived || showUnknown || showSpam)
-                            IconButton(
-                                onPressed: () async {
-                                  Navigator.of(context).pop();
-                                },
-                                padding: EdgeInsets.zero,
-                                icon: buildBackButton(context)),
+                          if (showArchived || showUnknown || showSpam) const BackButton(),
                           if (!showArchived && !showUnknown && !showSpam) const SizedBox.shrink(),
                           Row(
                             mainAxisAlignment: MainAxisAlignment.end,
@@ -114,6 +109,7 @@ class _SamsungHeaderState extends CustomState<SamsungHeader, void, ConversationL
                                 Padding(
                                     padding: const EdgeInsets.only(left: 2),
                                     child: IconButton(
+                                      tooltip: "Camera",
                                       onPressed: () async {
                                         controller.openCamera(context);
                                       },
@@ -124,6 +120,7 @@ class _SamsungHeaderState extends CustomState<SamsungHeader, void, ConversationL
                                     )),
                               if (!showArchived && !showUnknown && !showSpam)
                                 IconButton(
+                                    tooltip: "Search",
                                     onPressed: () async {
                                       NavigationSvc.pushLeft(
                                         context,

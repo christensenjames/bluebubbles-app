@@ -104,8 +104,8 @@ Future<T?> showBBDialog<T>({
               onPressed: a.onPressed,
               child: Text(
                 a.text,
-                style: ctx.textTheme.bodyLarge!.copyWith(
-                  color: a.color ?? ctx.colorScheme.primary,
+                style: ctx.textTheme.labelLarge!.copyWith(
+                  color: a.isDestructive ? ctx.colorScheme.error : a.color ?? ctx.colorScheme.primary,
                 ),
               ),
             ),

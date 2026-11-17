@@ -11,8 +11,8 @@ Shared utilities that don't belong to a single message type. The most important 
 | `message_sender.dart` | Sender name row in group chats |
 | `bubble_effects.dart` | Send-effect animation overlays (balloon, confetti, fireworks, etc.) |
 | `tail_clipper.dart` | `ClipPath` painter for rounded bubble tail shape (Material only) |
-| `slide_to_reply.dart` | Small swipe-left indicator chevron |
-| `swipe_to_reply_wrapper.dart` | `GestureDetector` wrapper that triggers reply on swipe-right |
+| `slide_to_reply.dart` | Swipe-to-reply indicator chevron |
+| `swipe_to_reply_wrapper.dart` | Gesture wrapper that tracks reply swipes |
 | `select_checkbox.dart` | Selection-mode checkbox (left side for received, right for sent) |
 | `message_edit_field.dart` | Inline edit `TextField` with confirm / cancel actions |
 
@@ -39,9 +39,7 @@ Called once per `MessagePart` inside the `messageParts.mapIndexed` loop in `Mess
 
 ## Swipe-to-Reply
 
-`SwipeToReplyWrapper` wraps the entire bubble Stack. On swipe-right:
-1. Animates `slide_to_reply.dart` indicator
-2. Calls `cvController.setReplyToMessage(message)` to populate the reply bar in the text field
+`SwipeToReplyWrapper` wraps the entire bubble Stack. On the iOS skin, a right drag replies on sent and received bubbles; a left drag reaches the list's timestamp reveal. Other skins use left for sent and right for received bubbles. The bubble tracks the drag 1:1 up to 40px, then rubber-bands. A distance threshold or a 700px/s fling triggers a reply and populates the reply bar.
 
 ## Bubble Effects
 

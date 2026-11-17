@@ -16,7 +16,6 @@ A message renders as a composition of specialized sub-widgets.
 | `interactive/` | Apple Pay, Game Pigeon, URL previews, maps, embedded media | → CLAUDE.md inside |
 | `chat_event/` | System messages (member added, subject changed) | |
 | `misc/` | Message editing, selection, swipe-to-reply dispatcher, bubble effect overlay (`bubble_effects.dart`) | → CLAUDE.md inside |
-| `parts/` | Per-part-type renderers (a message can have multiple parts) | |
 | `shared/` | Shared utilities across message widgets | |
 
 ## Message Clones
@@ -30,6 +29,16 @@ signal by *doing work* (rather than just drawing) must check
 popup closes, so both listeners fire.
 
 See `shared/message_clone_scope.dart`.
+
+## Accessibility
+
+`_MessageSemantics` orders the sender and bubble before a separate time/delivery node.
+The trailing node fills the message bounds and sits beneath the content, so touch
+exploration still lands on the bubble; a zero-size node would be dropped from
+accessibility traversal. Keep links, attachments,
+and the error button as independent descendants rather than merging the subtree.
+`MessagePopupHolder` registers secondary taps only on desktop/web, because even a
+secondary-only tap recognizer contributes a semantics tap action.
 
 ## Related
 - Reactive state: `lib/app/state/message_state.dart`

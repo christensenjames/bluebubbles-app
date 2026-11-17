@@ -598,24 +598,31 @@ mixin ConnectionPanelHelpersMixin {
                       }
                     },
                   )),
-            if (!kIsWeb && SettingsSvc.settings.localhostPort.value != null) const SettingsDivider(),
-            if (!kIsWeb && SettingsSvc.settings.localhostPort.value != null)
-              SettingsSwitch(
-                initialVal: SettingsSvc.settings.useLocalIpv6.value,
-                title: "Use IPv6",
-                subtitle: "Do not enable this unless your environment supports IPv6",
-                isThreeLine: true,
-                onChanged: (bool val) async {
-                  SettingsSvc.settings.useLocalIpv6.value = val;
-                  await SettingsSvc.settings.saveOneAsync('useLocalIpv6');
-                  NetworkTasks.detectLocalhost(createSnackbar: true);
-                },
-                leading: const SettingsLeadingIcon(
-                  iosIcon: CupertinoIcons.globe,
-                  materialIcon: Icons.network_check_outlined,
-                  containerColor: Colors.blue,
-                ),
+            AnimatedSizeAndFade.showHide(
+              show: !kIsWeb && SettingsSvc.settings.localhostPort.value != null,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const SettingsDivider(),
+                  SettingsSwitch(
+                    initialVal: SettingsSvc.settings.useLocalIpv6.value,
+                    title: "Use IPv6",
+                    subtitle: "Do not enable this unless your environment supports IPv6",
+                    isThreeLine: true,
+                    onChanged: (bool val) async {
+                      SettingsSvc.settings.useLocalIpv6.value = val;
+                      await SettingsSvc.settings.saveOneAsync('useLocalIpv6');
+                      NetworkTasks.detectLocalhost(createSnackbar: true);
+                    },
+                    leading: const SettingsLeadingIcon(
+                      iosIcon: CupertinoIcons.globe,
+                      materialIcon: Icons.network_check_outlined,
+                      containerColor: Colors.blue,
+                    ),
+                  ),
+                ],
               ),
+            ),
           ],
         )),
       ],

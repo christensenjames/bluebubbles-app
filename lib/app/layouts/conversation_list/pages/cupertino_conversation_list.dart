@@ -13,7 +13,7 @@ import 'package:bluebubbles/app/layouts/conversation_list/widgets/header/cuperti
 import 'package:bluebubbles/app/wrappers/scrollbar_wrapper.dart';
 import 'package:bluebubbles/services/services.dart';
 import 'package:flutter/foundation.dart';
-import 'package:flutter/material.dart';
+import 'package:flutter/material.dart' hide BackButton;
 import 'package:flutter_acrylic/flutter_acrylic.dart';
 import 'package:get/get.dart';
 import 'package:smooth_page_indicator/smooth_page_indicator.dart';
@@ -76,7 +76,7 @@ class CupertinoConversationListState extends State<CupertinoConversationList> wi
       appBar: showArchived || showUnknown || showSpam
           ? BBAppBar(
               titleText: showArchived ? "Archive" : showSpam ? "Likely spam" : "Unknown Senders",
-              leading: buildBackButton(context),
+              leading: const BackButton(),
               centerTitle: true,
               backgroundColor: Colors.transparent,
             )

@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:bluebubbles/app/wrappers/titlebar_wrapper.dart';
 import 'package:bluebubbles/helpers/helpers.dart';
 import 'package:bluebubbles/app/layouts/conversation_list/pages/conversation_list.dart';
 import 'package:bluebubbles/app/layouts/conversation_list/widgets/conversation_list_fab.dart';
@@ -58,7 +59,7 @@ class _MaterialConversationListState extends State<MaterialConversationList> {
         child: Scaffold(
           appBar: PreferredSize(
             // The header grows under the custom desktop title bar rather than being pushed below it.
-            preferredSize: Size.fromHeight(kIsDesktop ? 80 : 60),
+            preferredSize: Size.fromHeight(hasCustomTitleBar ? 80 : 60),
             child: MaterialHeader(parentController: controller),
           ),
           backgroundColor: SettingsSvc.settings.windowEffect.value == WindowEffect.disabled

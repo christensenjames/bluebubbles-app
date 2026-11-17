@@ -14,7 +14,7 @@ import 'package:bluebubbles/helpers/helpers.dart';
 import 'package:bluebubbles/services/ui/chat/chat_stats/chat_stats_models.dart';
 import 'package:bluebubbles/services/services.dart';
 import 'package:flutter/cupertino.dart';
-import 'package:flutter/material.dart';
+import 'package:flutter/material.dart' hide BackButton;
 import 'package:get/get.dart';
 
 /// Tabbed shell for the Chat Stats page — staged progress bar, lazy per-tab
@@ -98,9 +98,10 @@ class _ChatStatsPageState extends State<ChatStatsPage> with SingleTickerProvider
                 ),
               ],
             ),
-            leading: buildBackButton(context),
+            leading: const BackButton(),
             actions: [
               IconButton(
+                tooltip: "Refresh",
                 icon: Icon(iOS ? CupertinoIcons.refresh : Icons.refresh),
                 onPressed: () => controller.ensureSection(_visibleStage, force: true),
               ),

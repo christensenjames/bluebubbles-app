@@ -2,6 +2,7 @@ import 'package:bluebubbles/app/components/circle_progress_bar.dart';
 import 'package:bluebubbles/app/layouts/fullscreen_media/fullscreen_image.dart';
 import 'package:bluebubbles/app/layouts/fullscreen_media/fullscreen_video.dart';
 import 'package:bluebubbles/app/layouts/fullscreen_media/viewer_chrome.dart';
+import 'package:bluebubbles/app/layouts/fullscreen_media/zoomable_media.dart';
 import 'package:bluebubbles/models/models.dart' show MessageReplyContext;
 import 'package:bluebubbles/app/wrappers/bb_app_bar.dart';
 import 'package:bluebubbles/app/wrappers/bb_scaffold.dart';
@@ -53,6 +54,8 @@ class ConversationFullscreenHolder extends StatefulWidget {
 }
 
 class ConversationFullscreenHolderState extends State<ConversationFullscreenHolder> with ThemeHelpers {
+  static const double _seekBarZoneFraction = 0.25;
+
   final focusNode = FocusNode();
   late final PageController controller;
   late final messageService = widget.currentChat == null ? null : maybeFindMessagesSvc(widget.currentChat!.guid);
@@ -74,14 +77,15 @@ class ConversationFullscreenHolderState extends State<ConversationFullscreenHold
   // callback body checks the flag, not whether the recognizer is attached). As a descendant
   // of the PageView, that recognizer wins the gesture arena's "eager winner" race before
   // PageView's own drag recognizer ever gets a chance, permanently blocking swipe on any
-  // video page. Since that's vendored package behavior we can't patch, drive paging
-  // independently via raw pointer tracking (which never enters the arena) whenever the
-  // current page is a video. Excludes touches starting in the bottom quarter of the screen
-  // so dragging the video's own seek bar isn't misread as a page-swipe attempt.
+  // video page. Since that's vendored package behavior we can't patch, drive the page controller
+  // from raw pointer tracking (which never enters the arena) whenever the current page is a video.
+  // Excludes touches starting in the bottom quarter of the screen so dragging the video's own seek
+  // bar isn't misread as a page swipe.
   int? _videoSwipePointer;
-  double _videoSwipeDragDx = 0;
+  Offset? _videoSwipeSlopStart;
+  Drag? _videoSwipeDrag;
   VelocityTracker? _videoSwipeVelocityTracker;
-  static const double _videoSwipeCommitThreshold = 60;
+  bool _dismissDragging = false;
 
   Attachment get attachment => widget.attachment;
   // Start hidden for video (video auto-plays and manages its own overlay); show for images
@@ -105,6 +109,32 @@ class ConversationFullscreenHolderState extends State<ConversationFullscreenHold
 
   void _applySystemUi() =>
       SystemChrome.setEnabledSystemUIMode(showAppBar ? SystemUiMode.edgeToEdge : SystemUiMode.immersive);
+
+  void _onDismissProgress(double progress) {
+    _dismissProgress.value = progress;
+    // A downward drag can drift sideways; the PageView must not take it over mid-dismiss.
+    if ((progress > 0) != _dismissDragging) setState(() => _dismissDragging = progress > 0);
+  }
+
+  void _dismiss() => Navigator.of(context).pop();
+
+  void _resetVideoSwipe() {
+    _videoSwipePointer = null;
+    _videoSwipeSlopStart = null;
+    _videoSwipeDrag = null;
+    _videoSwipeVelocityTracker = null;
+  }
+
+  void _turnPage({required bool forward}) {
+    if (MediaQuery.disableAnimationsOf(context)) {
+      final target = currentIndex + (forward ? 1 : -1);
+      if (target >= 0 && target < attachments.length) controller.jumpToPage(target);
+    } else if (forward) {
+      controller.nextPage(duration: Durations.medium2, curve: Easing.emphasizedDecelerate);
+    } else {
+      controller.previousPage(duration: Durations.medium2, curve: Easing.emphasizedDecelerate);
+    }
+  }
 
   Widget _withChrome(Widget viewer) {
     if (!material) return viewer;
@@ -218,6 +248,7 @@ class ConversationFullscreenHolderState extends State<ConversationFullscreenHold
                   actions: [
                     if (_canReply)
                       IconButton(
+                        tooltip: "Reply",
                         onPressed: triggerReply,
                         icon: const Icon(CupertinoIcons.reply),
                       ),
@@ -235,17 +266,9 @@ class ConversationFullscreenHolderState extends State<ConversationFullscreenHold
                     tag: "RawKeyboardListener");
                 if (event is KeyUpEvent) return KeyEventResult.ignored;
                 if (event.logicalKey == LogicalKeyboardKey.arrowRight) {
-                  if (SettingsSvc.settings.fullscreenViewerSwipeDir.value == SwipeDirection.RIGHT) {
-                    controller.previousPage(duration: Durations.medium2, curve: Easing.emphasizedDecelerate);
-                  } else {
-                    controller.nextPage(duration: Durations.medium2, curve: Easing.emphasizedDecelerate);
-                  }
+                  _turnPage(forward: SettingsSvc.settings.fullscreenViewerSwipeDir.value != SwipeDirection.RIGHT);
                 } else if (event.logicalKey == LogicalKeyboardKey.arrowLeft) {
-                  if (SettingsSvc.settings.fullscreenViewerSwipeDir.value == SwipeDirection.LEFT) {
-                    controller.previousPage(duration: Durations.medium2, curve: Easing.emphasizedDecelerate);
-                  } else {
-                    controller.nextPage(duration: Durations.medium2, curve: Easing.emphasizedDecelerate);
-                  }
+                  _turnPage(forward: SettingsSvc.settings.fullscreenViewerSwipeDir.value != SwipeDirection.LEFT);
                 } else if (event.logicalKey == LogicalKeyboardKey.escape) {
                   // Swallow repeats too, or they reach the app-wide Escape shortcut and close the chat.
                   if (event is KeyDownEvent && ModalRoute.of(context)?.isCurrent == true) Navigator.of(context).pop();
@@ -256,49 +279,63 @@ class ConversationFullscreenHolderState extends State<ConversationFullscreenHold
               child: Listener(
                 behavior: HitTestBehavior.translucent,
                 onPointerDown: (event) {
-                  if (attachments.isEmpty || attachments[currentIndex].mimeStart != "video") return;
+                  if (attachments.length < 2 || attachments[currentIndex].mimeStart != "video") return;
                   // Leave the bottom quarter (seek bar / controls) alone.
-                  if (event.position.dy > MediaQuery.sizeOf(context).height * 0.75) return;
+                  if (event.position.dy > MediaQuery.sizeOf(context).height * (1 - _seekBarZoneFraction)) return;
                   _videoSwipePointer = event.pointer;
-                  _videoSwipeDragDx = 0;
-                  _videoSwipeVelocityTracker = VelocityTracker.withKind(event.kind);
-                  _videoSwipeVelocityTracker!.addPosition(event.timeStamp, event.position);
+                  _videoSwipeSlopStart = event.position;
+                  _videoSwipeVelocityTracker = VelocityTracker.withKind(event.kind)
+                    ..addPosition(event.timeStamp, event.position);
                 },
                 onPointerMove: (event) {
                   if (_videoSwipePointer != event.pointer) return;
-                  _videoSwipeDragDx += event.delta.dx;
-                  _videoSwipeVelocityTracker?.addPosition(event.timeStamp, event.position);
+                  _videoSwipeVelocityTracker!.addPosition(event.timeStamp, event.position);
+                  final slopStart = _videoSwipeSlopStart;
+                  if (slopStart != null) {
+                    final moved = event.position - slopStart;
+                    if (moved.distance < kTouchSlop) return;
+                    _videoSwipeSlopStart = null;
+                    // A mostly vertical drag never pages; it belongs to swipe-down-to-close.
+                    if (moved.dx.abs() <= moved.dy.abs()) {
+                      _resetVideoSwipe();
+                      return;
+                    }
+                    _videoSwipeDrag = controller.position.drag(
+                      DragStartDetails(globalPosition: event.position, kind: event.kind),
+                      () => _videoSwipeDrag = null,
+                    );
+                    return;
+                  }
+                  _videoSwipeDrag?.update(DragUpdateDetails(
+                    globalPosition: event.position,
+                    delta: Offset(event.delta.dx, 0),
+                    primaryDelta: event.delta.dx,
+                    sourceTimeStamp: event.timeStamp,
+                  ));
                 },
                 onPointerUp: (event) {
                   if (_videoSwipePointer != event.pointer) return;
-                  _videoSwipePointer = null;
-                  final velocity = _videoSwipeVelocityTracker?.getVelocity().pixelsPerSecond.dx ?? 0;
-                  _videoSwipeVelocityTracker = null;
-                  final dx = _videoSwipeDragDx;
-                  _videoSwipeDragDx = 0;
-                  final bool commit = dx.abs() >= _videoSwipeCommitThreshold || velocity.abs() > 700;
-                  if (!commit) return;
-                  final reverseSwipe = SettingsSvc.settings.fullscreenViewerSwipeDir.value == SwipeDirection.RIGHT;
-                  final goForward = reverseSwipe ? dx > 0 : dx < 0;
-                  if (goForward) {
-                    if (currentIndex < attachments.length - 1) {
-                      controller.nextPage(duration: const Duration(milliseconds: 250), curve: Curves.easeOut);
-                    }
-                  } else {
-                    if (currentIndex > 0) {
-                      controller.previousPage(duration: const Duration(milliseconds: 250), curve: Curves.easeOut);
-                    }
-                  }
+                  final velocity = _videoSwipeVelocityTracker!.getVelocity().clampMagnitude(0, kMaxFlingVelocity);
+                  final dx = velocity.pixelsPerSecond.dx;
+                  // The page settles from where the finger left it, carrying the release velocity.
+                  _videoSwipeDrag?.end(DragEndDetails(
+                    velocity: Velocity(pixelsPerSecond: Offset(dx, 0)),
+                    primaryVelocity: dx,
+                  ));
+                  _resetVideoSwipe();
                 },
                 onPointerCancel: (event) {
                   if (_videoSwipePointer != event.pointer) return;
-                  _videoSwipePointer = null;
-                  _videoSwipeVelocityTracker = null;
-                  _videoSwipeDragDx = 0;
+                  _videoSwipeDrag?.cancel();
+                  _resetVideoSwipe();
                 },
                 child: PageView.builder(
-                physics: physics ??
-                    (attachments.length == 1 ? const NeverScrollableScrollPhysics() : ThemeSwitcher.getScrollPhysics()),
+                physics: _dismissDragging
+                    ? const NeverScrollableScrollPhysics()
+                    : physics ??
+                        (attachments.length == 1
+                            ? const NeverScrollableScrollPhysics()
+                            : ThemeSwitcher.getScrollPhysics()),
                 reverse: SettingsSvc.settings.fullscreenViewerSwipeDir.value == SwipeDirection.RIGHT,
                 itemCount: attachments.length,
                 onPageChanged: (int val) {
@@ -338,28 +375,33 @@ class ConversationFullscreenHolderState extends State<ConversationFullscreenHold
                           },
                           onOverlayToggle: _setOverlay,
                           onTap: material ? () => _setOverlay(!showAppBar) : null,
-                          onDismissProgress: material ? (progress) => _dismissProgress.value = progress : null,
-                          onDismiss: material ? () => Navigator.of(this.context).pop() : null,
+                          onDismissProgress: _onDismissProgress,
+                          onDismiss: _dismiss,
                           heroTag: material ? ConversationFullscreenHolder.heroTagFor(attachment) : null,
                         ),
                       );
                     } else if (attachment.mimeStart == "video") {
-                      return FullscreenVideo(
-                        key: material ? _pageKey(index) : Key(key),
-                        file: content,
-                        attachment: attachment,
-                        showInteractions: widget.showInteractions,
-                        videoController: attachment.guid == widget.attachment.guid ? _inlineController : null,
-                        mute: widget.mute,
-                        isCurrentPage: index == currentIndex,
-                        sharedChrome: material,
-                        onOverlayToggle: (show) {
-                          if (material && index != currentIndex) return;
-                          _setOverlay(show);
-                        },
-                        onPlayerDetached: () {
-                          _inlineController = null;
-                        },
+                      return SwipeToDismiss(
+                        ignoredBottomFraction: _seekBarZoneFraction,
+                        onDismissProgress: _onDismissProgress,
+                        onDismiss: _dismiss,
+                        child: FullscreenVideo(
+                          key: material ? _pageKey(index) : Key(key),
+                          file: content,
+                          attachment: attachment,
+                          showInteractions: widget.showInteractions,
+                          videoController: attachment.guid == widget.attachment.guid ? _inlineController : null,
+                          mute: widget.mute,
+                          isCurrentPage: index == currentIndex,
+                          sharedChrome: material,
+                          onOverlayToggle: (show) {
+                            if (material && index != currentIndex) return;
+                            _setOverlay(show);
+                          },
+                          onPlayerDetached: () {
+                            _inlineController = null;
+                          },
+                        ),
                       );
                     } else {
                       return const SizedBox.shrink();

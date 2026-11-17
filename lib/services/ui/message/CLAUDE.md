@@ -20,7 +20,6 @@ One instance per chat GUID. Accessed via `MessagesSvc(chatGuid)`.
 
 **Key methods:**
 - `updateMessage(Message, {String? oldGuid})` — the main write path; merges changes into `MessageState` and handles tempGuid → realGuid remapping
-- `addMessages(List<Message>)` — bulk-inserts into the struct and creates `MessageState` entries
 - `getMessage(String guid)` → `Message?` — fast in-memory lookup
 - `getOrCreateState(Message)` → `MessageState` — lazily creates or retrieves a `MessageState` for a message
 - `getOrCreateMessageState(String guid)` → `MessageState` — same but keyed by GUID
@@ -34,6 +33,6 @@ One instance per chat GUID. Accessed via `MessagesSvc(chatGuid)`.
 **Rules:**
 - Never write `MessageState` fields directly from UI — always go through `MessagesService.updateMessage()`
 - Widgets should observe `messageUpdateTrigger[guid]` in an `Obx()` to know when to re-query state
-- For bulk initial load, use `addMessages()` which skips per-field update overhead
+- Bulk loading adds messages with `struct.addMessages()` and creates their states with `_ensureMessageStates()`.
 
 **For the full update flow**, see `docs/MESSAGE_RECEIVE_FLOW.md`.

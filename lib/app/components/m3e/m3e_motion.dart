@@ -8,8 +8,9 @@ class M3EMotionSpec {
 }
 
 extension M3EMotionX on M3EMotionSpec {
-  /// Convenience for driving an [AnimatedContainer] / [AnimatedSwitcher] with this spec.
+  /// Uses [context] to disable the container transition under reduced motion.
   Widget container({
+    required BuildContext context,
     required Widget child,
     Color? color,
     BoxDecoration? decoration,
@@ -19,7 +20,7 @@ extension M3EMotionX on M3EMotionSpec {
     double? height,
   }) {
     return AnimatedContainer(
-      duration: duration,
+      duration: durationOf(context),
       curve: curve,
       color: decoration == null ? color : null,
       decoration: decoration ?? (borderRadius != null ? BoxDecoration(borderRadius: borderRadius) : null),
@@ -29,11 +30,26 @@ extension M3EMotionX on M3EMotionSpec {
       child: child,
     );
   }
+
+  /// [duration], or zero when `MediaQuery.disableAnimationsOf` is on.
+  Duration durationOf(BuildContext context) => MediaQuery.disableAnimationsOf(context) ? Duration.zero : duration;
+}
+
+extension ReducedMotionController on AnimationController {
+  /// Sets [duration] to [full], or to zero under reduced motion, settling any run already in flight.
+  /// Call from `didChangeDependencies`; `initState` can't read MediaQuery.
+  void matchReducedMotion(BuildContext context, Duration full) {
+    final reduceMotion = MediaQuery.disableAnimationsOf(context);
+    duration = reduceMotion ? Duration.zero : full;
+    if (reduceMotion && isAnimating) value = status == AnimationStatus.forward ? upperBound : lowerBound;
+  }
 }
 
 /// Wraps the Material motion tokens from `material/motion.dart` (`Durations.*` / `Easing.*`)
 /// into the small set of specs this app's M3E surfaces use.
 abstract final class M3EMotion {
+  static const strongEaseOut = Cubic(0.23, 1, 0.32, 1);
+
   // Spatial — anything that moves or resizes.
   static const spatialFast = M3EMotionSpec(Durations.short4, Easing.emphasizedDecelerate);
   static const spatialDefault = M3EMotionSpec(Durations.medium2, emphasized);

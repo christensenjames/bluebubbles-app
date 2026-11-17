@@ -16,24 +16,19 @@ class ListItem extends StatelessWidget {
   MaterialSwipeAction get leftAction => SettingsSvc.settings.materialLeftAction.value;
   MaterialSwipeAction get rightAction => SettingsSvc.settings.materialRightAction.value;
 
-  Widget slideBackground(Chat chat, bool left) {
-    MaterialSwipeAction action;
-    if (left) {
-      action = leftAction;
-    } else {
-      action = rightAction;
-    }
+  Widget slideBackground(BuildContext context, bool left) {
+    final action = left ? leftAction : rightAction;
+    final colors = context.theme.colorScheme;
+    final (Color background, Color foreground) = switch (action) {
+      MaterialSwipeAction.pin => (colors.tertiaryContainer, colors.onTertiaryContainer),
+      MaterialSwipeAction.alerts => (colors.secondaryContainer, colors.onSecondaryContainer),
+      MaterialSwipeAction.mark_read => (colors.primaryContainer, colors.onPrimaryContainer),
+      MaterialSwipeAction.archive => (colors.primary, colors.onPrimary),
+      MaterialSwipeAction.delete => (colors.error, colors.onError),
+    };
 
     return Container(
-      color: action == MaterialSwipeAction.pin
-          ? Colors.yellow[800]
-          : action == MaterialSwipeAction.alerts
-              ? Colors.purple
-              : action == MaterialSwipeAction.delete
-                  ? Colors.red
-                  : action == MaterialSwipeAction.mark_read
-                      ? Colors.blue
-                      : Colors.red,
+      color: background,
       child: Align(
         alignment: left ? Alignment.centerRight : Alignment.centerLeft,
         child: Row(
@@ -52,7 +47,7 @@ class ListItem extends StatelessWidget {
                           : action == MaterialSwipeAction.mark_read
                               ? (chat.hasUnreadMessage! ? Icons.mark_chat_read : Icons.mark_chat_unread)
                               : (chat.isArchived! ? Icons.unarchive : Icons.archive),
-              color: Colors.white,
+              color: foreground,
             ),
             Text(
               action == MaterialSwipeAction.pin
@@ -64,8 +59,8 @@ class ListItem extends StatelessWidget {
                           : action == MaterialSwipeAction.mark_read
                               ? (chat.hasUnreadMessage! ? ' Mark Read' : ' Mark Unread')
                               : (chat.isArchived! ? ' Unarchive' : ' Archive'),
-              style: const TextStyle(
-                color: Colors.white,
+              style: TextStyle(
+                color: foreground,
                 fontWeight: FontWeight.w700,
               ),
               textAlign: left ? TextAlign.right : TextAlign.left,
@@ -97,49 +92,69 @@ class ListItem extends StatelessWidget {
       },
     );
 
-    if (SettingsSvc.settings.swipableConversationTiles.value) {
-      return Dismissible(
-        background: (kIsDesktop || kIsWeb) ? null : Obx(() => slideBackground(chat, false)),
-        secondaryBackground: (kIsDesktop || kIsWeb) ? null : Obx(() => slideBackground(chat, true)),
-        key: UniqueKey(),
-        onDismissed: (direction) {
-          MaterialSwipeAction action;
-          if (direction == DismissDirection.endToStart) {
-            action = leftAction;
-          } else {
-            action = rightAction;
-          }
+    // Swipe settings are hidden on desktop and web, so a mouse drag must not trigger a swipe action there.
+    if (kIsDesktop || kIsWeb || !SettingsSvc.settings.swipableConversationTiles.value) return tile;
 
-          if (action == MaterialSwipeAction.pin) {
+    return Dismissible(
+      key: ValueKey(chat.guid),
+      background: Obx(() => slideBackground(context, false)),
+      secondaryBackground: Obx(() => slideBackground(context, true)),
+      confirmDismiss: (direction) async {
+        final action = direction == DismissDirection.endToStart ? leftAction : rightAction;
+        switch (action) {
+          case MaterialSwipeAction.pin:
             final chatState = ChatsSvc.getChatState(chat.guid);
             ChatsSvc.setChatPinned(chatState?.chat ?? chat, !chat.isPinned!);
-          } else if (action == MaterialSwipeAction.alerts) {
+          case MaterialSwipeAction.alerts:
             final chatState = ChatsSvc.getChatState(chat.guid);
             if (chatState != null) {
               ChatsSvc.setChatMuted(chatState.chat, chat.muteType != "mute");
             } else {
               chat.toggleMuteAsync(chat.muteType != "mute");
             }
-          } else if (action == MaterialSwipeAction.delete) {
-            ChatsSvc.removeChat(chat);
-            ChatsSvc.softDeleteChat(chat);
-          } else if (action == MaterialSwipeAction.mark_read) {
+          case MaterialSwipeAction.mark_read:
             final chatState = ChatsSvc.getChatState(chat.guid);
             if (chatState != null) {
               ChatsSvc.setChatHasUnread(chatState.chat, !chat.hasUnreadMessage!);
             } else {
               chat.toggleHasUnreadAsync(!chat.hasUnreadMessage!);
             }
-          } else if (action == MaterialSwipeAction.archive) {
-            final chatState = ChatsSvc.getChatState(chat.guid);
-            ChatsSvc.setChatArchived(chatState?.chat ?? chat, !chat.isArchived!);
-          }
-          update.call();
-        },
-        child: tile,
-      );
-    } else {
-      return tile;
-    }
+          case MaterialSwipeAction.archive:
+            if (controller.showSpam) {
+              final chatState = ChatsSvc.getChatState(chat.guid);
+              ChatsSvc.setChatArchived(chatState?.chat ?? chat, !chat.isArchived!);
+              update.call();
+              return false;
+            }
+            return true;
+          case MaterialSwipeAction.delete:
+            return true;
+        }
+        return false;
+      },
+      onDismissed: (direction) {
+        final action = direction == DismissDirection.endToStart ? leftAction : rightAction;
+        // Dismissed chats must leave the shown list synchronously.
+        if (action == MaterialSwipeAction.delete) {
+          final title = ChatsSvc.getChatState(chat.guid)?.title.value ?? chat.getTitle();
+          ChatsSvc.removeChat(chat);
+          final deleted = ChatsSvc.softDeleteChat(chat);
+          var undone = false;
+          showSnackbar("Conversation deleted", title, actionLabel: "Undo", onAction: () async {
+            if (undone) return;
+            undone = true;
+            Get.closeAllSnackbars();
+            await deleted;
+            await ChatsSvc.unDeleteChat(chat, restoreHistory: true);
+            await ChatsSvc.addChat(chat, immediate: true);
+          });
+        } else {
+          final chatState = ChatsSvc.getChatState(chat.guid);
+          ChatsSvc.setChatArchived(chatState?.chat ?? chat, !chat.isArchived!);
+        }
+        update.call();
+      },
+      child: tile,
+    );
   }
 }

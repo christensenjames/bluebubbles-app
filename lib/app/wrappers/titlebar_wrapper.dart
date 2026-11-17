@@ -9,6 +9,9 @@ import 'package:get/get_state_manager/src/rx_flutter/rx_obx_widget.dart';
 import 'package:get/get_utils/src/extensions/context_extensions.dart';
 import 'package:window_manager/window_manager.dart';
 
+bool get hasCustomTitleBar =>
+    kIsDesktop && (SettingsSvc.settings.titleBarStyle.value == BBTitleBarStyle.custom || !Platform.isLinux);
+
 class TitleBarWrapper extends StatelessWidget {
   const TitleBarWrapper({super.key, required this.child});
 
@@ -26,8 +29,7 @@ class TitleBarWrapper extends StatelessWidget {
     }
 
     return Obx(
-      () => (SettingsSvc.settings.titleBarStyle.value == BBTitleBarStyle.custom && Platform.isLinux) ||
-              (kIsDesktop && !Platform.isLinux)
+      () => hasCustomTitleBar
           ? WindowBorder(
               color: Colors.transparent,
               width: 0,

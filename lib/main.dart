@@ -75,6 +75,10 @@ Future<Null> initApp(bool bubble, List<String> arguments) async {
   runZonedGuarded<Future<void>>(() async {
     WidgetsFlutterBinding.ensureInitialized();
 
+    if (kIsWeb) {
+      await BrowserContextMenu.disableContextMenu();
+    }
+
     /* ----- DESKTOP NATIVE SPLASH STATUS ----- */
     // Pushes startup status to the native splash; detached once it's dismissed.
     void Function()? detachSplashStatus;
@@ -431,7 +435,8 @@ class Main extends StatelessWidget {
           _NoLockKeySet(LogicalKeyboardKey.control, LogicalKeyboardKey.keyI): const OpenChatDetailsIntent(),
           _NoLockKeySet.noRepeat(LogicalKeyboardKey.escape): const GoBackIntent(),
         },
-        builder: (context, child) => SafeArea(
+        builder: (context, child) => _ReduceMotionScope(
+            child: SafeArea(
           top: false,
           bottom: false,
           // secure_application has no Linux implementation; mounting it (and the
@@ -531,7 +536,7 @@ class Main extends StatelessWidget {
                     },
                   ),
                 ),
-        ),
+        )),
         defaultTransition: Transition.cupertino,
       ),
     );
@@ -541,6 +546,26 @@ class Main extends StatelessWidget {
 // Above the navigator so pages pushed on the root navigator (phone layout) inherit Escape-to-go-back.
 Widget _withGoBack(BuildContext context, Widget? child) =>
     Actions(actions: {GoBackIntent: GoBackAction(context)}, child: child ?? Container());
+
+// Folds the in-app Reduce Motion toggle into the OS flag, so MediaQuery.disableAnimationsOf is the app's one check.
+class _ReduceMotionScope extends StatelessWidget {
+  const _ReduceMotionScope({required this.child});
+
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    final data = MediaQuery.of(context);
+    return Obx(() {
+      // Read before `||`: an Obx that registers no observable throws.
+      final reduceMotion = SettingsSvc.settings.reduceMotion.value;
+      return MediaQuery(
+        data: data.copyWith(disableAnimations: data.disableAnimations || reduceMotion),
+        child: child,
+      );
+    });
+  }
+}
 
 // The GTK embedder reports a lock mode that was already on as a held lock key, which LogicalKeySet counts as extra.
 class _NoLockKeySet extends LogicalKeySet {

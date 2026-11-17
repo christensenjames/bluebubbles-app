@@ -14,5 +14,5 @@
 Uses a staggered `AnimationController` to bounce each of the three dots at offset intervals. Auto-disposes when hidden.
 
 ## Related
-- `ChatState.showTypingIndicator`: `lib/app/state/chat_state.dart`
+- `ConversationViewController.showTypingIndicator`: `lib/services/ui/chat/conversation_view_controller.dart`
 - Socket events: `lib/services/network/socket_service.dart`

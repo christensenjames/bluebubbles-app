@@ -452,6 +452,9 @@ List<Widget> buildSettingItemList({
       "API Timeout Duration",
       "Allow Upside-Down Rotation",
       "Maximum Group Avatar Count",
+      "Reduce Motion",
+      "animation",
+      "motion",
     ],
     onTap: () {
       ns.pushAndRemoveSettingsUntil(context, const MiscPanel(), (Route route) => route.isFirst);

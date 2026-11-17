@@ -1,5 +1,6 @@
 import 'dart:math';
 
+import 'package:bluebubbles/app/components/m3e/m3e_motion.dart';
 import 'package:bluebubbles/app/layouts/conversation_view/widgets/message/attachment/attachment_holder.dart';
 import 'package:bluebubbles/app/layouts/conversation_view/widgets/message/popup/message_popup.dart';
 import 'package:bluebubbles/app/state/chat_state_scope.dart';
@@ -13,7 +14,6 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:get/get.dart';
-import 'package:universal_html/html.dart' as html;
 
 class MessagePopupHolder extends StatefulWidget {
   const MessagePopupHolder({
@@ -122,10 +122,11 @@ class _MessagePopupHolderState extends State<MessagePopupHolder> with ThemeHelpe
     final result = await Navigator.push(
       iOS ? Get.context! : context,
       PageRouteBuilder(
-        transitionDuration: const Duration(milliseconds: 150),
+        transitionDuration: M3EMotion.spatialFast.durationOf(context),
+        reverseTransitionDuration: M3EMotion.effectsFast.durationOf(context),
         pageBuilder: (ctx, animation, secondaryAnimation) {
           return FadeTransition(
-            opacity: animation,
+            opacity: CurvedAnimation(parent: animation, curve: M3EMotion.strongEaseOut),
             child: Theme(
               data: capturedTheme.copyWith(
                 // in case some components still use legacy theming
@@ -238,13 +239,9 @@ class _MessagePopupHolderState extends State<MessagePopupHolder> with ThemeHelpe
                     !isTempMessage
                 ? () => sendTapback(null, _effectivePartIndex)
                 : () => openPopup(),
-        onSecondaryTapUp: widget.isEditing
+        onSecondaryTapUp: widget.isEditing || (!kIsWeb && !kIsDesktop)
             ? null
-            : (details) async {
-                if (!kIsWeb && !kIsDesktop) return;
-                if (kIsWeb) {
-                  (await html.document.onContextMenu.first).preventDefault();
-                }
+            : (details) {
                 openPopup();
               },
         child: widget.child,

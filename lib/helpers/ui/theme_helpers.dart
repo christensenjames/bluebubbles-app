@@ -235,7 +235,7 @@ extension ColorSchemeHelpers on ColorScheme {
       ? primary
       : primaryContainer;
 
-  Color get onSmsBubble => iMessageBubble == primary ? onPrimaryContainer : onPrimary;
+  Color get onSmsBubble => smsBubble == primary ? onPrimary : onPrimaryContainer;
 
   Color bubble(BuildContext context, bool iMessage) => context.material
       ? primaryContainer

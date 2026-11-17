@@ -136,6 +136,7 @@ class _MessageRemindersPanelState extends State<MessageRemindersPanel> with Them
                             }
                           },
                           trailing: IconButton(
+                            tooltip: 'Delete reminder',
                             icon: Icon(iOS ? CupertinoIcons.trash : Icons.delete_outlined),
                             onPressed: () => deleteMessage(item),
                           ),

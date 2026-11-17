@@ -32,11 +32,11 @@ String getFullChatTitle(Chat _chat) {
     } else if (titles.length == 1) {
       title = titles[0];
     } else if (titles.length <= 4) {
-      title = titles.join(", ");
+      title = titles.map((name) => '\u2068$name\u2069').join(", ");
       int pos = title.lastIndexOf(", ");
       if (pos != -1) title = "${title.substring(0, pos)} & ${title.substring(pos + 2)}";
     } else {
-      title = titles.sublist(0, 3).join(", ");
+      title = titles.sublist(0, 3).map((name) => '\u2068$name\u2069').join(", ");
       title = "$title & ${titles.length - 3} others";
     }
   } else {
@@ -221,7 +221,7 @@ class Chat {
     } else if (titles.length == 1) {
       return titles[0];
     } else if (titles.length <= 4) {
-      final _title = titles.join(", ");
+      final _title = titles.map((name) => '\u2068$name\u2069').join(", ");
       int pos = _title.lastIndexOf(", ");
       if (pos != -1) {
         return "${_title.substring(0, pos)} & ${_title.substring(pos + 2)}";
@@ -229,7 +229,7 @@ class Chat {
         return _title;
       }
     } else {
-      final _title = titles.take(3).join(", ");
+      final _title = titles.take(3).map((name) => '\u2068$name\u2069').join(", ");
       return "$_title & ${titles.length - 3} others";
     }
   }

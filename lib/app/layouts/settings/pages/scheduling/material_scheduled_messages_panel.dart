@@ -183,6 +183,7 @@ class _MaterialScheduledMessagesPanelState extends State<MaterialScheduledMessag
         children: [
           if (!isCompleted) ...[
             IconButton(
+              tooltip: 'Edit message',
               icon: Icon(Icons.edit_outlined, size: 20, color: context.theme.colorScheme.primary),
               onPressed: () async {
                 final result = await NavigationSvc.pushSettings(
@@ -196,6 +197,7 @@ class _MaterialScheduledMessagesPanelState extends State<MaterialScheduledMessag
             ),
           ],
           IconButton(
+            tooltip: 'Delete message',
             icon: Icon(Icons.delete_outlined, size: 20, color: context.theme.colorScheme.error),
             onPressed: () => deleteMessage(item),
           ),
@@ -275,6 +277,7 @@ class _MaterialScheduledMessagesPanelState extends State<MaterialScheduledMessag
         ),
         actions: [
           IconButton(
+            tooltip: 'Refresh',
             icon: Icon(Icons.refresh, color: context.theme.colorScheme.onSurface),
             onPressed: () {
               fetching.value = true;

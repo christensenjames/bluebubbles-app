@@ -1,4 +1,5 @@
 import 'package:bluebubbles/app/components/bb_chip.dart';
+import 'package:bluebubbles/app/components/m3e/m3e_motion.dart';
 import 'package:bluebubbles/services/services.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
@@ -113,12 +114,19 @@ class CustomGroupFilterChipRow extends StatelessWidget {
             Padding(
               padding: EdgeInsets.only(left: 8, right: padding.right, top: padding.top + 8),
               child: AnimatedSwitcher(
-                duration: !showUngroupedChip ? Durations.long2 : Durations.medium2,
-                transitionBuilder: (child, animation) => ScaleTransition(
-                  scale: Tween<double>(begin: 0.92, end: 1.0).animate(
-                    CurvedAnimation(parent: animation, curve: Easing.emphasizedDecelerate, reverseCurve: Easing.emphasizedAccelerate),
+                duration: M3EMotion.spatialFast.durationOf(context),
+                reverseDuration: M3EMotion.effectsFast.durationOf(context),
+                transitionBuilder: (child, animation) => FadeTransition(
+                  opacity: CurvedAnimation(parent: animation, curve: M3EMotion.effectsFast.curve),
+                  child: ScaleTransition(
+                    scale: Tween<double>(begin: 0.92, end: 1.0).animate(
+                      CurvedAnimation(
+                          parent: animation,
+                          curve: Easing.emphasizedDecelerate,
+                          reverseCurve: Easing.emphasizedAccelerate),
+                    ),
+                    child: child,
                   ),
-                  child: child,
                 ),
                 child: !showUngroupedChip
                     ? const SizedBox.shrink()

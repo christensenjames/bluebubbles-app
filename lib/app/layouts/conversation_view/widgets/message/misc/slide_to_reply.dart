@@ -1,5 +1,6 @@
 import 'dart:math';
 
+import 'package:bluebubbles/app/components/m3e/m3e_motion.dart';
 import 'package:bluebubbles/helpers/helpers.dart';
 import 'package:bluebubbles/services/backend/settings/settings_service.dart';
 import 'package:flutter/cupertino.dart';
@@ -16,11 +17,17 @@ class SlideToReply extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final duration = width == 0 ? M3EMotion.spatialFast.durationOf(context) : Duration.zero;
+    final curve = M3EMotion.spatialFast.curve;
+    // Past the trigger the indicator stops growing and drifts outward with the swipe's rubber band instead.
+    final gap = width == 0 ? 0.0 : 10.0 + max(0.0, width - replyThreshold);
     return AnimatedPadding(
-      duration: Duration(milliseconds: width == 0 ? 150 : 0),
-      padding: EdgeInsets.only(left: width == 0 || isFromMe ? 0 : 10, right: width == 0 || !isFromMe ? 0 : 10),
+      duration: duration,
+      curve: curve,
+      padding: EdgeInsets.only(left: isFromMe ? 0 : gap, right: isFromMe ? gap : 0),
       child: AnimatedContainer(
-        duration: Duration(milliseconds: width == 0 ? 150 : 0),
+        duration: duration,
+        curve: curve,
         width: min(replyThreshold, width) * 0.8,
         height: min(replyThreshold, width) * 0.8,
         decoration: BoxDecoration(
@@ -32,7 +39,8 @@ class SlideToReply extends StatelessWidget {
           color: context.theme.colorScheme.surfaceContainerHighest,
         ),
         child: AnimatedSize(
-          duration: Duration(milliseconds: width == 0 ? 150 : 0),
+          duration: duration,
+          curve: curve,
           child: Offstage(
             offstage: kIsWeb && width == 0,
             child: Icon(

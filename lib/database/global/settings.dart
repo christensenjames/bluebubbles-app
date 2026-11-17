@@ -52,7 +52,7 @@ class Settings {
   final RxBool autoSave = false.obs;
   final RxString autoSavePicsLocation = "Pictures".obs;
   final RxString autoSaveDocsLocation = FilesystemService.androidDownloadsPath.obs;
-  final RxDouble previewImageQuality = 0.75.obs; // 0.25 to 1.0
+  final RxDouble previewImageQuality = 1.0.obs; // 0.25 to 1.0
   final RxBool autoOpenKeyboard = true.obs;
   final RxBool hideTextPreviews = false.obs;
 
@@ -549,452 +549,287 @@ class Settings {
   /// Pass [includeAll] false to ignore [deviceLocalKeys].
   static void updateFromMap(Map<String, dynamic> map, {bool save = true, bool includeAll = true}) {
     if (!includeAll) map = Map.of(map)..removeWhere((k, _) => deviceLocalKeys.contains(k));
-    SettingsSvc.settings.iCloudAccount.value = map['iCloudAccount'] ?? SettingsSvc.settings.iCloudAccount.value;
-    SettingsSvc.settings.serverAddress.value = map['serverAddress'] ?? SettingsSvc.settings.serverAddress.value;
-    SettingsSvc.settings.serverCertificateFingerprint.value =
-        map['serverCertificateFingerprint'] ?? SettingsSvc.settings.serverCertificateFingerprint.value;
-    SettingsSvc.settings.guidAuthKey.value = map['guidAuthKey'] ?? SettingsSvc.settings.guidAuthKey.value;
-    if (map.containsKey('customHeaders')) {
-      debugPrint('Updating custom headers from map: ${map['customHeaders']}');
-      SettingsSvc.settings.customHeaders.value = _processCustomHeaders(map['customHeaders']);
-    }
-    SettingsSvc.settings.finishedSetup.value = map['finishedSetup'] ?? SettingsSvc.settings.finishedSetup.value;
-    SettingsSvc.settings.reachedConversationList.value =
-        map['reachedConversationList'] ?? SettingsSvc.settings.reachedConversationList.value;
-    SettingsSvc.settings.autoDownload.value = map['autoDownload'] ?? SettingsSvc.settings.autoDownload.value;
-    SettingsSvc.settings.onlyWifiDownload.value =
-        map['onlyWifiDownload'] ?? SettingsSvc.settings.onlyWifiDownload.value;
-    SettingsSvc.settings.lowQualityImagesOnCellular.value =
-        map['lowQualityImagesOnCellular'] ?? SettingsSvc.settings.lowQualityImagesOnCellular.value;
-    SettingsSvc.settings.maxConcurrentDownloads.value =
-        map['maxConcurrentDownloads'] ?? SettingsSvc.settings.maxConcurrentDownloads.value;
-    SettingsSvc.settings.autoSave.value = map['autoSave'] ?? SettingsSvc.settings.autoSave.value;
-    SettingsSvc.settings.autoSavePicsLocation.value =
-        map['autoSavePicsLocation'] ?? SettingsSvc.settings.autoSavePicsLocation.value;
-    SettingsSvc.settings.autoSaveDocsLocation.value =
-        map['autoSaveDocsLocation'] ?? SettingsSvc.settings.autoSaveDocsLocation.value;
-    SettingsSvc.settings.previewImageQuality.value =
-        map['imageQuality']?.toDouble() ?? SettingsSvc.settings.previewImageQuality.value;
-    SettingsSvc.settings.autoOpenKeyboard.value =
-        map['autoOpenKeyboard'] ?? SettingsSvc.settings.autoOpenKeyboard.value;
-    SettingsSvc.settings.hideTextPreviews.value =
-        map['hideTextPreviews'] ?? SettingsSvc.settings.hideTextPreviews.value;
-    // Through the same reader as [fromMap]: a bare `values[map[...]]` throws a
-    // RangeError on an index this build doesn't have, and skips the legacy
-    // `fetchUrlPreviews` migration entirely.
-    final hasLinkPreviewPolicy = map.containsKey('linkPreviewPolicy') || map.containsKey('fetchUrlPreviews');
-    SettingsSvc.settings.linkPreviewPolicy.value =
-        hasLinkPreviewPolicy ? _readLinkPreviewPolicy(map) : SettingsSvc.settings.linkPreviewPolicy.value;
-    SettingsSvc.settings.showIncrementalSync.value =
-        map['showIncrementalSync'] ?? SettingsSvc.settings.showIncrementalSync.value;
-    SettingsSvc.settings.highPerfMode.value = map['highPerfMode'] ?? SettingsSvc.settings.highPerfMode.value;
-    SettingsSvc.settings.reduceMotion.value = map['reduceMotion'] ?? SettingsSvc.settings.reduceMotion.value;
-    SettingsSvc.settings.lastIncrementalSync.value =
-        map['lastIncrementalSync'] ?? SettingsSvc.settings.lastIncrementalSync.value;
-    SettingsSvc.settings.lastIncrementalSyncRowId.value =
-        map['lastIncrementalSyncRowId'] ?? SettingsSvc.settings.lastIncrementalSyncRowId.value;
-    SettingsSvc.settings.refreshRate.value = map['refreshRate'] ?? SettingsSvc.settings.refreshRate.value;
-    SettingsSvc.settings.colorfulAvatars.value = map['colorfulAvatars'] ?? SettingsSvc.settings.colorfulAvatars.value;
-    SettingsSvc.settings.colorfulBubbles.value = map['colorfulBubbles'] ?? SettingsSvc.settings.colorfulBubbles.value;
-    SettingsSvc.settings.hideDividers.value = map['hideDividers'] ?? SettingsSvc.settings.hideDividers.value;
-    SettingsSvc.settings.scrollVelocity.value =
-        map['scrollVelocity']?.toDouble() ?? SettingsSvc.settings.scrollVelocity.value;
-    SettingsSvc.settings.sendWithReturn.value = map['sendWithReturn'] ?? SettingsSvc.settings.sendWithReturn.value;
-    SettingsSvc.settings.doubleTapForDetails.value =
-        map['doubleTapForDetails'] ?? SettingsSvc.settings.doubleTapForDetails.value;
-    SettingsSvc.settings.denseChatTiles.value = map['denseChatTiles'] ?? SettingsSvc.settings.denseChatTiles.value;
-    SettingsSvc.settings.smartReply.value = map['smartReply'] ?? SettingsSvc.settings.smartReply.value;
-    SettingsSvc.settings.showSyncIndicator.value =
-        map['showSyncIndicator'] ?? SettingsSvc.settings.showSyncIndicator.value;
-    SettingsSvc.settings.sendDelay.value = map['sendDelay'] ?? SettingsSvc.settings.sendDelay.value;
-    SettingsSvc.settings.recipientAsPlaceholder.value =
-        map['recipientAsPlaceholder'] ?? SettingsSvc.settings.recipientAsPlaceholder.value;
-    SettingsSvc.settings.hideKeyboardOnScroll.value =
-        map['hideKeyboardOnScroll'] ?? SettingsSvc.settings.hideKeyboardOnScroll.value;
-    SettingsSvc.settings.moveChatCreatorToHeader.value =
-        map['moveChatCreatorToHeader'] ?? SettingsSvc.settings.moveChatCreatorToHeader.value;
-    SettingsSvc.settings.showFiltersInHeader.value =
-        map['showFiltersInHeader'] ?? SettingsSvc.settings.showFiltersInHeader.value;
-    SettingsSvc.settings.showCustomGroupFilterChips.value =
-        map['showCustomGroupFilterChips'] ?? SettingsSvc.settings.showCustomGroupFilterChips.value;
-    SettingsSvc.settings.cameraFAB.value = map['cameraFAB'] ?? SettingsSvc.settings.cameraFAB.value;
-    SettingsSvc.settings.swipeToCloseKeyboard.value =
-        map['swipeToCloseKeyboard'] ?? SettingsSvc.settings.swipeToCloseKeyboard.value;
-    SettingsSvc.settings.swipeToOpenKeyboard.value =
-        map['swipeToOpenKeyboard'] ?? SettingsSvc.settings.swipeToOpenKeyboard.value;
-    SettingsSvc.settings.openKeyboardOnSTB.value =
-        map['openKeyboardOnSTB'] ?? SettingsSvc.settings.openKeyboardOnSTB.value;
-    SettingsSvc.settings.swipableConversationTiles.value =
-        map['swipableConversationTiles'] ?? SettingsSvc.settings.swipableConversationTiles.value;
-    SettingsSvc.settings.showDeliveryTimestamps.value =
-        map['showDeliveryTimestamps'] ?? SettingsSvc.settings.showDeliveryTimestamps.value;
-    SettingsSvc.settings.filteredChatList.value =
-        map['filteredChatList'] ?? SettingsSvc.settings.filteredChatList.value;
-    SettingsSvc.settings.startVideosMuted.value =
-        map['startVideosMuted'] ?? SettingsSvc.settings.startVideosMuted.value;
-    SettingsSvc.settings.startVideosMutedFullscreen.value =
-        map['startVideosMutedFullscreen'] ?? SettingsSvc.settings.startVideosMutedFullscreen.value;
-    SettingsSvc.settings.use24HrFormat.value = map['use24HrFormat'] ?? SettingsSvc.settings.use24HrFormat.value;
-    SettingsSvc.settings.alwaysShowAvatars.value =
-        map['alwaysShowAvatars'] ?? SettingsSvc.settings.alwaysShowAvatars.value;
-    SettingsSvc.settings.notifyOnChatList.value =
-        map['notifyOnChatList'] ?? SettingsSvc.settings.notifyOnChatList.value;
-    SettingsSvc.settings.notifyReactions.value = map['notifyReactions'] ?? SettingsSvc.settings.notifyReactions.value;
-    SettingsSvc.settings.colorsFromMedia.value = map['colorsFromMedia'] ?? SettingsSvc.settings.colorsFromMedia.value;
-    SettingsSvc.settings.globalTextDetection.value =
-        map['globalTextDetection'] ?? SettingsSvc.settings.globalTextDetection.value;
-    SettingsSvc.settings.filterUnknownSenders.value =
-        map['filterUnknownSenders'] ?? SettingsSvc.settings.filterUnknownSenders.value;
-    if (map.containsKey('savedChatFilters')) {
-      SettingsSvc.settings.savedChatFilters.value = _processSavedChatFilters(map['savedChatFilters']);
-    }
-    SettingsSvc.settings.tabletMode.value = kIsDesktop || (map['tabletMode'] ?? SettingsSvc.settings.tabletMode.value);
-    SettingsSvc.settings.highlightSelectedChat.value =
-        map['highlightSelectedChat'] ?? SettingsSvc.settings.highlightSelectedChat.value;
-    SettingsSvc.settings.immersiveMode.value = map['immersiveMode'] ?? SettingsSvc.settings.immersiveMode.value;
-    SettingsSvc.settings.avatarScale.value = map['avatarScale']?.toDouble() ?? SettingsSvc.settings.avatarScale.value;
-    SettingsSvc.settings.animationSpeed.value =
-        map['animationSpeed']?.toDouble() ?? SettingsSvc.settings.animationSpeed.value;
-    SettingsSvc.settings.launchAtStartup.value = map['launchAtStartup'] ?? SettingsSvc.settings.launchAtStartup.value;
-    SettingsSvc.settings.launchAtStartupMinimized.value =
-        map['launchAtStartupMinimized'] ?? SettingsSvc.settings.launchAtStartupMinimized.value;
-    SettingsSvc.settings.closeToTray.value = map['closeToTray'] ?? SettingsSvc.settings.closeToTray.value;
-    SettingsSvc.settings.spellcheck.value = map['spellcheck'] ?? SettingsSvc.settings.spellcheck.value;
-    SettingsSvc.settings.spellcheckLanguage.value =
-        map['spellcheckLanguage'] ?? SettingsSvc.settings.spellcheckLanguage.value;
-    SettingsSvc.settings.minimizeToTray.value = map['minimizeToTray'] ?? SettingsSvc.settings.minimizeToTray.value;
-    SettingsSvc.settings.askWhereToSave.value = map['askWhereToSave'] ?? SettingsSvc.settings.askWhereToSave.value;
-    SettingsSvc.settings.statusIndicatorsOnChats.value =
-        map['statusIndicatorsOnChats'] ?? SettingsSvc.settings.statusIndicatorsOnChats.value;
-    SettingsSvc.settings.apiTimeout.value = map['apiTimeout'] ?? SettingsSvc.settings.apiTimeout.value;
-    SettingsSvc.settings.allowUpsideDownRotation.value =
-        map['allowUpsideDownRotation'] ?? SettingsSvc.settings.allowUpsideDownRotation.value;
-    SettingsSvc.settings.cancelQueuedMessages.value =
-        map['cancelQueuedMessages'] ?? SettingsSvc.settings.cancelQueuedMessages.value;
-    SettingsSvc.settings.repliesToPrevious.value =
-        map['repliesToPrevious'] ?? SettingsSvc.settings.repliesToPrevious.value;
-    SettingsSvc.settings.localhostPort.value = map['useLocalhost'] ?? SettingsSvc.settings.localhostPort.value;
-    SettingsSvc.settings.useLocalIpv6.value = map['useLocalIpv6'] ?? SettingsSvc.settings.useLocalIpv6.value;
-    SettingsSvc.settings.sendSoundPath.value = map['sendSoundPath'] ?? SettingsSvc.settings.sendSoundPath.value;
-    SettingsSvc.settings.receiveSoundPath.value =
-        map['receiveSoundPath'] ?? SettingsSvc.settings.receiveSoundPath.value;
-    SettingsSvc.settings.soundVolume.value = map['soundVolume'] ?? SettingsSvc.settings.soundVolume.value;
-    SettingsSvc.settings.syncContactsAutomatically.value =
-        map['syncContactsAutomatically'] ?? SettingsSvc.settings.syncContactsAutomatically.value;
-    SettingsSvc.settings.contactSyncAccountName.value =
-        map['contactSyncAccountName'] ?? SettingsSvc.settings.contactSyncAccountName.value;
-    SettingsSvc.settings.contactSyncAccountType.value =
-        map['contactSyncAccountType'] ?? SettingsSvc.settings.contactSyncAccountType.value;
-    SettingsSvc.settings.scrollToBottomOnSend.value =
-        map['scrollToBottomOnSend'] ?? SettingsSvc.settings.scrollToBottomOnSend.value;
-    SettingsSvc.settings.sendEventsToTasker.value =
-        map['sendEventsToTasker'] ?? SettingsSvc.settings.sendEventsToTasker.value;
-    SettingsSvc.settings.keepAppAlive.value = map['keepAppAlive'] ?? SettingsSvc.settings.keepAppAlive.value;
-    SettingsSvc.settings.unarchiveOnNewMessage.value =
-        map['autoUnarchiveOnNewMessage'] ?? SettingsSvc.settings.unarchiveOnNewMessage.value;
-    SettingsSvc.settings.scrollToLastUnread.value =
-        map['scrollToLastUnread'] ?? SettingsSvc.settings.scrollToLastUnread.value;
-    SettingsSvc.settings.userName.value = map['userName'] ?? SettingsSvc.settings.userName.value;
-    SettingsSvc.settings.privateAPISend.value = map['privateAPISend'] ?? SettingsSvc.settings.privateAPISend.value;
-    SettingsSvc.settings.privateAPIAttachmentSend.value =
-        map['privateAPIAttachmentSend'] ?? SettingsSvc.settings.privateAPIAttachmentSend.value;
-    SettingsSvc.settings.enablePrivateAPI.value =
-        map['enablePrivateAPI'] ?? SettingsSvc.settings.enablePrivateAPI.value;
-    SettingsSvc.settings.serverPrivateAPI.value =
-        map['serverPrivateAPI'] ?? SettingsSvc.settings.serverPrivateAPI.value;
-    SettingsSvc.settings.iMessageStatsSource.value = map.containsKey('iMessageStatsSource')
-        ? (map['iMessageStatsSource'] == 'local' ? 'local' : 'server')
-        : SettingsSvc.settings.iMessageStatsSource.value;
-    SettingsSvc.settings.cachePurgeBackgroundLevel.value =
-        map['cachePurgeBackgroundLevel'] ?? SettingsSvc.settings.cachePurgeBackgroundLevel.value;
-    SettingsSvc.settings.cachePurgeMemoryPressureLevel.value =
-        map['cachePurgeMemoryPressureLevel'] ?? SettingsSvc.settings.cachePurgeMemoryPressureLevel.value;
-    SettingsSvc.settings.cachePurgeExcludedCaches.value =
-        map['cachePurgeExcludedCaches'] ?? SettingsSvc.settings.cachePurgeExcludedCaches.value;
-    SettingsSvc.settings.privateSendTypingIndicators.value =
-        map['privateSendTypingIndicators'] ?? SettingsSvc.settings.privateSendTypingIndicators.value;
-    SettingsSvc.settings.privateMarkChatAsRead.value =
-        map['privateMarkChatAsRead'] ?? SettingsSvc.settings.privateMarkChatAsRead.value;
-    SettingsSvc.settings.privateManualMarkAsRead.value =
-        map['privateManualMarkAsRead'] ?? SettingsSvc.settings.privateManualMarkAsRead.value;
-    SettingsSvc.settings.privateSubjectLine.value =
-        map['privateSubjectLine'] ?? SettingsSvc.settings.privateSubjectLine.value;
-    SettingsSvc.settings.editLastSentMessageOnUpArrow.value =
-        map['editLastSentMessageOnUpArrow'] ?? SettingsSvc.settings.editLastSentMessageOnUpArrow.value;
-    SettingsSvc.settings.redactedMode.value = map['redactedMode'] ?? SettingsSvc.settings.redactedMode.value;
-    SettingsSvc.settings.hideMessageContent.value =
-        map['hideMessageContent'] ?? SettingsSvc.settings.hideMessageContent.value;
-    SettingsSvc.settings.hideAttachments.value = map['hideAttachments'] ?? SettingsSvc.settings.hideAttachments.value;
-    SettingsSvc.settings.hideContactInfo.value = map['hideContactInfo'] ?? SettingsSvc.settings.hideContactInfo.value;
-    SettingsSvc.settings.generateFakeAvatars.value =
-        map['generateFakeAvatars'] ?? SettingsSvc.settings.generateFakeAvatars.value;
-    SettingsSvc.settings.hideMessageContent.value =
-        map['generateFakeMessageContent'] ?? SettingsSvc.settings.hideMessageContent.value;
-    SettingsSvc.settings.enableUnifiedPush.value =
-        map['enableUnifiedPush'] ?? SettingsSvc.settings.enableUnifiedPush.value;
-    SettingsSvc.settings.endpointUnifiedPush.value =
-        map['endpointUnifiedPush'] ?? SettingsSvc.settings.endpointUnifiedPush.value;
-    SettingsSvc.settings.enableFcm.value = map['enableFcm'] ?? SettingsSvc.settings.enableFcm.value;
-    SettingsSvc.settings.enableQuickTapback.value =
-        map['enableQuickTapback'] ?? SettingsSvc.settings.enableQuickTapback.value;
-    SettingsSvc.settings.quickTapbackType.value =
-        map['quickTapbackType'] ?? SettingsSvc.settings.quickTapbackType.value;
-    SettingsSvc.settings.notificationReactionAction.value =
-        map['notificationReactionAction'] ?? SettingsSvc.settings.notificationReactionAction.value;
-    SettingsSvc.settings.notificationReactionActionType.value =
-        map['notificationReactionActionType'] ?? SettingsSvc.settings.notificationReactionActionType.value;
-    SettingsSvc.settings.materialRightAction.value = map['materialRightAction'] != null
-        ? MaterialSwipeAction.values[map['materialRightAction']]
-        : SettingsSvc.settings.materialRightAction.value;
-    SettingsSvc.settings.materialLeftAction.value = map['materialLeftAction'] != null
-        ? MaterialSwipeAction.values[map['materialLeftAction']]
-        : SettingsSvc.settings.materialLeftAction.value;
-    SettingsSvc.settings.shouldSecure.value = map['shouldSecure'] ?? SettingsSvc.settings.shouldSecure.value;
-    SettingsSvc.settings.securityLevel.value = map['securityLevel'] != null
-        ? SecurityLevel.values[map['securityLevel']]
-        : SettingsSvc.settings.securityLevel.value;
-    SettingsSvc.settings.incognitoKeyboard.value =
-        map['incognitoKeyboard'] ?? SettingsSvc.settings.incognitoKeyboard.value;
-    SettingsSvc.settings.skin.value = map['skin'] != null ? Skins.values[map['skin']] : SettingsSvc.settings.skin.value;
-    SettingsSvc.settings.theme.value =
-        map['theme'] != null ? ThemeMode.values[map['theme']] : SettingsSvc.settings.theme.value;
-    SettingsSvc.settings.fullscreenViewerSwipeDir.value = map['fullscreenViewerSwipeDir'] != null
-        ? SwipeDirection.values[map['fullscreenViewerSwipeDir']]
-        : SettingsSvc.settings.fullscreenViewerSwipeDir.value;
-    SettingsSvc.settings.pinRowsPortrait.value = map['pinRowsPortrait'] ?? SettingsSvc.settings.pinRowsPortrait.value;
-    SettingsSvc.settings.pinColumnsPortrait.value =
-        map['pinColumnsPortrait'] ?? SettingsSvc.settings.pinColumnsPortrait.value;
-    SettingsSvc.settings.pinRowsLandscape.value =
-        map['pinRowsLandscape'] ?? SettingsSvc.settings.pinRowsLandscape.value;
-    SettingsSvc.settings.pinColumnsLandscape.value =
-        map['pinColumnsLandscape'] ?? SettingsSvc.settings.pinColumnsLandscape.value;
-    SettingsSvc.settings.maxAvatarsInGroupWidget.value =
-        map['maxAvatarsInGroupWidget'] ?? SettingsSvc.settings.maxAvatarsInGroupWidget.value;
-    SettingsSvc.settings.titleBarStyle.value = map['titleBarStyle'] != null
-        ? BBTitleBarStyle.values[map['titleBarStyle']]
-        : map['useCustomTitleBar'] == false
-            ? BBTitleBarStyle.native
-            : SettingsSvc.settings.titleBarStyle.value;
-
-    SettingsSvc.settings.showReplyField.value = map['showReplyField'] ?? SettingsSvc.settings.showReplyField.value;
-    if (map.containsKey('selectedActionIndices')) {
-      SettingsSvc.settings.selectedActionIndices.value =
-          _processSelectedActionIndices(map['selectedActionIndices'], SettingsSvc.settings.showReplyField.value);
-    }
-    SettingsSvc.settings.actionList.value =
-        _processActionList(map['actionList'] ?? jsonEncode(List<String>.from(SettingsSvc.settings.actionList)));
-    if (map.containsKey('detailsMenuActions')) {
-      SettingsSvc.settings._detailsMenuActions.value =
-          _processDetailsMenuActions(map['detailsMenuActions'], SettingsSvc.settings.detailsMenuActions);
-    }
-    if (map.containsKey('textFieldButtons')) {
-      SettingsSvc.settings.textFieldButtons.value = _processTextFieldButtons(map['textFieldButtons']);
-    }
-    if (map.containsKey('recentEmojis')) {
-      SettingsSvc.settings.recentEmojis.value = _processRecentEmojis(map['recentEmojis']);
-    }
-
-    SettingsSvc.settings.windowEffect.value = kIsDesktop && Platform.isWindows
-        ? WindowEffect.values.firstWhereOrNull((e) => e.name == map['windowEffect']) ??
-            SettingsSvc.settings.windowEffect.value
-        : SettingsSvc.settings.windowEffect.value;
-    SettingsSvc.settings.windowEffectCustomOpacityLight.value =
-        map['windowEffectCustomOpacityLight']?.toDouble() ?? SettingsSvc.settings.windowEffectCustomOpacityLight.value;
-    SettingsSvc.settings.windowEffectCustomOpacityDark.value =
-        map['windowEffectCustomOpacityDark']?.toDouble() ?? SettingsSvc.settings.windowEffectCustomOpacityDark.value;
-    SettingsSvc.settings.desktopNotifications.value =
-        map['desktopNotifications'] ?? SettingsSvc.settings.desktopNotifications.value;
-    SettingsSvc.settings.desktopNotificationSoundVolume.value =
-        map['desktopNotificationSoundVolume'] ?? SettingsSvc.settings.desktopNotificationSoundVolume.value;
-    SettingsSvc.settings.windowsTaskbarBadge.value =
-        map['windowsTaskbarBadge'] ?? SettingsSvc.settings.windowsTaskbarBadge.value;
-    SettingsSvc.settings.showTrayIcon.value = map['showTrayIcon'] ?? SettingsSvc.settings.showTrayIcon.value;
-    SettingsSvc.settings.desktopNotificationSoundPath.value =
-        map['desktopNotificationSoundPath'] ?? SettingsSvc.settings.desktopNotificationSoundPath.value;
-    SettingsSvc.settings.useDesktopAccent.value =
-        map['useDesktopAccent'] ?? map['useWindowsAccent'] ?? SettingsSvc.settings.useDesktopAccent.value;
-    SettingsSvc.settings.firstFcmRegisterDate.value =
-        map['firstFcmRegisterDate'] ?? SettingsSvc.settings.firstFcmRegisterDate.value;
-    SettingsSvc.settings.logLevel.value =
-        map['logLevel'] != null ? Level.values[map['logLevel']] : SettingsSvc.settings.logLevel.value;
-    SettingsSvc.settings.hideNamesForReactions.value =
-        map['hideNamesForReactions'] ?? SettingsSvc.settings.hideNamesForReactions.value;
-    SettingsSvc.settings.replaceEmoticonsWithEmoji.value =
-        map['replaceEmoticonsWithEmoji'] ?? SettingsSvc.settings.replaceEmoticonsWithEmoji.value;
-    SettingsSvc.settings.lastReviewRequestTimestamp.value =
-        map['lastReviewRequestTimestamp'] ?? SettingsSvc.settings.lastReviewRequestTimestamp.value;
-
+    SettingsSvc.settings._applyMap(map);
     if (!isIsolate && save) {
       unawaited(SettingsSvc.settings.saveAsync());
       EventDispatcherSvc.emit("theme-update", null);
     }
   }
 
-  static Settings fromMap(Map<String, dynamic> map) {
-    Settings s = Settings();
-    s.iCloudAccount.value = map['iCloudAccount'] ?? "";
-    s.guidAuthKey.value = map['guidAuthKey'] ?? "";
-    s.serverAddress.value = map['serverAddress'] ?? "";
-    s.serverCertificateFingerprint.value = map['serverCertificateFingerprint'] ?? "";
-    debugPrint('Loading Custom Headers from map: ${map['customHeaders']}');
-    s.customHeaders.value = _processCustomHeaders(map['customHeaders']);
-    s.finishedSetup.value = map['finishedSetup'] ?? false;
-    s.reachedConversationList.value = map['reachedConversationList'] ?? false;
-    s.autoDownload.value = map['autoDownload'] ?? true;
-    s.onlyWifiDownload.value = map['onlyWifiDownload'] ?? false;
-    s.lowQualityImagesOnCellular.value = map['lowQualityImagesOnCellular'] ?? true;
-    s.maxConcurrentDownloads.value = map['maxConcurrentDownloads'] ?? 2;
-    s.autoSave.value = map['autoSave'] ?? false;
-    s.autoSavePicsLocation.value = map['autoSavePicsLocation'] ?? "Pictures";
-    s.autoSaveDocsLocation.value = map['autoSaveDocsLocation'] ?? FilesystemService.androidDownloadsPath;
-    s.previewImageQuality.value = map['imageQuality']?.toDouble() ?? 1.0;
-    s.autoOpenKeyboard.value = map['autoOpenKeyboard'] ?? true;
-    s.hideTextPreviews.value = map['hideTextPreviews'] ?? false;
-    s.linkPreviewPolicy.value = _readLinkPreviewPolicy(map);
-    s.showIncrementalSync.value = map['showIncrementalSync'] ?? false;
-    s.highPerfMode.value = map['highPerfMode'] ?? false;
-    s.reduceMotion.value = map['reduceMotion'] ?? false;
-    s.lastIncrementalSync.value = map['lastIncrementalSync'] ?? 0;
-    s.lastIncrementalSyncRowId.value = map['lastIncrementalSyncRowId'] ?? 0;
-    s.refreshRate.value = map['refreshRate'] ?? 0;
-    s.colorfulAvatars.value = map['colorfulAvatars'] ?? false;
-    s.colorfulBubbles.value = map['colorfulBubbles'] ?? false;
-    s.hideDividers.value = map['hideDividers'] ?? false;
-    s.scrollVelocity.value = map['scrollVelocity']?.toDouble() ?? 1;
-    s.sendWithReturn.value = map['sendWithReturn'] ?? false;
-    s.doubleTapForDetails.value = map['doubleTapForDetails'] ?? false;
-    s.denseChatTiles.value = map['denseChatTiles'] ?? false;
-    s.smartReply.value = map['smartReply'] ?? false;
-    s.showSyncIndicator.value = map['showSyncIndicator'] ?? true;
-    s.sendDelay.value = map['sendDelay'] ?? 0;
-    s.recipientAsPlaceholder.value = map['recipientAsPlaceholder'] ?? false;
-    s.hideKeyboardOnScroll.value = map['hideKeyboardOnScroll'] ?? false;
-    s.moveChatCreatorToHeader.value = map['moveChatCreatorToHeader'] ?? false;
-    s.showFiltersInHeader.value = map['showFiltersInHeader'] ?? false;
-    s.showCustomGroupFilterChips.value = map['showCustomGroupFilterChips'] ?? false;
-    s.cameraFAB.value = map['cameraFAB'] ?? false;
-    s.swipeToCloseKeyboard.value = map['swipeToCloseKeyboard'] ?? false;
-    s.swipeToOpenKeyboard.value = map['swipeToOpenKeyboard'] ?? false;
-    s.openKeyboardOnSTB.value = map['openKeyboardOnSTB'] ?? false;
-    s.swipableConversationTiles.value = map['swipableConversationTiles'] ?? false;
-    s.showDeliveryTimestamps.value = map['showDeliveryTimestamps'] ?? false;
-    s.filteredChatList.value = map['filteredChatList'] ?? false;
-    s.startVideosMuted.value = map['startVideosMuted'] ?? true;
-    s.startVideosMutedFullscreen.value = map['startVideosMutedFullscreen'] ?? true;
-    s.use24HrFormat.value = map['use24HrFormat'] ?? false;
-    s.alwaysShowAvatars.value = map['alwaysShowAvatars'] ?? false;
-    s.notifyOnChatList.value = map['notifyOnChatList'] ?? false;
-    s.notifyReactions.value = map['notifyReactions'] ?? true;
-    s.colorsFromMedia.value = map['colorsFromMedia'] ?? false;
-    s.globalTextDetection.value = map['globalTextDetection'] ?? "";
-    s.filterUnknownSenders.value = map['filterUnknownSenders'] ?? false;
-    s.savedChatFilters.value = _processSavedChatFilters(map['savedChatFilters']);
-    s.tabletMode.value = kIsDesktop || (map['tabletMode'] ?? true);
-    s.highlightSelectedChat.value = map['highlightSelectedChat'] ?? true;
-    s.immersiveMode.value = map['immersiveMode'] ?? true;
-    s.avatarScale.value = map['avatarScale']?.toDouble() ?? 1.0;
-    s.animationSpeed.value = map['animationSpeed']?.toDouble() ?? 1.0;
-    s.launchAtStartup.value = map['launchAtStartup'] ?? false;
-    s.launchAtStartupMinimized.value = map['launchAtStartupMinimized'] ?? false;
-    s.closeToTray.value = map['closeToTray'] ?? true;
-    s.spellcheck.value = map['spellcheck'] ?? true;
-    s.spellcheckLanguage.value = map['spellcheckLanguage'] ?? 'auto';
-    s.minimizeToTray.value = map['minimizeToTray'] ?? false;
-    s.askWhereToSave.value = map['askWhereToSave'] ?? false;
-    s.statusIndicatorsOnChats.value = map['statusIndicatorsOnChats'] ?? false;
-    s.apiTimeout.value = map['apiTimeout'] ?? 30000;
-    s.allowUpsideDownRotation.value = map['allowUpsideDownRotation'] ?? false;
-    s.cancelQueuedMessages.value = map['cancelQueuedMessages'] ?? false;
-    s.repliesToPrevious.value = map['repliesToPrevious'] ?? false;
-    s.localhostPort.value = map['useLocalhost'];
-    s.useLocalIpv6.value = map['useLocalIpv6'] ?? false;
-    s.sendSoundPath.value = map['sendSoundPath'];
-    s.receiveSoundPath.value = map['receiveSoundPath'];
-    s.soundVolume.value = map['soundVolume'] ?? 100;
-    s.syncContactsAutomatically.value = map['syncContactsAutomatically'] ?? false;
-    s.contactSyncAccountName.value = map['contactSyncAccountName'];
-    s.contactSyncAccountType.value = map['contactSyncAccountType'];
-    s.scrollToBottomOnSend.value = map['scrollToBottomOnSend'] ?? true;
-    s.sendEventsToTasker.value = map['sendEventsToTasker'] ?? false;
-    s.keepAppAlive.value = map['keepAppAlive'] ?? false;
-    s.unarchiveOnNewMessage.value = map['autoUnarchiveOnNewMessage'] ?? true;
-    s.scrollToLastUnread.value = map['scrollToLastUnread'] ?? false;
-    s.userName.value = map['userName'] ?? "You";
-    s.privateAPISend.value = map['privateAPISend'] ?? false;
-    s.privateAPIAttachmentSend.value = map['privateAPIAttachmentSend'] ?? false;
-    s.enablePrivateAPI.value = map['enablePrivateAPI'] ?? false;
-    s.serverPrivateAPI.value = map['serverPrivateAPI'];
-    s.iMessageStatsSource.value = (map['iMessageStatsSource'] == 'local') ? 'local' : 'server';
-    s.cachePurgeBackgroundLevel.value = map['cachePurgeBackgroundLevel'] ?? "light";
-    s.cachePurgeMemoryPressureLevel.value = map['cachePurgeMemoryPressureLevel'] ?? "moderate";
-    s.cachePurgeExcludedCaches.value = map['cachePurgeExcludedCaches'] ?? "";
-    s.privateSendTypingIndicators.value = map['privateSendTypingIndicators'] ?? false;
-    s.privateMarkChatAsRead.value = map['privateMarkChatAsRead'] ?? false;
-    s.privateManualMarkAsRead.value = map['privateManualMarkAsRead'] ?? false;
-    s.privateSubjectLine.value = map['privateSubjectLine'] ?? false;
-    s.editLastSentMessageOnUpArrow.value = map['editLastSentMessageOnUpArrow'] ?? false;
-    s.redactedMode.value = map['redactedMode'] ?? false;
-    s.hideAttachments.value = map['hideAttachments'] ?? true;
-    s.hideContactInfo.value = map['hideContactInfo'] ?? true;
-    s.generateFakeAvatars.value = map['generateFakeAvatars'] ?? false;
-    s.hideMessageContent.value = map['generateFakeMessageContent'] ?? map['hideMessageContent'] ?? false;
-    s.enableUnifiedPush.value = map['enableUnifiedPush'] ?? false;
-    s.endpointUnifiedPush.value = map['endpointUnifiedPush'] ?? "";
-    s.enableFcm.value = map['enableFcm'] ?? true;
-    s.enableQuickTapback.value = map['enableQuickTapback'] ?? false;
-    s.quickTapbackType.value = map['quickTapbackType'] ?? ReactionTypes.toList()[0];
-    s.notificationReactionAction.value = map['notificationReactionAction'] ?? true;
-    s.notificationReactionActionType.value = map['notificationReactionActionType'] ?? ReactionTypes.LIKE;
-    s.materialRightAction.value = map['materialRightAction'] != null
+  static Settings fromMap(Map<String, dynamic> map) => Settings().._applyMap(map, initializing: true);
+
+  void _applyMap(Map<String, dynamic> map, {bool initializing = false}) {
+    iCloudAccount.value = map['iCloudAccount'] ?? iCloudAccount.value;
+    serverAddress.value = map['serverAddress'] ?? serverAddress.value;
+    serverCertificateFingerprint.value =
+        map['serverCertificateFingerprint'] ?? serverCertificateFingerprint.value;
+    guidAuthKey.value = map['guidAuthKey'] ?? guidAuthKey.value;
+    if (map.containsKey('customHeaders')) {
+      debugPrint('Updating custom headers from map: ${map['customHeaders']}');
+      customHeaders.value = _processCustomHeaders(map['customHeaders']);
+    }
+    finishedSetup.value = map['finishedSetup'] ?? finishedSetup.value;
+    reachedConversationList.value =
+        map['reachedConversationList'] ?? reachedConversationList.value;
+    autoDownload.value = map['autoDownload'] ?? autoDownload.value;
+    onlyWifiDownload.value =
+        map['onlyWifiDownload'] ?? onlyWifiDownload.value;
+    lowQualityImagesOnCellular.value =
+        map['lowQualityImagesOnCellular'] ?? lowQualityImagesOnCellular.value;
+    maxConcurrentDownloads.value =
+        map['maxConcurrentDownloads'] ?? maxConcurrentDownloads.value;
+    autoSave.value = map['autoSave'] ?? autoSave.value;
+    autoSavePicsLocation.value =
+        map['autoSavePicsLocation'] ?? autoSavePicsLocation.value;
+    autoSaveDocsLocation.value =
+        map['autoSaveDocsLocation'] ?? autoSaveDocsLocation.value;
+    previewImageQuality.value =
+        map['imageQuality']?.toDouble() ?? previewImageQuality.value;
+    autoOpenKeyboard.value =
+        map['autoOpenKeyboard'] ?? autoOpenKeyboard.value;
+    hideTextPreviews.value =
+        map['hideTextPreviews'] ?? hideTextPreviews.value;
+    final hasLinkPreviewPolicy = map.containsKey('linkPreviewPolicy') || map.containsKey('fetchUrlPreviews');
+    linkPreviewPolicy.value =
+        hasLinkPreviewPolicy ? _readLinkPreviewPolicy(map) : linkPreviewPolicy.value;
+    showIncrementalSync.value =
+        map['showIncrementalSync'] ?? showIncrementalSync.value;
+    highPerfMode.value = map['highPerfMode'] ?? highPerfMode.value;
+    reduceMotion.value = map['reduceMotion'] ?? reduceMotion.value;
+    lastIncrementalSync.value =
+        map['lastIncrementalSync'] ?? lastIncrementalSync.value;
+    lastIncrementalSyncRowId.value =
+        map['lastIncrementalSyncRowId'] ?? lastIncrementalSyncRowId.value;
+    refreshRate.value = map['refreshRate'] ?? refreshRate.value;
+    colorfulAvatars.value = map['colorfulAvatars'] ?? colorfulAvatars.value;
+    colorfulBubbles.value = map['colorfulBubbles'] ?? colorfulBubbles.value;
+    hideDividers.value = map['hideDividers'] ?? hideDividers.value;
+    scrollVelocity.value =
+        map['scrollVelocity']?.toDouble() ?? scrollVelocity.value;
+    sendWithReturn.value = map['sendWithReturn'] ?? sendWithReturn.value;
+    doubleTapForDetails.value =
+        map['doubleTapForDetails'] ?? doubleTapForDetails.value;
+    denseChatTiles.value = map['denseChatTiles'] ?? denseChatTiles.value;
+    smartReply.value = map['smartReply'] ?? smartReply.value;
+    showSyncIndicator.value =
+        map['showSyncIndicator'] ?? showSyncIndicator.value;
+    sendDelay.value = map['sendDelay'] ?? sendDelay.value;
+    recipientAsPlaceholder.value =
+        map['recipientAsPlaceholder'] ?? recipientAsPlaceholder.value;
+    hideKeyboardOnScroll.value =
+        map['hideKeyboardOnScroll'] ?? hideKeyboardOnScroll.value;
+    moveChatCreatorToHeader.value =
+        map['moveChatCreatorToHeader'] ?? moveChatCreatorToHeader.value;
+    showFiltersInHeader.value =
+        map['showFiltersInHeader'] ?? showFiltersInHeader.value;
+    showCustomGroupFilterChips.value =
+        map['showCustomGroupFilterChips'] ?? showCustomGroupFilterChips.value;
+    cameraFAB.value = map['cameraFAB'] ?? cameraFAB.value;
+    swipeToCloseKeyboard.value =
+        map['swipeToCloseKeyboard'] ?? swipeToCloseKeyboard.value;
+    swipeToOpenKeyboard.value =
+        map['swipeToOpenKeyboard'] ?? swipeToOpenKeyboard.value;
+    openKeyboardOnSTB.value =
+        map['openKeyboardOnSTB'] ?? openKeyboardOnSTB.value;
+    swipableConversationTiles.value =
+        map['swipableConversationTiles'] ?? swipableConversationTiles.value;
+    showDeliveryTimestamps.value =
+        map['showDeliveryTimestamps'] ?? showDeliveryTimestamps.value;
+    filteredChatList.value =
+        map['filteredChatList'] ?? filteredChatList.value;
+    startVideosMuted.value =
+        map['startVideosMuted'] ?? startVideosMuted.value;
+    startVideosMutedFullscreen.value =
+        map['startVideosMutedFullscreen'] ?? startVideosMutedFullscreen.value;
+    use24HrFormat.value = map['use24HrFormat'] ?? use24HrFormat.value;
+    alwaysShowAvatars.value =
+        map['alwaysShowAvatars'] ?? alwaysShowAvatars.value;
+    notifyOnChatList.value =
+        map['notifyOnChatList'] ?? notifyOnChatList.value;
+    notifyReactions.value = map['notifyReactions'] ?? notifyReactions.value;
+    colorsFromMedia.value = map['colorsFromMedia'] ?? colorsFromMedia.value;
+    globalTextDetection.value =
+        map['globalTextDetection'] ?? globalTextDetection.value;
+    filterUnknownSenders.value =
+        map['filterUnknownSenders'] ?? filterUnknownSenders.value;
+    if (map.containsKey('savedChatFilters')) {
+      savedChatFilters.value = _processSavedChatFilters(map['savedChatFilters']);
+    }
+    tabletMode.value = kIsDesktop || (map['tabletMode'] ?? tabletMode.value);
+    highlightSelectedChat.value =
+        map['highlightSelectedChat'] ?? highlightSelectedChat.value;
+    immersiveMode.value = map['immersiveMode'] ?? immersiveMode.value;
+    avatarScale.value = map['avatarScale']?.toDouble() ?? avatarScale.value;
+    animationSpeed.value =
+        map['animationSpeed']?.toDouble() ?? animationSpeed.value;
+    launchAtStartup.value = map['launchAtStartup'] ?? launchAtStartup.value;
+    launchAtStartupMinimized.value =
+        map['launchAtStartupMinimized'] ?? launchAtStartupMinimized.value;
+    closeToTray.value = map['closeToTray'] ?? closeToTray.value;
+    spellcheck.value = map['spellcheck'] ?? spellcheck.value;
+    spellcheckLanguage.value =
+        map['spellcheckLanguage'] ?? spellcheckLanguage.value;
+    minimizeToTray.value = map['minimizeToTray'] ?? minimizeToTray.value;
+    askWhereToSave.value = map['askWhereToSave'] ?? askWhereToSave.value;
+    statusIndicatorsOnChats.value =
+        map['statusIndicatorsOnChats'] ?? statusIndicatorsOnChats.value;
+    apiTimeout.value = map['apiTimeout'] ?? apiTimeout.value;
+    allowUpsideDownRotation.value =
+        map['allowUpsideDownRotation'] ?? allowUpsideDownRotation.value;
+    cancelQueuedMessages.value =
+        map['cancelQueuedMessages'] ?? cancelQueuedMessages.value;
+    repliesToPrevious.value =
+        map['repliesToPrevious'] ?? repliesToPrevious.value;
+    localhostPort.value = map['useLocalhost'] ?? localhostPort.value;
+    useLocalIpv6.value = map['useLocalIpv6'] ?? useLocalIpv6.value;
+    sendSoundPath.value = map['sendSoundPath'] ?? sendSoundPath.value;
+    receiveSoundPath.value =
+        map['receiveSoundPath'] ?? receiveSoundPath.value;
+    soundVolume.value = map['soundVolume'] ?? soundVolume.value;
+    syncContactsAutomatically.value =
+        map['syncContactsAutomatically'] ?? syncContactsAutomatically.value;
+    contactSyncAccountName.value =
+        map['contactSyncAccountName'] ?? contactSyncAccountName.value;
+    contactSyncAccountType.value =
+        map['contactSyncAccountType'] ?? contactSyncAccountType.value;
+    scrollToBottomOnSend.value =
+        map['scrollToBottomOnSend'] ?? scrollToBottomOnSend.value;
+    sendEventsToTasker.value =
+        map['sendEventsToTasker'] ?? sendEventsToTasker.value;
+    keepAppAlive.value = map['keepAppAlive'] ?? keepAppAlive.value;
+    unarchiveOnNewMessage.value =
+        map['autoUnarchiveOnNewMessage'] ?? unarchiveOnNewMessage.value;
+    scrollToLastUnread.value =
+        map['scrollToLastUnread'] ?? scrollToLastUnread.value;
+    userName.value = map['userName'] ?? userName.value;
+    privateAPISend.value = map['privateAPISend'] ?? privateAPISend.value;
+    privateAPIAttachmentSend.value =
+        map['privateAPIAttachmentSend'] ?? privateAPIAttachmentSend.value;
+    enablePrivateAPI.value =
+        map['enablePrivateAPI'] ?? enablePrivateAPI.value;
+    serverPrivateAPI.value =
+        map['serverPrivateAPI'] ?? serverPrivateAPI.value;
+    iMessageStatsSource.value = map.containsKey('iMessageStatsSource')
+        ? (map['iMessageStatsSource'] == 'local' ? 'local' : 'server')
+        : iMessageStatsSource.value;
+    cachePurgeBackgroundLevel.value =
+        map['cachePurgeBackgroundLevel'] ?? cachePurgeBackgroundLevel.value;
+    cachePurgeMemoryPressureLevel.value =
+        map['cachePurgeMemoryPressureLevel'] ?? cachePurgeMemoryPressureLevel.value;
+    cachePurgeExcludedCaches.value =
+        map['cachePurgeExcludedCaches'] ?? cachePurgeExcludedCaches.value;
+    privateSendTypingIndicators.value =
+        map['privateSendTypingIndicators'] ?? privateSendTypingIndicators.value;
+    privateMarkChatAsRead.value =
+        map['privateMarkChatAsRead'] ?? privateMarkChatAsRead.value;
+    privateManualMarkAsRead.value =
+        map['privateManualMarkAsRead'] ?? privateManualMarkAsRead.value;
+    privateSubjectLine.value =
+        map['privateSubjectLine'] ?? privateSubjectLine.value;
+    editLastSentMessageOnUpArrow.value =
+        map['editLastSentMessageOnUpArrow'] ?? editLastSentMessageOnUpArrow.value;
+    redactedMode.value = map['redactedMode'] ?? redactedMode.value;
+    hideMessageContent.value =
+        map['hideMessageContent'] ?? hideMessageContent.value;
+    hideAttachments.value = map['hideAttachments'] ?? hideAttachments.value;
+    hideContactInfo.value = map['hideContactInfo'] ?? hideContactInfo.value;
+    generateFakeAvatars.value =
+        map['generateFakeAvatars'] ?? generateFakeAvatars.value;
+    hideMessageContent.value =
+        map['generateFakeMessageContent'] ?? hideMessageContent.value;
+    enableUnifiedPush.value =
+        map['enableUnifiedPush'] ?? enableUnifiedPush.value;
+    endpointUnifiedPush.value =
+        map['endpointUnifiedPush'] ?? endpointUnifiedPush.value;
+    enableFcm.value = map['enableFcm'] ?? enableFcm.value;
+    enableQuickTapback.value =
+        map['enableQuickTapback'] ?? enableQuickTapback.value;
+    quickTapbackType.value =
+        map['quickTapbackType'] ?? quickTapbackType.value;
+    notificationReactionAction.value =
+        map['notificationReactionAction'] ?? notificationReactionAction.value;
+    notificationReactionActionType.value =
+        map['notificationReactionActionType'] ?? notificationReactionActionType.value;
+    materialRightAction.value = map['materialRightAction'] != null
         ? MaterialSwipeAction.values[map['materialRightAction']]
-        : MaterialSwipeAction.pin;
-    s.materialLeftAction.value = map['materialLeftAction'] != null
+        : materialRightAction.value;
+    materialLeftAction.value = map['materialLeftAction'] != null
         ? MaterialSwipeAction.values[map['materialLeftAction']]
-        : MaterialSwipeAction.archive;
-    s.shouldSecure.value = map['shouldSecure'] ?? false;
-    s.securityLevel.value =
-        map['securityLevel'] != null ? SecurityLevel.values[map['securityLevel']] : SecurityLevel.locked;
-    s.incognitoKeyboard.value = map['incognitoKeyboard'] ?? false;
-    s.skin.value = map['skin'] != null ? Skins.values[map['skin']] : Skins.iOS;
-    s.theme.value = map['theme'] != null ? ThemeMode.values[map['theme']] : ThemeMode.system;
-    s.fullscreenViewerSwipeDir.value = map['fullscreenViewerSwipeDir'] != null
+        : materialLeftAction.value;
+    shouldSecure.value = map['shouldSecure'] ?? shouldSecure.value;
+    securityLevel.value = map['securityLevel'] != null
+        ? SecurityLevel.values[map['securityLevel']]
+        : securityLevel.value;
+    incognitoKeyboard.value =
+        map['incognitoKeyboard'] ?? incognitoKeyboard.value;
+    skin.value = map['skin'] != null ? Skins.values[map['skin']] : skin.value;
+    theme.value =
+        map['theme'] != null ? ThemeMode.values[map['theme']] : theme.value;
+    fullscreenViewerSwipeDir.value = map['fullscreenViewerSwipeDir'] != null
         ? SwipeDirection.values[map['fullscreenViewerSwipeDir']]
-        : SwipeDirection.RIGHT;
-    s.pinRowsPortrait.value = map['pinRowsPortrait'] ?? 3;
-    s.pinColumnsPortrait.value = map['pinColumnsPortrait'] ?? 3;
-    s.pinRowsLandscape.value = map['pinRowsLandscape'] ?? 1;
-    s.pinColumnsLandscape.value = map['pinColumnsLandscape'] ?? 4;
-    s.maxAvatarsInGroupWidget.value = map['maxAvatarsInGroupWidget'] ?? 4;
-    s.titleBarStyle.value = map['titleBarStyle'] != null
+        : fullscreenViewerSwipeDir.value;
+    pinRowsPortrait.value = map['pinRowsPortrait'] ?? pinRowsPortrait.value;
+    pinColumnsPortrait.value =
+        map['pinColumnsPortrait'] ?? pinColumnsPortrait.value;
+    pinRowsLandscape.value =
+        map['pinRowsLandscape'] ?? pinRowsLandscape.value;
+    pinColumnsLandscape.value =
+        map['pinColumnsLandscape'] ?? pinColumnsLandscape.value;
+    maxAvatarsInGroupWidget.value =
+        map['maxAvatarsInGroupWidget'] ?? maxAvatarsInGroupWidget.value;
+    titleBarStyle.value = map['titleBarStyle'] != null
         ? BBTitleBarStyle.values[map['titleBarStyle']]
         : map['useCustomTitleBar'] == false
             ? BBTitleBarStyle.native
-            : BBTitleBarStyle.custom;
+            : titleBarStyle.value;
 
-    s.showReplyField.value = map['showReplyField'] ?? true;
-    s.selectedActionIndices.value = _processSelectedActionIndices(map['selectedActionIndices'], s.showReplyField.value);
-    s.actionList.value = _processActionList(map['actionList']);
-    s._detailsMenuActions.value = _processDetailsMenuActions(map['detailsMenuActions'], DetailsMenuAction.values);
-    s.textFieldButtons.value = _processTextFieldButtons(map['textFieldButtons']);
-    s.recentEmojis.value = _processRecentEmojis(map['recentEmojis']);
+    showReplyField.value = map['showReplyField'] ?? showReplyField.value;
+    if (initializing || map.containsKey('selectedActionIndices')) {
+      selectedActionIndices.value =
+          _processSelectedActionIndices(map['selectedActionIndices'], showReplyField.value);
+    }
+    actionList.value =
+        _processActionList(map['actionList'] ?? jsonEncode(List<String>.from(actionList)));
+    if (map.containsKey('detailsMenuActions')) {
+      _detailsMenuActions.value =
+          _processDetailsMenuActions(map['detailsMenuActions'], detailsMenuActions);
+    }
+    if (map.containsKey('textFieldButtons')) {
+      textFieldButtons.value = _processTextFieldButtons(map['textFieldButtons']);
+    }
+    if (map.containsKey('recentEmojis')) {
+      recentEmojis.value = _processRecentEmojis(map['recentEmojis']);
+    }
 
-    s.windowEffect.value = (kIsDesktop && Platform.isWindows)
-        ? WindowEffect.values.firstWhereOrNull((e) => e.name == map['windowEffect']) ?? WindowEffect.disabled
-        : WindowEffect.disabled;
-    s.windowEffectCustomOpacityLight.value = map['windowEffectCustomOpacityLight']?.toDouble() ?? 0.5;
-    s.windowEffectCustomOpacityDark.value = map['windowEffectCustomOpacityDark']?.toDouble() ?? 0.5;
-    s.desktopNotifications.value = map['desktopNotifications'] ?? true;
-    s.desktopNotificationSoundVolume.value = map['desktopNotificationSoundVolume'] ?? 100;
-    s.desktopNotificationSoundPath.value = map['desktopNotificationSoundPath'];
-    s.useDesktopAccent.value = map['useDesktopAccent'] ?? map['useWindowsAccent'] ?? false;
-    s.windowsTaskbarBadge.value = map['windowsTaskbarBadge'] ?? true;
-    s.showTrayIcon.value = map['showTrayIcon'] ?? true;
-    s.firstFcmRegisterDate.value = map['firstFcmRegisterDate'] ?? 0;
-    s.logLevel.value = map['logLevel'] != null ? Level.values[map['logLevel']] : Level.info;
-    s.hideNamesForReactions.value = map['hideNamesForReactions'] ?? false;
-    s.replaceEmoticonsWithEmoji.value = map['replaceEmoticonsWithEmoji'] ?? false;
-    s.lastReviewRequestTimestamp.value = map['lastReviewRequestTimestamp'] ?? 0;
-    return s;
+    windowEffect.value = kIsDesktop && Platform.isWindows
+        ? WindowEffect.values.firstWhereOrNull((e) => e.name == map['windowEffect']) ??
+            windowEffect.value
+        : windowEffect.value;
+    windowEffectCustomOpacityLight.value =
+        map['windowEffectCustomOpacityLight']?.toDouble() ?? windowEffectCustomOpacityLight.value;
+    windowEffectCustomOpacityDark.value =
+        map['windowEffectCustomOpacityDark']?.toDouble() ?? windowEffectCustomOpacityDark.value;
+    desktopNotifications.value =
+        map['desktopNotifications'] ?? desktopNotifications.value;
+    desktopNotificationSoundVolume.value =
+        map['desktopNotificationSoundVolume'] ?? desktopNotificationSoundVolume.value;
+    windowsTaskbarBadge.value =
+        map['windowsTaskbarBadge'] ?? windowsTaskbarBadge.value;
+    showTrayIcon.value = map['showTrayIcon'] ?? showTrayIcon.value;
+    desktopNotificationSoundPath.value =
+        map['desktopNotificationSoundPath'] ?? desktopNotificationSoundPath.value;
+    useDesktopAccent.value =
+        map['useDesktopAccent'] ?? map['useWindowsAccent'] ?? useDesktopAccent.value;
+    firstFcmRegisterDate.value =
+        map['firstFcmRegisterDate'] ?? firstFcmRegisterDate.value;
+    logLevel.value =
+        map['logLevel'] != null ? Level.values[map['logLevel']] : logLevel.value;
+    hideNamesForReactions.value =
+        map['hideNamesForReactions'] ?? hideNamesForReactions.value;
+    replaceEmoticonsWithEmoji.value =
+        map['replaceEmoticonsWithEmoji'] ?? replaceEmoticonsWithEmoji.value;
+    lastReviewRequestTimestamp.value =
+        map['lastReviewRequestTimestamp'] ?? lastReviewRequestTimestamp.value;
   }
 
   /// function to set detailsMenuActions from a subset of allActions

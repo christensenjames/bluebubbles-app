@@ -207,12 +207,9 @@ class TextFieldComponentState extends State<TextFieldComponent> {
               ),
               clipBehavior: Clip.antiAlias,
               child: AnimatedSize(
-                duration: const Duration(milliseconds: 400),
+                duration: MediaQuery.disableAnimationsOf(context) ? Duration.zero : Durations.medium1,
+                curve: Easing.emphasizedDecelerate,
                 alignment: Alignment.bottomCenter,
-                // easeOutBack overshoots its target size, which works fine in the full
-                // conversation view but causes a brief layout overflow in chat creator
-                // where the available vertical space is tighter (keyboard is open).
-                curve: isChatCreator ? Curves.easeOut : Curves.easeOutBack,
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
@@ -541,6 +538,7 @@ class TextFieldComponentState extends State<TextFieldComponent> {
           Padding(
             padding: const EdgeInsets.only(right: 10),
             child: IconButton(
+              tooltip: "Add attachment",
               style: IconButton.styleFrom(
                 backgroundColor: context.theme.colorScheme.outline.withValues(alpha: 0.2),
                 shape: const CircleBorder(),

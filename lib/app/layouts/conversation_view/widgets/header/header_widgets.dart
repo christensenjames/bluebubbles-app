@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:typed_data';
 
+import 'package:bluebubbles/app/components/m3e/m3e_motion.dart';
 import 'package:bluebubbles/app/layouts/chat_creator/new_chat_creator.dart';
 import 'package:bluebubbles/app/state/chat_state_scope.dart';
 import 'package:bluebubbles/helpers/helpers.dart';
@@ -133,6 +134,7 @@ class ManualMarkState extends State<ManualMark> with ThemeHelpers {
             ),
           if (widget.controller.inSelectMode.value)
             IconButton(
+              tooltip: "Forward",
               icon: Icon(
                 iOS ? CupertinoIcons.arrow_right : Icons.forward_outlined,
                 color: !iOS ? context.theme.colorScheme.onSurface : context.theme.colorScheme.primary,
@@ -255,13 +257,14 @@ class _ConnectionIndicatorState extends State<ConnectionIndicator> {
   @override
   Widget build(BuildContext context) {
     final topPadding = MediaQuery.of(context).viewPadding.top;
+    final motion = _isVisible ? M3EMotion.spatialFast : M3EMotion.effectsFast;
     return Positioned(
       top: topPadding,
       left: 0,
       right: 0,
       child: AnimatedContainer(
-        duration: const Duration(milliseconds: 300),
-        curve: Curves.easeInOut,
+        duration: motion.durationOf(context),
+        curve: motion.curve,
         height: _isVisible ? 4.0 : 0.0,
         color: getIndicatorColor(_displayState),
       ),
@@ -281,7 +284,7 @@ class HeaderProgressIndicator extends StatelessWidget {
   Widget build(BuildContext context) {
     final chat = ChatStateScope.chatOf(context);
     return Obx(() => TweenAnimationBuilder<double>(
-          duration: chat.sendProgress.value == 0
+          duration: MediaQuery.disableAnimationsOf(context) || chat.sendProgress.value == 0
               ? Duration.zero
               : chat.sendProgress.value == 1
                   ? const Duration(milliseconds: 250)
@@ -293,7 +296,7 @@ class HeaderProgressIndicator extends StatelessWidget {
           ),
           builder: (context, value, _) => AnimatedOpacity(
             opacity: value == 1 ? 0 : 1,
-            duration: const Duration(milliseconds: 250),
+            duration: MediaQuery.disableAnimationsOf(context) ? Duration.zero : const Duration(milliseconds: 250),
             child: LinearProgressIndicator(
               value: value,
               backgroundColor: Colors.transparent,

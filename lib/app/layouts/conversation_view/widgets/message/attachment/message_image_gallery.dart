@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:io';
 import 'dart:math';
+import 'dart:ui' as ui;
 
 import 'package:bluebubbles/app/layouts/conversation_details/widgets/media_gallery_card.dart';
 import 'package:bluebubbles/app/layouts/conversation_view/widgets/message/attachment/attachment_holder.dart';
@@ -87,6 +88,8 @@ class _MessageImageGalleryState extends State<MessageImageGallery> with ThemeHel
   final List<Worker> _sizeWorkers = [];
 
   List<Attachment> get _attachments => widget.attachments;
+
+  bool get _dragging => _activeDragPointer != null || _panHorizontal == true;
 
   @override
   void initState() {
@@ -208,28 +211,18 @@ class _MessageImageGalleryState extends State<MessageImageGallery> with ThemeHel
       }
       if (imageFile == null) return;
 
-      final completer = Completer<Size?>();
-      final provider = FileImage(imageFile);
-      final stream = provider.resolve(ImageConfiguration.empty);
-      late ImageStreamListener listener;
-      listener = ImageStreamListener(
-        (ImageInfo info, bool _) {
-          if (!completer.isCompleted) {
-            completer.complete(Size(info.image.width.toDouble(), info.image.height.toDouble()));
-          }
-          stream.removeListener(listener);
-        },
-        onError: (dynamic _, StackTrace? _) {
-          if (!completer.isCompleted) completer.complete(null);
-          stream.removeListener(listener);
-        },
-      );
-      stream.addListener(listener);
-
-      final size = await completer.future;
-      if (size == null) return;
-      // A cached image resolves its listener synchronously, so this can land
-      // mid-frame just like the workers above.
+      // The header alone gives the dimensions; resolving a FileImage would decode and cache full-size pixels.
+      final buffer = await ui.ImmutableBuffer.fromFilePath(imageFile.path);
+      ui.ImageDescriptor? descriptor;
+      late final Size size;
+      try {
+        descriptor = await ui.ImageDescriptor.encoded(buffer);
+        size = Size(descriptor.width.toDouble(), descriptor.height.toDouble());
+      } finally {
+        descriptor?.dispose();
+        buffer.dispose();
+      }
+      // The await can resume mid-frame, so defer the setState like the workers do.
       _runOutsideBuild(() {
         if (!mounted) return;
         setState(() {
@@ -275,8 +268,9 @@ class _MessageImageGalleryState extends State<MessageImageGallery> with ThemeHel
       }
     }
     setState(() {
-      _dragDx += dx;
-      _dragDx = _dragDx.clamp(-_maxDragDx, _maxDragDx);
+      final overshoot = _dragDx.abs() - _maxDragDx;
+      // Past the limit the card resists, moving less the further it is pulled.
+      _dragDx += overshoot > 0 && dx.sign == _dragDx.sign ? dx * 0.5 / (1 + overshoot / 40) : dx;
     });
   }
 
@@ -676,10 +670,13 @@ class _MessageImageGalleryState extends State<MessageImageGallery> with ThemeHel
     final centeredLeft = baseOffset + ((baseCardWidth - cardWidth) / 2);
     final dragOffset = isCurrent ? _dragDx : 0.0;
     final dragRotate = isCurrent ? (_dragDx / 700) : 0.0;
+    final duration = (isCurrent && _dragging) || MediaQuery.disableAnimationsOf(context)
+        ? Duration.zero
+        : const Duration(milliseconds: 180);
 
     return AnimatedPositioned(
       key: ValueKey(attachment.guid ?? attachment.id ?? '${attachment.transferName}'),
-      duration: const Duration(milliseconds: 180),
+      duration: duration,
       curve: Curves.easeOutCubic,
       top: 1 + dy,
       left: centeredLeft + mirroredBias + dx + dragOffset,
@@ -687,9 +684,15 @@ class _MessageImageGalleryState extends State<MessageImageGallery> with ThemeHel
         offset: Offset.zero,
         child: ConstrainedBox(
           constraints: BoxConstraints(maxWidth: cardWidth, minHeight: cardHeight, maxHeight: cardHeight),
-          child: Transform.rotate(
-            angle: angle.toDouble() + dragRotate,
-            alignment: widget.fanDirection == GalleryFanDirection.left ? Alignment.bottomRight : Alignment.bottomLeft,
+          child: TweenAnimationBuilder<double>(
+            tween: Tween(end: angle.toDouble() + dragRotate),
+            duration: duration,
+            curve: Curves.easeOutCubic,
+            builder: (context, turn, child) => Transform.rotate(
+              angle: turn,
+              alignment: widget.fanDirection == GalleryFanDirection.left ? Alignment.bottomRight : Alignment.bottomLeft,
+              child: child,
+            ),
             child: _withReactionOverlay(
               IgnorePointer(
                 ignoring: !isCurrent,

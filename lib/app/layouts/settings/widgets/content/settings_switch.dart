@@ -28,11 +28,15 @@ class SettingsSwitch extends StatelessWidget {
   Widget build(BuildContext context) {
     final material = context.material;
     final showLeading = leading != null && (!material || SettingsLeadingIcons.shown(context));
+    return MergeSemantics(child: _buildRow(context, material, showLeading));
+  }
+
+  Widget _buildRow(BuildContext context, bool material, bool showLeading) {
     return Material(
       color: Colors.transparent,
       child: InkWell(
         onTap: () => onChanged.call(!initialVal),
-        splashColor: context.theme.colorScheme.surfaceVariant,
+        splashColor: context.theme.colorScheme.surfaceContainerHighest,
         splashFactory: context.theme.splashFactory,
         child: ListTile(
           mouseCursor: MouseCursor.defer,
@@ -51,10 +55,12 @@ class SettingsSwitch extends StatelessWidget {
                       : EdgeInsets.only(bottom: isThreeLine ? 10 : 0.0, right: 5, left: 5),
                   child: leading,
                 ),
-          trailing: BBSwitch(
-            value: initialVal,
-            activeColor: material ? null : context.theme.colorScheme.primary.lightenOrDarken(15),
-            onChanged: onChanged,
+          trailing: ExcludeFocus(
+            child: BBSwitch(
+              value: initialVal,
+              activeColor: material ? null : context.theme.colorScheme.primary.lightenOrDarken(15),
+              onChanged: onChanged,
+            ),
           ),
           subtitle: subtitle != null
               ? Text(

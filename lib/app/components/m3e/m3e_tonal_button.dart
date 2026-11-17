@@ -62,8 +62,8 @@ class _M3ETonalButtonState extends State<M3ETonalButton> {
         onTapUp: enabled ? (_) => _setPressed(false) : null,
         onTapCancel: enabled ? () => _setPressed(false) : null,
         child: AnimatedContainer(
-          duration: M3EMotion.spatialFast.duration,
-          curve: M3EMotion.spatialFast.curve,
+          duration: _pressed ? M3EMotion.spatialFast.durationOf(context) : M3EMotion.effectsFast.durationOf(context),
+          curve: _pressed ? M3EMotion.spatialFast.curve : M3EMotion.effectsFast.curve,
           decoration: BoxDecoration(
             color: containerColor,
             borderRadius: _pressed ? pressedRadius : widget.borderRadius,

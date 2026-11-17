@@ -16,15 +16,16 @@ const double _rubberRearm = 1.03;
 const double _dismissDistanceFactor = 0.35;
 const double _dismissShrink = 0.15;
 const double _dismissFlickVelocity = 700;
+const double _dismissCommitProgress = 0.5;
 const double _flingDrag = 0.135;
 const double _panZoomScaleSlop = 0.05;
 
 final SpringDescription _spring = SpringDescription.withDampingRatio(mass: 1, stiffness: 600);
 
-/// Renders [child] fit-contained in the viewport with pinch, pan, double-tap zoom and swipe-down-to-close.
+/// Renders [child] fit-contained in the viewport with pinch, pan and double-tap zoom.
 ///
-/// At scale 1 a one-finger horizontal drag is left to an ancestor PageView; a second finger always wins the
-/// gesture arena immediately so pinch works on the first touch.
+/// At scale 1 a one-finger drag is left to ancestors (a PageView pages, a [SwipeToDismiss] closes); a second
+/// finger always wins the gesture arena immediately so pinch works on the first touch.
 class ZoomableMedia extends StatefulWidget {
   const ZoomableMedia({
     super.key,
@@ -34,8 +35,6 @@ class ZoomableMedia extends StatefulWidget {
     this.doubleTapScale = 2.5,
     this.onTap,
     this.onZoomChanged,
-    this.onDismissProgress,
-    this.onDismiss,
   });
 
   final Widget child;
@@ -44,8 +43,6 @@ class ZoomableMedia extends StatefulWidget {
   final double doubleTapScale;
   final VoidCallback? onTap;
   final ValueChanged<bool>? onZoomChanged;
-  final ValueChanged<double>? onDismissProgress;
-  final VoidCallback? onDismiss;
 
   @override
   State<ZoomableMedia> createState() => _ZoomableMediaState();
@@ -67,13 +64,6 @@ class _ZoomableMediaState extends State<ZoomableMedia> with SingleTickerProvider
   double _rawScale0 = 1.0;
   Offset _anchor = Offset.zero;
   bool _inZone = false;
-
-  bool _dismissing = false;
-  bool _dismissActive = false;
-  Offset _dismissFocal0 = Offset.zero;
-  Offset _dismissOffset0 = Offset.zero;
-  double _dismissBaseScale = 1.0;
-  double _progress = 0.0;
 
   late final Map<Type, GestureRecognizerFactory> _gestures = <Type, GestureRecognizerFactory>{
     TapGestureRecognizer: GestureRecognizerFactoryWithHandlers<TapGestureRecognizer>(
@@ -144,8 +134,6 @@ class _ZoomableMediaState extends State<ZoomableMedia> with SingleTickerProvider
     return Offset(offset.dx.clamp(-b.dx, b.dx), offset.dy.clamp(-b.dy, b.dy));
   }
 
-  double _progressOf(Offset offset) => (offset.dy / (_viewport.height * _dismissDistanceFactor)).clamp(0.0, 1.0);
-
   void _setView(_View view) {
     _view.value = view;
     final bool zoomed = view.scale > 1 + _zoomEpsilon;
@@ -153,19 +141,6 @@ class _ZoomableMediaState extends State<ZoomableMedia> with SingleTickerProvider
       _zoomed = zoomed;
       widget.onZoomChanged?.call(zoomed);
     }
-    if (_dismissActive) _setProgress(_progressOf(view.offset));
-  }
-
-  void _setProgress(double progress) {
-    if (progress == _progress) return;
-    _progress = progress;
-    widget.onDismissProgress?.call(progress);
-  }
-
-  void _settle() {
-    if (!_dismissActive) return;
-    _dismissActive = false;
-    _setProgress(0);
   }
 
   void _run(Simulation simulation, ValueChanged<double> step, {VoidCallback? onDone}) {
@@ -177,7 +152,6 @@ class _ZoomableMediaState extends State<ZoomableMedia> with SingleTickerProvider
     final _View from = _view.value;
     if (_disableAnimations || from == target) {
       _setView(target);
-      _settle();
       return;
     }
     _run(
@@ -186,10 +160,7 @@ class _ZoomableMediaState extends State<ZoomableMedia> with SingleTickerProvider
         scale: from.scale + (target.scale - from.scale) * t,
         offset: from.offset + (target.offset - from.offset) * t,
       )),
-      onDone: () {
-        _setView(target);
-        _settle();
-      },
+      onDone: () => _setView(target),
     );
   }
 
@@ -218,7 +189,7 @@ class _ZoomableMediaState extends State<ZoomableMedia> with SingleTickerProvider
 
   bool _shouldClaimSingle(Offset delta) {
     final _View view = _view.value;
-    if (!_zoomed) return delta.dy > 0 && delta.dy > delta.dx.abs();
+    if (!_zoomed) return false;
     if (delta.dx.abs() <= delta.dy.abs()) return true;
     final double bound = _bounds(view.scale).dx;
     return delta.dx > 0 ? view.offset.dx < bound - 0.5 : view.offset.dx > 0.5 - bound;
@@ -229,19 +200,9 @@ class _ZoomableMediaState extends State<ZoomableMedia> with SingleTickerProvider
     _controller.stop();
   }
 
-  void _onStart(Offset focal, int pointerCount, bool begin) {
+  void _onStart(Offset focal) {
     final _View view = _view.value;
     _lastFocal = focal;
-    if (begin && pointerCount == 1 && !_zoomed) {
-      _dismissing = true;
-      _dismissActive = true;
-      _dismissFocal0 = focal;
-      _dismissOffset0 = view.offset;
-      _dismissBaseScale = view.scale / (1 - _dismissShrink * _progressOf(view.offset));
-      return;
-    }
-    _dismissing = false;
-    _settle();
     _rawScale0 = _unrubberScale(view.scale);
     _anchor = (focal - _center - _unrubberOffset(view.offset, view.scale)) / view.scale;
     _inZone = _rawScale0 > widget.maxScale || _rawScale0 < _minScale;
@@ -249,11 +210,6 @@ class _ZoomableMediaState extends State<ZoomableMedia> with SingleTickerProvider
 
   void _onUpdate(Offset focal, double ratio) {
     _lastFocal = focal;
-    if (_dismissing) {
-      final Offset offset = _dismissOffset0 + (focal - _dismissFocal0);
-      _setView((scale: _dismissBaseScale * (1 - _dismissShrink * _progressOf(offset)), offset: offset));
-      return;
-    }
     final double rawScale = _rawScale0 * ratio;
     final bool outside = rawScale > widget.maxScale || rawScale < _minScale;
     if (outside && !_inZone) {
@@ -279,18 +235,6 @@ class _ZoomableMediaState extends State<ZoomableMedia> with SingleTickerProvider
 
   void _onEnd(Velocity velocity) {
     final _View view = _view.value;
-    if (_dismissing) {
-      _dismissing = false;
-      final VoidCallback? onDismiss = widget.onDismiss;
-      if (onDismiss != null &&
-          (_progressOf(view.offset) >= 0.5 || velocity.pixelsPerSecond.dy > _dismissFlickVelocity)) {
-        _dismissActive = false;
-        onDismiss();
-        return;
-      }
-      _animateTo(_identity);
-      return;
-    }
     final double scale = view.scale.clamp(_minScale, widget.maxScale);
     final Offset offset = _clampOffset(_reanchor(view, scale, _lastFocal), scale);
     if (scale != view.scale || offset != view.offset) {
@@ -379,12 +323,194 @@ class _ZoomableMediaState extends State<ZoomableMedia> with SingleTickerProvider
   }
 }
 
+/// Drags [child] down to close: it follows the pointer and shrinks, and the release either calls [onDismiss] or
+/// springs back with the release velocity.
+///
+/// Reads raw pointers, so a recognizer inside [child] (a video player's own drag handlers) cannot take the drag.
+/// Callers lock their own PageView while [onDismissProgress] is above 0.
+class SwipeToDismiss extends StatefulWidget {
+  const SwipeToDismiss({
+    super.key,
+    required this.child,
+    this.ignoredBottomFraction = 0,
+    this.onDismissProgress,
+    this.onDismiss,
+  });
+
+  final Widget child;
+
+  /// Drags that start in this bottom fraction of the height are left to the child, such as a video seek bar.
+  final double ignoredBottomFraction;
+  final ValueChanged<double>? onDismissProgress;
+
+  /// Null disables the gesture.
+  final VoidCallback? onDismiss;
+
+  @override
+  State<SwipeToDismiss> createState() => _SwipeToDismissState();
+}
+
+class _SwipeToDismissState extends State<SwipeToDismiss> with SingleTickerProviderStateMixin {
+  final ValueNotifier<Offset> _offset = ValueNotifier<Offset>(Offset.zero);
+  late final AnimationController _controller;
+  final Set<int> _pointers = <int>{};
+  int? _pointer;
+  Offset? _slopStart;
+  Offset? _pan0;
+  bool _dragging = false;
+  Offset _grab = Offset.zero;
+  Offset _springFrom = Offset.zero;
+  VelocityTracker? _tracker;
+  double _progress = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController.unbounded(vsync: this)
+      ..addListener(() => _set(_springFrom * (1 - _controller.value)));
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    _offset.dispose();
+    super.dispose();
+  }
+
+  double get _height => context.size?.height ?? 0;
+
+  double _progressOf(Offset offset) =>
+      _height == 0 ? 0 : (offset.dy / (_height * _dismissDistanceFactor)).clamp(0.0, 1.0);
+
+  // Progress is stored before the offset notifies, so the transform's builder never measures during build.
+  void _set(Offset offset) {
+    final double progress = _progressOf(offset);
+    final bool changed = progress != _progress;
+    _progress = progress;
+    _offset.value = offset;
+    if (changed) widget.onDismissProgress?.call(progress);
+  }
+
+  void _start(int pointer, PointerDeviceKind kind, Offset position, Duration timeStamp) {
+    _pointers.add(pointer);
+    if (_pointers.length > 1) {
+      // A second finger is a pinch, which the child owns.
+      if (_pointer != null) _abandon();
+      return;
+    }
+    if (widget.onDismiss == null) return;
+    if (position.dy > _height * (1 - widget.ignoredBottomFraction)) return;
+    _controller.stop();
+    _pointer = pointer;
+    _slopStart = position;
+    _tracker = VelocityTracker.withKind(kind)..addPosition(timeStamp, position);
+  }
+
+  void _move(int pointer, Offset position, Duration timeStamp) {
+    if (pointer != _pointer) return;
+    _tracker!.addPosition(timeStamp, position);
+    final Offset? slopStart = _slopStart;
+    if (slopStart != null) {
+      final Offset moved = position - slopStart;
+      if (moved.distance < kTouchSlop) return;
+      _slopStart = null;
+      if (moved.dy <= moved.dx.abs()) {
+        _abandon();
+        return;
+      }
+      _dragging = true;
+      _grab = position - _offset.value;
+    }
+    _set(position - _grab);
+  }
+
+  void _end(int pointer) {
+    _pointers.remove(pointer);
+    if (pointer != _pointer) return;
+    final Velocity velocity = _tracker!.getVelocity();
+    final bool dragging = _dragging;
+    _reset();
+    final double dy = velocity.pixelsPerSecond.dy;
+    if (dragging && ((_progress >= _dismissCommitProgress && dy >= 0) || dy > _dismissFlickVelocity)) {
+      widget.onDismiss!();
+      return;
+    }
+    _springBack(velocity);
+  }
+
+  void _cancel(int pointer) {
+    _pointers.remove(pointer);
+    if (pointer == _pointer) _abandon();
+  }
+
+  void _abandon() {
+    _reset();
+    _springBack(Velocity.zero);
+  }
+
+  void _reset() {
+    _pointer = null;
+    _slopStart = null;
+    _pan0 = null;
+    _dragging = false;
+    _tracker = null;
+  }
+
+  void _springBack(Velocity velocity) {
+    final Offset from = _offset.value;
+    if (from.distance < 1 || MediaQuery.disableAnimationsOf(context)) {
+      _set(Offset.zero);
+      return;
+    }
+    _springFrom = from;
+    // The spring runs t from 0 to 1 along from → zero, so the release velocity is projected onto that path.
+    final Offset v = velocity.pixelsPerSecond;
+    final double t0 = -(v.dx * from.dx + v.dy * from.dy) / from.distanceSquared;
+    _controller.value = 0;
+    _controller.animateWith(SpringSimulation(_spring, 0, 1, t0)).then((_) => _set(Offset.zero));
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Listener(
+      behavior: HitTestBehavior.translucent,
+      onPointerDown: (e) => _start(e.pointer, e.kind, e.localPosition, e.timeStamp),
+      onPointerMove: (e) => _move(e.pointer, e.localPosition, e.timeStamp),
+      onPointerUp: (e) => _end(e.pointer),
+      onPointerCancel: (e) => _cancel(e.pointer),
+      onPointerPanZoomStart: (e) => _start(e.pointer, e.kind, e.localPosition, e.timeStamp),
+      onPointerPanZoomUpdate: (e) {
+        if (e.pointer != _pointer) return;
+        if ((e.scale - 1).abs() >= _panZoomScaleSlop) {
+          _cancel(e.pointer);
+          return;
+        }
+        // Flutter's Linux embedder carries the previous gesture's pan into the next one, so measure from the first.
+        _move(e.pointer, e.localPosition + e.localPan - (_pan0 ??= e.localPan), e.timeStamp);
+      },
+      onPointerPanZoomEnd: (e) => _end(e.pointer),
+      child: ValueListenableBuilder<Offset>(
+        valueListenable: _offset,
+        child: widget.child,
+        builder: (BuildContext context, Offset offset, Widget? child) {
+          final double scale = 1 - _dismissShrink * _progress;
+          return Transform(
+            alignment: Alignment.center,
+            transform: Matrix4.translationValues(offset.dx, offset.dy, 0)..scaleByDouble(scale, scale, 1, 1),
+            child: child,
+          );
+        },
+      ),
+    );
+  }
+}
+
 class _ZoomGestureRecognizer extends OneSequenceGestureRecognizer {
   _ZoomGestureRecognizer({super.debugOwner});
 
   late bool Function(Offset delta) shouldClaimSingle;
   late VoidCallback onDown;
-  late void Function(Offset focal, int pointerCount, bool begin) onStart;
+  late ValueChanged<Offset> onStart;
   late void Function(Offset focal, double scale) onUpdate;
   late ValueChanged<Velocity> onEnd;
 
@@ -397,7 +523,6 @@ class _ZoomGestureRecognizer extends OneSequenceGestureRecognizer {
   double _panZoomScale = 1;
   Offset? _panZoomPan0;
   double _panZoomBase = 1;
-  bool _pinching = false;
   VelocityTracker? _tracker;
   Velocity _endVelocity = Velocity.zero;
   bool _disposed = false;
@@ -427,7 +552,7 @@ class _ZoomGestureRecognizer extends OneSequenceGestureRecognizer {
     if (_positions.length == 1) _downPosition = event.localPosition;
     if (_claimed) {
       resolvePointer(event.pointer, GestureDisposition.accepted);
-      _rebase(false);
+      _rebase();
     } else if (_positions.length > 1) {
       _claim();
     }
@@ -448,14 +573,14 @@ class _ZoomGestureRecognizer extends OneSequenceGestureRecognizer {
   void _claim() {
     _claimed = true;
     resolve(GestureDisposition.accepted);
-    _rebase(true);
+    _rebase();
   }
 
-  void _rebase(bool begin) {
+  void _rebase() {
     _baseSpan = _span;
     _panZoomBase = _panZoomScale;
     _tracker = VelocityTracker.withKind(_kind);
-    onStart(_focal, _pinching ? 2 : _positions.length, begin);
+    onStart(_focal);
   }
 
   @override
@@ -479,7 +604,6 @@ class _ZoomGestureRecognizer extends OneSequenceGestureRecognizer {
         _tracker?.addPosition(event.timeStamp, _focal);
         onUpdate(_focal, _ratio);
       } else if (pinched) {
-        _pinching = true;
         _claim();
       } else if (delta.distance >= computeHitSlop(event.kind, null) && shouldClaimSingle(delta)) {
         _claim();
@@ -487,7 +611,7 @@ class _ZoomGestureRecognizer extends OneSequenceGestureRecognizer {
     } else if (event is PointerUpEvent || event is PointerCancelEvent || event is PointerPanZoomEndEvent) {
       _positions.remove(event.pointer);
       if (_positions.isNotEmpty) {
-        if (_claimed) _rebase(false);
+        if (_claimed) _rebase();
       } else if (!_claimed) {
         resolve(GestureDisposition.rejected);
       } else if (event is! PointerCancelEvent) {
@@ -508,7 +632,6 @@ class _ZoomGestureRecognizer extends OneSequenceGestureRecognizer {
     final Velocity velocity = _endVelocity;
     _endVelocity = Velocity.zero;
     _claimed = false;
-    _pinching = false;
     _panZoomPointer = null;
     _positions.clear();
     _tracker = null;

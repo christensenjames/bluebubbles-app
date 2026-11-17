@@ -1,3 +1,4 @@
+import 'package:bluebubbles/app/components/m3e/m3e_motion.dart';
 import 'package:bluebubbles/app/state/message_state_scope.dart';
 import 'package:bluebubbles/app/layouts/conversation_view/widgets/message/reaction/reaction.dart';
 import 'package:bluebubbles/helpers/helpers.dart';
@@ -11,11 +12,15 @@ class _ReactionAnimator extends StatefulWidget {
     super.key,
     required this.stableKey,
     required this.shouldAnimate,
+    required this.alignment,
     required this.child,
   });
 
   final String stableKey;
   final bool shouldAnimate;
+
+  /// The reaction's corner that overlaps the bubble; the pop-in grows out of it.
+  final Alignment alignment;
   final Widget child;
 
   @override
@@ -25,19 +30,19 @@ class _ReactionAnimator extends StatefulWidget {
 class _ReactionAnimatorState extends State<_ReactionAnimator> with SingleTickerProviderStateMixin {
   late AnimationController _controller;
   late Animation<double> _scaleAnimation;
+  late CurvedAnimation _fadeAnimation;
 
   @override
   void initState() {
     super.initState();
     _controller = AnimationController(
-      duration: const Duration(milliseconds: 200),
+      duration: M3EMotion.spatialFast.duration,
       vsync: this,
+      animationBehavior: AnimationBehavior.preserve,
     );
 
-    _scaleAnimation = CurvedAnimation(
-      parent: _controller,
-      curve: Curves.easeOutBack,
-    );
+    _fadeAnimation = CurvedAnimation(parent: _controller, curve: M3EMotion.strongEaseOut);
+    _scaleAnimation = _fadeAnimation.drive(Tween<double>(begin: 0.9, end: 1.0));
 
     // Animate in only if this is a new reaction
     if (widget.shouldAnimate) {
@@ -49,16 +54,29 @@ class _ReactionAnimatorState extends State<_ReactionAnimator> with SingleTickerP
   }
 
   @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _fadeAnimation.curve = MediaQuery.disableAnimationsOf(context) ? Curves.ease : M3EMotion.strongEaseOut;
+  }
+
+  @override
   void dispose() {
+    _fadeAnimation.dispose();
     _controller.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    return ScaleTransition(
-      scale: _scaleAnimation,
-      child: widget.child,
+    return FadeTransition(
+      opacity: _fadeAnimation,
+      child: MediaQuery.disableAnimationsOf(context)
+          ? widget.child
+          : ScaleTransition(
+              scale: _scaleAnimation,
+              alignment: widget.alignment,
+              child: widget.child,
+            ),
     );
   }
 }
@@ -154,6 +172,7 @@ class _ReactionHolderState extends State<ReactionHolder> {
                     key: ValueKey(stableKey),
                     stableKey: stableKey,
                     shouldAnimate: shouldAnimate,
+                    alignment: isFromMe ? Alignment.bottomRight : Alignment.bottomLeft,
                     child: ReactionWidget(
                       reaction: e,
                       reactions: _cachedReactions,

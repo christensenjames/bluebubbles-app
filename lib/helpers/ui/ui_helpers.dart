@@ -3,8 +3,11 @@ import 'dart:math';
 import 'dart:ui' as ui;
 
 import 'package:bitsdojo_window/bitsdojo_window.dart';
+import 'package:bluebubbles/app/components/bb_back_button.dart';
+import 'package:bluebubbles/app/components/m3e/m3e_motion.dart';
 import 'package:bluebubbles/app/layouts/conversation_list/widgets/filters/chat_list_filters.dart';
 import 'package:bluebubbles/app/layouts/conversation_list/widgets/tile/conversation_tile.dart';
+import 'package:bluebubbles/app/wrappers/titlebar_wrapper.dart';
 import 'package:bluebubbles/helpers/helpers.dart';
 import 'package:bluebubbles/database/models.dart';
 import 'package:bluebubbles/services/services.dart';
@@ -15,7 +18,6 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:fluttertoast/fluttertoast.dart';
-import 'package:gesture_x_detector/gesture_x_detector.dart';
 import 'package:get/get.dart';
 import 'package:get_it/get_it.dart';
 import 'package:image/image.dart' as img;
@@ -37,94 +39,33 @@ Future<void> showAndFocusWindow() async {
 class BackButton extends StatelessWidget {
   final bool Function()? onPressed;
   final Color? color;
+  final EdgeInsets padding;
 
-  const BackButton({super.key, this.color, this.onPressed});
+  const BackButton({
+    super.key,
+    this.color,
+    this.onPressed,
+    this.padding = EdgeInsets.zero,
+  });
 
   @override
   Widget build(BuildContext context) {
     return Material(
       color: Colors.transparent,
-      child: SizedBox(
+      child: Container(
+        padding: padding,
         width: 48,
-        child: XGestureDetector(
-          supportTouch: true,
-          onTap: !kIsDesktop
-              ? null
-              : (details) {
-                  final result = onPressed?.call() ?? false;
-                  if (!result) {
-                    if (Get.isSnackbarOpen) {
-                      Get.closeAllSnackbars();
-                    }
-                    Navigator.of(context).pop();
-                  }
-                },
-          child: IconButton(
-            icon: Obx(() => Icon(
-                  SettingsSvc.settings.skin.value != Skins.Material ? CupertinoIcons.back : Icons.arrow_back,
-                  color: color ?? context.theme.colorScheme.primary,
-                )),
-            iconSize: SettingsSvc.settings.skin.value != Skins.Material ? 30 : 24,
-            onPressed: () {
-              if (kIsDesktop) return;
-              final result = onPressed?.call() ?? false;
-              if (!result) {
-                if (Get.isSnackbarOpen) {
-                  Get.closeAllSnackbars();
-                }
-                Navigator.of(context).pop();
-              }
-            },
-          ),
+        child: BBBackButton(
+          onPressed: onPressed,
+          icon: Obx(() => Icon(
+                SettingsSvc.settings.skin.value != Skins.Material ? CupertinoIcons.back : Icons.arrow_back,
+                color: color ?? context.theme.colorScheme.primary,
+              )),
+          iconSize: SettingsSvc.settings.skin.value != Skins.Material ? 30 : 24,
         ),
       ),
     );
   }
-}
-
-// todo remove
-Widget buildBackButton(BuildContext context,
-    {EdgeInsets padding = EdgeInsets.zero, double? iconSize, Skins? skin, bool Function()? callback}) {
-  return Material(
-    color: Colors.transparent,
-    child: Container(
-      padding: padding,
-      width: 48,
-      child: XGestureDetector(
-        supportTouch: true,
-        onTap: !kIsDesktop
-            ? null
-            : (details) {
-                final result = callback?.call() ?? true;
-                if (result) {
-                  if (Get.isSnackbarOpen) {
-                    Get.closeAllSnackbars();
-                  }
-                  Navigator.of(context).pop();
-                }
-              },
-        child: IconButton(
-          iconSize: iconSize ?? (SettingsSvc.settings.skin.value != Skins.Material ? 30 : 24),
-          icon: skin != null
-              ? Icon(skin != Skins.Material ? CupertinoIcons.back : Icons.arrow_back,
-                  color: context.theme.colorScheme.primary)
-              : Obx(() => Icon(
-                  SettingsSvc.settings.skin.value != Skins.Material ? CupertinoIcons.back : Icons.arrow_back,
-                  color: context.theme.colorScheme.primary)),
-          onPressed: () {
-            if (kIsDesktop) return;
-            final result = callback?.call() ?? true;
-            if (result) {
-              if (Get.isSnackbarOpen) {
-                Get.closeAllSnackbars();
-              }
-              Navigator.of(context).pop();
-            }
-          },
-        ),
-      ),
-    ),
-  );
 }
 
 /// The empty-state shown in the conversation list when there is nothing to
@@ -551,10 +492,7 @@ void showSnackbar(String title, String message,
   }
   // Top of the screen (top-right when there's room), so it never covers the text field; on desktop it also sits
   // under the title bar to keep the window buttons clear. GetX adds the status bar inset on mobile itself.
-  // The title bar check matches TitleBarWrapper's rule for when the custom title bar is drawn.
   const width = 360.0;
-  final hasCustomTitleBar =
-      kIsDesktop && (!Platform.isLinux || SettingsSvc.settings.titleBarStyle.value == BBTitleBarStyle.custom);
   final theme = Get.theme;
   final iOS = SettingsSvc.settings.skin.value == Skins.iOS;
   // Errors use the error container. The theme has no success role, so success builds one the way M3 builds
@@ -573,8 +511,18 @@ void showSnackbar(String title, String message,
   Get.snackbar(
     title,
     message,
-    titleText: Text(title, style: theme.textTheme.titleSmall!.copyWith(color: foreground)),
-    messageText: Text(message, style: theme.textTheme.bodyMedium!.copyWith(color: foreground)),
+    titleText: Text.rich(
+      TextSpan(children: MessageHelper.buildEmojiText(title, theme.textTheme.titleSmall!.copyWith(color: foreground))),
+      maxLines: 2,
+      overflow: TextOverflow.ellipsis,
+    ),
+    messageText: Text.rich(
+      TextSpan(
+        children: MessageHelper.buildEmojiText(message, theme.textTheme.bodyMedium!.copyWith(color: foreground)),
+      ),
+      maxLines: 3,
+      overflow: TextOverflow.ellipsis,
+    ),
     icon: Icon(icon, color: foreground),
     shouldIconPulse: false,
     snackPosition: SnackPosition.TOP,
@@ -588,10 +536,11 @@ void showSnackbar(String title, String message,
       left: max(10, Get.width - width - 10),
     ),
     maxWidth: width,
-    isDismissible: false,
-    // Errors usually need reading, so they stay up longer.
-    duration: Duration(milliseconds: isError ? max(durationMs, 4000) : durationMs),
-    animationDuration: const Duration(milliseconds: 250),
+    isDismissible: true,
+    dismissDirection: DismissDirection.up,
+    duration: Duration(milliseconds: isError || actionLabel != null ? max(durationMs, 4000) : durationMs),
+    animationDuration: MediaQuery.disableAnimationsOf(Get.context!) ? Duration.zero : const Duration(milliseconds: 250),
+    reverseAnimationCurve: M3EMotion.strongEaseOut.flipped,
     mainButton: actionLabel == null
         ? null
         : TextButton(onPressed: onAction, child: Text(actionLabel, style: TextStyle(color: foreground))),

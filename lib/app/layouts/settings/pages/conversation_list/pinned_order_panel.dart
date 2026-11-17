@@ -6,7 +6,7 @@ import 'package:bluebubbles/app/wrappers/bb_scaffold.dart';
 import 'package:bluebubbles/database/models.dart';
 import 'package:bluebubbles/helpers/helpers.dart';
 import 'package:bluebubbles/services/services.dart';
-import 'package:flutter/material.dart';
+import 'package:flutter/material.dart' hide BackButton;
 import 'package:get/get.dart';
 
 class PinnedOrderPanel extends StatefulWidget {
@@ -73,7 +73,7 @@ class _PinnedOrderPanelState extends State<PinnedOrderPanel> {
       extendBodyBehindAppBar: false,
       appBar: BBAppBar(
         titleText: "Pinned Chat Order",
-        leading: buildBackButton(context),
+        leading: const BackButton(),
         actions: [
           TextButton(
             onPressed: _onReset,

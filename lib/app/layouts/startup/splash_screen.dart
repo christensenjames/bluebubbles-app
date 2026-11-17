@@ -22,7 +22,13 @@ class _SplashScreenState extends State<SplashScreen> {
       await Future.delayed(const Duration(milliseconds: 100));
       nav.pushAndRemoveUntil(
           PageRouteBuilder(
-              transitionDuration: const Duration(seconds: 1),
+              transitionDuration: const Duration(milliseconds: 500),
+              transitionsBuilder: (_, animation, _, child) => FadeTransition(
+                    opacity: animation
+                        .drive(CurveTween(curve: Easing.emphasizedDecelerate))
+                        .drive(Tween<double>(begin: 0.01, end: 1)),
+                    child: child,
+                  ),
               pageBuilder: (_, _, _) => const TitleBarWrapper(child: SetupView())),
           (route) => route.isFirst);
     }

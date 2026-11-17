@@ -139,7 +139,7 @@ Step-by-step recipes for the most frequent changes in this codebase. Each recipe
 
 1. **`lib/app/layouts/conversation_view/widgets/message/attachment/`** or **`interactive/`** — Create a new small widget file for the renderer. Follow the single-responsibility rule; keep it under ~300 lines.
 
-2. **`lib/app/layouts/conversation_view/widgets/message/parts/`** — If this is a new message part type, add dispatch logic in the part router to render your new widget.
+2. **`lib/app/layouts/conversation_view/widgets/message/misc/message_part_content.dart`** — If this is a new message part type, add dispatch logic in `MessagePartContent` to render your new widget.
 
 3. **`lib/app/layouts/conversation_view/widgets/message/attachment/attachment_holder.dart`** (or equivalent attachment dispatcher) — Add a case to route to the new renderer based on MIME type or attachment type.
 
@@ -149,7 +149,7 @@ Step-by-step recipes for the most frequent changes in this codebase. Each recipe
 
 ## 6. Add a New Screen / Page
 
-Full component/theming reference: `docs/CUSTOM_COMPONENTS.md`.
+Full component/theming reference: `docs/THEMING_AND_COMPONENTS.md`.
 
 **Files to touch (in order):**
 

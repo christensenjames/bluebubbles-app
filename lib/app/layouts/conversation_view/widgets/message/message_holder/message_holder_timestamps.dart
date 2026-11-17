@@ -1,3 +1,4 @@
+import 'package:bluebubbles/app/components/m3e/m3e_motion.dart';
 import 'package:bluebubbles/app/state/message_state.dart';
 import 'package:bluebubbles/app/state/message_state_scope.dart';
 import 'package:bluebubbles/app/layouts/conversation_view/widgets/message/misc/tail_clipper.dart';
@@ -71,7 +72,7 @@ class EditHistoryObserver extends StatelessWidget {
       child: Obx(() => AnimatedSize(
             duration: const Duration(milliseconds: 250),
             alignment: Alignment.bottomCenter,
-            curve: ms.showEdits.value ? Curves.easeOutBack : Curves.easeOut,
+            curve: ms.showEdits.value ? M3EMotion.spatialFast.curve : Curves.easeOut,
             child: ms.showEdits.value
                 ? Opacity(
                     opacity: 0.75,

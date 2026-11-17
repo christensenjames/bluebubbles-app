@@ -36,7 +36,6 @@ dependencies:
   confetti: ^0.8.0
   connectivity_plus: ^7.3.0
   crop_your_image: ^2.0.0
-  csslib: ^1.0.2
   cupertino_icons: ^1.0.8
   defer_pointer: ^0.0.2
   desktop_drop:
@@ -121,15 +120,11 @@ dependencies:
   mobile_scanner: ^7.2.0 # no desktop support
   msix: ^3.18.0
   multi_value_listenable_builder: ^0.0.2
-  native_dio_adapter: ^1.5.0
-  network_info_plus: ^7.0.0
-  network_tools: ^6.0.3
   numberpicker: ^2.1.2
   objectbox: ^5.3.1
   objectbox_flutter_libs: any
   passkit: any
   passkit_ui: any
-  sqlite3_flutter_libs: ^0.5.24 # required for network_tools drift/ARP service on Android
   open_filex: ^4.7.0
   package_info_plus: ^9.0.1
   particles_flutter: ^3.2.0
@@ -176,7 +171,6 @@ dependencies:
   version: ^3.0.2
   video_player: ^2.10.0
   wave: ^0.2.5
-  win32: ^5.10.1
   window_manager: ^0.5.1
   windows_taskbar: ^1.1.2
   flutter_user_certificates_android: ^0.0.1
@@ -192,7 +186,6 @@ dependencies:
   get_it: any
   flutter_map: any
   flutter_native_splash: any
-  rxdart: any
   uuid: any
 dependency_overrides:
   clock: ^1.1.2 # encrypter_plus

@@ -92,6 +92,7 @@ class _GradientBackgroundState extends CustomState<GradientBackground, void, Con
 
   @override
   Widget build(BuildContext context) {
+    final reduceMotion = MediaQuery.disableAnimationsOf(context);
     // Use a Stack so widget.child is always at a fixed position in the element
     // tree. This prevents Flutter from tearing down the child subtree (and
     // disposing FocusNodes) when the background decoration changes reactively.
@@ -118,9 +119,13 @@ class _GradientBackgroundState extends CustomState<GradientBackground, void, Con
                     maxHeight: MediaQuery.sizeOf(context).height,
                     child: SizedBox(
                       width: constraints.maxWidth,
-                      child: DynamicWallpaperView(
-                        wallpaperId: _chatState?.dynamicWallpaperId.value,
-                        config: _chatState?.dynamicWallpaperConfig.value,
+                      // Freezes wallpapers driven by vsync tickers; particles_flutter's raw Ticker ignores this.
+                      child: TickerMode(
+                        enabled: !reduceMotion,
+                        child: DynamicWallpaperView(
+                          wallpaperId: _chatState?.dynamicWallpaperId.value,
+                          config: _chatState?.dynamicWallpaperConfig.value,
+                        ),
                       ),
                     ),
                   );
@@ -149,12 +154,7 @@ class _GradientBackgroundState extends CustomState<GradientBackground, void, Con
               return const SizedBox.shrink();
             }
 
-            return MirrorAnimationBuilder<Movie>(
-              tween: ThemeSvc.gradientTween.value,
-              curve: Curves.fastOutSlowIn,
-              duration: const Duration(seconds: 3),
-              builder: (context, anim, _) {
-                return Container(
+            Widget gradient(Movie anim) => Container(
                   decoration: BoxDecoration(
                     gradient: LinearGradient(
                       begin: Alignment.topRight,
@@ -167,7 +167,14 @@ class _GradientBackgroundState extends CustomState<GradientBackground, void, Con
                     ),
                   ),
                 );
-              },
+
+            if (reduceMotion) return gradient(ThemeSvc.gradientTween.value.transform(0.5));
+
+            return MirrorAnimationBuilder<Movie>(
+              tween: ThemeSvc.gradientTween.value,
+              curve: Curves.fastOutSlowIn,
+              duration: const Duration(seconds: 3),
+              builder: (context, anim, _) => gradient(anim),
             );
           }),
         ),

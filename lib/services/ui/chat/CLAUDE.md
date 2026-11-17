@@ -23,7 +23,7 @@ GetIt singleton. Accessed via `ChatsSvc`.
 - `updateChat(Chat, {override})` — merges a chat update into its `ChatState` and repositions if needed
 - `getChatState(String guid)` → `ChatState?` — the standard way to get reactive state for a chat
 - `setAllInactive()` — marks all chats as not active (called when navigating away)
-- `getActiveChat()` → `ChatState?` — the currently open chat
+- `activeChat` → `ChatState?` — the currently open chat
 
 **Loading:** Chats are loaded in batches of 100 (`loadChats()`). After the initial load, incremental updates come through `updateChat()`.
 

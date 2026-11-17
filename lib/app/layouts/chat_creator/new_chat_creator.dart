@@ -8,10 +8,11 @@ import 'package:bluebubbles/app/layouts/conversation_view/widgets/text_field/tex
 import 'package:bluebubbles/app/state/chat_state_scope.dart';
 import 'package:bluebubbles/app/wrappers/bb_app_bar.dart';
 import 'package:bluebubbles/app/wrappers/bb_scaffold.dart';
+import 'package:bluebubbles/app/wrappers/titlebar_wrapper.dart';
 import 'package:bluebubbles/helpers/helpers.dart';
 import 'package:bluebubbles/database/models.dart';
 import 'package:bluebubbles/services/services.dart';
-import 'package:flutter/material.dart';
+import 'package:flutter/material.dart' hide BackButton;
 import 'package:flutter/services.dart';
 import 'package:get/get.dart';
 
@@ -85,14 +86,14 @@ class _NewChatCreatorState extends State<NewChatCreator> with ThemeHelpers<NewCh
       resizeToAvoidBottomInset: true,
       appBar: BBAppBar(
         titleText: 'New Message',
-        leading: buildBackButton(context),
+        leading: const BackButton(),
         // backgroundColor: Colors.transparent,
-        toolbarHeight: kIsDesktop ? 90 : 60,
+        toolbarHeight: hasCustomTitleBar ? 90 : 60,
       ),
       body: FocusScope(
         child: Column(
           children: [
-            _AnimatedHeader(controller: controller),
+            _Header(controller: controller),
             Expanded(child: _ContentArea(controller: controller)),
             _TextFieldArea(controller: controller),
           ],
@@ -102,46 +103,27 @@ class _NewChatCreatorState extends State<NewChatCreator> with ThemeHelpers<NewCh
   }
 }
 
-// -----------------------------------------------------------------------------
-// Header: service type picker + recipient chips + divider
-// Collapses (AnimatedSize + AnimatedOpacity) when a message is sent to an
-// existing chat just before navigating to the full ConversationView.
-// -----------------------------------------------------------------------------
-
-class _AnimatedHeader extends StatelessWidget {
-  const _AnimatedHeader({required this.controller});
+class _Header extends StatelessWidget {
+  const _Header({required this.controller});
 
   final ChatCreatorController controller;
 
   @override
   Widget build(BuildContext context) {
-    return Obx(() {
-      final visible = controller.isHeaderVisible.value;
-      return AnimatedSize(
-        duration: const Duration(milliseconds: 300),
-        curve: Curves.easeInOut,
-        child: AnimatedOpacity(
-          opacity: visible ? 1.0 : 0.0,
-          duration: const Duration(milliseconds: 200),
-          child: visible
-              ? Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    const SizedBox(height: 8),
-                    ServiceTypePicker(controller: controller),
-                    RecipientChipsRow(controller: controller),
-                    const SizedBox(height: 8),
-                    Divider(
-                      height: 1,
-                      thickness: 1,
-                      color: context.theme.dividerColor.withValues(alpha: 0.25),
-                    ),
-                  ],
-                )
-              : const SizedBox.shrink(),
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        const SizedBox(height: 8),
+        ServiceTypePicker(controller: controller),
+        RecipientChipsRow(controller: controller),
+        const SizedBox(height: 8),
+        Divider(
+          height: 1,
+          thickness: 1,
+          color: context.theme.dividerColor.withValues(alpha: 0.25),
         ),
-      );
-    });
+      ],
+    );
   }
 }
 

@@ -14,14 +14,13 @@ Reusable widgets composing the conversation details / info panel.
 | `attachments_loader.dart` | Loads shared attachments for media/docs/locations |
 | `media_gallery_card.dart` | Tappable thumbnail card for media or file items |
 
-All four widgets in `sections/` plus `attachment_section_header.dart` and `media_gallery_card.dart`
-take an `expressive` flag (default `false`), threaded from `conversation_details.dart` /
-`conversation_attachments.dart` by `SettingsSvc.settings.skin.value != Skins.iOS`. On expressive:
-sentence-case headers via `M3ESectionHeader`, `M3EShapes.lg` card corners tonally derived from
-`context.tileColor` (never a raw `colorScheme.surfaceContainer*` read), sections hide entirely
-(`AnimatedSize` + `M3EMotion.spatialFast`) instead of rendering an empty placeholder once loading
-finishes, and the media grid column count follows the Material window size class instead of
-`max(2, width ~/ 200)`.
+The four widgets in `sections/` share `AttachmentSectionHeader`. The section header and
+`media_gallery_card.dart` use expressive styling on Material/Samsung: sentence-case headers via
+`M3ESectionHeader` and `M3EShapes.lg` card corners derived from `context.tileColor`.
+The media grid column count follows the Material window size class.
+All four sections keep a shared `AttachmentSectionStatus` mounted across loading and empty
+states. Its top-aligned `AnimatedSize` uses `M3EMotion.spatialFast` to collapse the spinner;
+empty previews hide the status body, while full pages show an empty-state message.
 
 ## `filters/`
 

@@ -38,30 +38,33 @@ class _SamsungConversationTileState extends CustomState<SamsungConversationTile,
         onTap: () => controller.onTap(context),
         onSecondaryTapUp: (details) => controller.onSecondaryTap(Get.context!, details),
         onLongPress: controller.onLongPress,
-        child: Obx(() => ListTile(
-              mouseCursor: MouseCursor.defer,
-              dense: SettingsSvc.settings.denseChatTiles.value,
-              visualDensity: SettingsSvc.settings.denseChatTiles.value ? VisualDensity.compact : null,
-              minVerticalPadding: SettingsSvc.settings.denseChatTiles.value ? 7.5 : 10,
-              title: Obx(() => ChatTitle(
-                    parentController: controller,
-                    style: context.theme.textTheme.bodyLarge!.copyWith(
-                      fontWeight: controller.shouldHighlight.value ? FontWeight.w600 : null,
-                    ),
-                  )),
-              subtitle: controller.subtitle ??
-                  Obx(() => ChatSubtitle(
-                        parentController: controller,
-                        style: context.theme.textTheme.bodyMedium!.copyWith(
-                          color: controller.shouldHighlight.value
-                              ? context.theme.colorScheme.onSurface
-                              : context.theme.colorScheme.outline,
-                          height: 1.5,
-                        ),
-                      )),
-              leading: leading,
-              trailing: SamsungTrailing(parentController: controller),
-            )),
+        child: ChatTileSemantics(
+          controller: controller,
+          child: Obx(() => ListTile(
+                mouseCursor: MouseCursor.defer,
+                dense: SettingsSvc.settings.denseChatTiles.value,
+                visualDensity: SettingsSvc.settings.denseChatTiles.value ? VisualDensity.compact : null,
+                minVerticalPadding: SettingsSvc.settings.denseChatTiles.value ? 7.5 : 10,
+                title: Obx(() => ChatTitle(
+                      parentController: controller,
+                      style: context.theme.textTheme.bodyLarge!.copyWith(
+                        fontWeight: controller.shouldHighlight.value ? FontWeight.w600 : null,
+                      ),
+                    )),
+                subtitle: controller.subtitle ??
+                    Obx(() => ChatSubtitle(
+                          parentController: controller,
+                          style: context.theme.textTheme.bodyMedium!.copyWith(
+                            color: controller.shouldHighlight.value
+                                ? context.theme.colorScheme.onSurface
+                                : context.theme.colorScheme.outline,
+                            height: 1.5,
+                          ),
+                        )),
+                leading: leading,
+                trailing: SamsungTrailing(parentController: controller),
+              )),
+        ),
       ),
     );
 
@@ -87,9 +90,12 @@ class _SamsungConversationTileState extends CustomState<SamsungConversationTile,
                   onTap: () => controller.onTap(context),
                   onSecondaryTapUp: (details) => controller.onSecondaryTap(Get.context!, details),
                   onLongPress: controller.onLongPress,
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 10.0, horizontal: 15),
-                    child: Center(child: leading),
+                  child: ChatTileSemantics(
+                    controller: controller,
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 10.0, horizontal: 15),
+                      child: Center(child: leading),
+                    ),
                   ),
                 )
               : child,

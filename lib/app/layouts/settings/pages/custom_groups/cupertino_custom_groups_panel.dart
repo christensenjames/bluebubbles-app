@@ -147,11 +147,15 @@ class _CupertinoCustomGroupsPanelState extends State<CupertinoCustomGroupsPanel>
             ),
             const NextButton(),
             const SizedBox(width: 12),
-            ReorderableDragStartListener(
-              index: index,
-              child: Icon(
-                CupertinoIcons.line_horizontal_3,
-                color: context.theme.colorScheme.outline,
+            MouseRegion(
+              cursor: SystemMouseCursors.grab,
+              child: ReorderableDragStartListener(
+                index: index,
+                child: SizedBox(
+                  width: 48,
+                  height: 48,
+                  child: Icon(CupertinoIcons.line_horizontal_3, color: context.theme.colorScheme.outline),
+                ),
               ),
             ),
           ],
@@ -179,45 +183,45 @@ class _CupertinoCustomGroupsPanelState extends State<CupertinoCustomGroupsPanel>
           ),
         ],
         bodySlivers: [
-          SliverToBoxAdapter(
-            child: controller.loading.value
-                ? Padding(
-                    padding: const EdgeInsets.only(top: 60),
-                    child: Center(child: buildProgressIndicator(context)),
-                  )
-                : groups.isEmpty
-                    ? Padding(
-                        padding: const EdgeInsets.only(top: 60),
-                        child: Center(
-                          child: Column(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Text("You have no custom groups", style: context.theme.textTheme.labelLarge),
-                              const SizedBox(height: 4),
-                              CupertinoButton(onPressed: _onCreate, child: const Text("Create one")),
-                            ],
-                          ),
-                        ),
-                      )
-                    : Padding(
-                        padding: const EdgeInsets.only(top: 8),
-                        child: ReorderableListView.builder(
-                          shrinkWrap: true,
-                          physics: const NeverScrollableScrollPhysics(),
-                          buildDefaultDragHandles: false,
-                          onReorderItem: _onReorder,
-                          itemCount: groups.length,
-                          itemBuilder: (context, index) => Column(
-                            key: ValueKey(groups[index].id),
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              _buildGroupRow(groups[index], index),
-                              if (index < groups.length - 1) const SettingsDivider(),
-                            ],
-                          ),
-                        ),
-                      ),
-          ),
+          if (controller.loading.value)
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: const EdgeInsets.only(top: 60),
+                child: Center(child: buildProgressIndicator(context)),
+              ),
+            )
+          else if (groups.isEmpty)
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: const EdgeInsets.only(top: 60),
+                child: Center(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text("You have no custom groups", style: context.theme.textTheme.labelLarge),
+                      const SizedBox(height: 4),
+                      CupertinoButton(onPressed: _onCreate, child: const Text("Create one")),
+                    ],
+                  ),
+                ),
+              ),
+            )
+          else
+            SliverPadding(
+              padding: const EdgeInsets.only(top: 8),
+              sliver: SliverReorderableList(
+                onReorderItem: _onReorder,
+                itemCount: groups.length,
+                itemBuilder: (context, index) => Column(
+                  key: ValueKey(groups[index].id),
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    _buildGroupRow(groups[index], index),
+                    if (index < groups.length - 1) const SettingsDivider(),
+                  ],
+                ),
+              ),
+            ),
         ],
       );
     });

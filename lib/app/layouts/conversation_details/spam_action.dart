@@ -12,6 +12,6 @@ Future<void> setChatSpamVerdict(Chat chat, String verdict) async {
     ChatsSvc.updateChat(saved, override: true);
   } catch (error, stack) {
     Logger.error('Failed to update spam verdict for ${chat.guid}', error: error, trace: stack);
-    showSnackbar('Error', 'Failed to update spam status', type: SnackbarType.error);
+    showSnackbar('Error', "Couldn't update spam status for ${chat.getTitle()}", type: SnackbarType.error);
   }
 }

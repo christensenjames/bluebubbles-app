@@ -65,18 +65,6 @@ class HttpService implements BaseApi {
   RxnDouble fontDownloadProgress = RxnDouble();
   RxnInt fontDownloadTotalSize = RxnInt();
 
-  /// Helper function to build query params, this way we only need to add the
-  /// required guid auth param in one place
-  @override
-  Map<String, dynamic> buildQueryParams([Map<String, dynamic> params = const {}]) {
-    // we can't add items to a const map
-    if (params.isEmpty) {
-      params = {};
-    }
-    params['guid'] = SettingsSvc.settings.guidAuthKey.value;
-    return params;
-  }
-
   @override
   Future<Response> runApiGuarded(Future<Response> Function() func, {bool checkOrigin = true}) async {
     if (HttpSvc.origin.isEmpty && checkOrigin) {
@@ -137,7 +125,6 @@ class HttpService implements BaseApi {
       connectTimeout: Duration(milliseconds: SettingsSvc.settings.apiTimeout.value),
       receiveTimeout: Duration(milliseconds: SettingsSvc.settings.apiTimeout.value),
       sendTimeout: Duration(milliseconds: SettingsSvc.settings.apiTimeout.value),
-      headers: headers,
     ));
     // Use IOHttpClientAdapter with certificate validation so that:
     // 1. Self-signed server certs are accepted via shouldAcceptCertificate.
@@ -154,10 +141,14 @@ class HttpService implements BaseApi {
           client.badCertificateCallback = shouldAcceptCertificate;
           return client;
         },
+        validateCertificate: (certificate, host, port) {
+          if (certificate != null) recordValidServerCertificate(host, port);
+          return true;
+        },
       );
     }
     dio.interceptors.add(ApiInterceptor());
-    _externalDownloadDio = dio.clone(options: dio.options.copyWith(headers: {}));
+    _externalDownloadDio = Dio(dio.options.copyWith());
 
     // Initialize sub-services after dio is ready.
     server = ServerApi(this);
@@ -174,10 +165,6 @@ class HttpService implements BaseApi {
 
     // Uncomment to run tests on most API requests
     // testAPI();
-  }
-
-  void updateHeaders() {
-    dio.options.headers = headers;
   }
 
   void updateTimeouts() {
@@ -199,8 +186,7 @@ class HttpService implements BaseApi {
         url,
         options: Options(
             responseType: ResponseType.bytes,
-            receiveTimeout: client.options.receiveTimeout! * 12,
-            headers: isServerRequest ? headers : null),
+            receiveTimeout: client.options.receiveTimeout! * 12),
         cancelToken: cancelToken,
         onReceiveProgress: progress,
       );
@@ -388,6 +374,17 @@ class HttpService implements BaseApi {
 class ApiInterceptor extends Interceptor {
   @override
   void onRequest(RequestOptions options, RequestInterceptorHandler handler) {
+    final serverOrigin = HttpSvc.origin;
+    if (options.extra['serverProbe'] == true || (serverOrigin.isNotEmpty && options.uri.origin == serverOrigin)) {
+      options.headers.addAll(HttpSvc.headers);
+      options.queryParameters['guid'] = SettingsSvc.settings.guidAuthKey.value;
+    } else {
+      options.queryParameters.remove('guid');
+      options.queryParameters.remove('password');
+      final customHeaders = SettingsSvc.settings.customHeaders.value;
+      options.headers.removeWhere((key, _) =>
+          customHeaders.keys.any((name) => name.toLowerCase() == key.toLowerCase()));
+    }
     Logger.info("Request: [${options.method}] ${options.path}", tag: "HTTP Service");
     return super.onRequest(options, handler);
   }

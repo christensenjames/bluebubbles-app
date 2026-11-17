@@ -21,6 +21,7 @@ Color gradient from address: `toColorGradient(handle?.address)`. Custom color: `
 - `custom_error_box.dart` — styled inline error display box
 
 ## Other Components
+- `bb_back_button.dart` — shared back control; keeps desktop titlebar click handling separate from keyboard activation while preserving button hover and search-bar tap isolation. A callback returning true handles navigation; otherwise snackbars close before the route pops.
 - `bb_chip.dart` — chip/tag widget (used for labels, selected contacts, etc.)
 - `bb_switch.dart` — `BBSwitch`, skin-aware toggle (`CupertinoSwitch` on iOS skin, Material `Switch` otherwise). Used internally by `SettingsSwitch`; prefer it over raw `Switch`/`CupertinoSwitch` for any new toggle.
 - `bb_slider.dart` — `BBSlider`, skin-aware slider (`CupertinoSlider` on iOS skin, Material 3 Expressive-styled `Slider` via `m3e/m3e_slider.dart` on Material/Samsung). Supports `divisions` (steps). Used internally by `SettingsSlider`; prefer it over raw `Slider`/`CupertinoSlider` for any new slider/number-picker.

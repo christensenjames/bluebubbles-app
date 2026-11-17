@@ -4,6 +4,8 @@ import 'package:bluebubbles/app/components/m3e/m3e.dart';
 import 'package:bluebubbles/app/layouts/conversation_details/attachment_section_type.dart';
 import 'package:bluebubbles/app/layouts/conversation_details/conversation_attachments.dart';
 import 'package:bluebubbles/app/layouts/conversation_details/widgets/attachment_section_header.dart';
+import 'package:bluebubbles/app/layouts/conversation_details/widgets/sections/documents/documents_section.dart'
+    show AttachmentSectionStatus;
 import 'package:bluebubbles/app/layouts/conversation_details/widgets/sections/links/links_search_helper.dart';
 import 'package:bluebubbles/app/layouts/conversation_list/pages/search/conversation_search_field.dart';
 import 'package:bluebubbles/app/layouts/conversation_view/widgets/message/interactive/url_preview.dart';
@@ -197,36 +199,13 @@ class _LinksSectionState extends State<LinksSection> with ThemeHelpers {
               );
             }),
           ),
-        if (_isLoading)
-          SliverToBoxAdapter(
-            child: Padding(
-              padding: const EdgeInsets.symmetric(vertical: 20.0, horizontal: 20.0),
-              child: Center(child: buildProgressIndicator(context, size: 24)),
-            ),
-          )
-        else if (hideWhenEmpty)
-          SliverToBoxAdapter(
-            child: AnimatedSize(
-              duration: M3EMotion.spatialFast.duration,
-              curve: M3EMotion.spatialFast.curve,
-              child: const SizedBox.shrink(),
-            ),
-          )
-        else if (_displayedLinks.isEmpty)
-          SliverToBoxAdapter(
-            child: Padding(
-              padding: const EdgeInsets.symmetric(vertical: 20.0, horizontal: 20.0),
-              child: Center(
-                child: Text(
-                  links.isEmpty ? "No links" : "No matching links",
-                  style: context.theme.textTheme.bodyMedium!.copyWith(
-                    color: context.theme.colorScheme.outline,
-                  ),
-                ),
-              ),
-            ),
-          )
-        else ...[
+        AttachmentSectionStatus(
+          isLoading: _isLoading,
+          isEmpty: _displayedLinks.isEmpty,
+          hideWhenEmpty: hideWhenEmpty,
+          emptyMessage: links.isEmpty ? "No links" : "No matching links",
+        ),
+        if (!_isLoading && _displayedLinks.isNotEmpty) ...[
           SliverPadding(
             padding: attachmentSectionListPadding(
               top: widget.fullPage ? 10 : 0,

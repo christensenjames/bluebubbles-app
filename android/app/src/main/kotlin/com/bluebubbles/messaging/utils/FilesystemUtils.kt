@@ -11,6 +11,7 @@ import android.webkit.MimeTypeMap
 import java.io.File
 import java.io.FileOutputStream
 import java.util.Date
+import java.nio.file.Files
 
 /// This code taken from receive_sharing_intent package
 object FilesystemUtils {
@@ -89,22 +90,19 @@ object FilesystemUtils {
             var cursor: Cursor? = null
             val column = "_display_name"
             val projection = arrayOf(column)
-            var targetFile: File? = null
+            var fileName: String? = null
             try {
                 cursor = context.contentResolver.query(uri, projection, selection, selectionArgs, null)
                 if (cursor != null && cursor.moveToFirst()) {
                     val columnIndex = cursor.getColumnIndexOrThrow(column)
-                    val fileName = cursor.getString(columnIndex)
-                    PersistentLog.i(context, "FileDirectory", "File name: $fileName")
-                    if (fileName != null) {
-                        targetFile = File(context.cacheDir, fileName)
-                    }
+                    fileName = cursor.getString(columnIndex)?.replace('\\', '/')?.substringAfterLast('/')
+                        ?.takeUnless { it.isEmpty() || it == "." || it == ".." }
                 }
             } finally {
                 cursor?.close()
             }
 
-            if (targetFile == null) {
+            if (fileName == null) {
                 val mimeType = context.contentResolver.getType(uri)
                 val prefix = with(mimeType ?: "") {
                     when {
@@ -114,14 +112,20 @@ object FilesystemUtils {
                     }
                 }
                 val type = MimeTypeMap.getSingleton().getExtensionFromMimeType(mimeType)
-                targetFile = File(context.cacheDir, "${prefix}_${Date().time}.$type")
+                fileName = "${prefix}_${Date().time}.${type ?: "bin"}"
+            }
+
+            val shareDir = Files.createTempDirectory(context.cacheDir.toPath(), "shared_").toFile().canonicalFile
+            val targetFile = File(shareDir, fileName).canonicalFile
+            require(targetFile.toPath().startsWith(shareDir.toPath()) && targetFile != shareDir) {
+                "Shared file escapes its cache directory"
             }
 
             context.contentResolver.openInputStream(uri)?.use { input ->
                 FileOutputStream(targetFile).use { fileOut ->
                     input.copyTo(fileOut)
                 }
-            }
+            } ?: throw IllegalStateException("Cannot open shared URI")
             return targetFile.path
         }
 

@@ -34,15 +34,13 @@ class _WelcomePageState extends State<WelcomePage> with TickerProviderStateMixin
   @override
   void initState() {
     super.initState();
-    _titleController = AnimationController(
-        duration: const Duration(seconds: 1), vsync: this, animationBehavior: AnimationBehavior.preserve);
-    _subtitleController = AnimationController(
-        duration: const Duration(seconds: 1), vsync: this, animationBehavior: AnimationBehavior.preserve);
+    _titleController = AnimationController(duration: const Duration(milliseconds: 500), vsync: this);
+    _subtitleController = AnimationController(duration: const Duration(milliseconds: 500), vsync: this);
 
-    opacityTitle =
-        Tween<double>(begin: 0, end: 1).animate(CurvedAnimation(parent: _titleController, curve: Curves.easeInOut));
-    opacitySubtitle =
-        Tween<double>(begin: 0, end: 1).animate(CurvedAnimation(parent: _subtitleController, curve: Curves.easeInOut));
+    opacityTitle = Tween<double>(begin: 0.01, end: 1).animate(
+        CurvedAnimation(parent: _titleController, curve: Easing.emphasizedDecelerate));
+    opacitySubtitle = Tween<double>(begin: 0.01, end: 1).animate(
+        CurvedAnimation(parent: _subtitleController, curve: Easing.emphasizedDecelerate));
 
     SchedulerBinding.instance.addPostFrameCallback((_) async {
       if (!mounted) return;
@@ -51,6 +49,15 @@ class _WelcomePageState extends State<WelcomePage> with TickerProviderStateMixin
       if (!mounted) return;
       _subtitleController.forward();
     });
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (MediaQuery.disableAnimationsOf(context)) {
+      _titleController.value = 1;
+      _subtitleController.value = 1;
+    }
   }
 
   @override

@@ -1,5 +1,6 @@
 import 'dart:math' as math;
 
+import 'package:bluebubbles/app/components/m3e/m3e_motion.dart';
 import 'package:bluebubbles/app/layouts/conversation_view/widgets/message/typing/typing_clipper.dart';
 import 'package:bluebubbles/app/components/avatars/contact_avatar_widget.dart';
 import 'package:bluebubbles/app/state/chat_state_scope.dart';
@@ -91,6 +92,12 @@ class _TypingIndicatorState extends State<TypingIndicator> with SingleTickerProv
   }
 
   @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _scaleController.matchReducedMotion(context, Durations.short4);
+  }
+
+  @override
   void dispose() {
     _visibilityWorker?.dispose();
     _scaleCurve.dispose();
@@ -148,7 +155,7 @@ class _TypingIndicatorState extends State<TypingIndicator> with SingleTickerProv
   @override
   Widget build(BuildContext context) {
     return AnimatedSize(
-      duration: Durations.short4,
+      duration: MediaQuery.disableAnimationsOf(context) ? Duration.zero : Durations.short4,
       curve: Easing.emphasizedDecelerate,
       child: _isShowing
           ? FadeTransition(
@@ -180,24 +187,28 @@ class AnimatedDot extends StatefulWidget {
 class _AnimatedDotState extends State<AnimatedDot> with SingleTickerProviderStateMixin, ThemeHelpers {
   late final AnimationController _controller;
   late final Animation animation;
+  bool _still = false;
 
   @override
   void initState() {
     super.initState();
-    _controller = AnimationController(
-        vsync: this, duration: const Duration(milliseconds: 700), animationBehavior: AnimationBehavior.preserve);
-    _controller.addStatusListener((state) {
-      if (state == AnimationStatus.completed && mounted) {
-        _controller.forward(from: 0.0);
-      }
-    });
+    _controller = AnimationController(vsync: this, duration: const Duration(milliseconds: 700));
 
     animation = Tween(
       begin: 0.0,
       end: math.pi,
     ).animate(_controller);
+  }
 
-    _controller.forward(from: 0.0);
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _still = MediaQuery.disableAnimationsOf(context);
+    if (_still) {
+      _controller.stop();
+    } else if (!_controller.isAnimating) {
+      _controller.repeat();
+    }
   }
 
   @override
@@ -212,7 +223,7 @@ class _AnimatedDotState extends State<AnimatedDot> with SingleTickerProviderStat
       return AnimatedBuilder(
         animation: animation,
         builder: (context, child) {
-          final amt = (math.sin(animation.value + (widget.index) * math.pi / 4).abs() * 20).clamp(1, 20).toDouble();
+          final amt = _still ? 10.0 : _waveAmount();
           return Container(
             decoration: BoxDecoration(
               color: ThemeSvc.inDarkMode(context)
@@ -230,9 +241,10 @@ class _AnimatedDotState extends State<AnimatedDot> with SingleTickerProviderStat
       return AnimatedBuilder(
         animation: animation,
         builder: (context, child) {
-          return Padding(
-            padding: EdgeInsets.only(
-                bottom: (math.sin(animation.value + (widget.index) * math.pi / 4).abs() * 20).clamp(1, 20).toDouble()),
+          final amt = _still ? 10.0 : _waveAmount();
+          // The Row centers each dot, so the bottom padding this replaces moved it by half its value.
+          return Transform.translate(
+            offset: Offset(0, -amt / 2),
             child: Container(
               decoration: BoxDecoration(
                 color: context.theme.colorScheme.surfaceContainerHighest,
@@ -247,4 +259,7 @@ class _AnimatedDotState extends State<AnimatedDot> with SingleTickerProviderStat
       );
     }
   }
+
+  double _waveAmount() =>
+      (math.sin(animation.value + (widget.index) * math.pi / 4).abs() * 20).clamp(1, 20).toDouble();
 }

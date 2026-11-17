@@ -71,6 +71,7 @@ Future<bool> showCustomHeadersDialog(BuildContext context) async {
                                 ),
                               ),
                               IconButton(
+                                tooltip: 'Delete header',
                                 icon: const Icon(Icons.delete),
                                 onPressed: () {
                                   keyControllers.removeAt(index);
@@ -129,7 +130,6 @@ Future<bool> showCustomHeadersDialog(BuildContext context) async {
                   SettingsSvc.settings.customHeaders.value = map;
                   await SettingsSvc.settings.saveOneAsync('customHeaders');
                   await PrefsSvc.network.setCustomHeadersJson(jsonEncode(HttpSvc.headers));
-                  HttpSvc.updateHeaders();
                   nav.pop(true);
                 }),
           ],

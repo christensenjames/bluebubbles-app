@@ -254,9 +254,11 @@ class _OauthPanelState extends State<OauthPanel> with ThemeHelpers {
                             alignment: Alignment.center,
                             width: double.maxFinite,
                             padding: const EdgeInsets.all(24),
-                            child: const Text(
+                            child: Text(
                               "No Firebase Projects found!\n\nMake sure you're signed in to the same Google account that you used on your server!",
-                              textScaler: TextScaler.linear(1.1),
+                              style: DefaultTextStyle.of(context).style.copyWith(
+                                fontSize: DefaultTextStyle.of(context).style.fontSize! * 1.1,
+                              ),
                               textAlign: TextAlign.center,
                             ),
                           ),

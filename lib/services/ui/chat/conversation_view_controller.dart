@@ -293,6 +293,11 @@ class ConversationViewController extends StatefulController with GetTickerProvid
 
   Future<void> scrollToBottom() async {
     if (scrollController.positions.isNotEmpty && scrollController.positions.first.extentBefore > 0) {
+      final position = scrollController.positions.first;
+      // A fixed-duration animation over many screens is a blur; skip most of the distance first.
+      if (position.extentBefore > position.viewportDimension * 2) {
+        scrollController.jumpTo(position.viewportDimension);
+      }
       await scrollController.animateTo(
         0.0,
         curve: Curves.easeOut,

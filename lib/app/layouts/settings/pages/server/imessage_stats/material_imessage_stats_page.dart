@@ -220,6 +220,7 @@ class _MaterialIMessageStatsPageState
         Obx(() {
           final isLoading = controller.isActiveStatsLoading();
           return IconButton(
+            tooltip: 'Refresh statistics',
             icon: AnimatedSwitcher(
               duration: const Duration(milliseconds: 280),
               switchInCurve: Curves.easeOutCubic,

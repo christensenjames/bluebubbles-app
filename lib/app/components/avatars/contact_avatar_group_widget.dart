@@ -1,5 +1,4 @@
 import 'dart:math';
-import 'dart:ui';
 
 import 'package:bluebubbles/app/components/avatars/contact_avatar_widget.dart';
 import 'package:bluebubbles/app/state/chat_state_scope.dart';
@@ -161,27 +160,18 @@ class ContactAvatarGroupWidget extends StatelessWidget {
                           return Positioned(
                             top: top,
                             right: right,
-                            child: ClipRRect(
-                              borderRadius: BorderRadius.circular(tileSize),
-                              child: BackdropFilter(
-                                filter: ImageFilter.blur(
-                                  sigmaX: 2,
-                                  sigmaY: 2,
-                                ),
-                                child: Container(
-                                  width: tileSize,
-                                  height: tileSize,
-                                  decoration: BoxDecoration(
-                                      shape: BoxShape.circle,
-                                      color: context.theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.8),
-                                      border: Border.all(
-                                          color: context.theme.colorScheme.surface, width: avatarSize * 0.01)),
-                                  child: Icon(
-                                    skin == Skins.iOS ? CupertinoIcons.group_solid : Icons.people,
-                                    size: tileSize * 0.65,
-                                    color: context.theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.8),
-                                  ),
-                                ),
+                            child: Container(
+                              width: tileSize,
+                              height: tileSize,
+                              decoration: BoxDecoration(
+                                  shape: BoxShape.circle,
+                                  color: context.theme.colorScheme.surfaceContainerHighest,
+                                  border:
+                                      Border.all(color: context.theme.colorScheme.surface, width: avatarSize * 0.01)),
+                              child: Icon(
+                                skin == Skins.iOS ? CupertinoIcons.group_solid : Icons.people,
+                                size: tileSize * 0.65,
+                                color: context.theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.8),
                               ),
                             ),
                           );

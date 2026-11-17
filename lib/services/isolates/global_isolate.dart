@@ -710,11 +710,6 @@ class GlobalIsolate {
 typedef IsolateAction = Future<dynamic> Function(dynamic);
 
 enum IsolateRequestType {
-  // Test actions
-  testReturnInput,
-  testPrintInput,
-  testThrowError,
-
   // App actions
   checkForUpdate,
   getFcmData,

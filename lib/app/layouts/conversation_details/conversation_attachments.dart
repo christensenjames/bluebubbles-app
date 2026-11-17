@@ -228,6 +228,7 @@ class _ConversationAttachmentsState extends State<ConversationAttachments> with 
           Obx(() {
             if (selected.isNotEmpty) {
               return IconButton(
+                tooltip: "Clear selection",
                 icon: Icon(iOS ? CupertinoIcons.xmark : Icons.close, color: context.theme.colorScheme.onSurface),
                 onPressed: () => selected.clear(),
               );
@@ -237,6 +238,7 @@ class _ConversationAttachmentsState extends State<ConversationAttachments> with 
           Obx(() {
             if (selected.isNotEmpty) {
               return IconButton(
+                tooltip: "Download selected attachments",
                 icon: Icon(iOS ? CupertinoIcons.cloud_download : Icons.file_download,
                     color: context.theme.colorScheme.onSurface),
                 onPressed: () {

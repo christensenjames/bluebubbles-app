@@ -131,6 +131,7 @@ class _BatteryOptimizationCheckState extends State<BatteryOptimizationCheck> wit
                       }
                     },
                     child: Shimmer.fromColors(
+                      enabled: !MediaQuery.disableAnimationsOf(context),
                       baseColor: Colors.white70,
                       highlightColor: Colors.white,
                       child: Row(

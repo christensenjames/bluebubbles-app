@@ -18,7 +18,7 @@ await MethodChannelSvc.invokeMethod("method-name", {"key": "value"});
 Key methods invoked:
 - `"push-notify"` — trigger a local notification
 - `"delete-notification"` — clear a notification by ID
-- `"start-foreground"` / `"stop-foreground"` — foreground service control
+- `"start-foreground-service"` / `"stop-foreground-service"` — foreground service control
 - `"get-server-url"` — read server URL from Android SharedPreferences
 
 **Android calling Dart:** The service also registers a `MethodCallHandler` to receive calls from Kotlin (e.g. handling an incoming notification tap, background wake-up).

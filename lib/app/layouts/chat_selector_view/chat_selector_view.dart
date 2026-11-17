@@ -5,10 +5,11 @@ import 'package:bluebubbles/app/layouts/chat_creator/widgets/chat_creator_tile.d
 import 'package:bluebubbles/app/wrappers/bb_app_bar.dart';
 import 'package:bluebubbles/app/wrappers/bb_scaffold.dart';
 import 'package:bluebubbles/app/wrappers/theme_switcher.dart';
+import 'package:bluebubbles/app/wrappers/titlebar_wrapper.dart';
 import 'package:bluebubbles/helpers/helpers.dart';
 import 'package:bluebubbles/database/models.dart';
 import 'package:bluebubbles/services/services.dart';
-import 'package:flutter/material.dart';
+import 'package:flutter/material.dart' hide BackButton;
 import 'package:flutter/scheduler.dart';
 import 'package:get/get.dart' hide Response;
 import 'package:slugify/slugify.dart';
@@ -99,9 +100,9 @@ class ChatSelectorViewState extends State<ChatSelectorView> with ThemeHelpers {
       safeAreaTop: true,
       appBar: BBAppBar(
         titleText: "Select a Chat",
-        leading: buildBackButton(context),
+        leading: const BackButton(),
         backgroundColor: Colors.transparent,
-        toolbarHeight: kIsDesktop ? 90 : 50,
+        toolbarHeight: hasCustomTitleBar ? 90 : 50,
         actions: widget.multiSelect
             ? [
                 TextButton(
@@ -133,6 +134,7 @@ class ChatSelectorViewState extends State<ChatSelectorView> with ThemeHelpers {
                     ),
                     suffixIcon: searchController.text.isNotEmpty
                         ? IconButton(
+                            tooltip: "Clear search",
                             icon: const Icon(Icons.clear),
                             onPressed: () {
                               searchController.clear();
@@ -191,93 +193,91 @@ class ChatSelectorViewState extends State<ChatSelectorView> with ThemeHelpers {
                     : filteredChats;
                 return Align(
                     alignment: Alignment.topCenter,
-                    child: AnimatedSwitcher(
-                        duration: const Duration(milliseconds: 150),
-                        child: CustomScrollView(
-                          shrinkWrap: true,
-                          physics: ThemeSwitcher.getScrollPhysics(),
-                          slivers: <Widget>[
-                            SliverList(
-                              delegate: SliverChildBuilderDelegate((context, index) {
-                                if (displayedChats.isEmpty) {
-                                  if (!ChatsSvc.loadedAllChats.isCompleted) {
-                                    return Column(
-                                      mainAxisSize: MainAxisSize.min,
-                                      children: [
-                                        Padding(
-                                          padding: const EdgeInsets.all(8.0),
-                                          child: Text(
-                                            "Loading chats...",
-                                            style: context.theme.textTheme.labelLarge,
-                                          ),
-                                        ),
-                                        buildProgressIndicator(context, size: 15),
-                                      ],
-                                    );
-                                  }
-                                  if (filteredChats.isEmpty) {
-                                    return const SizedBox.shrink();
-                                  }
-                                  return Padding(
-                                    padding: const EdgeInsets.all(8.0),
-                                    child: Text(
-                                      "No chats match this filter",
-                                      style: context.theme.textTheme.labelLarge,
+                    child: CustomScrollView(
+                      shrinkWrap: true,
+                      physics: ThemeSwitcher.getScrollPhysics(),
+                      slivers: <Widget>[
+                        SliverList(
+                          delegate: SliverChildBuilderDelegate((context, index) {
+                            if (displayedChats.isEmpty) {
+                              if (!ChatsSvc.loadedAllChats.isCompleted) {
+                                return Column(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Padding(
+                                      padding: const EdgeInsets.all(8.0),
+                                      child: Text(
+                                        "Loading chats...",
+                                        style: context.theme.textTheme.labelLarge,
+                                      ),
                                     ),
-                                  );
-                                }
-                                final chat = displayedChats[index];
-                                final chatState = ChatsSvc.getChatState(chat.guid);
-                                final _title = chatState?.title.value ?? chat.getTitle();
-                                final selected = selectedGuids.contains(chat.guid);
-                                return Material(
-                                  color: Colors.transparent,
-                                  child: InkWell(
-                                    onTap: () {
-                                      if (widget.multiSelect) {
-                                        setState(() {
-                                          if (selected) {
-                                            selectedGuids.remove(chat.guid);
-                                          } else {
-                                            selectedGuids.add(chat.guid);
-                                          }
-                                        });
-                                      } else {
-                                        widget.onSelect!(chat);
-                                        Navigator.of(context).pop();
-                                      }
-                                    },
-                                    child: Row(
-                                      children: [
-                                        Expanded(
-                                          child: ChatCreatorTile(
-                                            key: ValueKey(chat.guid),
-                                            title: _title,
-                                            subtitle:
-                                                chatState?.chatCreatorSubtitle.value ?? chat.getChatCreatorSubtitle(),
-                                            chat: chat,
-                                            showTrailing: false,
-                                          ),
-                                        ),
-                                        if (widget.multiSelect)
-                                          Padding(
-                                            padding: const EdgeInsets.only(right: 16),
-                                            child: Icon(
-                                              selected ? Icons.check_circle : Icons.circle_outlined,
-                                              color: selected
-                                                  ? context.theme.colorScheme.primary
-                                                  : context.theme.colorScheme.outline,
-                                            ),
-                                          ),
-                                      ],
-                                    ),
-                                  ),
+                                    buildProgressIndicator(context, size: 15),
+                                  ],
                                 );
-                              },
-                                  childCount: displayedChats.isEmpty ? 1 : displayedChats.length),
-                            )
-                          ],
-                        )));
+                              }
+                              if (filteredChats.isEmpty) {
+                                return const SizedBox.shrink();
+                              }
+                              return Padding(
+                                padding: const EdgeInsets.all(8.0),
+                                child: Text(
+                                  "No chats match this filter",
+                                  style: context.theme.textTheme.labelLarge,
+                                ),
+                              );
+                            }
+                            final chat = displayedChats[index];
+                            final chatState = ChatsSvc.getChatState(chat.guid);
+                            final _title = chatState?.title.value ?? chat.getTitle();
+                            final selected = selectedGuids.contains(chat.guid);
+                            return Material(
+                              color: Colors.transparent,
+                              child: InkWell(
+                                onTap: () {
+                                  if (widget.multiSelect) {
+                                    setState(() {
+                                      if (selected) {
+                                        selectedGuids.remove(chat.guid);
+                                      } else {
+                                        selectedGuids.add(chat.guid);
+                                      }
+                                    });
+                                  } else {
+                                    widget.onSelect!(chat);
+                                    Navigator.of(context).pop();
+                                  }
+                                },
+                                child: Row(
+                                  children: [
+                                    Expanded(
+                                      child: ChatCreatorTile(
+                                        key: ValueKey(chat.guid),
+                                        title: _title,
+                                        subtitle:
+                                            chatState?.chatCreatorSubtitle.value ?? chat.getChatCreatorSubtitle(),
+                                        chat: chat,
+                                        showTrailing: false,
+                                      ),
+                                    ),
+                                    if (widget.multiSelect)
+                                      Padding(
+                                        padding: const EdgeInsets.only(right: 16),
+                                        child: Icon(
+                                          selected ? Icons.check_circle : Icons.circle_outlined,
+                                          color: selected
+                                              ? context.theme.colorScheme.primary
+                                              : context.theme.colorScheme.outline,
+                                        ),
+                                      ),
+                                  ],
+                                ),
+                              ),
+                            );
+                          },
+                              childCount: displayedChats.isEmpty ? 1 : displayedChats.length),
+                        )
+                      ],
+                    ));
               }),
             ),
           ],

@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:bluebubbles/app/components/m3e/m3e_motion.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
@@ -23,21 +24,38 @@ class CameraScreen extends StatefulWidget {
   State<CameraScreen> createState() => _CameraScreenState();
 }
 
-class _CameraScreenState extends State<CameraScreen> {
+class _CameraScreenState extends State<CameraScreen> with SingleTickerProviderStateMixin {
   XFile? _previewFile;
   bool _isVideo = false;
 
   final TransformationController _previewTransformController = TransformationController();
+  late final AnimationController _previewZoomController;
+  Matrix4Tween? _previewZoomTween;
   Offset _previewDoubleTapPosition = Offset.zero;
 
   @override
   void initState() {
     super.initState();
+    _previewZoomController = AnimationController(
+      vsync: this,
+      duration: M3EMotion.spatialFast.duration,
+    )..addListener(() {
+        _previewTransformController.value = _previewZoomTween!.transform(
+          M3EMotion.spatialFast.curve.transform(_previewZoomController.value),
+        );
+      });
     WidgetsBinding.instance.addPostFrameCallback((_) => _captureMedia());
   }
 
   @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _previewZoomController.matchReducedMotion(context, M3EMotion.spatialFast.duration);
+  }
+
+  @override
   void dispose() {
+    _previewZoomController.dispose();
     _previewTransformController.dispose();
     super.dispose();
   }
@@ -89,10 +107,9 @@ class _CameraScreenState extends State<CameraScreen> {
             onDoubleTapDown: (d) => _previewDoubleTapPosition = d.localPosition,
             onDoubleTap: () {
               final isZoomedIn = _previewTransformController.value != Matrix4.identity();
-              if (isZoomedIn) {
-                _previewTransformController.value = Matrix4.identity();
-              } else {
-                final m = Matrix4.identity()
+              final target = Matrix4.identity();
+              if (!isZoomedIn) {
+                target
                   ..translateByDouble(
                     -_previewDoubleTapPosition.dx * (2.5 - 1),
                     -_previewDoubleTapPosition.dy * (2.5 - 1),
@@ -100,10 +117,15 @@ class _CameraScreenState extends State<CameraScreen> {
                     1,
                   )
                   ..scaleByDouble(2.5, 2.5, 1.0, 1.0);
-                _previewTransformController.value = m;
               }
+              _previewZoomTween = Matrix4Tween(
+                begin: _previewTransformController.value,
+                end: target,
+              );
+              _previewZoomController.forward(from: 0);
             },
             child: InteractiveViewer(
+              onInteractionStart: (_) => _previewZoomController.stop(),
               transformationController: _previewTransformController,
               minScale: 1.0,
               maxScale: 4.0,
@@ -120,6 +142,7 @@ class _CameraScreenState extends State<CameraScreen> {
             right: 0,
             child: SafeArea(
               child: IconButton(
+                tooltip: "Close",
                 icon: const Icon(Icons.close, color: Colors.white, size: 28),
                 onPressed: () => Navigator.of(context).pop(null),
               ),
@@ -142,6 +165,7 @@ class _CameraScreenState extends State<CameraScreen> {
                       icon: const Icon(Icons.refresh, color: Colors.white),
                       label: const Text('Retake', style: TextStyle(color: Colors.white, fontSize: 16)),
                       onPressed: () {
+                        _previewZoomController.stop();
                         _previewTransformController.value = Matrix4.identity();
                         setState(() => _previewFile = null);
                         _captureMedia();

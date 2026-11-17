@@ -1,18 +1,7 @@
 import 'package:bluebubbles/helpers/network/metadata/models/metadata_fetch_result.dart';
-import 'package:flutter/foundation.dart';
 import 'package:universal_io/io.dart';
 
-/// Decides whether a URL is safe for the app to fetch on the user's behalf.
-///
-/// Link previews are fetched automatically for links other people send, which
-/// makes the fetch an attacker-controlled request originating from inside the
-/// user's network. Without this guard, texting someone
-/// `http://192.168.1.1/reboot` makes their phone issue that request against
-/// their own router.
-///
-/// Detection is best-effort by design: literal addresses are always caught,
-/// and hostnames are resolved on native platforms so that a domain pointing at
-/// a private address is caught too.
+/// Rejects local destinations and resolves addresses for pinned preview connections.
 abstract final class UrlSafetyGuard {
   /// Schemes worth fetching. Everything else (`mailto:`, `tel:`, `file:`,
   /// `javascript:`, custom app schemes) is rejected outright.
@@ -45,9 +34,6 @@ abstract final class UrlSafetyGuard {
     '.invalid',
   };
 
-  /// How long to wait for the DNS check before giving up and allowing the
-  /// request. The socket layer will resolve the name anyway; this lookup only
-  /// exists to catch the private-address case earlier.
   static const Duration _lookupTimeout = Duration(seconds: 3);
 
   /// Synchronous checks: scheme, hostname shape and literal IP addresses.
@@ -95,44 +81,18 @@ abstract final class UrlSafetyGuard {
     return null;
   }
 
-  /// [check] plus a DNS resolution, so that a public hostname pointing at a
-  /// private address is also rejected.
-  ///
-  /// Skipped on web (no socket API) and treated as allowed when the lookup
-  /// itself fails — a name that will not resolve is about to fail the request
-  /// anyway, and reporting it as "blocked" would be misleading.
-  static Future<MetadataFetchStatus?> checkResolved(Uri uri) async {
-    final synchronous = check(uri);
-    if (synchronous != null) return synchronous;
-    if (kIsWeb) return null;
+  static Future<List<InternetAddress>?> resolveValidated(Uri uri) async {
+    if (check(uri) != null) return null;
 
-    // A literal address was already validated by [check].
-    if (_parseIp(uri.host) != null) return null;
+    final literal = _parseIp(uri.host);
+    if (literal != null) return [literal];
 
-    try {
-      final addresses = await InternetAddress.lookup(uri.host).timeout(_lookupTimeout);
-      if (addresses.isEmpty) return null;
-      // Reject if *any* resolved address is private: a hostname with a mixed
-      // record set is exactly the DNS-rebinding shape worth refusing.
-      for (final address in addresses) {
-        if (isPrivateAddress(address)) return MetadataFetchStatus.blockedHost;
-      }
-    } catch (_) {
-      // Lookup failed, timed out, or the platform has no DNS access. For an
-      // ordinary hostname that is harmless — the request is about to fail
-      // anyway. For something that looks like an address literal it is not:
-      // an attacker who controls the nameserver can stall the lookup to force
-      // this path, so those fail closed.
-      if (looksNumeric(uri.host)) return MetadataFetchStatus.blockedHost;
-    }
-
-    return null;
+    final addresses = await InternetAddress.lookup(uri.host).timeout(_lookupTimeout);
+    if (addresses.isEmpty || addresses.any(isPrivateAddress)) return null;
+    return addresses;
   }
 
   /// Whether [host] consists only of characters an address literal can contain.
-  ///
-  /// Used to decide whether an unparseable, unresolvable host should fail open
-  /// (a normal domain) or closed (something pretending to be an address).
   static bool looksNumeric(String host) {
     if (host.isEmpty) return false;
     for (final part in host.split('.')) {

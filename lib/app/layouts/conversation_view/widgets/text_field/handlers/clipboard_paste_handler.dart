@@ -1,6 +1,5 @@
 import 'package:bluebubbles/database/global/platform_file.dart';
 import 'package:bluebubbles/services/services.dart';
-import 'package:dio/dio.dart';
 import 'package:flutter/services.dart';
 import 'package:get_it/get_it.dart';
 import 'package:pasteboard/pasteboard.dart';
@@ -25,11 +24,8 @@ class ClipboardPasteHandler {
         final gifMatch = RegExp(r'src="(https?://[^"]+\.gif)"').firstMatch(html);
         if (gifMatch != null) {
           final url = gifMatch.group(1)!;
-          final response = await GetIt.I<HttpService>().dio.get<List<int>>(
-                url,
-                options: Options(responseType: ResponseType.bytes),
-              );
-          final bytes = response.data;
+          final response = await GetIt.I<HttpService>().downloadFromUrl(url);
+          final bytes = response.data as List<int>?;
           if (bytes != null && bytes.isNotEmpty) {
             final gifBytes = Uint8List.fromList(bytes);
             controller.pickedAttachments.add(PlatformFile(

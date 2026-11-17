@@ -21,7 +21,9 @@ sub-service instances. Each sub-service lives in `api/` and handles one domain a
 
 **Core utilities (on `HttpService` directly):**
 - `runApiGuarded()` — wraps every call; handles retries on 502, propagates errors
-- `buildQueryParams(map)` — injects auth GUID; call this on every request
+- `ApiInterceptor` adds the auth GUID and custom headers
+  for `HttpSvc.origin` or `options.extra['serverProbe'] == true` (used by `ServerApi.ping(customUrl:)` for
+  server-reported LAN addresses), and strips them from other origins
 - `returnSuccessOrError(response)` — validates status code
 - `dio`, `origin`, `apiRoot`, `headers`, `originOverride` — request infrastructure
 - `downloadFromUrl()`, `downloadAppleEmojiFont()` — utility downloads
@@ -41,7 +43,7 @@ socket_io_client connection to the BlueBubbles server. Don't create additional
 - State: `Rx<SocketState>` — `connected / disconnected / error / connecting / reconnecting`.
   `state` is the single source of truth; `handleStatusUpdate()` compares against it,
   so anything that changes the connection must write to it.
-- **Three separate concerns, one owner each** (see ADR-014 in `docs/DECISIONS.md`):
+- **Three separate concerns, one owner each**:
   1. Retrying a transient failure → socket.io's own reconnect (unlimited attempts,
      backoff capped at 60s). **Never call `setReconnectionAttempts()`** — a finite cap
      makes socket.io stop permanently.

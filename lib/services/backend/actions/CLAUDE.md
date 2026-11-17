@@ -18,7 +18,6 @@ Actions are pure functions that run **inside** the background isolate. They perf
 | `server_actions.dart` | Server version check, server details |
 | `storage_actions.dart` | Attachment storage analysis (filesystem walk + DB join), deletion |
 | `sync_actions.dart` | Incremental sync, contact upload |
-| `test_actions.dart` | Dev/debug test actions |
 
 ## Rules
 - Actions accept a single `Map<String, dynamic> data` parameter (serializable across isolate boundary)

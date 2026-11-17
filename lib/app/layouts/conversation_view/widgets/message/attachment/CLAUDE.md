@@ -19,9 +19,9 @@ Renders all non-text media inside message bubbles. Entry point: `AttachmentHolde
 
 **Download state**: `AttachmentHolder` holds an `Rx<dynamic> content` that is `null` until downloaded. Observes `AttachmentDownloadController` for progress updates. Auto-download is gated by `AttachmentsSvc.canAutoDownload()`.
 
-**Controller**: Extends `CustomStateful<MessageWidgetController>`. Always set `forceDelete = false` in `initState()` — the message list owns the controller lifecycle.
+**State**: `AttachmentHolder`, `ImageViewer`, and `VideoPlayer` extend `StatefulWidget`.
 
-**Fullscreen**: Tap on `ImageViewer` or `VideoPlayer` pushes `FullscreenMedia` via `NavigationSvc`. See `lib/app/layouts/fullscreen_media/CLAUDE.md`.
+**Fullscreen**: Resolved images open `ConversationFullscreenHolder` through the image viewer route; video pushes it with `Navigator` and `ThemeSwitcher.buildPageRoute`.
 
 ## Adding a New Attachment Type
 

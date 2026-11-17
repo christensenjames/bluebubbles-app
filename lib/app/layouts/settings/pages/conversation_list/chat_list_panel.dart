@@ -1,3 +1,4 @@
+import 'package:animated_size_and_fade/animated_size_and_fade.dart';
 import 'dart:math';
 
 import 'package:bluebubbles/app/layouts/settings/widgets/content/next_button.dart';
@@ -418,8 +419,9 @@ class _ChatListPanelState extends State<ChatListPanel> with ThemeHelpers {
                         subtitle: "Enables swipe actions for conversation tiles when using Material theme",
                         backgroundColor: tileColor,
                       ),
-                      if (SettingsSvc.settings.swipableConversationTiles.value)
-                        Container(
+                      AnimatedSizeAndFade.showHide(
+                        show: SettingsSvc.settings.swipableConversationTiles.value,
+                        child: Container(
                           color: tileColor,
                           child: Column(
                             children: [
@@ -456,6 +458,7 @@ class _ChatListPanelState extends State<ChatListPanel> with ThemeHelpers {
                             ],
                           ),
                         ),
+                      ),
                     ],
                   )),
                 SettingsHeader(iosSubtitle: iosSubtitle, materialSubtitle: materialSubtitle, text: "Misc"),

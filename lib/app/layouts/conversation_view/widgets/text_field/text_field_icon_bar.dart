@@ -72,6 +72,7 @@ class TextFieldIconBar extends StatelessWidget {
     return Padding(
           padding: EdgeInsets.symmetric(horizontal: materialComposer ? 0 : material ? 8 : 10),
           child: IconButton(
+            tooltip: "Add attachment",
             style: IconButton.styleFrom(
               backgroundColor: materialComposer
                   ? null
@@ -167,6 +168,7 @@ class TextFieldIconBar extends StatelessWidget {
   }
 
   Widget _gifButton(BuildContext context) => IconButton(
+              tooltip: "Send a GIF",
               icon: Icon(Icons.gif, color: context.theme.colorScheme.outline, size: 28),
               onPressed: () async {
                 if (kIsDesktop || kIsWeb) {
@@ -260,6 +262,7 @@ class TextFieldIconBar extends StatelessWidget {
               });
 
   Widget _emojiButton(BuildContext context) => IconButton(
+        tooltip: "Emoji",
         icon: Icon(_iOS ? CupertinoIcons.smiley_fill : Icons.emoji_emotions,
             color: context.theme.colorScheme.outline, size: 28),
         onPressed: () {
@@ -269,6 +272,7 @@ class TextFieldIconBar extends StatelessWidget {
       );
 
   Widget _locationButton(BuildContext context) => IconButton(
+        tooltip: "Share location",
         icon: Icon(_iOS ? CupertinoIcons.location_solid : Icons.location_on_outlined,
             color: context.theme.colorScheme.outline, size: 28),
         onPressed: () async {
@@ -277,6 +281,7 @@ class TextFieldIconBar extends StatelessWidget {
       );
 
   Widget _scheduleButton(BuildContext context) => IconButton(
+        tooltip: "Schedule message",
         icon: Icon(_iOS ? CupertinoIcons.clock_fill : Icons.schedule_rounded,
             color: context.theme.colorScheme.outline, size: 28),
         onPressed: () => scheduleMessage(context, controller),

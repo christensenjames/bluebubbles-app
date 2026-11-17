@@ -55,9 +55,14 @@ Baked-in defaults:
 | `backgroundColor` | `context.headerColor` |
 | `centerTitle` | `context.iOS` |
 | `surfaceTintColor` | `context.theme.colorScheme.primary` |
-| `toolbarHeight` | `80.0` on desktop, `50.0` on mobile |
+| `toolbarHeight` | `50.0` plus `30.0` when the custom desktop title bar is shown |
 | `automaticallyImplyLeading` | `false` |
 | `systemOverlayStyle` | derived from the effective background color's brightness |
+
+Use the context-free `hasCustomTitleBar` getter from `titlebar_wrapper.dart` for header clearance.
+It is true on Windows and macOS, and on Linux only with the custom title bar.
+`TitleBarWrapper` reacts to style changes and switches between `WindowBorder` and `Stack`,
+replacing the widget at its child slot when the Linux title-bar style changes.
 
 Use `titleText` for the common case of a plain string title (styled with `titleStyle`,
 defaulting to `context.theme.textTheme.titleLarge`). Pass a custom `title` widget only when
@@ -67,7 +72,7 @@ given.
 ```dart
 appBar: BBAppBar(
   titleText: 'Settings',
-  leading: buildBackButton(context),
+  leading: const BackButton(),
   actions: [IconButton(...)],
 ),
 ```

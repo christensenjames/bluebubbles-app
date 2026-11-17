@@ -141,6 +141,7 @@ class _MaterialConnectionPanelState extends CustomState<MaterialConnectionPanel,
                       return Padding(
                         padding: const EdgeInsets.only(right: 8),
                         child: IconButton(
+                          tooltip: 'Refresh server info',
                           iconSize: 18,
                           padding: EdgeInsets.zero,
                           constraints: const BoxConstraints(minWidth: 32, minHeight: 32),

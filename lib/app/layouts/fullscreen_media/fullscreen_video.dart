@@ -670,6 +670,7 @@ class _FullscreenVideoState extends State<FullscreenVideo>
                             mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                             children: [
                               IconButton(
+                                tooltip: "Save",
                                 icon: Icon(
                                   CupertinoIcons.cloud_download,
                                   color: samsung ? Colors.white : context.theme.colorScheme.primary,
@@ -678,6 +679,7 @@ class _FullscreenVideoState extends State<FullscreenVideo>
                               ),
                               if (!kIsWeb && !kIsDesktop)
                                 IconButton(
+                                  tooltip: "Share",
                                   icon: Icon(
                                     CupertinoIcons.share,
                                     color: context.theme.colorScheme.primary,
@@ -685,6 +687,7 @@ class _FullscreenVideoState extends State<FullscreenVideo>
                                   onPressed: shareFile,
                                 ),
                               IconButton(
+                                tooltip: "Details",
                                 icon: Icon(
                                   CupertinoIcons.info,
                                   color: samsung ? Colors.white : context.theme.colorScheme.primary,
@@ -692,6 +695,7 @@ class _FullscreenVideoState extends State<FullscreenVideo>
                                 onPressed: () => showMetadataDialog(widget.attachment, context),
                               ),
                               IconButton(
+                                tooltip: "Download again",
                                 icon: Icon(
                                   CupertinoIcons.refresh,
                                   color: samsung ? Colors.white : context.theme.colorScheme.primary,
@@ -699,6 +703,7 @@ class _FullscreenVideoState extends State<FullscreenVideo>
                                 onPressed: () => refreshAttachment(),
                               ),
                               IconButton(
+                                tooltip: muted.value ? "Unmute" : "Mute",
                                 icon: Icon(
                                   muted.value ? CupertinoIcons.volume_mute : CupertinoIcons.volume_up,
                                   color: samsung ? Colors.white : context.theme.colorScheme.primary,

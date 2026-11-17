@@ -382,7 +382,7 @@ class _MediaGalleryCardState extends State<MediaGalleryCard> with AutomaticKeepA
       }
 
       return AnimatedContainer(
-        duration: M3EMotion.spatialFast.duration,
+        duration: M3EMotion.spatialFast.durationOf(context),
         curve: M3EMotion.spatialFast.curve,
         clipBehavior: Clip.antiAlias,
         decoration: BoxDecoration(
@@ -494,7 +494,7 @@ class _ImageDisplayState extends State<ImageDisplay> {
                         child: ContactAvatarWidget(handle: attachment.message.target?.handleRelation.target),
                       ),
                     AnimatedContainer(
-                      duration: const Duration(milliseconds: 150),
+                      duration: MediaQuery.disableAnimationsOf(context) ? Duration.zero : const Duration(milliseconds: 150),
                       color: _hovered ? context.theme.colorScheme.scrim.withValues(alpha: 0.3) : Colors.transparent,
                     ),
                   ],

@@ -4,6 +4,8 @@ import 'package:bluebubbles/app/components/m3e/m3e.dart';
 import 'package:bluebubbles/app/layouts/conversation_details/attachment_section_type.dart';
 import 'package:bluebubbles/app/layouts/conversation_details/conversation_attachments.dart';
 import 'package:bluebubbles/app/layouts/conversation_details/widgets/attachment_section_header.dart';
+import 'package:bluebubbles/app/layouts/conversation_details/widgets/sections/documents/documents_section.dart'
+    show AttachmentSectionStatus;
 import 'package:bluebubbles/app/layouts/conversation_details/widgets/media_gallery_card.dart';
 import 'package:bluebubbles/app/layouts/conversation_details/widgets/sections/media/media_filter_selector.dart';
 import 'package:bluebubbles/database/models.dart';
@@ -104,7 +106,7 @@ class _MediaGridSectionState extends State<MediaGridSection> with ThemeHelpers {
       final isSelected = widget.selected.contains(attachment.guid);
       const motion = M3EMotion.spatialFast;
       return AnimatedContainer(
-        duration: motion.duration,
+        duration: motion.durationOf(context),
         curve: motion.curve,
         margin: EdgeInsets.all(isSelected ? 10 : 0),
         decoration: BoxDecoration(
@@ -190,36 +192,13 @@ class _MediaGridSectionState extends State<MediaGridSection> with ThemeHelpers {
             onChanged: widget.onMediaFilterChanged!,
           ),
         ),
-      if (widget.isLoading)
-        SliverToBoxAdapter(
-          child: Padding(
-            padding: const EdgeInsets.symmetric(vertical: 20.0, horizontal: 20.0),
-            child: Center(child: buildProgressIndicator(context, size: 24)),
-          ),
-        )
-      else if (hideWhenEmpty)
-        SliverToBoxAdapter(
-          child: AnimatedSize(
-            duration: M3EMotion.spatialFast.duration,
-            curve: M3EMotion.spatialFast.curve,
-            child: const SizedBox.shrink(),
-          ),
-        )
-      else if (_filteredMedia.isEmpty)
-        SliverToBoxAdapter(
-          child: Padding(
-            padding: const EdgeInsets.symmetric(vertical: 20.0, horizontal: 20.0),
-            child: Center(
-              child: Text(
-                widget.fullPage ? widget.mediaFilter.emptyMessage : "No photos or videos",
-                style: context.theme.textTheme.bodyMedium!.copyWith(
-                  color: context.theme.colorScheme.outline,
-                ),
-              ),
-            ),
-          ),
-        )
-      else ...[
+      AttachmentSectionStatus(
+        isLoading: widget.isLoading,
+        isEmpty: _filteredMedia.isEmpty,
+        hideWhenEmpty: hideWhenEmpty,
+        emptyMessage: widget.fullPage ? widget.mediaFilter.emptyMessage : "No photos or videos",
+      ),
+      if (!widget.isLoading && _filteredMedia.isNotEmpty) ...[
         SliverPadding(
           padding: attachmentSectionListPadding(
             top: widget.fullPage ? 10 : 0,

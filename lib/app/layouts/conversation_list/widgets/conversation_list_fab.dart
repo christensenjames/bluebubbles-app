@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:bluebubbles/app/components/m3e/m3e_motion.dart';
 import 'package:bluebubbles/app/layouts/conversation_list/pages/conversation_list.dart';
 import 'package:bluebubbles/app/wrappers/stateful_boilerplate.dart';
 import 'package:bluebubbles/app/wrappers/theme_switcher.dart';
@@ -88,11 +89,8 @@ class _ConversationListFABState extends CustomState<ConversationListFAB, void, C
       materialSkin: _MaterialFAB(
         controller: controller,
         onScrollToTop: () async {
-          await controller.materialScrollController.animateTo(
-            0,
-            duration: const Duration(milliseconds: 300),
-            curve: Curves.easeOut,
-          );
+          await controller.scrollToTop(controller.materialScrollController);
+          if (!mounted) return;
           setState(() {
             controller.showMaterialFABText = true;
           });
@@ -220,7 +218,10 @@ class _MaterialFAB extends StatelessWidget {
     return AnimatedCrossFade(
       crossFadeState: controller.selectedChats.isEmpty ? CrossFadeState.showFirst : CrossFadeState.showSecond,
       alignment: Alignment.center,
-      duration: const Duration(milliseconds: 300),
+      duration: M3EMotion.effectsFast.durationOf(context),
+      firstCurve: M3EMotion.effectsFast.curve,
+      secondCurve: M3EMotion.effectsFast.curve,
+      sizeCurve: M3EMotion.spatialFast.curve,
       secondChild: const SizedBox.shrink(),
       firstChild: SizedBox(
         width: NavigationSvc.width(context),
@@ -258,16 +259,25 @@ class _ScrollToTopFAB extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final hidden = controller.showMaterialFABText;
     return AnimatedOpacity(
-      opacity: !controller.showMaterialFABText ? 1 : 0,
-      duration: const Duration(milliseconds: 300),
-      child: FloatingActionButton.small(
-        heroTag: null,
-        backgroundColor: context.theme.colorScheme.secondary,
-        onPressed: onPressed,
-        child: Icon(
-          Icons.arrow_upward,
-          color: context.theme.colorScheme.onSecondary,
+      opacity: hidden ? 0 : 1,
+      duration: M3EMotion.effectsFast.durationOf(context),
+      curve: M3EMotion.effectsFast.curve,
+      child: IgnorePointer(
+        ignoring: hidden,
+        child: ExcludeSemantics(
+          excluding: hidden,
+          child: FloatingActionButton.small(
+            heroTag: null,
+            tooltip: "Scroll to top",
+            backgroundColor: context.theme.colorScheme.secondary,
+            onPressed: onPressed,
+            child: Icon(
+              Icons.arrow_upward,
+              color: context.theme.colorScheme.onSecondary,
+            ),
+          ),
         ),
       ),
     );
@@ -294,7 +304,7 @@ class _MaterialComposeFAB extends StatelessWidget {
       child: Padding(
         padding: const EdgeInsets.only(right: 4.5, bottom: 9),
         child: AnimatedContainer(
-          duration: const Duration(milliseconds: 250),
+          duration: MediaQuery.disableAnimationsOf(context) ? Duration.zero : const Duration(milliseconds: 250),
           curve: Curves.easeInOut,
           height: 56,
           decoration: BoxDecoration(
@@ -312,10 +322,10 @@ class _MaterialComposeFAB extends StatelessWidget {
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Icon(CupertinoIcons.bubble_left, color: fgColor, size: 24),
+                    Icon(Icons.chat_outlined, color: fgColor, size: 24),
                     ClipRect(
                       child: AnimatedAlign(
-                        duration: const Duration(milliseconds: 250),
+                        duration: MediaQuery.disableAnimationsOf(context) ? Duration.zero : const Duration(milliseconds: 250),
                         curve: Curves.easeInOut,
                         alignment: Alignment.centerLeft,
                         widthFactor: controller.showMaterialFABText ? 1.0 : 0.0,

@@ -81,6 +81,18 @@ class MethodChannelHandlers {
     return _ok();
   }
 
+  IncomingPayload _incomingPayload(MessageEventType type, ServerPayload payload) => IncomingPayload(
+        type: type,
+        source: MessageSource.methodChannel,
+        chat: Chat.fromMap(payload.data['chats'].first.cast<String, dynamic>()),
+        message: Message.fromMap(payload.data),
+        attachments: ((payload.data['attachments'] as List?) ?? const [])
+            .whereType<Map>()
+            .map((e) => Attachment.fromMap(e.cast<String, dynamic>()))
+            .toList(),
+        tempGuid: payload.data['tempGuid'],
+      );
+
   Future<bool> _handleNewMessage(MethodCall _, Map<String, dynamic>? arguments) async {
     await Database.waitForInit();
     Logger.info('Received new message from MethodChannel');
@@ -109,17 +121,7 @@ class MethodChannelHandlers {
       final Map<String, dynamic>? data = arguments;
       if (!isNullOrEmpty(data)) {
         final payload = ServerPayload.fromJson(data!);
-        await IncomingMsgHandler.handle(IncomingPayload(
-          type: MessageEventType.newMessage,
-          source: MessageSource.methodChannel,
-          chat: Chat.fromMap(payload.data['chats'].first.cast<String, dynamic>()),
-          message: Message.fromMap(payload.data),
-          attachments: ((payload.data['attachments'] as List?) ?? const [])
-              .whereType<Map>()
-              .map((e) => Attachment.fromMap(e.cast<String, dynamic>()))
-              .toList(),
-          tempGuid: payload.data['tempGuid'],
-        ));
+        await IncomingMsgHandler.handle(_incomingPayload(MessageEventType.newMessage, payload));
       }
     } catch (e, s) {
       debugPrint('Error processing new message: $e');
@@ -162,17 +164,7 @@ class MethodChannelHandlers {
           }
         }
 
-        await IncomingMsgHandler.handle(IncomingPayload(
-          type: MessageEventType.updatedMessage,
-          source: MessageSource.methodChannel,
-          chat: Chat.fromMap(payload.data['chats'].first.cast<String, dynamic>()),
-          message: Message.fromMap(payload.data),
-          attachments: ((payload.data['attachments'] as List?) ?? const [])
-              .whereType<Map>()
-              .map((e) => Attachment.fromMap(e.cast<String, dynamic>()))
-              .toList(),
-          tempGuid: payload.data['tempGuid'],
-        ));
+        await IncomingMsgHandler.handle(_incomingPayload(MessageEventType.updatedMessage, payload));
       }
     } catch (e, s) {
       return Future.error(e, s);

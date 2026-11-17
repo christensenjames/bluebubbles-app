@@ -1,3 +1,4 @@
+import 'package:animated_size_and_fade/animated_size_and_fade.dart';
 import 'package:bluebubbles/services/services.dart';
 import 'package:bluebubbles/helpers/helpers.dart';
 import 'package:bluebubbles/app/layouts/settings/widgets/settings_widgets.dart';
@@ -68,8 +69,9 @@ class _MiscPanelState extends State<MiscPanel> with ThemeHelpers {
                           )),
                     if (SettingsSvc.canAuthenticate)
                       Obx(() {
-                        if (SettingsSvc.settings.shouldSecure.value) {
-                          return Container(
+                        return AnimatedSizeAndFade.showHide(
+                          show: SettingsSvc.settings.shouldSecure.value,
+                          child: Container(
                               color: tileColor,
                               child: Padding(
                                 padding: const EdgeInsets.only(bottom: 8.0, left: 15, top: 8.0, right: 15),
@@ -105,15 +107,14 @@ class _MiscPanelState extends State<MiscPanel> with ThemeHelpers {
                                         .copyWith(color: context.theme.colorScheme.onSurfaceVariant),
                                   ),
                                 ),
-                              ));
-                        } else {
-                          return const SizedBox.shrink();
-                        }
+                              )),
+                        );
                       }),
                     if (SettingsSvc.canAuthenticate && !kIsDesktop)
                       Obx(() {
-                        if (SettingsSvc.settings.shouldSecure.value) {
-                          return SettingsOptions<SecurityLevel>(
+                        return AnimatedSizeAndFade.showHide(
+                          show: SettingsSvc.settings.shouldSecure.value,
+                          child: SettingsOptions<SecurityLevel>(
                             initial: SettingsSvc.settings.securityLevel.value,
                             onChanged: (val) async {
                               final secureController = SecureApplicationProvider.of(context, listen: false);
@@ -138,10 +139,8 @@ class _MiscPanelState extends State<MiscPanel> with ThemeHelpers {
                             textProcessing: (val) => val.toString().split(".")[1].replaceAll("_", " ").capitalizeFirst!,
                             title: "Security Level",
                             secondaryColor: headerColor,
-                          );
-                        } else {
-                          return const SizedBox.shrink();
-                        }
+                          ),
+                        );
                       }),
                     if (SettingsSvc.canAuthenticate && !kIsDesktop) const SettingsDivider(),
                     if (!kIsWeb && !kIsDesktop)
@@ -183,23 +182,23 @@ class _MiscPanelState extends State<MiscPanel> with ThemeHelpers {
                         materialIcon: Icons.speed_outlined,
                         containerColor: Colors.green),
                   ),
-                  if (kIsDesktop) const SettingsDivider(),
-                  if (kIsDesktop)
-                    SettingsSwitch(
-                      onChanged: (bool val) async {
-                        SettingsSvc.settings.reduceMotion.value = val;
-                        await SettingsSvc.settings.saveOneAsync('reduceMotion');
-                      },
-                      initialVal: SettingsSvc.settings.reduceMotion.value,
-                      title: "Reduce Motion",
-                      subtitle: "Keeps GIFs paused until you hover over them",
-                      isThreeLine: true,
-                      backgroundColor: tileColor,
-                      leading: const SettingsLeadingIcon(
-                          iosIcon: CupertinoIcons.pause_circle,
-                          materialIcon: Icons.motion_photos_pause_outlined,
-                          containerColor: Colors.blue),
-                    ),
+                  const SettingsDivider(),
+                  SettingsSwitch(
+                    onChanged: (bool val) async {
+                      SettingsSvc.settings.reduceMotion.value = val;
+                      await SettingsSvc.settings.saveOneAsync('reduceMotion');
+                    },
+                    initialVal: SettingsSvc.settings.reduceMotion.value,
+                    title: "Reduce Motion",
+                    subtitle:
+                        "Turns off most animations and auto-playing message effects; desktop GIFs play only on hover. Your system's reduce motion setting also turns this on.",
+                    isThreeLine: true,
+                    backgroundColor: tileColor,
+                    leading: const SettingsLeadingIcon(
+                        iosIcon: CupertinoIcons.pause_circle,
+                        materialIcon: Icons.motion_photos_pause_outlined,
+                        containerColor: Colors.blue),
+                  ),
                   if (iOS) const SettingsDivider(),
                   if (iOS)
                     const SettingsTile(

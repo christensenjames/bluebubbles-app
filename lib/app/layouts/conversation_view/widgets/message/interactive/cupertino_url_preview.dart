@@ -504,6 +504,7 @@ class CupertinoUrlPreview extends StatelessWidget {
             Text("Failed to display image", style: context.theme.textTheme.bodyLarge),
             const SizedBox(width: 2.0),
             IconButton(
+                tooltip: "Show error details",
                 onPressed: () {
                   showBBDialog(
                     context: context,

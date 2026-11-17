@@ -1,3 +1,4 @@
+import 'package:bluebubbles/app/components/m3e/m3e_motion.dart';
 import 'package:bluebubbles/app/layouts/conversation_view/pages/handlers/message_list_animation_config.dart';
 import 'package:bluebubbles/database/models.dart';
 import 'package:flutter/material.dart';
@@ -7,7 +8,7 @@ import 'package:flutter/material.dart';
 /// Responsibilities:
 /// - Track which messages are currently animating
 /// - Apply appropriate animation based on message type (sent vs received)
-/// - Build animated widgets with slide/size/fade transitions
+/// - Build animated widgets with size/scale/fade transitions
 /// - Clear animation flags when animations complete
 class MessageAnimationOrchestrator {
   /// Track GUIDs of messages currently being animated
@@ -32,39 +33,18 @@ class MessageAnimationOrchestrator {
     }
   }
 
-  /// Build the animated widget for a sent (outgoing) message.
-  /// Includes slide + size + fade transitions.
+  /// iOS/Samsung: the row grows hidden under the flying send bubble and fades in just before it lands.
   Widget buildSentMessageAnimation({
     required Widget child,
     required Animation<double> animation,
   }) {
-    return SlideTransition(
-      position: animation.drive(
-        Tween<Offset>(
-          begin: MessageListAnimationConfig.slideStartOffset,
-          end: Offset.zero,
-        ).chain(CurveTween(curve: MessageListAnimationConfig.insertionSlideCurve)),
-      ),
-      child: SizeTransition(
-        sizeFactor: animation.drive(
-          Tween<double>(
-            begin: MessageListAnimationConfig.sizeTransitionStartRatio,
-            end: 1.0,
-          ).chain(
-            CurveTween(curve: MessageListAnimationConfig.insertionSizeCurve),
-          ),
+    return _buildSizeTransition(
+      animation: animation,
+      child: FadeTransition(
+        opacity: animation.drive(
+          Tween<double>(begin: 0.01, end: 1.0).chain(CurveTween(curve: MessageListAnimationConfig.sentFadeInterval)),
         ),
-        alignment: const AlignmentDirectional(-1.0, MessageListAnimationConfig.sizeTransitionAxisAlignment),
-        child: FadeTransition(
-          opacity: animation.drive(
-            Tween<double>(begin: 0.0, end: 1.0).chain(
-              CurveTween(
-                curve: MessageListAnimationConfig.fadeInterval,
-              ),
-            ),
-          ),
-          child: child,
-        ),
+        child: child,
       ),
     );
   }
@@ -74,50 +54,56 @@ class MessageAnimationOrchestrator {
     required Widget child,
     required Animation<double> animation,
   }) {
-    final curved = animation.drive(CurveTween(curve: MessageListAnimationConfig.entranceCurve));
+    final curved = animation.drive(CurveTween(curve: MessageListAnimationConfig.entrance.curve));
     return SizeTransition(
       sizeFactor: curved,
       alignment: Alignment.bottomRight,
-      child: ScaleTransition(
-        scale: curved,
-        alignment: Alignment.bottomRight,
-        child: child,
+      child: FadeTransition(
+        opacity: animation.drive(
+          Tween<double>(begin: 0.01, end: 1.0)
+              .chain(CurveTween(curve: MessageListAnimationConfig.materialSentFadeInterval)),
+        ),
+        child: ScaleTransition(
+          scale: curved.drive(Tween<double>(begin: MessageListAnimationConfig.materialSentScaleStart, end: 1.0)),
+          alignment: Alignment.bottomRight,
+          child: child,
+        ),
       ),
     );
   }
 
-  /// Build the animated widget for a received (incoming) message.
-  /// Includes slide + size transitions (no fade).
   Widget buildReceivedMessageAnimation({
     required Widget child,
     required Animation<double> animation,
   }) {
-    return SlideTransition(
-      position: animation.drive(
-        Tween<Offset>(
-          begin: MessageListAnimationConfig.slideStartOffset,
-          end: Offset.zero,
-        ).chain(CurveTween(curve: MessageListAnimationConfig.insertionSlideCurve)),
-      ),
-      child: SizeTransition(
-        sizeFactor: animation.drive(
-          Tween<double>(
-            begin: MessageListAnimationConfig.sizeTransitionStartRatio,
-            end: 1.0,
-          ).chain(
-            CurveTween(curve: MessageListAnimationConfig.insertionSizeCurve),
-          ),
-        ),
-        alignment: const AlignmentDirectional(-1.0, MessageListAnimationConfig.sizeTransitionAxisAlignment),
-        child: child,
+    return Builder(
+      builder: (context) => TweenAnimationBuilder<double>(
+        tween: Tween<double>(begin: 0.01, end: 1),
+        duration: M3EMotion.effectsFast.duration,
+        curve: M3EMotion.strongEaseOut,
+        builder: (context, opacity, child) => Opacity(opacity: opacity, child: child),
+        child: MediaQuery.disableAnimationsOf(context)
+            ? child
+            : _buildSizeTransition(child: child, animation: animation),
       ),
     );
   }
 
-  Duration getInsertionDuration(Message message, {required bool material}) {
-    if (material && message.isSending) return MessageListAnimationConfig.materialSentInsertionDuration;
-    return (message.isFromMe ?? false)
-        ? MessageListAnimationConfig.sentInsertionDuration
-        : MessageListAnimationConfig.receivedInsertionDuration;
+  Widget _buildSizeTransition({
+    required Widget child,
+    required Animation<double> animation,
+  }) {
+    return SizeTransition(
+      sizeFactor: animation.drive(
+        Tween<double>(
+          begin: MessageListAnimationConfig.sizeTransitionStartRatio,
+          end: 1.0,
+        ).chain(
+          CurveTween(curve: MessageListAnimationConfig.entrance.curve),
+        ),
+      ),
+      alignment: const AlignmentDirectional(-1.0, MessageListAnimationConfig.sizeTransitionAxisAlignment),
+      child: child,
+    );
   }
 }

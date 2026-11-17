@@ -32,7 +32,7 @@ wip: sync animation and chat list update timing
 ## Branch & PR Workflow
 
 - Branch off `master`; PRs target `master`.
-- No CI/CD — build and test locally before opening a PR.
+- Upstream has GitHub workflows; Actions and the PR check workflow are disabled on James's fork, so build and test locally.
 - Squash `wip:` commits before merging.
 
 ## What Not to Do

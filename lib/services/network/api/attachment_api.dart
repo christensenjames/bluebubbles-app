@@ -22,14 +22,12 @@ class AttachmentApi {
       });
       final response = await _svc.dio.post(
         "${_svc.apiRoot}/attachment/upload",
-        queryParameters: _svc.buildQueryParams(),
         data: formData,
         onSendProgress: onSendProgress,
         cancelToken: cancelToken,
         options: Options(
           sendTimeout: _svc.dio.options.sendTimeout! * 12,
           receiveTimeout: _svc.dio.options.receiveTimeout! * 12,
-          headers: _svc.headers,
         ),
       );
       return _svc.returnSuccessOrError(response);
@@ -42,7 +40,6 @@ class AttachmentApi {
     return _svc.runApiGuarded(() async {
       final response = await _svc.dio.get(
         "${_svc.apiRoot}/attachment/$guid",
-        queryParameters: _svc.buildQueryParams(),
         cancelToken: cancelToken,
       );
       return _svc.returnSuccessOrError(response);
@@ -65,11 +62,10 @@ class AttachmentApi {
       if (maxSize != null) params["maxSize"] = maxSize;
       final response = await _svc.dio.get(
         "${_svc.apiRoot}/attachment/$guid/download",
-        queryParameters: _svc.buildQueryParams(params),
+        queryParameters: params,
         options: Options(
           responseType: savePath != null ? ResponseType.stream : ResponseType.bytes,
           receiveTimeout: _svc.dio.options.receiveTimeout! * 12,
-          headers: _svc.headers,
         ),
         cancelToken: cancelToken,
         onReceiveProgress: onReceiveProgress,
@@ -112,11 +108,9 @@ class AttachmentApi {
     return _svc.runApiGuarded(() async {
       final response = await _svc.dio.get(
         "${_svc.apiRoot}/attachment/$guid/live",
-        queryParameters: _svc.buildQueryParams(),
         options: Options(
           responseType: ResponseType.bytes,
           receiveTimeout: _svc.dio.options.receiveTimeout! * 12,
-          headers: _svc.headers,
         ),
         cancelToken: cancelToken,
         onReceiveProgress: onReceiveProgress,
@@ -134,11 +128,9 @@ class AttachmentApi {
     return _svc.runApiGuarded(() async {
       final response = await _svc.dio.get(
         "${_svc.apiRoot}/attachment/$guid/blurhash",
-        queryParameters: _svc.buildQueryParams(),
         options: Options(
           responseType: ResponseType.bytes,
           receiveTimeout: _svc.dio.options.receiveTimeout! * 12,
-          headers: _svc.headers,
         ),
         cancelToken: cancelToken,
         onReceiveProgress: onReceiveProgress,
@@ -152,7 +144,6 @@ class AttachmentApi {
     return _svc.runApiGuarded(() async {
       final response = await _svc.dio.get(
         "${_svc.apiRoot}/attachment/count",
-        queryParameters: _svc.buildQueryParams(),
         cancelToken: cancelToken,
       );
       return _svc.returnSuccessOrError(response);

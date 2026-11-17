@@ -6,19 +6,8 @@ final Animatable<Offset> _kRightMiddleTween = Tween<Offset>(
   end: Offset.zero,
 );
 
-/// Provides an iOS-style page transition animation.
-///
-/// The page slides in from the right and exits in reverse. It also shifts to the left in
-/// a parallax motion when another page enters to cover it.
+/// Slides a page in from the right and out in reverse, with an edge shadow.
 class CustomCupertinoPageTransition extends StatelessWidget {
-  /// Creates an iOS-style page transition.
-  ///
-  ///  * `primaryRouteAnimation` is a linear route animation from 0.0 to 1.0
-  ///    when this screen is being pushed.
-  ///  * `secondaryRouteAnimation` is a linear route animation from 0.0 to 1.0
-  ///    when another screen is being pushed on top of this one.
-  ///  * `linearTransition` is whether to perform the transitions linearly.
-  ///    Used to precisely track back gesture drags.
   CustomCupertinoPageTransition({
     super.key,
     required Animation<double> primaryRouteAnimation,
@@ -27,12 +16,6 @@ class CustomCupertinoPageTransition extends StatelessWidget {
   })  : _primaryPositionAnimation = (linearTransition
                 ? primaryRouteAnimation
                 : CurvedAnimation(
-                    // The curves below have been rigorously derived from plots of native
-                    // iOS animation frames. Specifically, a video was taken of a page
-                    // transition animation and the distance in each frame that the page
-                    // moved was measured. A best fit bezier curve was the fitted to the
-                    // point set, which is linearToEaseIn. Conversely, easeInToLinear is the
-                    // reflection over the origin of linearToEaseIn.
                     parent: primaryRouteAnimation,
                     curve: Curves.linearToEaseOut,
                     reverseCurve: Curves.easeInToLinear,
