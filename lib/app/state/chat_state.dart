@@ -334,11 +334,11 @@ class ChatState {
       final words = participants.map(_shortNameFor).where((s) => s.isNotEmpty).toList();
       if (words.isEmpty) return null;
       if (words.length == 1) return words[0];
-      return '${words.take(words.length - 1).join(', ')} & ${words.last}';
+      return '${words.take(words.length - 1).map((name) => '\u2068$name\u2069').join(', ')} & \u2068${words.last}\u2069';
     } else {
       final words = participants.take(3).map(_shortNameFor).where((s) => s.isNotEmpty).toList();
       if (words.isEmpty) return null;
-      return '${words.join(', ')} & ${count - 3} others';
+      return '${words.map((name) => '\u2068$name\u2069').join(', ')} & ${count - 3} others';
     }
   }
 

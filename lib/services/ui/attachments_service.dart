@@ -298,9 +298,9 @@ class AttachmentsService extends GetxService {
 
       showSnackbar(
         'Success',
-        'Saved attachment to $savePath!',
+        'Saved attachment to ${basename(savePath)}!',
         durationMs: 3000,
-        actionLabel: "OPEN FILE",
+        actionLabel: "Open file",
         onAction: () => launchUrl(Uri.file(savePath)),
         type: SnackbarType.success,
       );

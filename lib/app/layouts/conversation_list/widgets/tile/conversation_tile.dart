@@ -206,6 +206,7 @@ class _ChatTitleState extends CustomState<ChatTitle, void, ConversationTileContr
       final _title = controller.chatState.title.value ?? controller.chat.getTitle();
 
       return RichText(
+        textScaler: MediaQuery.textScalerOf(context),
         text: TextSpan(
           children: MessageHelper.buildEmojiText(
             _title,
@@ -279,7 +280,9 @@ class _ChatSubtitleState extends CustomState<ChatSubtitle, void, ConversationTil
         );
       }
 
+      final textScaler = MediaQuery.textScalerOf(context);
       final richText = RichText(
+        textScaler: textScaler,
         text: subtitleSpan,
         overflow: TextOverflow.ellipsis,
         maxLines: maxLines,
@@ -295,12 +298,15 @@ class _ChatSubtitleState extends CustomState<ChatSubtitle, void, ConversationTil
                   children: [
                     Padding(
                       padding: EdgeInsets.only(
-                          right: 4, top: ((widget.style.fontSize ?? 14) * (widget.style.height ?? 1.5) - 14) / 2),
+                          right: 4,
+                          top: (textScaler.scale(widget.style.fontSize ?? 14) * (widget.style.height ?? 1.5) -
+                                  textScaler.scale(14)) /
+                              2),
                       child: Opacity(
                         opacity: isDelivered ? 1.0 : 0.35,
                         child: Icon(
                           Icons.check_circle_outline,
-                          size: 14,
+                          size: textScaler.scale(14),
                           color: iconColor,
                         ),
                       ),

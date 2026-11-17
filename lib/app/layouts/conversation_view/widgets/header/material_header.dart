@@ -274,10 +274,14 @@ class _ChatIconAndTitleState extends CustomState<_ChatIconAndTitle, void, Conver
                 final _title = controller.inSelectMode.value
                     ? "${controller.selected.length} selected"
                     : chatState.title.value ?? controller.chat.getTitle();
-                return Text(
-                  _title,
-                  style: context.theme.textTheme.titleLarge!
-                      .apply(color: context.theme.colorScheme.onSurfaceVariant, fontSizeFactor: 0.85),
+                return Text.rich(
+                  TextSpan(
+                    children: MessageHelper.buildEmojiText(
+                      _title,
+                      context.theme.textTheme.titleLarge!
+                          .apply(color: context.theme.colorScheme.onSurfaceVariant, fontSizeFactor: 0.85),
+                    ),
+                  ),
                   maxLines: 1,
                   overflow: TextOverflow.fade,
                 );
@@ -292,6 +296,24 @@ class _ChatIconAndTitleState extends CustomState<_ChatIconAndTitle, void, Conver
                   style: context.theme.textTheme.labelLarge!.apply(color: context.theme.colorScheme.outline),
                   maxLines: 1,
                   overflow: TextOverflow.fade,
+                ),
+              if (material &&
+                  !controller.chat.isGroup &&
+                  controller.chat.handles.length == 1 &&
+                  controller.chat.handles.first.address.isEmail)
+                LayoutBuilder(
+                  // Reversed so a long address opens on its end: the domain is what exposes a spoofed sender.
+                  builder: (context, constraints) => SingleChildScrollView(
+                    scrollDirection: Axis.horizontal,
+                    reverse: true,
+                    child: ConstrainedBox(
+                      constraints: BoxConstraints(minWidth: constraints.maxWidth),
+                      child: Text(
+                        controller.chat.handles.first.address,
+                        style: context.theme.textTheme.labelLarge!.apply(color: context.theme.colorScheme.outline),
+                      ),
+                    ),
+                  ),
                 ),
             ],
           ),

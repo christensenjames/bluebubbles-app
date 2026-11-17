@@ -153,69 +153,72 @@ class _MaterialTrailingState extends CustomState<MaterialTrailing, void, Convers
         final hasError = (message?.error ?? 0) > 0;
         final unread = chatState.hasUnreadMessage.value;
         final muteType = chatState.muteType.value;
-        return Column(
-          crossAxisAlignment: CrossAxisAlignment.end,
-          mainAxisAlignment: MainAxisAlignment.center,
-          mainAxisSize: MainAxisSize.min,
-          children: <Widget>[
-            Row(
-              mainAxisSize: MainAxisSize.min,
-              mainAxisAlignment: MainAxisAlignment.end,
-              children: [
-                Text(
-                  hasError
-                      ? "Error"
-                      : "${indicator.isNotEmpty ? "$indicator\n" : ""}${buildChatListDateMaterial(message?.dateCreated)}",
-                  textAlign: TextAlign.right,
-                  style: context.theme.textTheme.bodySmall!
-                      .copyWith(
-                        color: hasError
-                            ? context.theme.colorScheme.error
-                            : controller.shouldHighlight.value || unread
-                                ? context.theme.colorScheme.onSurface
-                                : context.theme.colorScheme.outline,
-                        fontWeight: unread
-                            ? FontWeight.w600
-                            : controller.shouldHighlight.value
-                                ? FontWeight.w500
-                                : null,
-                      )
-                      .apply(fontSizeFactor: 1.1),
-                  overflow: TextOverflow.clip,
-                ),
-              ],
-            ),
-            const SizedBox(height: 5),
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.center,
-              mainAxisAlignment: MainAxisAlignment.end,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                if (chatState.isPinned.value)
-                  Icon(Icons.push_pin_outlined, size: 18, color: context.theme.colorScheme.outline),
-                if (muteType != "mute" && unread) ...[
-                  if (chatState.isPinned.value) const SizedBox(width: 5),
-                  Container(
-                    width: 13,
-                    height: 13,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      color: context.theme.colorScheme.primary,
-                    ),
+        return MediaQuery.withClampedTextScaling(
+          maxScaleFactor: 1.4,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            mainAxisAlignment: MainAxisAlignment.center,
+            mainAxisSize: MainAxisSize.min,
+            children: <Widget>[
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  Text(
+                    hasError
+                        ? "Error"
+                        : "${indicator.isNotEmpty ? "$indicator\n" : ""}${buildChatListDateMaterial(message?.dateCreated)}",
+                    textAlign: TextAlign.right,
+                    style: context.theme.textTheme.bodySmall!
+                        .copyWith(
+                          color: hasError
+                              ? context.theme.colorScheme.error
+                              : controller.shouldHighlight.value || unread
+                                  ? context.theme.colorScheme.onSurface
+                                  : context.theme.colorScheme.outline,
+                          fontWeight: unread
+                              ? FontWeight.w600
+                              : controller.shouldHighlight.value
+                                  ? FontWeight.w500
+                                  : null,
+                        )
+                        .apply(fontSizeFactor: 1.1),
+                    overflow: TextOverflow.clip,
                   ),
                 ],
-                if (muteType == "mute") const SizedBox(width: 5),
-                if (muteType == "mute")
-                  Icon(
-                    Icons.notifications_off_outlined,
-                    color: controller.shouldHighlight.value || unread
-                        ? context.theme.colorScheme.primary
-                        : context.theme.colorScheme.outline,
-                    size: 18,
-                  ),
-              ],
-            ),
-          ],
+              ),
+              const SizedBox(height: 5),
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.center,
+                mainAxisAlignment: MainAxisAlignment.end,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  if (chatState.isPinned.value)
+                    Icon(Icons.push_pin_outlined, size: 18, color: context.theme.colorScheme.outline),
+                  if (muteType != "mute" && unread) ...[
+                    if (chatState.isPinned.value) const SizedBox(width: 5),
+                    Container(
+                      width: 13,
+                      height: 13,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: context.theme.colorScheme.primary,
+                      ),
+                    ),
+                  ],
+                  if (muteType == "mute") const SizedBox(width: 5),
+                  if (muteType == "mute")
+                    Icon(
+                      Icons.notifications_off_outlined,
+                      color: controller.shouldHighlight.value || unread
+                          ? context.theme.colorScheme.primary
+                          : context.theme.colorScheme.outline,
+                      size: 18,
+                    ),
+                ],
+              ),
+            ],
+          ),
         );
       }),
     );

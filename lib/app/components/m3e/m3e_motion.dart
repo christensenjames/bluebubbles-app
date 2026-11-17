@@ -48,6 +48,8 @@ extension ReducedMotionController on AnimationController {
 /// Wraps the Material motion tokens from `material/motion.dart` (`Durations.*` / `Easing.*`)
 /// into the small set of specs this app's M3E surfaces use.
 abstract final class M3EMotion {
+  static const strongEaseOut = Cubic(0.23, 1, 0.32, 1);
+
   // Spatial — anything that moves or resizes.
   static const spatialFast = M3EMotionSpec(Durations.short4, Easing.emphasizedDecelerate);
   static const spatialDefault = M3EMotionSpec(Durations.medium2, emphasized);

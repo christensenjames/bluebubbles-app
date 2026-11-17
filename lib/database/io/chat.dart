@@ -280,14 +280,14 @@ class Chat {
       final buffer = StringBuffer();
       for (int i = 0; i < count; i++) {
         if (i > 0) buffer.write(i == count - 1 ? ' & ' : ', ');
-        buffer.write(handles[i].shortName);
+        buffer.write('\u2068${handles[i].shortName}\u2069');
       }
       return buffer.toString();
     } else {
       final buffer = StringBuffer();
       for (int i = 0; i < 3; i++) {
         if (i > 0) buffer.write(', ');
-        buffer.write(handles[i].shortName);
+        buffer.write('\u2068${handles[i].shortName}\u2069');
       }
       buffer.write(' & ${count - 3} others');
       return buffer.toString();

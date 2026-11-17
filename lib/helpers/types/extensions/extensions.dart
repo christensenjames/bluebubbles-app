@@ -321,6 +321,8 @@ String _getAttachmentText(List<Attachment?> attachments) {
       key = "Photo";
     } else if (mime.contains("application/pdf")) {
       key = "PDF";
+    } else if (mime.startsWith("application/")) {
+      key = "File";
     } else {
       key = mime.split("/").first.capitalize ?? "File";
     }

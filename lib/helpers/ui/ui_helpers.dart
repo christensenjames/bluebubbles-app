@@ -4,6 +4,7 @@ import 'dart:ui' as ui;
 
 import 'package:bitsdojo_window/bitsdojo_window.dart';
 import 'package:bluebubbles/app/components/bb_back_button.dart';
+import 'package:bluebubbles/app/components/m3e/m3e_motion.dart';
 import 'package:bluebubbles/app/layouts/conversation_list/widgets/filters/chat_list_filters.dart';
 import 'package:bluebubbles/app/layouts/conversation_list/widgets/tile/conversation_tile.dart';
 import 'package:bluebubbles/app/wrappers/titlebar_wrapper.dart';
@@ -510,8 +511,18 @@ void showSnackbar(String title, String message,
   Get.snackbar(
     title,
     message,
-    titleText: Text(title, style: theme.textTheme.titleSmall!.copyWith(color: foreground)),
-    messageText: Text(message, style: theme.textTheme.bodyMedium!.copyWith(color: foreground)),
+    titleText: Text.rich(
+      TextSpan(children: MessageHelper.buildEmojiText(title, theme.textTheme.titleSmall!.copyWith(color: foreground))),
+      maxLines: 2,
+      overflow: TextOverflow.ellipsis,
+    ),
+    messageText: Text.rich(
+      TextSpan(
+        children: MessageHelper.buildEmojiText(message, theme.textTheme.bodyMedium!.copyWith(color: foreground)),
+      ),
+      maxLines: 3,
+      overflow: TextOverflow.ellipsis,
+    ),
     icon: Icon(icon, color: foreground),
     shouldIconPulse: false,
     snackPosition: SnackPosition.TOP,
@@ -528,7 +539,8 @@ void showSnackbar(String title, String message,
     isDismissible: true,
     dismissDirection: DismissDirection.up,
     duration: Duration(milliseconds: isError || actionLabel != null ? max(durationMs, 4000) : durationMs),
-    animationDuration: const Duration(milliseconds: 250),
+    animationDuration: MediaQuery.disableAnimationsOf(Get.context!) ? Duration.zero : const Duration(milliseconds: 250),
+    reverseAnimationCurve: M3EMotion.strongEaseOut.flipped,
     mainButton: actionLabel == null
         ? null
         : TextButton(onPressed: onAction, child: Text(actionLabel, style: TextStyle(color: foreground))),
