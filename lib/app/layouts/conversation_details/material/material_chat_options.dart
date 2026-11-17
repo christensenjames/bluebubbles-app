@@ -1,5 +1,6 @@
 import 'package:bluebubbles/app/components/m3e/m3e.dart';
 import 'package:bluebubbles/app/layouts/conversation_details/dialogs/chat_sync_dialog.dart';
+import 'package:bluebubbles/app/layouts/conversation_details/spam_action.dart';
 import 'package:bluebubbles/app/layouts/conversation_details/pages/chat_stats/chat_stats_page.dart';
 import 'package:bluebubbles/app/layouts/conversation_details/dialogs/sync_time_range_dialog.dart';
 import 'package:bluebubbles/app/layouts/conversation_details/dialogs/timeframe_picker.dart';
@@ -180,6 +181,14 @@ class ExpressiveChatOptions extends StatelessWidget {
     final readReceiptOverride = chatState?.autoSendReadReceipts.value;
 
     final rows = <_OptionRow>[
+      _OptionRow(
+        enabled: (chatState?.spamVerdict.value ?? chat.spamVerdict) != 'spam',
+        build: (context) => M3EListTile(
+          icon: Icons.report_outlined,
+          title: "Mark as spam",
+          onTap: () => setChatSpamVerdict(chat, 'spam'),
+        ),
+      ),
       _OptionRow(
         enabled: !kIsWeb && !kIsDesktop && (FilesystemSvc.androidInfo?.version.sdkInt ?? 0) >= 30,
         build: (context) => M3EListTile(

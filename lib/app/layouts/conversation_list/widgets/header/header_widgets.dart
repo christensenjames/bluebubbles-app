@@ -35,7 +35,7 @@ class HeaderText extends StatelessWidget {
             ? "Archive"
             : controller.showUnknownSenders
                 ? "Unknown Senders"
-                : "Messages",
+                : controller.showSpam ? "Likely spam" : "Messages",
         style: context.textTheme.headlineLarge!.copyWith(
           color: context.theme.colorScheme.onSurface,
           fontWeight: FontWeight.w400,
@@ -280,6 +280,15 @@ class MaterialAvatarMenu extends StatelessWidget {
               },
             ),
             MenuItemRow(
+              icon: Icons.report_outlined,
+              label: 'Likely spam',
+              onTap: () async {
+                await hideMenu();
+                if (!context.mounted) return;
+                goToLikelySpam(context);
+              },
+            ),
+            MenuItemRow(
               icon: hasActiveChatFilter ? Icons.filter_list : Icons.filter_list_outlined,
               iconColor: hasActiveChatFilter ? overlayContext.theme.colorScheme.primary : null,
               label: 'Filter Chats',
@@ -419,6 +428,12 @@ class CupertinoOverflowMenu extends StatelessWidget {
           title: 'Archived',
           icon: CupertinoIcons.archivebox,
           onTap: () => goToArchived(context),
+        ),
+        PullDownMenuItem(
+          itemTheme: itemTheme,
+          title: 'Likely spam',
+          icon: CupertinoIcons.exclamationmark_shield,
+          onTap: () => goToLikelySpam(context),
         ),
         PullDownMenuItem(
           itemTheme: itemTheme,
@@ -601,6 +616,7 @@ Future<void> markAllAsReadRespectingFilter(BuildContext context, ConversationLis
     final guids = ChatsSvc.getFilteredChats(
       showArchived: controller?.showArchivedChats,
       showUnknown: controller?.showUnknownSenders,
+      showSpam: controller?.showSpam ?? false,
       filters: filters,
     ).map((c) => c.guid).toSet();
     await ChatsSvc.markAllAsRead(chatGuids: guids);
@@ -619,6 +635,16 @@ void goToUnknownSenders(BuildContext context) {
       ConversationList(
         showArchivedChats: false,
         showUnknownSenders: true,
+      ));
+}
+
+void goToLikelySpam(BuildContext context) {
+  NavigationSvc.pushLeft(
+      context,
+      ConversationList(
+        showArchivedChats: false,
+        showUnknownSenders: false,
+        showSpam: true,
       ));
 }
 

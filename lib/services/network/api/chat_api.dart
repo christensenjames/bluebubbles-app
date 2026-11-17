@@ -143,6 +143,18 @@ class ChatApi {
     });
   }
 
+  Future<Response> setSpamVerdict(String guid, String verdict, {CancelToken? cancelToken}) async {
+    return _svc.runApiGuarded(() async {
+      final response = await _svc.dio.post(
+        "${_svc.apiRoot}/chat/$guid/spam",
+        queryParameters: _svc.buildQueryParams(),
+        data: {"verdict": verdict},
+        cancelToken: cancelToken,
+      );
+      return _svc.returnSuccessOrError(response);
+    });
+  }
+
   /// Mark a chat read by its [guid]
   Future<Response> markRead(String guid, {CancelToken? cancelToken}) async {
     return _svc.runApiGuarded(() async {

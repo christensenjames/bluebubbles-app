@@ -55,6 +55,8 @@ class Chat {
   String? muteArgs;
   bool? isPinned;
   bool? hasUnreadMessage;
+  String? spamVerdict;
+  bool get isLikelySpam => spamVerdict == 'spam';
   String? title;
 
   String? displayName;
@@ -109,6 +111,7 @@ class Chat {
     this.muteType,
     this.muteArgs,
     this.hasUnreadMessage = false,
+    this.spamVerdict,
     this.displayName,
     String? customAvatar,
     int? pinnedIndex,
@@ -146,6 +149,7 @@ class Chat {
       muteArgs: json["muteArgs"],
       isPinned: json["isPinned"] ?? false,
       hasUnreadMessage: json["hasUnreadMessage"] ?? false,
+      spamVerdict: json["spamVerdict"],
       latestMessage: message,
       displayName: json["displayName"],
       customAvatar: json['_customAvatarPath'],
@@ -186,6 +190,8 @@ class Chat {
     WebListeners.notifyChat(this);
     return this;
   }
+
+  Future<Chat> saveAsync({bool updateSpamVerdict = false}) async => save();
 
   Chat changeName(String? name) {
     displayName = name;
@@ -523,6 +529,7 @@ class Chat {
       textFieldAttachments.addAll(other.textFieldAttachments);
     }
     chatIdentifier ??= other.chatIdentifier;
+    spamVerdict ??= other.spamVerdict;
     displayName ??= other.displayName;
     if (handles.isEmpty) {
       handles.addAll(other.handles);
@@ -567,6 +574,7 @@ class Chat {
         "ROWID": id,
         "guid": guid,
         "chatIdentifier": chatIdentifier,
+        "spamVerdict": spamVerdict,
         "isArchived": isArchived!,
         "muteType": muteType,
         "muteArgs": muteArgs,

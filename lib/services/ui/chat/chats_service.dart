@@ -145,11 +145,16 @@ class ChatsService {
   List<Chat> getFilteredChats({
     bool? showArchived,
     bool? showUnknown,
+    bool? showSpam,
     bool? pinnedOnly,
     bool? excludePinned,
     ChatListFilters? filters,
   }) {
     var chats = allChats;
+
+    if (showSpam != null) {
+      chats = chats.where((e) => ((getChatState(e.guid)?.spamVerdict.value ?? e.spamVerdict) == 'spam') == showSpam).toList();
+    }
 
     // Apply archived filter
     if (showArchived != null) {
@@ -784,6 +789,7 @@ class ChatsService {
       final currentLatestMessage = state.latestMessage.value;
       final currentPinIndex = state.pinIndex.value;
       final currentIsPinned = state.isPinned.value;
+      final spamVerdictChanged = state.spamVerdict.value != updated.spamVerdict;
 
       // Check if sort-order-relevant fields have changed
       final latestMessageChanged = updated.dbLatestMessage.target?.guid != currentLatestMessage?.guid ||
@@ -794,13 +800,14 @@ class ChatsService {
       final sortOrderChanged =
           latestMessageChanged || latestMessageTimestampChanged || pinIndexChanged || isPinnedChanged;
 
-      if (updated != state.chat || override) {
+      if (updated != state.chat || override || spamVerdictChanged) {
         state.updateFromChat(updated);
       }
 
       if (sortOrderChanged || override) {
         _repositionChat(state.chat, immediate: immediate);
       }
+      if (spamVerdictChanged) _scheduleListVersionUpdate(immediate: immediate);
 
       return true;
     }

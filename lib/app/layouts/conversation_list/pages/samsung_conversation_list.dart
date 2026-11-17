@@ -28,6 +28,7 @@ class SamsungConversationList extends StatefulWidget {
 class _SamsungConversationListState extends State<SamsungConversationList> with ThemeHelpers {
   bool get showArchived => widget.parentController.showArchivedChats;
   bool get showUnknown => widget.parentController.showUnknownSenders;
+  bool get showSpam => widget.parentController.showSpam;
   Color get backgroundColor =>
       SettingsSvc.settings.windowEffect.value == WindowEffect.disabled ? headerColor : Colors.transparent;
   Color get _tileColor =>
@@ -59,7 +60,7 @@ class _SamsungConversationListState extends State<SamsungConversationList> with 
     final page = Scaffold(
         backgroundColor: backgroundColor,
         floatingActionButton:
-            !showArchived && !showUnknown ? ConversationListFAB(parentController: controller) : const SizedBox.shrink(),
+            !showArchived && !showUnknown && !showSpam ? ConversationListFAB(parentController: controller) : const SizedBox.shrink(),
         body: SafeArea(
           child: NotificationListener<ScrollEndNotification>(
             onNotification: (_) {
@@ -86,9 +87,10 @@ class _SamsungConversationListState extends State<SamsungConversationList> with 
                 // Observe chat list version to trigger rebuild when order changes
                 final _ = ChatsSvc.chatListVersion.value;
                 final _chats = ChatsSvc.getFilteredChats(
-                  showArchived: controller.showArchivedChats,
-                  showUnknown: controller.showUnknownSenders,
-                  filters: ChatsSvc.chatListFilters.value,
+                  showArchived: showSpam ? null : controller.showArchivedChats,
+                  showUnknown: showSpam ? null : controller.showUnknownSenders,
+                  showSpam: showSpam,
+                  filters: showSpam ? null : ChatsSvc.chatListFilters.value,
                 );
                 final _pinnedChats = _chats.where((e) => e.isPinned ?? false).toList();
                 final _unpinnedChats = _chats.where((e) => !(e.isPinned ?? false)).toList();
@@ -98,7 +100,7 @@ class _SamsungConversationListState extends State<SamsungConversationList> with 
                   controller: controller.samsungScrollController,
                   slivers: [
                     SamsungHeader(parentController: controller),
-                    if (!showArchived && !showUnknown)
+                    if (!showArchived && !showUnknown && !showSpam)
                       const SliverToBoxAdapter(
                         child: CustomGroupFilterChipRow(
                           padding: EdgeInsets.only(left: 12, right: 12, top: 4, bottom: 16),
@@ -111,7 +113,8 @@ class _SamsungConversationListState extends State<SamsungConversationList> with 
                             padding: const EdgeInsets.only(top: 50),
                             child: loaded
                                 ? buildEmptyChatListState(context,
-                                    showArchived: showArchived, showUnknown: showUnknown, filters: ChatsSvc.chatListFilters.value)
+                                    showArchived: showArchived, showUnknown: showUnknown, showSpam: showSpam,
+                                    filters: showSpam ? null : ChatsSvc.chatListFilters.value)
                                 : Column(
                                     children: [
                                       Padding(

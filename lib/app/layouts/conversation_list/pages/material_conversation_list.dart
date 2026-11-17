@@ -25,6 +25,7 @@ class MaterialConversationList extends StatefulWidget {
 class _MaterialConversationListState extends State<MaterialConversationList> {
   bool get showArchived => widget.parentController.showArchivedChats;
   bool get showUnknown => widget.parentController.showUnknownSenders;
+  bool get showSpam => widget.parentController.showSpam;
   Color get backgroundColor => SettingsSvc.settings.windowEffect.value == WindowEffect.disabled
       ? context.theme.colorScheme.surface
       : Colors.transparent;
@@ -65,7 +66,7 @@ class _MaterialConversationListState extends State<MaterialConversationList> {
               : Colors.transparent,
           extendBodyBehindAppBar: false,
           floatingActionButtonLocation: FloatingActionButtonLocation.centerFloat,
-          floatingActionButton: !showArchived && !showUnknown
+          floatingActionButton: !showArchived && !showUnknown && !showSpam
               ? ConversationListFAB(parentController: controller)
               : const SizedBox.shrink(),
           body: ClipRRect(
@@ -82,9 +83,10 @@ class _MaterialConversationListState extends State<MaterialConversationList> {
                 final _ = ChatsSvc.chatListVersion.value;
 
                 final _chats = ChatsSvc.getFilteredChats(
-                  showArchived: showArchived,
-                  showUnknown: showUnknown,
-                  filters: ChatsSvc.chatListFilters.value,
+                  showArchived: showSpam ? null : showArchived,
+                  showUnknown: showSpam ? null : showUnknown,
+                  showSpam: showSpam,
+                  filters: showSpam ? null : ChatsSvc.chatListFilters.value,
                 );
 
                 final Widget content;
@@ -94,7 +96,8 @@ class _MaterialConversationListState extends State<MaterialConversationList> {
                       padding: const EdgeInsets.only(top: 100),
                       child: loaded
                           ? buildEmptyChatListState(context,
-                              showArchived: showArchived, showUnknown: showUnknown, filters: ChatsSvc.chatListFilters.value)
+                              showArchived: showArchived, showUnknown: showUnknown, showSpam: showSpam,
+                              filters: showSpam ? null : ChatsSvc.chatListFilters.value)
                           : Column(
                               children: [
                                 Padding(
@@ -145,7 +148,7 @@ class _MaterialConversationListState extends State<MaterialConversationList> {
 
                 return Column(
                   children: [
-                    if (!showArchived && !showUnknown)
+                    if (!showArchived && !showUnknown && !showSpam)
                       const CustomGroupFilterChipRow(
                         padding: EdgeInsets.only(left: 12, right: 12, top: 16, bottom: 4),
                       ),

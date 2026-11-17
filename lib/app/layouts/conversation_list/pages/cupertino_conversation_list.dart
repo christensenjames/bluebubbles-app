@@ -32,6 +32,8 @@ class CupertinoConversationListState extends State<CupertinoConversationList> wi
 
   bool get showUnknown => widget.parentController.showUnknownSenders;
 
+  bool get showSpam => widget.parentController.showSpam;
+
   Color get backgroundColor => SettingsSvc.settings.windowEffect.value == WindowEffect.disabled
       ? context.theme.colorScheme.surface
       : Colors.transparent;
@@ -66,14 +68,14 @@ class CupertinoConversationListState extends State<CupertinoConversationList> wi
       backgroundColor: SettingsSvc.settings.windowEffect.value != WindowEffect.disabled
           ? Colors.transparent
           : context.theme.colorScheme.surface,
-      extendBodyBehindAppBar: !showArchived && !showUnknown,
+      extendBodyBehindAppBar: !showArchived && !showUnknown && !showSpam,
       floatingActionButton: Obx(() =>
-          !SettingsSvc.settings.moveChatCreatorToHeader.value && !showArchived && !showUnknown
+          !SettingsSvc.settings.moveChatCreatorToHeader.value && !showArchived && !showUnknown && !showSpam
               ? ConversationListFAB(parentController: controller)
               : const SizedBox.shrink()),
-      appBar: showArchived || showUnknown
+      appBar: showArchived || showUnknown || showSpam
           ? BBAppBar(
-              titleText: showArchived ? "Archive" : "Unknown Senders",
+              titleText: showArchived ? "Archive" : showSpam ? "Likely spam" : "Unknown Senders",
               leading: buildBackButton(context),
               centerTitle: true,
               backgroundColor: Colors.transparent,
@@ -88,8 +90,8 @@ class CupertinoConversationListState extends State<CupertinoConversationList> wi
                   controller: controller.iosScrollController,
                   physics: ThemeSvc.scrollPhysics,
                   slivers: <Widget>[
-                    if (!showArchived && !showUnknown) CupertinoHeader(controller: controller),
-                    if (!showArchived && !showUnknown)
+                    if (!showArchived && !showUnknown && !showSpam) CupertinoHeader(controller: controller),
+                    if (!showArchived && !showUnknown && !showSpam)
                       const SliverToBoxAdapter(child: CustomGroupFilterChipRow()),
                     Obx(() {
                       // Force reactivity by accessing observable values first
@@ -100,10 +102,11 @@ class CupertinoConversationListState extends State<CupertinoConversationList> wi
                       final _version = ChatsSvc.chatListVersion.value;
                       NavigationSvc.listener.value;
                       final _chats = ChatsSvc.getFilteredChats(
-                          showArchived: showArchived,
-                          showUnknown: showUnknown,
+                          showArchived: showSpam ? null : showArchived,
+                          showUnknown: showSpam ? null : showUnknown,
+                          showSpam: showSpam,
                           pinnedOnly: true,
-                          filters: ChatsSvc.chatListFilters.value);
+                          filters: showSpam ? null : ChatsSvc.chatListFilters.value);
 
                       if (_chats.isEmpty) {
                         return const SliverToBoxAdapter(child: SizedBox.shrink());
@@ -274,10 +277,11 @@ class CupertinoConversationListState extends State<CupertinoConversationList> wi
                       // Observe chat list version to trigger rebuild when order changes
                       final _ = ChatsSvc.chatListVersion.value;
                       final _chats = ChatsSvc.getFilteredChats(
-                          showArchived: showArchived,
-                          showUnknown: showUnknown,
+                          showArchived: showSpam ? null : showArchived,
+                          showUnknown: showSpam ? null : showUnknown,
+                          showSpam: showSpam,
                           excludePinned: true,
-                          filters: ChatsSvc.chatListFilters.value);
+                          filters: showSpam ? null : ChatsSvc.chatListFilters.value);
 
                       if (!loaded || _chats.isEmpty) {
                         return SliverToBoxAdapter(
@@ -288,7 +292,8 @@ class CupertinoConversationListState extends State<CupertinoConversationList> wi
                                   ? buildEmptyChatListState(context,
                                       showArchived: showArchived,
                                       showUnknown: showUnknown,
-                                      filters: ChatsSvc.chatListFilters.value)
+                                      showSpam: showSpam,
+                                      filters: showSpam ? null : ChatsSvc.chatListFilters.value)
                                   : Column(
                                       children: [
                                         Padding(
@@ -365,7 +370,7 @@ class CupertinoConversationListState extends State<CupertinoConversationList> wi
                   ],
                 )),
           ),
-          if (!showArchived && !showUnknown) CupertinoMiniHeader(controller: controller),
+          if (!showArchived && !showUnknown && !showSpam) CupertinoMiniHeader(controller: controller),
         ],
       ),
     );

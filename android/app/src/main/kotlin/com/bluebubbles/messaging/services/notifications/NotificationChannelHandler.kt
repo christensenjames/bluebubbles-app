@@ -74,6 +74,10 @@ class NotificationChannelHandler: MethodCallHandlerImpl() {
                 channel.setBypassDnd(true)
                 channel.setShowBadge(true)
                 channel.enableVibration(true)
+            } else if (channelId == "com.bluebubbles.likely_spam") {
+                channel.importance = NotificationManager.IMPORTANCE_LOW
+                channel.setSound(null, null)
+                channel.enableVibration(false)
             // set 'Foreground Service' channel to low importance (avoid heads-up notification)
             } else if (channelId == "com.bluebubbles.foreground_service") {
                 channel.importance = NotificationManager.IMPORTANCE_LOW

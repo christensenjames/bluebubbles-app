@@ -1,5 +1,16 @@
 # Changelog
 
+## 2026-11-04 — Likely spam
+
+- Chats classified as likely spam appear in a separate list and use silent notifications.
+  The conversation banner and chat options let you correct the server's verdict.
+- Verdict rides on `Chat.spamVerdict` (ObjectBox field, serialized from the server), kept across
+  `incoming_message_handler` re-fetches; the `chat-spam-verdict-changed` socket/FCM event updates
+  it. Spam chats leave the main list for "Likely spam" in the header menu; their Android
+  notifications use the silent `com.bluebubbles.likely_spam` channel and skip the receive sound.
+- Installed 2026-11-04 on the Pixel (release APK) and as the fedora dev app (previous copy in
+  `~/.local/lib/bluebubbles-dev.prev-20261104b`); the verdict event reached both.
+
 ## 2026-11-04 — Scheduled messages work on Linux
 
 - "Select a chat" on the New Message screen did nothing on desktop. The create panels opened
