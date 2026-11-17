@@ -14,6 +14,10 @@
   and the message to three. Under Reduce Motion they appear without sliding, and the exit no
   longer accelerates out. The save snackbar names only the file and its button reads "Open file".
   The desktop spam-status error names the chat.
+- **Redacted mode:** the conversation header's address line (the new Material email line and
+  Samsung's existing one) is hidden while redacted mode hides contact info, and it updates live
+  when redaction is toggled with a chat open. Before, it showed the real address under the fake
+  name. The break-ui harness gained `BB_REDACT_AFTER=<seconds>` to switch redaction on mid-run.
 - **Motion:** a new tapback's 0.9 scale and fade share one 200ms strong ease-out
   (`M3EMotion.strongEaseOut`), and Reduce Motion keeps the fade. Received rows fade in over
   150ms instead of popping in at full opacity. The message popup fade eases out; the composer's
