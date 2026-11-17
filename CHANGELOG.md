@@ -1,5 +1,28 @@
 # Changelog
 
+## 2026-11-16 — Worst-case data and motion review fixes
+
+- **Chat list:** at large system text sizes, chat titles, previews and the delivery check scale
+  with the dates (`RichText` ignored the text scaler), and the date/pin/mute column is clamped to
+  1.4x so it no longer overflows the tile. Group titles isolate each name (FSI/PDI), so an Arabic
+  or Hebrew member no longer reorders "& 27 others". A last message that is only a `.zip` or
+  other `application/*` file previews as "File" instead of "Application".
+- **Conversation header (Material):** the title renders emoji with the app's emoji font, and a
+  chat with a single email-address handle shows the full address on a second line. A long
+  address opens scrolled to its end, so a spoofed sender's domain is on screen.
+- **Snackbars:** title and message render emoji with the emoji font; the title keeps to two lines
+  and the message to three. Under Reduce Motion they appear without sliding, and the exit no
+  longer accelerates out. The save snackbar names only the file and its button reads "Open file".
+  The desktop spam-status error names the chat.
+- **Motion:** a new tapback's 0.9 scale and fade share one 200ms strong ease-out
+  (`M3EMotion.strongEaseOut`), and Reduce Motion keeps the fade. Received rows fade in over
+  150ms instead of popping in at full opacity. The message popup fade eases out; the composer's
+  size change and the chat list's scroll-to-top honor Reduce Motion; the iOS/Samsung send flight
+  is visible from its first frame.
+- **Dev:** `lib/dev/break_ui_main.dart` is a debug-only entrypoint that seeds demo, worst-case,
+  single and empty fixtures into a scratch ObjectBox; `lib/dev/break_ui.sh` runs it on an X
+  display with no network and scratch XDG dirs. It refuses to run against the real data dir.
+
 ## 2026-11-16 — Upkeep: security, accessibility, motion and gesture fixes
 
 - **Security:** server credentials (the `guid` password and custom headers) are now added only to
