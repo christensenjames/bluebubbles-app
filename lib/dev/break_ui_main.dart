@@ -8,6 +8,7 @@
 //   BB_THEME=dark|light               default dark
 //   BB_OPEN=spam|<fixture chat id>    navigate after the list loads
 //   BB_SNACKBAR=delete|delete-thirty|save|spam-error
+//   BB_REDACT_AFTER=<seconds>         turn on redacted mode (hide contact info) that long after startup
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
@@ -98,6 +99,14 @@ Future<void> _afterStartup(Map<String, String> env, List<FixtureChat> chats) asy
     final guid = chats.firstWhere((c) => c.id == open).guid;
     final chat = ChatsSvc.getChatState(guid)!.chat;
     unawaited(NavigationSvc.pushAndRemoveUntil(Get.context!, ConversationView(chat: chat), (route) => route.isFirst));
+  }
+
+  final redactAfter = env['BB_REDACT_AFTER'];
+  if (redactAfter != null) {
+    await Future.delayed(Duration(seconds: int.parse(redactAfter)));
+    SettingsSvc.settings.hideContactInfo.value = true;
+    SettingsSvc.settings.redactedMode.value = true;
+    debugPrint('[break-ui] redacted mode on');
   }
 
   final snack = env['BB_SNACKBAR'];
