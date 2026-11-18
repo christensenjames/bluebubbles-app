@@ -104,7 +104,7 @@ All Flutter builds below are long and were intentionally not run for this recon;
 - Windows CI compile: `fvm flutter build windows --release -v --no-pub` — unverified. Windows release phases are `.\windows\build.ps1 -Phase Build` and `.\windows\build.ps1 -Phase Package` from a Windows shell; both are unverified here.
 - Android CI compile: `fvm flutter build apk --release --flavor prod --no-pub` — unverified. The tag workflow also expands its matrix to `fvm flutter build appbundle --release --flavor prodNoAa --no-pub` — unverified.
 - Manual runtime verification documented by `CONTRIBUTING.md`: `fvm flutter run` or `flutter run` — unverified.
-- `.claude/CLAUDE.md` states there is no automated test suite and requires target-platform verification. The command `test -d test && printf 'test directory exists\n' || printf 'no test directory\n'; test -d integration_test && printf 'integration_test directory exists\n' || printf 'no integration_test directory\n'; git ls-files -- 'test/**' 'integration_test/**'` returned `no test directory` and `no integration_test directory` with no tracked test paths. No test command is recorded.
+- Unit tests: `bash scripts/install-objectbox-test-lib.sh` once (downloads the ObjectBox C library to the gitignored `lib/libobjectbox.so`), then `flutter test`. Tests live under `test/`; DB tests open a temp store through `test/helpers/test_database.dart`. Target-platform verification is still required for UI and platform behavior.
 
 ## Issue tracker and MCP surfaces
 
@@ -135,5 +135,5 @@ Before any of these, take `.claude/next-run-queue.md`: units James has already a
 
 ## Unable to determine
 
-- Build success, manual target-platform behavior, and actual build duration are unverified because Flutter builds were intentionally not run. The repo documents no automated test suite.
+- Build success, manual target-platform behavior, and actual build duration are unverified because Flutter builds were intentionally not run.
 - The GitHub issue list command was capped at 100, so its total open-issue count and repo-specific issue mapping were not determined. No CHR issue matched the exhaustive 41-item query. No repo-defined quality/usage signal endpoint was determined.

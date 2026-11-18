@@ -9,6 +9,14 @@ bash scripts/dart-fix-common-issues.sh
 
 Run this after making broad changes or before committing if the linter is reporting auto-fixable issues.
 
+## install-objectbox-test-lib.sh
+Downloads the ObjectBox C library to `lib/libobjectbox.so` (gitignored), which `flutter test` loads for DB tests. The
+version is read from the resolved `objectbox_flutter_libs` package, so rerun it after an ObjectBox upgrade. Linux only.
+
+```bash
+bash scripts/install-objectbox-test-lib.sh
+```
+
 ## bump_desktop_versions.dart
 Sets the 4-digit desktop version in every spot it's hardcoded:
 

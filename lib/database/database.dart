@@ -32,7 +32,6 @@ class Database {
   static late final Box<FCMData> fcmData;
   static late final Box<Handle> handles;
   static late final Box<Message> messages;
-  static late final Box<ScheduledMessage> scheduledMessages;
   static late final Box<ThemeStruct> themes;
   static late final Box<ThemeEntry> themeEntries;
 
@@ -54,17 +53,7 @@ class Database {
     }
 
     try {
-      Database.attachments = store.box<Attachment>();
-      Database.chats = store.box<Chat>();
-      Database.contactsV2 = store.box<ContactV2>();
-      Database.customGroups = store.box<CustomGroup>();
-      Database.fcmData = store.box<FCMData>();
-      Database.handles = store.box<Handle>();
-      Database.messages = store.box<Message>();
-      Database.themes = store.box<ThemeStruct>();
-      Database.themeEntries = store.box<ThemeEntry>();
-      // ignore: deprecated_member_use_from_same_package
-      themeObjects = store.box<ThemeObject>();
+      bindBoxes();
 
       // Wait for SettingsService to be fully initialized before accessing settings.
       // This _shouldn't_ be needed, but we're going to do it just in case...
@@ -106,6 +95,20 @@ class Database {
     await seedThemes();
 
     initComplete.complete();
+  }
+
+  static void bindBoxes() {
+    Database.attachments = store.box<Attachment>();
+    Database.chats = store.box<Chat>();
+    Database.contactsV2 = store.box<ContactV2>();
+    Database.customGroups = store.box<CustomGroup>();
+    Database.fcmData = store.box<FCMData>();
+    Database.handles = store.box<Handle>();
+    Database.messages = store.box<Message>();
+    Database.themes = store.box<ThemeStruct>();
+    Database.themeEntries = store.box<ThemeEntry>();
+    // ignore: deprecated_member_use_from_same_package
+    themeObjects = store.box<ThemeObject>();
   }
 
   static Future<void> waitForInit() async {
@@ -360,7 +363,7 @@ class Database {
   }
 
   /// Wipes messaging-scoped data: attachments, chats, contactsV2, handles, messages, and custom groups.
-  /// Leaves settings, themes, fcmData, and scheduledMessages untouched.
+  /// Leaves settings, themes, and fcmData untouched.
   static void resetMessagingData() {
     Database.runInTransaction(TxMode.write, () {
       Database.attachments.removeAll();

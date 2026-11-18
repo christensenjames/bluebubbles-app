@@ -47,6 +47,7 @@ pubspeck.lock
 
 #objectbox
 .dart_tool/*
+/lib/libobjectbox.so
 
 #private keys
 *.env
