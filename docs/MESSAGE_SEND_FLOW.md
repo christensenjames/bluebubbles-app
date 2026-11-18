@@ -185,13 +185,12 @@ If the socket event has not yet arrived with the real GUID, the temp message is 
 
 ### Step 7 — `_matchMessageWithExisting()`: The tempGuid → realGuid Swap
 
-This private method on `OutgoingMessageHandler` handles both paths. It is safe to call from either (or both).
+This private method reconciles the HTTP result. The incoming handler performs its own GUID swap when processing the socket echo.
 
 **Logic:**
 1. Look up a message with the **real GUID** in the DB.
    - **If found (socket won the race):** if the HTTP response's message is newer than what's stored, replace it via `Message.replaceMessage(replacement.guid, replacement)`. Then if a distinct tempGuid record still exists, delete it and call `MessagesSvc.updateMessage(replacement, oldGuid: tempGuid)` to re-key the state map.
-   - **If not found (normal path):** call `Message.replaceMessage(existingGuid, replacement)` → `MessageInterface.replaceMessage()` → the GlobalIsolate → ObjectBox atomically renames the record's GUID. Then call `MessagesSvc.updateMessage(saved, oldGuid: existingGuid)`.
-   - **If that rename throws** (the temp record isn't found in the isolate's store at all — e.g. `prepMessage` failed silently): falls back to just `replacement.save()` (a fresh insert) and updates the UI treating it as a temp→real transition anyway, so the message is never permanently stuck.
+   - **If not found:** `swapOutgoingMessage()` calls `Message.replaceMessage(existingGuid, replacement)` to rename the temp record. If that throws (for example, the temp record is missing), it saves the replacement with `replacement.save(chat: chat)` so the confirmed message stays in its conversation. The caller then updates `MessagesSvc` with the saved record and the old GUID.
 2. If the chat's currently-tracked `latestMessage` still points at the old tempGuid, calls `ChatsSvc.updateChatLatestMessage()` with the confirmed message.
 3. If the temp GUID had a staged interactive-media directory (handwritten/digital-touch messages), renames it from the temp path to the real-GUID path on disk so `EmbeddedMedia` finds the pre-staged local file instead of falling back to a server download.
 
@@ -272,8 +271,8 @@ An upload or multipart-send failure uses `_finalizeOutgoingFailure()` once for t
 
 ## Deduplication Guarantees
 
-- **`IncomingMessageHandler._processedGuids`** — a rolling ring-buffer of the last 100 GUIDs processed by `IncomingMessageHandler`. Prevents the same socket/FCM event from being processed twice (e.g. if Firebase and socket both deliver it).
-- **`_matchMessageWithExisting()` real-GUID-first check** — before swapping, always checks whether a message with the real GUID already exists. If it does, the swap is a metadata update at most (never a duplicate insert). This makes both Path A and Path B safe to call, and safe to call twice.
+- **`IncomingMessageHandler._processedGuids`** — remembers the last 100 processed GUIDs per handler instance. It skips duplicate new-message events handled by that instance; it is not shared across Flutter engines.
+- **`_matchMessageWithExisting()` real-GUID-first check** — if the socket already saved the confirmed message, HTTP can update that record rather than insert a duplicate. The incoming handler also checks for an existing real GUID before saving.
 - **`_persistOutgoingMessages()` GUID-exists check** — on a retried prep attempt, skips the DB write entirely if a message with that GUID is already saved, so retries never duplicate a message.
-- **`_sendProgressTrackers` removal** — `completeSendProgressIfExists()` removes the tracker on first call. The second arrival (socket after HTTP, or HTTP after socket) finds no tracker and does nothing extra.
+- **`_sendProgressTrackers` removal** — `completeSendProgressIfExists()` removes the tracker on first call, so the second arrival cannot settle the send again. HTTP success still reconciles the message, even after the socket settles the send.
 - **`outOfOrderTempGuids` with 500ms delay** — lives in `action_handler.dart`. Handles the edge case where the server emits `"new-message"` with a null `tempGuid` before the client has registered its tracker.
