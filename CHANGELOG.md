@@ -1,5 +1,19 @@
 # Changelog
 
+## 2026-11-17 — Unit tests, and a sent message that could drop out of its chat
+
+- **Sending:** when the server confirmed a sent message whose temporary copy was never saved
+  locally, the confirmed message was saved with no chat, so it never showed in the conversation.
+  It is now saved with its chat.
+- **Database migrations:** the version-2 handle remap no longer aborts on a message with no
+  `isFromMe` value (it is treated as incoming), and the version-10 link-preview icon step skips
+  metadata that is not valid JSON instead of aborting. Before, either failure stopped the
+  migration run and repeated on every launch.
+- **Dev:** the repo has unit tests. Run `bash scripts/install-objectbox-test-lib.sh` once, then
+  `flutter test`. They cover the outgoing temp-GUID swap, the legacy `iMessage;`/`SMS;`/`RCS;`
+  chat merge, and the version 2, 6, 8 and 10 migrations against a temporary ObjectBox store. The
+  unused `HttpService.testAPI()` and its undeclared `flutter_test` import are gone.
+
 ## 2026-11-16 — Worst-case data and motion review fixes
 
 - **Chat list:** at large system text sizes, chat titles, previews and the delivery check scale

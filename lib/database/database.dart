@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:convert';
 import 'dart:io';
 
 import 'package:bluebubbles/env.dart';
@@ -8,10 +7,11 @@ import 'package:bluebubbles/helpers/helpers.dart';
 import 'package:bluebubbles/services/backend/actions/image_actions.dart';
 import 'package:bluebubbles/database/models.dart';
 import 'package:bluebubbles/database/migrations/chat_latest_message_migration.dart';
+import 'package:bluebubbles/database/migrations/message_handle_id_migration.dart';
 import 'package:bluebubbles/database/migrations/message_handle_relationship_migration.dart';
+import 'package:bluebubbles/database/migrations/preview_icon_migration.dart';
 import 'package:bluebubbles/services/services.dart';
 import 'package:bluebubbles/utils/logger/logger.dart';
-import 'package:collection/collection.dart';
 import 'package:flutter/foundation.dart';
 import 'package:get_it/get_it.dart';
 import 'package:io/io.dart';
@@ -32,7 +32,6 @@ class Database {
   static late final Box<FCMData> fcmData;
   static late final Box<Handle> handles;
   static late final Box<Message> messages;
-  static late final Box<ScheduledMessage> scheduledMessages;
   static late final Box<ThemeStruct> themes;
   static late final Box<ThemeEntry> themeEntries;
 
@@ -54,17 +53,7 @@ class Database {
     }
 
     try {
-      Database.attachments = store.box<Attachment>();
-      Database.chats = store.box<Chat>();
-      Database.contactsV2 = store.box<ContactV2>();
-      Database.customGroups = store.box<CustomGroup>();
-      Database.fcmData = store.box<FCMData>();
-      Database.handles = store.box<Handle>();
-      Database.messages = store.box<Message>();
-      Database.themes = store.box<ThemeStruct>();
-      Database.themeEntries = store.box<ThemeEntry>();
-      // ignore: deprecated_member_use_from_same_package
-      themeObjects = store.box<ThemeObject>();
+      bindBoxes();
 
       // Wait for SettingsService to be fully initialized before accessing settings.
       // This _shouldn't_ be needed, but we're going to do it just in case...
@@ -106,6 +95,20 @@ class Database {
     await seedThemes();
 
     initComplete.complete();
+  }
+
+  static void bindBoxes() {
+    Database.attachments = store.box<Attachment>();
+    Database.chats = store.box<Chat>();
+    Database.contactsV2 = store.box<ContactV2>();
+    Database.customGroups = store.box<CustomGroup>();
+    Database.fcmData = store.box<FCMData>();
+    Database.handles = store.box<Handle>();
+    Database.messages = store.box<Message>();
+    Database.themes = store.box<ThemeStruct>();
+    Database.themeEntries = store.box<ThemeEntry>();
+    // ignore: deprecated_member_use_from_same_package
+    themeObjects = store.box<ThemeObject>();
   }
 
   static Future<void> waitForInit() async {
@@ -192,18 +195,7 @@ class Database {
       switch (nextVersion) {
         // Version 2 changed handleId to match the server side ROWID, rather than client side ROWID
         case 2:
-          Logger.info("Fetching all messages and handles...", tag: "DB-Migration");
-          final messages = Database.messages.getAll();
-          if (messages.isNotEmpty) {
-            final handles = Database.handles.getAll();
-            Logger.info("Replacing handleIds for messages...", tag: "DB-Migration");
-            for (Message m in messages) {
-              if (m.isFromMe! || m.handleId == 0 || m.handleId == null) continue;
-              m.handleId = handles.firstWhereOrNull((e) => e.id == m.handleId)?.originalROWID ?? m.handleId;
-            }
-            Logger.info("Final save...", tag: "DB-Migration");
-            Database.messages.putMany(messages);
-          }
+          MessageHandleIdMigration.migrate();
           break;
 
         // Version 3 modifies chat typing indicators and read receipts values to follow global setting initially
@@ -283,14 +275,7 @@ class Database {
         // Version 10: favicons cached before convertIcoToPng passed `singleFrame: true` are APNGs that cycle
         // through every .ico resolution, and the cache is never re-fetched, so flatten them in place.
         case 10:
-          final query = Database.messages.query(Message_.dbMetadata.contains('previewIconMd5')).build();
-          final hashes = query
-              .property(Message_.dbMetadata)
-              .find()
-              .map((json) => (jsonDecode(json) as Map<String, dynamic>)['previewIconMd5'])
-              .whereType<String>()
-              .toSet();
-          query.close();
+          final hashes = PreviewIconMigration.hashes();
           for (final hash in hashes) {
             final path = FilesystemSvc.urlPreviewImagePath(hash);
             if (File(path).existsSync()) ImageActions.flattenAnimatedPng(path);
@@ -360,7 +345,7 @@ class Database {
   }
 
   /// Wipes messaging-scoped data: attachments, chats, contactsV2, handles, messages, and custom groups.
-  /// Leaves settings, themes, fcmData, and scheduledMessages untouched.
+  /// Leaves settings, themes, and fcmData untouched.
   static void resetMessagingData() {
     Database.runInTransaction(TxMode.write, () {
       Database.attachments.removeAll();

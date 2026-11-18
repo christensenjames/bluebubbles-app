@@ -1217,33 +1217,9 @@ class OutgoingMessageHandler {
         }
       } else {}
     } else {
-      // Normal path: rename the temp record to the real GUID.
-      try {
-        // Capture the return value — it is fetched from the DB and has a valid id.
-        final saved = await Message.replaceMessage(existingGuid, replacement);
-        _confirmedMessage = saved;
-        if (Get.isRegistered<MessagesService>(tag: chat.guid)) {
-          MessagesSvc(chat.guid).updateMessage(saved, oldGuid: existingGuid);
-        }
-      } catch (ex, st) {
-        // If the temp message isn't found in the isolate store, it was never saved.
-        // This can happen if prepMessage failed silently. Fall back to just saving
-        // the replacement message and updating the UI.
-        Logger.warn(
-          'Unable to replace message with GUID "$existingGuid". Socket likely confirmed the message first.',
-          error: ex,
-          trace: st,
-          tag: _tag,
-        );
-
-        // Instead of trying to replace, just save the replacement and update the UI to use it.
-        // This handles the case where the temp message was never saved to the main thread's store.
-        replacement.save(); // sets replacement.id via Database.messages.put()
-        _confirmedMessage = replacement;
-        if (Get.isRegistered<MessagesService>(tag: chat.guid)) {
-          // Update the UI, treating this as transitioning from temp to real GUID
-          MessagesSvc(chat.guid).updateMessage(replacement, oldGuid: existingGuid);
-        }
+      _confirmedMessage = await swapOutgoingMessage(chat, existingGuid, replacement);
+      if (Get.isRegistered<MessagesService>(tag: chat.guid)) {
+        MessagesSvc(chat.guid).updateMessage(_confirmedMessage, oldGuid: existingGuid);
       }
     }
 
@@ -1270,6 +1246,21 @@ class OutgoingMessageHandler {
           tag: _tag,
         );
       }
+    }
+  }
+
+  @visibleForTesting
+  static Future<Message> swapOutgoingMessage(Chat chat, String existingGuid, Message replacement) async {
+    try {
+      return await Message.replaceMessage(existingGuid, replacement);
+    } catch (ex, st) {
+      Logger.warn(
+        'Unable to replace message with GUID "$existingGuid". Socket likely confirmed the message first.',
+        error: ex,
+        trace: st,
+        tag: _tag,
+      );
+      return replacement.save(chat: chat);
     }
   }
 

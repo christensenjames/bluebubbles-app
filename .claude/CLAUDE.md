@@ -33,7 +33,10 @@ After editing `@Entity` classes in `lib/database/io/`:
 - Line length: 120 chars
 
 ## Testing
-No automated test suite. Verify changes by running the target platform.
+Unit tests live in `test/` and run with `flutter test`. Run `bash scripts/install-objectbox-test-lib.sh` once first: it puts
+the ObjectBox C library at `lib/libobjectbox.so` (gitignored), where tests load it from. DB tests call `openTestDatabase()`
+from `test/helpers/test_database.dart` once per file (`setUpAll`) and `Database.reset` between tests. UI and platform
+behavior still need verification on the target platform.
 
 ## Branches
 Branch off `master`; PRs target `master`. Upstream has GitHub workflows; Actions and the PR check workflow are disabled on James's fork.
