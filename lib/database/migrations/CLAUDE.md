@@ -10,18 +10,22 @@ Contains migration scripts that run when the database version is incremented.
 | `chat_latest_message_migration.dart` | Backfills `Chat.dbLatestMessage` / `dbOnlyLatestMessageDate` |
 | `message_handle_id_migration.dart` | Version 2: remaps incoming messages' `handleId` from the local handle id to the server ROWID |
 | `preview_icon_migration.dart` | Version 10: collects cached link-preview icon hashes, skipping unparseable metadata |
+| `migration_runner.dart` | `MigrationRunner.run`: steps from the stored version to `Database.version`, saving each version after its step |
 
-Tests for these steps live in `test/database/migrations_test.dart`; a new step should get one there.
+Tests for these steps live in `test/database/migrations_test.dart`, and for the runner in
+`test/database/migration_runner_test.dart`; a new step should get one there.
 
 ## How Migrations Work
 1. `database.dart` stores `Database.version`
-2. On startup, if the stored version is less than the current version, migration scripts run in a `switch` loop:
+2. On startup, `MigrationRunner.run` calls `Database._migrateTo` for each version after the stored one, whose `switch`
+   runs that version's step:
    ```dart
    switch (nextVersion) {
      case N: MyMigration.migrate(); break;
    }
    ```
-3. Version is bumped to current after all migrations complete
+3. The stored version is saved after each step. A step that throws stops the run; `Database.init` logs the error and
+   startup continues, and the failed step runs again on the next launch.
 
 ## Adding a Migration
 1. Create `my_migration.dart` in this directory
