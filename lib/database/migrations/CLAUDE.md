@@ -8,6 +8,10 @@ Contains migration scripts that run when the database version is incremented.
 |------|---------|
 | `message_handle_relationship_migration.dart` | Migrates legacy message→handle relationships to the new N:M `ToMany` schema |
 | `chat_latest_message_migration.dart` | Backfills `Chat.dbLatestMessage` / `dbOnlyLatestMessageDate` |
+| `message_handle_id_migration.dart` | Version 2: remaps incoming messages' `handleId` from the local handle id to the server ROWID |
+| `preview_icon_migration.dart` | Version 10: collects cached link-preview icon hashes, skipping unparseable metadata |
+
+Tests for these steps live in `test/database/migrations_test.dart`; a new step should get one there.
 
 ## How Migrations Work
 1. `database.dart` stores `Database.version`

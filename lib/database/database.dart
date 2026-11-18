@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:convert';
 import 'dart:io';
 
 import 'package:bluebubbles/env.dart';
@@ -8,10 +7,11 @@ import 'package:bluebubbles/helpers/helpers.dart';
 import 'package:bluebubbles/services/backend/actions/image_actions.dart';
 import 'package:bluebubbles/database/models.dart';
 import 'package:bluebubbles/database/migrations/chat_latest_message_migration.dart';
+import 'package:bluebubbles/database/migrations/message_handle_id_migration.dart';
 import 'package:bluebubbles/database/migrations/message_handle_relationship_migration.dart';
+import 'package:bluebubbles/database/migrations/preview_icon_migration.dart';
 import 'package:bluebubbles/services/services.dart';
 import 'package:bluebubbles/utils/logger/logger.dart';
-import 'package:collection/collection.dart';
 import 'package:flutter/foundation.dart';
 import 'package:get_it/get_it.dart';
 import 'package:io/io.dart';
@@ -195,18 +195,7 @@ class Database {
       switch (nextVersion) {
         // Version 2 changed handleId to match the server side ROWID, rather than client side ROWID
         case 2:
-          Logger.info("Fetching all messages and handles...", tag: "DB-Migration");
-          final messages = Database.messages.getAll();
-          if (messages.isNotEmpty) {
-            final handles = Database.handles.getAll();
-            Logger.info("Replacing handleIds for messages...", tag: "DB-Migration");
-            for (Message m in messages) {
-              if (m.isFromMe! || m.handleId == 0 || m.handleId == null) continue;
-              m.handleId = handles.firstWhereOrNull((e) => e.id == m.handleId)?.originalROWID ?? m.handleId;
-            }
-            Logger.info("Final save...", tag: "DB-Migration");
-            Database.messages.putMany(messages);
-          }
+          MessageHandleIdMigration.migrate();
           break;
 
         // Version 3 modifies chat typing indicators and read receipts values to follow global setting initially
@@ -286,14 +275,7 @@ class Database {
         // Version 10: favicons cached before convertIcoToPng passed `singleFrame: true` are APNGs that cycle
         // through every .ico resolution, and the cache is never re-fetched, so flatten them in place.
         case 10:
-          final query = Database.messages.query(Message_.dbMetadata.contains('previewIconMd5')).build();
-          final hashes = query
-              .property(Message_.dbMetadata)
-              .find()
-              .map((json) => (jsonDecode(json) as Map<String, dynamic>)['previewIconMd5'])
-              .whereType<String>()
-              .toSet();
-          query.close();
+          final hashes = PreviewIconMigration.hashes();
           for (final hash in hashes) {
             final path = FilesystemSvc.urlPreviewImagePath(hash);
             if (File(path).existsSync()) ImageActions.flattenAnimatedPng(path);
