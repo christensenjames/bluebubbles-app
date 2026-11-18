@@ -16,6 +16,9 @@ import 'package:get/get.dart';
 import 'package:logger/logger.dart' show Level;
 import 'package:universal_io/io.dart';
 
+T _readEnumIndex<T>(dynamic index, List<T> values, T current) =>
+    index is int && index >= 0 && index < values.length ? values[index] : current;
+
 /// Reads [Settings.linkPreviewPolicy], honoring the boolean that preceded it.
 ///
 /// Installs that saw the interim `fetchUrlPreviews` flag carry their choice
@@ -750,24 +753,18 @@ class Settings {
         map['notificationReactionAction'] ?? notificationReactionAction.value;
     notificationReactionActionType.value =
         map['notificationReactionActionType'] ?? notificationReactionActionType.value;
-    materialRightAction.value = map['materialRightAction'] != null
-        ? MaterialSwipeAction.values[map['materialRightAction']]
-        : materialRightAction.value;
-    materialLeftAction.value = map['materialLeftAction'] != null
-        ? MaterialSwipeAction.values[map['materialLeftAction']]
-        : materialLeftAction.value;
+    materialRightAction.value =
+        _readEnumIndex(map['materialRightAction'], MaterialSwipeAction.values, materialRightAction.value);
+    materialLeftAction.value =
+        _readEnumIndex(map['materialLeftAction'], MaterialSwipeAction.values, materialLeftAction.value);
     shouldSecure.value = map['shouldSecure'] ?? shouldSecure.value;
-    securityLevel.value = map['securityLevel'] != null
-        ? SecurityLevel.values[map['securityLevel']]
-        : securityLevel.value;
+    securityLevel.value = _readEnumIndex(map['securityLevel'], SecurityLevel.values, securityLevel.value);
     incognitoKeyboard.value =
         map['incognitoKeyboard'] ?? incognitoKeyboard.value;
-    skin.value = map['skin'] != null ? Skins.values[map['skin']] : skin.value;
-    theme.value =
-        map['theme'] != null ? ThemeMode.values[map['theme']] : theme.value;
-    fullscreenViewerSwipeDir.value = map['fullscreenViewerSwipeDir'] != null
-        ? SwipeDirection.values[map['fullscreenViewerSwipeDir']]
-        : fullscreenViewerSwipeDir.value;
+    skin.value = _readEnumIndex(map['skin'], Skins.values, skin.value);
+    theme.value = _readEnumIndex(map['theme'], ThemeMode.values, theme.value);
+    fullscreenViewerSwipeDir.value =
+        _readEnumIndex(map['fullscreenViewerSwipeDir'], SwipeDirection.values, fullscreenViewerSwipeDir.value);
     pinRowsPortrait.value = map['pinRowsPortrait'] ?? pinRowsPortrait.value;
     pinColumnsPortrait.value =
         map['pinColumnsPortrait'] ?? pinColumnsPortrait.value;
@@ -778,7 +775,7 @@ class Settings {
     maxAvatarsInGroupWidget.value =
         map['maxAvatarsInGroupWidget'] ?? maxAvatarsInGroupWidget.value;
     titleBarStyle.value = map['titleBarStyle'] != null
-        ? BBTitleBarStyle.values[map['titleBarStyle']]
+        ? _readEnumIndex(map['titleBarStyle'], BBTitleBarStyle.values, titleBarStyle.value)
         : map['useCustomTitleBar'] == false
             ? BBTitleBarStyle.native
             : titleBarStyle.value;
@@ -822,8 +819,7 @@ class Settings {
         map['useDesktopAccent'] ?? map['useWindowsAccent'] ?? useDesktopAccent.value;
     firstFcmRegisterDate.value =
         map['firstFcmRegisterDate'] ?? firstFcmRegisterDate.value;
-    logLevel.value =
-        map['logLevel'] != null ? Level.values[map['logLevel']] : logLevel.value;
+    logLevel.value = _readEnumIndex(map['logLevel'], Level.values, logLevel.value);
     hideNamesForReactions.value =
         map['hideNamesForReactions'] ?? hideNamesForReactions.value;
     replaceEmoticonsWithEmoji.value =
