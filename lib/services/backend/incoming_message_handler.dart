@@ -139,6 +139,20 @@ IncomingMessageHandler get IncomingMsgHandler => GetIt.I<IncomingMessageHandler>
 ///    widgets or services that need cross-cutting updates (chat tiles, badges,
 ///    etc.).
 class IncomingMessageHandler {
+  IncomingMessageHandler()
+      : _hydrateChatForTest = null,
+        _saveMessageForTest = null;
+
+  @visibleForTesting
+  IncomingMessageHandler.forTest({
+    required Future<Chat> Function(Chat, Message) hydrateChat,
+    required Future<Message> Function(Chat, Message, List<Attachment>) saveMessage,
+  })  : _hydrateChatForTest = hydrateChat,
+        _saveMessageForTest = saveMessage;
+
+  final Future<Chat> Function(Chat, Message)? _hydrateChatForTest;
+  final Future<Message> Function(Chat, Message, List<Attachment>)? _saveMessageForTest;
+
   // ── Deduplication ───────────────────────────────────────────────────────
 
   /// LinkedHashSet gives O(1) lookup while preserving insertion order for
@@ -352,12 +366,14 @@ class IncomingMessageHandler {
     //    Only suppress the "from me" notification clear for reactions so that a
     //    notification-triggered reaction doesn't lose its source notification.
     final clearNotificationFromMe = (m.isFromMe ?? false) && m.associatedMessageGuid == null;
-    final result = await c.addMessage(
-      m,
-      clearNotificationsIfFromMe: clearNotificationFromMe,
-      attachments: incomingAttachments,
-    );
-    final saved = result.message;
+    final saved = _saveMessageForTest != null
+        ? await _saveMessageForTest(c, m, incomingAttachments)
+        : (await c.addMessage(
+            m,
+            clearNotificationsIfFromMe: clearNotificationFromMe,
+            attachments: incomingAttachments,
+          ))
+            .message;
 
     // 5. Mark as processed before any async I/O so a duplicate delivery that
     //    races in while we're playing a sound or sending a notification skips.
@@ -532,6 +548,9 @@ class IncomingMessageHandler {
   ///    from the server to populate them.
   /// 4. When the chat isn't in the DB at all, sync it via [ChatInterface].
   Future<({Chat chat, List<int> affectedHandleIds})> _hydrateChat(Chat partial, Message m) async {
+    if (_hydrateChatForTest != null) {
+      return (chat: await _hydrateChatForTest(partial, m), affectedHandleIds: <int>[]);
+    }
     final payloadVerdict = partial.spamVerdict;
     // Group events always need fresh server data.
     if (m.isGroupEvent) {

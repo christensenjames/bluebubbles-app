@@ -188,6 +188,14 @@ abstract final class UrlSafetyGuard {
       // IPv4-mapped (::ffff:a.b.c.d) — unwrap and apply the v4 rules.
       final isV4Mapped = raw.take(10).every((byte) => byte == 0) && raw[10] == 0xFF && raw[11] == 0xFF;
       if (isV4Mapped) return _isPrivateV4(raw[12], raw[13]);
+
+      // NAT64 well-known prefix, 64:ff9b::/96.
+      final isNat64 = raw[0] == 0 && raw[1] == 0x64 && raw[2] == 0xFF && raw[3] == 0x9B &&
+          raw.skip(4).take(8).every((byte) => byte == 0);
+      if (isNat64) return _isPrivateV4(raw[12], raw[13]);
+
+      // 6to4, 2002::/16.
+      if (raw[0] == 0x20 && raw[1] == 0x02) return _isPrivateV4(raw[2], raw[3]);
     }
 
     return false;

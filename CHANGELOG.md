@@ -1,5 +1,14 @@
 # Changelog
 
+## 2026-11-18 — Backup restore and link-preview safety
+
+- **Settings:** an unknown enum value in a backup no longer stops the restore. The app keeps the
+  current value for that setting and continues restoring the rest.
+- **Link previews:** the address guard now applies its IPv4 restrictions to addresses embedded in
+  the standard NAT64 and 6to4 prefixes.
+- **Dev:** added tests for send confirmation races, receive deduplication, settings restore,
+  message comparison, and the link-preview address guard.
+
 ## 2026-11-17 — Unit tests, and a sent message that could drop out of its chat
 
 - **Sending:** when the server confirmed a sent message whose temporary copy was never saved

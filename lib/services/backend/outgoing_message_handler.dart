@@ -525,6 +525,16 @@ class OutgoingMessageHandler {
     return t;
   }
 
+  @visibleForTesting
+  Future<void> sendWithRaceForTesting({
+    required String tempGuid,
+    required Chat chat,
+    required Future<Map<String, dynamic>> Function() httpCall,
+    required Future<void> Function(Map<String, dynamic>) onSuccess,
+    required Future<void> Function(Object, StackTrace) onError,
+  }) =>
+      _sendWithRace(tempGuid: tempGuid, chat: chat, httpCall: httpCall, onSuccess: onSuccess, onError: onError);
+
   /// Fires [httpCall] and races the response against the socket echo for
   /// [tempGuid].  Whichever arrives first unblocks the queue; the HTTP work
   /// (GUID replacement, error marking, etc.) still runs to completion

@@ -57,7 +57,7 @@ For `"new-message"` events where `message.isFromMe == true` and the payload has 
 
 `IncomingMessageHandler` (accessed via the `IncomingMsgHandler` GetIt getter) owns all inbound message queuing and dispatch. It is a GetIt singleton registered at startup.
 
-Internally it maintains a `Queue<_QueueEntry>` and processes entries up to `maxConcurrency` (default `5`) at a time. Same-GUID payloads are additionally chained through an `_inflightByGuid` map so that two transports racing each other (socket + FCM) can never interleave DB writes for the same message.
+Each handler instance maintains a `Queue<_QueueEntry>` and processes entries up to `maxConcurrency` (default `5`) at a time. Within that instance, `_inflightByGuid` serializes events for the same GUID. This map is not shared with the Android notification worker's Flutter engine.
 
 Calling `handle(payload, {front})` enqueues the payload. Passing `front: true` jumps ahead of waiting items — used when `useQueue` was `false` in Step 2, and internally when flushing/retrying buffered updates.
 
@@ -73,7 +73,7 @@ Routing by `MessageEventType`:
 
 **`_processNewMessage(IncomingPayload)`:**
 
-1. **Deduplication** — checks `_processedGuids` (a 100-entry ring buffer). If the real GUID was already processed (e.g. delivered by both socket and Firebase), returns early.
+1. **Deduplication** — checks `_processedGuids`, which remembers the 100 most recent processed GUIDs in this handler instance. If the real GUID was already processed here, returns early.
 
 2. **Existing record check** — looks up the message by `tempGuid` and by real GUID. If either already exists in the DB (HTTP response saved it before the socket event, or duplicate delivery), redirects to `_processUpdatedMessage()` for a clean GUID swap or field refresh. When running on the main thread, if this chat has a `MessagesService` and the message is not already in its in-memory list, it then adds the saved message so it appears in the open conversation.
 
