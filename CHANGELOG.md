@@ -1,5 +1,10 @@
 # Changelog
 
+## 2026-11-20 — Linux desktop icon
+
+- **Linux:** the Wayland window now uses the GTK application ID instead of the executable name.
+  Desktop environments can use that ID to find the matching launcher and BlueBubbles icon.
+
 ## 2026-11-18 — Backup restore and link-preview safety
 
 - **Settings:** an unknown enum value in a backup no longer stops the restore. The app keeps the
