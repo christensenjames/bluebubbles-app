@@ -1,5 +1,11 @@
 # Changelog
 
+## 2026-11-20 — Start chat button hover
+
+- **Chat list (Material):** hovering or keyboard-focusing the "Start chat" button now tints it with
+  its own content color at the Material 3 state-layer opacities (8% hover, 10% focus). Before, it
+  used the theme's 4% default hover, which was nearly invisible on the colored button.
+
 ## 2026-11-18 — Backup restore and link-preview safety
 
 - **Settings:** an unknown enum value in a backup no longer stops the restore. The app keeps the

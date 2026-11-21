@@ -317,6 +317,8 @@ class _MaterialComposeFAB extends StatelessWidget {
             clipBehavior: Clip.antiAlias,
             child: InkWell(
               onTap: () => controller.openNewChatCreator(context),
+              hoverColor: fgColor.withValues(alpha: 0.08),
+              focusColor: fgColor.withValues(alpha: 0.10),
               child: Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 16),
                 child: Row(
