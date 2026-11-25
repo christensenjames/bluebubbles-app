@@ -46,11 +46,13 @@ class InternalIntentReceiver: BroadcastReceiver() {
                 val tag: String? = intent.getStringExtra("tag")
                 val notificationManager = context.getSystemService(NotificationManager::class.java)
                 val chatNotification = notificationManager.activeNotifications.lastOrNull { it.id == notificationId }
-                DeleteNotificationHandler().deleteNotification(context, notificationId, tag)
+                DeleteNotificationHandler().deleteNotification(context, notificationId, tag, keepBubble = true)
                 DartWorkManager.createWorker(context, intent.type!!, hashMapOf("chatGuid" to chatGuid)) { succeeded ->
                     if (succeeded || chatNotification == null) return@createWorker
                     // A newer message re-posted the chat's notification; it already tells the user the chat is unread.
-                    if (notificationManager.activeNotifications.any { it.id == notificationId }) return@createWorker
+                    if (notificationManager.activeNotifications.any {
+                            it.id == notificationId && !it.notification.extras.getBoolean(DeleteNotificationHandler.readHiddenExtra)
+                        }) return@createWorker
                     PersistentLog.w(context, Constants.logTag, "Mark as read failed for chat $chatGuid, restoring notification $notificationId")
                     val builder = Notification.Builder.recoverBuilder(context, chatNotification.notification)
                     builder.setOnlyAlertOnce(true)

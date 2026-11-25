@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:math';
 
 import 'package:bluebubbles/app/layouts/chat_selector_view/chat_selector_view.dart';
@@ -15,6 +16,7 @@ import 'package:bluebubbles/utils/file_utils.dart';
 import 'package:bluebubbles/utils/logger/logger.dart';
 import 'package:bluebubbles/helpers/helpers.dart';
 import 'package:bluebubbles/app/layouts/settings/widgets/settings_widgets.dart';
+import 'package:bluebubbles/services/backend/sync/server_v2_migrations.dart';
 import 'package:bluebubbles/services/services.dart';
 import 'package:bluebubbles/utils/share.dart';
 import 'package:flutter/cupertino.dart';
@@ -77,22 +79,54 @@ class _TroubleshootPanelState extends State<TroubleshootPanel> with ThemeHelpers
 
     final Directory logDir = Directory(Logger.logDir);
     if (logDir.existsSync()) {
-      final List<FileSystemEntity> files = logDir.listSync();
-      for (final file in files) {
-        if (file.path.endsWith(".log")) {
+      for (final file in logDir.listSync().whereType<File>()) {
+        final bool isLog = file.path.endsWith(".log");
+        if (!isLog && !file.path.endsWith(".dmp")) continue;
+        final int size = file.statSync().size;
+        // Clear Logs empties the latest files instead of deleting them, since they're open; those aren't logs.
+        if (size == 0) continue;
+        if (isLog) {
           count++;
-        } else if (file.path.endsWith(".dmp")) {
-          dumps++;
         } else {
-          continue;
+          dumps++;
         }
-        sizeKb += file.statSync().size ~/ 1024;
+        sizeKb += size ~/ 1024;
       }
     }
 
     logFileCount.value = count;
     crashDumpCount.value = dumps;
     logFileSize.value = sizeKb;
+  }
+
+  Future<void> _runServerV2Migrations() async {
+    final step = "Checking messages...".obs;
+    final progress = RxnDouble();
+    unawaited(showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => PopScope(
+        canPop: false,
+        child: Obx(() => BBProgressDialog(title: step.value, progress: progress.value)),
+      ),
+    ));
+    int? filled;
+    try {
+      filled = await ServerV2Migrations.run(onProgress: (s, p, {completed, total}) {
+        step.value = s;
+        progress.value = p;
+      });
+    } catch (e, s) {
+      Logger.error('Updating messages from the server failed', error: e, trace: s, tag: 'TroubleshootPanel');
+    } finally {
+      // The dialog can't be dismissed, so it has to come down however the pass ends
+      if (mounted) Navigator.of(context, rootNavigator: true).pop();
+    }
+    if (filled == null) {
+      showSnackbar("Not Updated", "Couldn't reach your server, or it isn't running v2.", type: SnackbarType.error);
+    } else {
+      showSnackbar("Messages Updated", "Updated $filled message(s).", type: SnackbarType.success);
+    }
   }
 
   @override
@@ -213,17 +247,21 @@ class _TroubleshootPanelState extends State<TroubleshootPanel> with ThemeHelpers
                               // The save dialog goes through the file chooser portal, so this also works in the
                               // flatpak and snap sandboxes, which can't write to Downloads directly.
                               if (kIsDesktop) {
-                                final String? savedPath = await saveFileAs(
-                                  fileName: fileName,
-                                  // Throws on Linux without an XDG Downloads dir; the dialog's default is fine then.
-                                  initialDirectory: await FilesystemSvc.downloadsDirectory
-                                      .then<String?>((dir) => dir, onError: (_) => null),
-                                  sourcePath: filePath,
-                                  allowedExtensions: ['zip'],
-                                );
-                                if (savedPath == null) return;
-                                showSnackbar("Logs Saved", "Saved $fileName.", type: SnackbarType.success);
-                                await revealInFileManager(savedPath);
+                                try {
+                                  final String? savedPath = await saveFileAs(
+                                    fileName: fileName,
+                                    initialDirectory: await FilesystemSvc.downloadsDirectory
+                                        .then<String?>((dir) => dir, onError: (_) => null),
+                                    sourcePath: filePath,
+                                  );
+                                  if (savedPath == null) return;
+                                  showSnackbar("Logs Saved", "Saved $fileName.", type: SnackbarType.success);
+                                  await revealInFileManager(savedPath);
+                                } finally {
+                                  try {
+                                    File(filePath).deleteSync();
+                                  } catch (_) {}
+                                }
                                 return;
                               }
 
@@ -330,6 +368,17 @@ class _TroubleshootPanelState extends State<TroubleshootPanel> with ThemeHelpers
                   ]),
                 SettingsHeader(iosSubtitle: iosSubtitle, materialSubtitle: materialSubtitle, text: "Troubleshooting"),
                 SettingsSection(backgroundColor: tileColor, children: [
+                  SettingsTile(
+                    onTap: _runServerV2Migrations,
+                    leading: const SettingsLeadingIcon(
+                      iosIcon: CupertinoIcons.arrow_2_circlepath,
+                      materialIcon: Icons.sync_alt,
+                      containerColor: Colors.blueAccent,
+                    ),
+                    title: "Run v2 Server Migrations",
+                    subtitle: "Refetch data that servers before v2 didn't send, like emoji tapbacks.",
+                  ),
+                  const SettingsDivider(padding: EdgeInsets.only(left: 16.0)),
                   SettingsTile(
                     onTap: () => NavigationSvc.pushSettings(context, const SoftDeletedChatsPanel()),
                     leading: const SettingsLeadingIcon(
@@ -514,6 +563,23 @@ class _TroubleshootPanelState extends State<TroubleshootPanel> with ThemeHelpers
                       title: "Delete All Messaging Data",
                       subtitle:
                           "Permanently deletes ALL messages, chats, attachments, participants, and contacts on this device."),
+                ]),
+                SettingsHeader(iosSubtitle: iosSubtitle, materialSubtitle: materialSubtitle, text: "Subscription"),
+                SettingsSection(backgroundColor: tileColor, children: [
+                  Obx(() => SettingsSwitch(
+                        onChanged: (bool val) => SubscriptionSvc.debugDisabled.value = val,
+                        initialVal: SubscriptionSvc.debugDisabled.value,
+                        title: "Disable Subscription Features",
+                        subtitle: "Acts as if your server had no subscription, to see how games, stickers and Genmoji "
+                            "look without one. Turns off again when the app restarts.",
+                        isThreeLine: true,
+                        backgroundColor: tileColor,
+                        leading: const SettingsLeadingIcon(
+                          iosIcon: CupertinoIcons.lock,
+                          materialIcon: Icons.lock_outline,
+                          containerColor: Colors.orange,
+                        ),
+                      )),
                 ]),
                 if (kIsDesktop) const SizedBox(height: 100),
               ],

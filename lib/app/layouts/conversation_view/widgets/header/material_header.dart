@@ -292,7 +292,7 @@ class _ChatIconAndTitleState extends CustomState<_ChatIconAndTitle, void, Conver
                 final style = context.theme.textTheme.labelLarge!.apply(color: context.theme.colorScheme.outline);
                 final title = controller.chat.getTitle();
                 if (samsung && controller.chat.isGroup) {
-                  return Text("${controller.chat.handles.length} recipients",
+                  return Text("${controller.chat.people.length} recipients",
                       style: style, maxLines: 1, overflow: TextOverflow.fade);
                 }
                 if (hideAddress) return const SizedBox.shrink();
@@ -302,8 +302,8 @@ class _ChatIconAndTitleState extends CustomState<_ChatIconAndTitle, void, Conver
                 }
                 if (material &&
                     !controller.chat.isGroup &&
-                    controller.chat.handles.length == 1 &&
-                    controller.chat.handles.first.address.isEmail) {
+                    controller.chat.people.length == 1 &&
+                    controller.chat.people.first.address.isEmail) {
                   return LayoutBuilder(
                     // Reversed so a long address opens on its end: the domain is what exposes a spoofed sender.
                     builder: (context, constraints) => SingleChildScrollView(
@@ -311,7 +311,7 @@ class _ChatIconAndTitleState extends CustomState<_ChatIconAndTitle, void, Conver
                       reverse: true,
                       child: ConstrainedBox(
                         constraints: BoxConstraints(minWidth: constraints.maxWidth),
-                        child: Text(controller.chat.handles.first.address, style: style),
+                        child: Text(controller.chat.people.first.address, style: style),
                       ),
                     ),
                   );

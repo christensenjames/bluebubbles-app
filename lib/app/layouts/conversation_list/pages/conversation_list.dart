@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:bluebubbles/app/layouts/conversation_list/widgets/server_v2_migration_banner.dart';
 import 'package:bluebubbles/app/components/avatars/contact_avatar_widget.dart';
 import 'package:bluebubbles/app/components/m3e/m3e_motion.dart';
 import 'package:bluebubbles/app/layouts/chat_creator/new_chat_creator.dart';
@@ -8,9 +9,11 @@ import 'package:bluebubbles/app/layouts/conversation_list/widgets/footer/samsung
 import 'package:bluebubbles/app/layouts/conversation_list/widgets/header/material_header.dart';
 import 'package:bluebubbles/app/layouts/conversation_list/widgets/header/samsung_header.dart';
 import 'package:bluebubbles/app/layouts/conversation_list/widgets/initial_widget_right.dart';
+import 'package:bluebubbles/app/layouts/conversation_list/widgets/pin_drag/pin_drag_controller.dart';
 import 'package:bluebubbles/app/layouts/conversation_list/widgets/tile/conversation_tile.dart';
 import 'package:bluebubbles/app/layouts/conversation_list/widgets/tile/material_conversation_tile.dart';
 import 'package:bluebubbles/app/layouts/conversation_list/widgets/tile/samsung_conversation_tile.dart';
+import 'package:bluebubbles/app/layouts/conversation_list/widgets/tile/pinned_conversation_tile.dart';
 import 'package:bluebubbles/app/layouts/conversation_view/pages/conversation_view.dart';
 import 'package:bluebubbles/app/wrappers/bb_scaffold.dart';
 import 'package:bluebubbles/app/wrappers/stateful_boilerplate.dart';
@@ -30,7 +33,6 @@ import 'package:bluebubbles/app/wrappers/theme_switcher.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/services.dart';
 import 'package:get/get.dart';
-import 'package:universal_io/io.dart';
 
 class ConversationListController extends StatefulController {
   final bool showArchivedChats;
@@ -45,6 +47,15 @@ class ConversationListController extends StatefulController {
   double materialScrollStartPosition = 0;
 
   ConversationListController({required this.showArchivedChats, required this.showUnknownSenders, this.showSpam = false});
+  /// This list's pin drag: one per list, so a list pushed over another (Archived, Unknown Senders) drags on its own.
+  final PinDragController pinDrag = PinDragController();
+
+
+  @override
+  void onClose() {
+    pinDrag.dispose();
+    super.onClose();
+  }
 
   void updateSelectedChats() {
     hasSelection.value = selectedChats.isNotEmpty;
@@ -100,10 +111,13 @@ class ConversationListController extends StatefulController {
 
   // A tile that was never built has no controller yet; it reads the selection when it builds.
   void _updateTile(Chat c) {
-    if (!Get.isRegistered<ConversationTileController>(tag: c.guid)) return;
-    final tile = Get.find<ConversationTileController>(tag: c.guid);
-    tile.updateWidgets<MaterialConversationTile>(null);
-    tile.updateWidgets<SamsungConversationTile>(null);
+    for (final tag in [c.guid, "${c.guid}-pinned"]) {
+      if (!Get.isRegistered<ConversationTileController>(tag: tag)) continue;
+      final tile = Get.find<ConversationTileController>(tag: tag);
+      tile.updateWidgets<MaterialConversationTile>(null);
+      tile.updateWidgets<SamsungConversationTile>(null);
+      tile.updateWidgets<PinnedConversationTile>(null);
+    }
   }
 
   void updateMaterialFAB() {
@@ -195,6 +209,26 @@ class ConversationList extends CustomStateful<ConversationListController> {
 class _ConversationListState extends CustomState<ConversationList, void, ConversationListController>
     with WidgetsBindingObserver {
   Timer? _initTimer;
+  bool? _wasAltLayout;
+  Worker? _tabletModeWorker;
+
+  bool get _isMainList => !controller.showArchivedChats && !controller.showUnknownSenders && !controller.showSpam;
+
+  /// Folding while Settings or Find My covers the chat closes it, so leaving them lands on the list.
+  /// Runs when the window size or the tablet mode setting changes, the two things that switch the layout.
+  void _closeChatIfFoldedBehindSection() {
+    if (!mounted) return;
+    final altLayout = showAltLayout;
+    final folded = _wasAltLayout == true && !altLayout;
+    _wasAltLayout = altLayout;
+    if (!folded || NavigationSvc.openSection.value == null) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      if (ChatsSvc.activeChat != null) cvc(ChatsSvc.activeChat!.chat).close();
+      NavigationSvc.closeAllConversationView(context);
+      unawaited(ChatsSvc.setAllInactive());
+    });
+  }
 
   @override
   void initState() {
@@ -205,7 +239,9 @@ class _ConversationListState extends CustomState<ConversationList, void, Convers
             ? "Unknown"
             : controller.showSpam ? "Spam" : "Messages";
 
-    if (!kIsWeb && !controller.showArchivedChats && !controller.showUnknownSenders && !controller.showSpam) {
+    if (!kIsWeb && _isMainList) {
+      NavigationSvc.chatPaneObserver.reset();
+      _tabletModeWorker = ever(SettingsSvc.settings.tabletMode, (_) => _closeChatIfFoldedBehindSection());
       WidgetsBinding.instance.addObserver(this);
       ChatsSvc.loadedAllChats.future.then((_) => _precacheAvatars());
     }
@@ -217,11 +253,8 @@ class _ConversationListState extends CustomState<ConversationList, void, Convers
           return;
         }
 
-        bool notInSettings = NavigationSvc.isTabletMode(context)
-            ? !Get.keys.containsKey(3) || Get.keys[3]?.currentContext == null
-            : Get.rawRoute?.settings.name == "/";
         // This only runs once
-        if (notInSettings) {
+        if (NavigationSvc.openSection.value != AppSection.settings) {
           SettingsSvc.settings.reachedConversationList.value = true;
           SettingsSvc.settings.saveOneAsync('reachedConversationList');
           t.cancel();
@@ -264,20 +297,19 @@ class _ConversationListState extends CustomState<ConversationList, void, Convers
 
   /// Decodes the avatars for the top chats into Flutter's ImageCache so tiles
   /// render them synchronously instead of falling back to initials while the
-  /// file decodes. The ResizeImage params must exactly match what
-  /// ContactAvatarWidget passes to Image.file, or the warmed entries are never hit.
+  /// file decodes. Uses [ContactAvatarWidget.avatarImage], the same provider the
+  /// avatar widgets draw with, so the warmed entries are hit.
   void _precacheAvatars() {
     if (!mounted) return;
-    const decodeSize = ContactAvatarWidget.avatarDecodeSize;
     for (final chat in ChatsSvc.allChats.take(30)) {
       final state = ChatsSvc.getChatState(chat.guid);
       if (state == null) continue;
       final customPath = state.customAvatarPath.value;
       if (customPath != null) {
-        // Same ResizeImage params as ContactAvatarGroupWidget, or the warmed
-        // entry is never hit and the photo decodes a second time at full size.
+        // Same provider as ContactAvatarGroupWidget, or the warmed entry is
+        // never hit and the photo decodes a second time.
         unawaited(precacheImage(
-          ResizeImage(FileImage(File(customPath)), width: decodeSize, height: decodeSize),
+          ContactAvatarWidget.avatarImage(customPath),
           context,
         ));
         continue;
@@ -286,7 +318,7 @@ class _ConversationListState extends CustomState<ConversationList, void, Convers
         final path = hs.avatarPath.value;
         if (path == null) continue;
         unawaited(precacheImage(
-          ResizeImage(FileImage(File(path)), width: decodeSize, height: decodeSize),
+          ContactAvatarWidget.avatarImage(path),
           context,
         ));
       }
@@ -294,8 +326,18 @@ class _ConversationListState extends CustomState<ConversationList, void, Convers
   }
 
   @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (!_isMainList) return;
+    // Depend on the size explicitly: showAltLayout skips reading it while tablet mode is off
+    MediaQuery.sizeOf(context);
+    _closeChatIfFoldedBehindSection();
+  }
+
+  @override
   void dispose() {
     _initTimer?.cancel();
+    _tabletModeWorker?.dispose();
     WidgetsBinding.instance.removeObserver(this);
     super.dispose();
   }
@@ -308,92 +350,80 @@ class _ConversationListState extends CustomState<ConversationList, void, Convers
       samsungSkin: SamsungConversationList(parentController: controller),
     );
 
-    if (controller.showArchivedChats || controller.showUnknownSenders || controller.showSpam) return child;
+    if (!_isMainList) return child;
+
+    final chatList = Stack(
+      fit: StackFit.expand,
+      children: [
+        child,
+        const Positioned(
+          top: 16,
+          left: 16,
+          right: 16,
+          child: SafeArea(
+            bottom: false,
+            child: Align(alignment: Alignment.topRight, child: ServerV2MigrationBanner()),
+          ),
+        ),
+      ],
+    );
 
     return BBScaffold(
       safeAreaLeft: false,
       safeAreaRight: false,
+      // Resizing the panes for the keyboard would resize the chat pane's overlay under the composer
+      safeAreaBottom: false,
+      resizeToAvoidBottomInset: false,
       body: TabletModeWrapper(
         initialRatio: 0.4,
         minWidthLeft: kIsDesktop || kIsWeb ? 150 : null,
         minRatio: kIsDesktop || kIsWeb ? 0.1 : 0.33,
         maxRatio: 0.5,
-        onCollapse: () {
-          // A chat on the root navigator survives the collapse and must keep its controller.
-          final guid = ChatsSvc.activeChat?.chat.guid;
-          if (guid != null && Get.isRegistered<ConversationViewController>(tag: guid)) {
-            final activeController = Get.find<ConversationViewController>(tag: guid);
-            if (activeController.inSplitPane) activeController.close();
-          }
-        },
         allowResize: true,
-        left: !showAltLayout
-            ? child
-            : LayoutBuilder(builder: (context, constraints) {
-                NavigationSvc.maxWidthLeft = constraints.maxWidth;
-                return PopScope(
-                  canPop: false,
-                  onPopInvokedWithResult: <T>(bool _, T? _) async {
-                    Get.until((route) {
-                      bool id2result = false;
-                      // check if we should pop the left side first
-                      Get.until((route) {
-                        if (route.settings.name != "initial") {
-                          Get.back(id: 2);
-                          id2result = true;
-                        }
-                        if (!(Get.global(2).currentState?.canPop() ?? true)) {
-                          if (ChatsSvc.activeChat != null) {
-                            cvc(ChatsSvc.activeChat!.chat).close();
-                          }
-                        }
-                        return true;
-                      }, id: 2);
-                      if (!id2result) {
-                        if (route.settings.name == "initial") {
-                          SystemNavigator.pop();
-                        } else {
-                          Get.back(id: 1);
-                        }
-                      }
-                      return true;
-                    }, id: 1);
-                  },
-                  child: Navigator(
-                    key: Get.nestedKey(1),
-                    requestFocus: false,
-                    onPopPage: (route, _) {
-                      return false;
-                    },
-                    pages: [
-                      MaterialPage(
-                        name: "initial",
-                        child: child,
-                      )
-                    ],
-                  ),
-                );
-              }),
-        right: LayoutBuilder(
-          builder: (context, constraints) {
-            NavigationSvc.maxWidthRight = constraints.maxWidth;
-            return PopScope(
-              canPop: false,
-              onPopInvokedWithResult: <T>(bool _, T? _) async {
-                Get.back(id: 2);
-              },
+        rightOpen: NavigationSvc.chatPaneOpen,
+        left: LayoutBuilder(builder: (context, constraints) {
+          NavigationSvc.maxWidthLeft = constraints.maxWidth;
+          return PopScope(
+            canPop: false,
+            onPopInvokedWithResult: <T>(bool _, T? _) {
+              if (!NavigationSvc.back()) SystemNavigator.pop();
+            },
+            child: SafeArea(
+              top: false,
+              left: false,
+              right: false,
               child: Navigator(
-                key: Get.nestedKey(2),
+                key: Get.nestedKey(1),
+                requestFocus: false,
                 onPopPage: (route, _) {
                   return false;
                 },
                 pages: [
-                  const MaterialPage(
+                  MaterialPage(
                     name: "initial",
-                    child: InitialWidgetRight(),
-                  ),
+                    child: chatList,
+                  )
                 ],
               ),
+            ),
+          );
+        }),
+        right: LayoutBuilder(
+          builder: (context, constraints) {
+            NavigationSvc.maxWidthRight = constraints.maxWidth;
+            // Back is handled by the left pane's PopScope, which pops this navigator first
+            return Navigator(
+              key: Get.nestedKey(2),
+              observers: [NavigationSvc.chatPaneObserver, NavigationSvc.paneRouteObserver],
+              onPopPage: (route, _) {
+                return false;
+              },
+              pages: [
+                const MaterialPage(
+                  name: "initial",
+                  child: InitialWidgetRight(),
+                ),
+              ],
             );
           },
         ),

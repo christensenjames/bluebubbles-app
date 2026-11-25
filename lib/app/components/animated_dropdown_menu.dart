@@ -96,8 +96,11 @@ class _AnimatedDropdownMenuState extends State<AnimatedDropdownMenu> with Single
     if (renderBox == null || !renderBox.hasSize) return;
 
     final triggerSize = renderBox.size;
-    final triggerTopLeft = renderBox.localToGlobal(Offset.zero);
-    final screenSize = MediaQuery.sizeOf(context);
+    // Measured within the overlay the menu is drawn in, not the window: on desktop that can be a settings pane, and
+    // the menu is clipped at its edges
+    final overlayBox = Overlay.of(context).context.findRenderObject() as RenderBox?;
+    final triggerTopLeft = renderBox.localToGlobal(Offset.zero, ancestor: overlayBox);
+    final screenSize = overlayBox?.size ?? MediaQuery.sizeOf(context);
 
     // Growing left from the trigger's right edge is the default look — flip
     // to growing right from the trigger's left edge if that would clip.

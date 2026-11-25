@@ -139,6 +139,7 @@ class AttachmentApi {
     });
   }
 
+
   /// Get the number of attachments in the server iMessage DB
   Future<Response> getCount({CancelToken? cancelToken}) async {
     return _svc.runApiGuarded(() async {

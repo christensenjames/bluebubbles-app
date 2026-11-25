@@ -1,8 +1,10 @@
 import 'dart:async';
+import 'dart:convert';
 
 import 'package:bluebubbles/app/layouts/conversation_view/widgets/message/typing/typing_indicator.dart';
 import 'package:bluebubbles/app/state/chat_state.dart';
 import 'package:bluebubbles/helpers/helpers.dart';
+import 'package:bluebubbles/helpers/ui/message_run_spans.dart';
 import 'package:bluebubbles/app/layouts/conversation_list/pages/conversation_list.dart';
 import 'package:bluebubbles/app/layouts/conversation_list/widgets/tile/cupertino_conversation_tile.dart';
 import 'package:bluebubbles/app/layouts/conversation_list/widgets/tile/material_conversation_tile.dart';
@@ -41,7 +43,7 @@ class ConversationTileController extends StatefulController {
   });
 
   void onTap(BuildContext context) {
-    if ((inSelectMode || listController.selectedChats.isNotEmpty) && onSelect != null) {
+    if (inSelectMode || listController.selectedChats.isNotEmpty) {
       onLongPress();
     } else if ((!kIsDesktop && !kIsWeb) || ChatsSvc.activeChat?.chat.guid != chat.guid) {
       final tabletMode = NavigationSvc.isTabletMode(context);
@@ -55,9 +57,9 @@ class ConversationTileController extends StatefulController {
       ).then((_) {
         if (!tabletMode) listController.revealIfMovedUp(chat, indexBefore);
       });
-    } else if (NavigationSvc.isTabletMode(context) && ChatsSvc.activeChat?.isAlive.value == false) {
+    } else if (NavigationSvc.isTabletMode(context) && ChatsSvc.activeChat?.isCovered.value == true) {
       // Pops chat details
-      Get.back(id: 2);
+      NavigationSvc.back();
     } else {
       cvc(chat).lastFocusedNode.requestFocus();
     }
@@ -80,8 +82,24 @@ class ConversationTileController extends StatefulController {
     HapticFeedback.lightImpact();
   }
 
+  void toggleListSelection() {
+    if (isSelected) {
+      listController.selectedChats.removeWhere((c) => c.guid == chat.guid);
+    } else {
+      listController.selectedChats.add(chat);
+    }
+    listController.updateSelectedChats();
+  }
+
   void onSelected() {
-    onSelect?.call(!isSelected);
+    final select = onSelect;
+    if (select != null) {
+      select(!isSelected);
+    } else {
+      // The controller outlives the list that built it (a skin switch keeps the iOS list's, which passes no onSelect),
+      // so selecting falls back to the list's own selection.
+      toggleListSelection();
+    }
     if (SettingsSvc.settings.skin.value == Skins.Material) {
       updateWidgets<MaterialConversationTile>(null);
     }
@@ -229,6 +247,39 @@ class ChatSubtitle extends CustomStateful<ConversationTileController> {
 }
 
 class _ChatSubtitleState extends CustomState<ChatSubtitle, void, ConversationTileController> {
+  // previewInlineAttachments can hit the DB, so it runs once per subtitle rather than on every rebuild
+  String? _cachedInlineKey;
+  List<Attachment?> _cachedInline = const [];
+
+  /// Whether the first of [_cachedInline] is a sticker tapback's sticker, which reads as words until it's downloaded
+  bool _cachedLeadingSticker = false;
+
+  List<Attachment?> _inlineAttachments(Message? message, String subtitle) {
+    // The attachment count too: a Genmoji linked after the first build doesn't change the subtitle
+    final key = "${message?.guid}|${message?.dbAttachments.length}|$subtitle";
+    if (_cachedInlineKey != key) {
+      _cachedInlineKey = key;
+      _cachedInline = message?.previewInlineAttachments ?? const [];
+      final sticker = message?.previewSticker;
+      _cachedLeadingSticker = sticker != null && _cachedInline.firstOrNull?.guid == sticker.guid;
+    }
+    return _cachedInline;
+  }
+
+  // The draft's runs are decoded once per saved draft, not on every rebuild of the subtitle
+  String? _cachedDraftRunsJson;
+  List<Run> _cachedDraftRuns = const [];
+
+  List<Run> _draftRuns(String? json) {
+    if (json != _cachedDraftRunsJson) {
+      _cachedDraftRunsJson = json;
+      _cachedDraftRuns = json == null
+          ? const []
+          : (jsonDecode(json) as List).map((r) => Run.fromMap((r as Map).cast())).toList();
+    }
+    return _cachedDraftRuns;
+  }
+
   @override
   void initState() {
     super.initState();
@@ -261,6 +312,9 @@ class _ChatSubtitleState extends CustomState<ChatSubtitle, void, ConversationTil
 
       final TextSpan subtitleSpan;
       if (draftBody != null) {
+        final hasDraftText = (chatState.textFieldText.value ?? '').isNotEmpty;
+        final draftRunsJson = chatState.textFieldRuns.value;
+        final draftRuns = hasDraftText ? _draftRuns(draftRunsJson) : const <Run>[];
         subtitleSpan = TextSpan(children: [
           TextSpan(
             text: 'Draft: ',
@@ -269,14 +323,36 @@ class _ChatSubtitleState extends CustomState<ChatSubtitle, void, ConversationTil
               fontStyle: FontStyle.normal,
             ),
           ),
-          ...MessageHelper.buildEmojiText(draftBody, widget.style),
+          ...buildMessageRunSpans(
+            text: draftBody,
+            runs: draftRuns,
+            style: widget.style,
+            buildText: (text, style, _) => MessageHelper.buildEmojiText(text, style),
+          ),
         ]);
       } else {
-        subtitleSpan = TextSpan(
-          children: MessageHelper.buildEmojiText(
-            _messagePreview(chatState, iOS),
-            widget.style.copyWith(fontStyle: !iOS && !material && !isDelivered ? FontStyle.italic : null),
+        final style = widget.style.copyWith(fontStyle: !iOS && !material && !isDelivered ? FontStyle.italic : null);
+        final _subtitle = chatState.subtitle.value ?? '';
+        final body = latestMessage?.attributedBody.firstOrNull;
+        final spans = [
+          if (!iOS && isFromMe) ...MessageHelper.buildEmojiText("You: ", style),
+          ...buildMessageRunSpans(
+            text: _subtitle,
+            runs: body != null && body.string == _subtitle ? body.runs : const [],
+            style: style,
+            buildText: (text, style, _) => MessageHelper.buildEmojiText(text, style),
           ),
+        ];
+        final inline = _subtitle.contains(objectReplacementChar)
+            ? _inlineAttachments(latestMessage, _subtitle)
+            : const <Attachment?>[];
+        final stickerPlaceholder = inline.isNotEmpty && _cachedLeadingSticker
+            ? (latestMessage?.associatedMessageType == ReactionTypes.STICKER ? "with a sticker" : "a sticker")
+            : null;
+        subtitleSpan = TextSpan(
+          children: inline.isEmpty
+              ? spans
+              : withInlineAttachments(spans, inline, style, leadingPlaceholder: stickerPlaceholder),
         );
       }
 

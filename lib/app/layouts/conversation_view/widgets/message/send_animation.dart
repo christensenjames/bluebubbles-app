@@ -68,8 +68,8 @@ class _SendAnimationState extends CustomState<SendAnimation, SendData, Conversat
     return _typingIndicatorFallbackHeight;
   }
 
-  // Offset for smart reply row when it is visible.
-  double get _smartReplyOffset => controller.showSmartReplyRow.value ? controller.smartReplyRowHeight.value : 0;
+  // Offset for the pill row (smart replies and quick actions) when it is visible.
+  double get _pillRowOffset => controller.showPillRow.value ? controller.pillRowHeight.value : 0;
 
   // Snapshot of _liveBottomOffset taken when a send animation starts, and cleared
   // when the bubble is torn down. Null whenever no send is in flight.
@@ -94,7 +94,7 @@ class _SendAnimationState extends CustomState<SendAnimation, SendData, Conversat
       focusInfoSize +
       _textFieldVerticalPadding +
       _typingIndicatorOffset +
-      _smartReplyOffset +
+      _pillRowOffset +
       _platformVerticalOffset;
 
   @override
@@ -153,21 +153,26 @@ class _SendAnimationState extends CustomState<SendAnimation, SendData, Conversat
     super.dispose();
   }
 
+  Attachment _outgoingAttachment(PlatformFile file) => Attachment(
+        isOutgoing: true,
+        mimeType: mime(file.path) ?? mime(file.name),
+        uti: "public.jpg",
+        transferName: file.name,
+        totalBytes: file.size,
+        // Store the original source path in metadata so prepAttachments can copy it.
+        // For bytes-only files (clipboard/GIF keyboard), store bytes in the transient field
+        // so prepAttachments can write them to disk.
+        metadata: file.path != null ? {'source_path': file.path} : null,
+        bytes: file.path == null ? file.bytes : null,
+      );
+
   Future<void> send(SendData data) async {
     // do not add anything above this line, the attachments must be extracted first
     final attachments = List<PlatformFile>.from(data.attachments);
-    // text is mutable — reassigned during mention processing below
-    String text = data.text;
-    // Read before the awaits below. Material has no flight; under reduced motion it would land instantly.
+    final text = data.text;
     final fly = !material && !MediaQuery.disableAnimationsOf(context);
-    // Hide the smart reply row immediately, before the send animation's target
-    // is computed below. Otherwise the row disappears mid-flight (once the
-    // outgoing message is inserted and messages_view.dart clears the smart
-    // reply suggestions), shrinking _animationBottomOffset while the flight
-    // is still heading toward the old, taller target —
-    // which is what caused the bubble to land too high and snap back down.
-    if (controller.showSmartReplyRow.value) {
-      controller.updateSmartReplyLayout(visible: false, height: 0);
+    if (controller.showPillRow.value && !controller.pillRowHasQuickActions) {
+      controller.updatePillRowLayout(visible: false, height: 0);
     }
     if (SettingsSvc.settings.scrollToBottomOnSend.value) {
       // Not awaited: the scroll (≤300ms) runs alongside the 300ms flight, so the send need not wait for it.
@@ -197,28 +202,15 @@ class _SendAnimationState extends CustomState<SendAnimation, SendData, Conversat
       }
     }
 
-    final sendAsMultipart = !kIsWeb &&
-        SettingsSvc.settings.enablePrivateAPI.value &&
-        SettingsSvc.settings.privateAPIAttachmentSend.value &&
+    final sendAsMultipart = SettingsSvc.canSendAttachmentsTogether &&
         !data.isAudioMessage &&
-        (attachments.length >= 2 ||
-            (attachments.isNotEmpty && (text.isNotEmpty || data.subject.isNotEmpty)));
+        attachments.every((file) => file.balloonBundleId == null) &&
+        (attachments.length >= 2 || (attachments.isNotEmpty && (text.isNotEmpty || data.subject.isNotEmpty)));
     final multipartAttachments = <Attachment>[];
 
     for (int i = 0; i < attachments.length; i++) {
       final file = attachments[i];
-      final attachment = Attachment(
-        isOutgoing: true,
-        mimeType: mime(file.path) ?? mime(file.name),
-        uti: "public.jpg",
-        transferName: file.name,
-        totalBytes: file.size,
-        // Store the original source path in metadata so prepAttachment can copy it.
-        // For bytes-only files (clipboard/GIF keyboard), store bytes in the transient field
-        // so prepAttachment can write them to disk.
-        metadata: file.path != null ? {'source_path': file.path} : null,
-        bytes: file.path == null ? file.bytes : null,
-      );
+      final attachment = _outgoingAttachment(file);
       if (sendAsMultipart) {
         multipartAttachments.add(attachment);
         continue;
@@ -248,26 +240,7 @@ class _SendAnimationState extends CustomState<SendAnimation, SendData, Conversat
     }
 
     if (text.isNotEmpty || data.subject.isNotEmpty || sendAsMultipart) {
-      final textSplit = MentionTextEditingController.splitText(text);
-      bool flag = false;
-      final newText = [];
-      if (textSplit.length > 1) {
-        for (String word in textSplit) {
-          if (word == MentionTextEditingController.escapingChar) flag = !flag;
-          int? index = flag ? int.tryParse(word) : null;
-          final mention = index != null ? controller.textController.mentionables.elementAtOrNull(index) : null;
-          if (mention != null) {
-            newText.add(mention);
-            continue;
-          }
-          if (word == MentionTextEditingController.escapingChar) {
-            continue;
-          }
-          newText.add(word.replaceAll(MentionTextEditingController.escapingChar, ""));
-        }
-        text = newText.join("");
-      }
-      int currentPos = 0;
+      final runs = MentionTextEditingController.attributedRuns(text, data.runs);
       final _message = Message(
         text: !sendAsMultipart && text.isEmpty && data.subject.isNotEmpty ? data.subject : text,
         subject: !sendAsMultipart && text.isEmpty && data.subject.isNotEmpty ? null : data.subject,
@@ -279,35 +252,7 @@ class _SendAnimationState extends CustomState<SendAnimation, SendData, Conversat
         isFromMe: true,
         handleId: 0,
         hasDdResults: true,
-        attributedBody: [
-          if (textSplit.length > 1)
-            AttributedBody(
-              string: text,
-              runs: newText.whereType<Mentionable>().isEmpty
-                  ? []
-                  : newText.map((e) {
-                      if (e is Mentionable) {
-                        final run = Run(
-                            range: [currentPos, e.toString().length],
-                            attributes: Attributes(
-                              mention: e.address,
-                              messagePart: 0,
-                            ));
-                        currentPos += e.toString().length;
-                        return run;
-                      } else {
-                        final run = Run(
-                          range: [currentPos, e.length],
-                          attributes: Attributes(
-                            messagePart: 0,
-                          ),
-                        );
-                        currentPos += e.toString().length;
-                        return run;
-                      }
-                    }).toList(),
-            ),
-        ],
+        attributedBody: [if (runs.isNotEmpty) AttributedBody(string: text, runs: runs)],
       );
       if (sendAsMultipart) {
         _message.generateTempGuid();
@@ -376,10 +321,6 @@ class _SendAnimationState extends CustomState<SendAnimation, SendData, Conversat
       );
       if (fly) {
         setState(() {
-          // Freeze the landing target for the whole flight. Computed here rather
-          // than in build() so it reflects the layout at the moment of the send —
-          // notably after updateSmartReplyLayout() above has already zeroed the
-          // smart reply row.
           _frozenBottomOffset = _liveBottomOffset;
           message = _message;
         });
@@ -455,6 +396,7 @@ class _SendAnimationState extends CustomState<SendAnimation, SendData, Conversat
           child: Padding(
             padding: message.fullText.length == 1 ? const EdgeInsets.symmetric(horizontal: 3) : EdgeInsets.zero,
             child: RichText(
+              textWidthBasis: TextWidthBasis.longestLine,
               text: TextSpan(
                 children: buildMessageSpans(
                   context,

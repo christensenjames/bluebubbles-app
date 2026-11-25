@@ -32,8 +32,8 @@ permissions:
   contents: read
 
 env:
-  FLUTTER_VERSION: "3.47.8"
-  FVM_VERSION: "4.3.1"
+  FLUTTER_VERSION: "3.50.0"
+  FVM_VERSION: "4.3.2"
   # Which SignPath policy/cert to use. Tags always sign for release; a manual run
   # can opt in when a release build needs re-signing outside a tag push.
   RELEASE_SIGNING: ${{ startsWith(github.ref, 'refs/tags/') || inputs.release_signing }}
@@ -41,7 +41,9 @@ env:
 jobs:
   # Test builds can't reuse the checked-in version: it's already bumped to the unreleased one, and Windows
   # won't install an msix over one with the same or a higher version. So every manual run is versioned
-  # <last release tag>.<runs since that tag's build>, which keeps going up across branches and force-pushes.
+  # <newest desktop release tag>.<runs since that tag's build>, which keeps going up across branches and
+  # force-pushes. That's the newest tag in the repo, not the nearest one: desktop releases are tagged on
+  # staging branches that don't merge back, so master's nearest tag can be several releases old.
   # Tag pushes skip the steps and ship the checked-in version. The job itself always runs: the build jobs
   # need it, and a skipped job would skip them too.
   version:
@@ -65,7 +67,12 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          tag=$(git describe --tags --abbrev=0 --match 'v*+*' --exclude '*-*' --exclude '*android*')
+          # Highest version first; skips Android-only and pre-release (-) tags.
+          tag=$(git tag -l 'v*+*' --sort=-v:refname | awk '!/-|android/ && !t { t = $0 } END { print t }')
+          if [ -z "$tag" ]; then
+            echo "::warning::No desktop release tag found; keeping the checked-in version."
+            exit 0
+          fi
           tag_run=$(gh api "repos/$GITHUB_REPOSITORY/actions/workflows/desktop-builds.yml/runs?head_sha=$(git rev-list -n 1 "$tag")" \
             --jq '[.workflow_runs[].run_number] | min // empty') || tag_run=''
           if [ -z "$tag_run" ]; then
@@ -337,9 +344,13 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
 
       - name: Install system dependencies
-        # Azure's apt mirror occasionally crawls at ~100 KB/s; fail fast so the job can be re-run.
+        # x64 runners point apt at a regional mirror (azure.archive or, on AWS-hosted runners, us-east-2.ec2.archive)
+        # that stalls often enough to time this step out. Swap in Ubuntu's own archive (arm runners use
+        # ports.ubuntu.com and are unaffected).
         timeout-minutes: 10
         run: |
+          sudo sed -i -E 's|http://[a-z0-9.-]+\.archive\.ubuntu\.com|http://archive.ubuntu.com|' \
+            $(ls /etc/apt/apt-mirrors.txt /etc/apt/sources.list /etc/apt/sources.list.d/*.sources 2>/dev/null)
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends \
             clang \
@@ -349,7 +360,6 @@ jobs:
             libgtk-3-dev \
             libwebkit2gtk-4.1-dev \
             libmpv-dev \
-            libayatana-appindicator3-dev \
             libnotify-dev \
             libjson-glib-dev
 
@@ -490,11 +500,14 @@ jobs:
           m = yaml.load(open('flathub/app.bluebubbles.BlueBubbles.yml'))
           m['modules'] = ['flathub/' + x if isinstance(x, str) else x for x in m['modules']]
           bb = next(x for x in m['modules'] if isinstance(x, dict) and x['name'] == 'bluebubbles')
+          # Only the release downloads are swapped; files the Flathub repo keeps (path sources) still go in
+          flathub_files = [dict(x, path='flathub/' + x['path']) for x in bb['sources'] if 'path' in x]
           bb['sources'] = [
               {'type': 'archive', 'path': tarball, 'sha256': sha256, 'dest': 'bluebubbles'},
               {'type': 'file', 'path': 'flatpak/app.bluebubbles.BlueBubbles.metainfo.xml'},
               {'type': 'file', 'path': 'flatpak/icon/128x128.png'},
               {'type': 'file', 'path': 'flatpak/app.bluebubbles.BlueBubbles.desktop'},
+              *flathub_files,
           ]
           yaml.dump(m, open('app.bluebubbles.BlueBubbles.yml', 'w'))
           EOF

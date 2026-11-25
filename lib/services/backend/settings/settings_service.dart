@@ -4,9 +4,7 @@ import 'dart:math';
 
 import 'package:bluebubbles/env.dart';
 import 'package:bluebubbles/app/layouts/settings/pages/advanced/private_api_panel.dart';
-import 'package:bluebubbles/app/layouts/settings/settings_page.dart';
 import 'package:bluebubbles/app/wrappers/scrollbar_wrapper.dart';
-import 'package:bluebubbles/app/wrappers/theme_switcher.dart';
 import 'package:bluebubbles/helpers/helpers.dart';
 import 'package:bluebubbles/database/models.dart';
 import 'package:bluebubbles/services/backend/interfaces/app_interface.dart';
@@ -122,6 +120,8 @@ class SettingsService {
       macOSMinorVersion: PrefsSvc.server.getMacOSMinorVersion() ?? 0,
       serverVersion: PrefsSvc.server.getServerVersion() ?? "0.0.0",
       serverVersionCode: PrefsSvc.server.getServerVersionCode() ?? 0,
+      apiVersions: PrefsSvc.server.getApiVersions(),
+      serverBuildVersion: PrefsSvc.server.getServerBuildVersion(),
     );
 
     if (!headless && !kIsWeb && !kIsDesktop) {
@@ -150,8 +150,9 @@ class SettingsService {
         if (settings.allowUpsideDownRotation.value) DeviceOrientation.portraitDown,
       ]);
     }
-    // launch at startup - defer this so it doesn't block startup
-    if (kIsDesktop) {
+    // launch at startup - defer this so it doesn't block startup.
+    // Main isolate only: the engine aborts if a background isolate exits before Windows Hello replies
+    if (kIsDesktop && !headless) {
       Future.microtask(() async {
         if (Platform.isWindows) {
           try {
@@ -215,39 +216,18 @@ class SettingsService {
         toSave.add('serverPrivateAPI');
       }
 
-      final version = int.tryParse(response.data['data']['os_version'].split(".")[0]);
-      final minorVersion = int.tryParse(response.data['data']['os_version'].split(".")[1]);
-      final serverVersion = response.data['data']['server_version'];
-      final code = Version.parse(serverVersion ?? "0.0.0");
-      final versionCode = code.major * 100 + code.minor * 21 + code.patch;
-      await PrefsSvc.server.setServerDetails(
-        macOSVersion: version,
-        macOSMinorVersion: minorVersion,
-        serverVersion: serverVersion,
-        serverVersionCode: versionCode,
-      );
+      final details = ServerDetails.fromServerInfo(response.data['data']);
+      await _saveServerDetails(details);
 
       if (toSave.isNotEmpty) {
         await settings.saveManyAsync(toSave);
       }
 
-      return {
-        'macOSVersion': version ?? 11,
-        'macOSMinorVersion': minorVersion ?? 0,
-        'serverVersion': serverVersion ?? "0.0.0",
-        'serverVersionCode': versionCode,
-        'privateApi': response.data['data']['private_api'] is bool ? response.data['data']['private_api'] : null,
-        'detectedICloud':
-            response.data['data']['detected_icloud'] is String ? response.data['data']['detected_icloud'] : null,
-      };
+      return details.toMap();
     }
 
-    return {
-      'macOSVersion': 11,
-      'macOSMinorVersion': 0,
-      'serverVersion': "0.0.0",
-      'serverVersionCode': 0,
-    };
+    // Empty rather than defaults, which would overwrite what's known about the server
+    return {};
   }
 
   /// Fetches server details via HTTP (main isolate), updates [serverDetails],
@@ -256,12 +236,9 @@ class SettingsService {
   /// Used during the first-time setup flow.
   Future<ServerDetails> fetchServerDetails() async {
     final detailsDict = await getServerDetailsDict();
-    final details = ServerDetails(
-      macOSVersion: detailsDict['macOSVersion'] as int,
-      macOSMinorVersion: detailsDict['macOSMinorVersion'] as int,
-      serverVersion: detailsDict['serverVersion'] as String,
-      serverVersionCode: detailsDict['serverVersionCode'] as int,
-    );
+    final details = detailsDict.isEmpty
+        ? const ServerDetails(macOSVersion: 11, macOSMinorVersion: 0, serverVersion: "0.0.0", serverVersionCode: 0)
+        : ServerDetails.fromMap(detailsDict);
     _serverDetails.value = details;
     return details;
   }
@@ -287,7 +264,7 @@ class SettingsService {
   Future<void> refreshServerDetails() async {
     try {
       final details = await ServerInterface.getServerDetails();
-      _serverDetails.value = details;
+      await updateServerDetails(details);
       final List<String> toSave = [];
       if (details.privateApiEnabled != null && settings.serverPrivateAPI.value != details.privateApiEnabled) {
         settings.serverPrivateAPI.value = details.privateApiEnabled;
@@ -297,19 +274,29 @@ class SettingsService {
         settings.iCloudAccount.value = details.iCloudAccount!;
         toSave.add('iCloudAccount');
       }
-
-      await PrefsSvc.server.setServerDetails(
-        macOSVersion: details.macOSVersion,
-        macOSMinorVersion: details.macOSMinorVersion,
-        serverVersion: details.serverVersion,
-        serverVersionCode: details.serverVersionCode,
-      );
       if (toSave.isNotEmpty) {
         await settings.saveManyAsync(toSave);
       }
     } catch (e, s) {
       Logger.warn("Failed to refresh server details", error: e, trace: s, tag: 'SettingsService');
     }
+  }
+
+  /// Caches and persists [details] fetched elsewhere, so the cache doesn't keep showing the previous server.
+  Future<void> updateServerDetails(ServerDetails details) async {
+    _serverDetails.value = details;
+    await _saveServerDetails(details);
+  }
+
+  Future<void> _saveServerDetails(ServerDetails details) async {
+    await PrefsSvc.server.setServerDetails(
+      macOSVersion: details.macOSVersion,
+      macOSMinorVersion: details.macOSMinorVersion,
+      serverVersion: details.serverVersion,
+      serverVersionCode: details.serverVersionCode,
+      apiVersions: details.apiVersions,
+      serverBuildVersion: details.serverBuildVersion ?? "",
+    );
   }
 
   /// Returns the current cached [ServerDetails].
@@ -374,20 +361,7 @@ class SettingsService {
                     await PrefsSvc.server.markPrivateApiEnableTipShown();
                     if (Get.context == null) return;
                     Navigator.of(Get.context!, rootNavigator: true).pop();
-                    NavigationSvc.closeSettings(Get.context!);
-                    NavigationSvc.closeAllConversationView(Get.context!);
-                    await ChatsSvc.setAllInactive();
-                    await Navigator.of(Get.context!).push(
-                      ThemeSwitcher.buildPageRoute(
-                        builder: (BuildContext context) {
-                          return SettingsPage(
-                            initialPage: PrivateAPIPanel(
-                              enablePrivateAPIonInit: true,
-                            ),
-                          );
-                        },
-                      ),
-                    );
+                    NavigationSvc.openSettings(initialPage: PrivateAPIPanel(enablePrivateAPIonInit: true));
                   },
                   child: const Padding(
                     padding: EdgeInsets.symmetric(vertical: 8),
@@ -420,6 +394,15 @@ class SettingsService {
 
   /// Returns the current cached [ServerDetails].
   ServerDetails get serverDetails => _serverDetails.value;
+
+  /// [serverDetails] to listen to (with `ever`), e.g. to recheck something whenever the server changes
+  Rx<ServerDetails> get serverDetailsChanges => _serverDetails;
+
+  /// Several attachments can go as one message: the server takes attachment parts, and they need the Private API.
+  bool get canSendAttachmentsTogether =>
+      serverDetails.supportsMultiAttachmentSend &&
+      settings.enablePrivateAPI.value &&
+      settings.privateAPIAttachmentSend.value;
 
   /// Group chats can be created on macOS <= Catalina or
   /// if the Private API is enabled, and the server supports it (v1.8.0).
@@ -537,15 +520,15 @@ class SettingsService {
         !(Platform.isAndroid && element.tagName!.split('+').last.contains('desktop')) &&
         !(kIsDesktop && element.tagName!.split('+').last.contains('android')));
     final version = release.tagName!.split("+").first.replaceAll("v", "");
-    final code = release.tagName!.split("+").last.split('-').first;
+    // The build after the "+", without a platform prefix: v2.1.5+95 and v2.1.5+android.95 are both 95
+    final code = release.tagName!.split("+").last.split('-').first.split('.').last;
     final isDesktopRelease = release.tagName!.split('+').last.contains('desktop');
 
     String buildNumber = "";
     if (Platform.isAndroid) {
       buildNumber =
           FilesystemSvc.packageInfo.buildNumber.lastChars(min(4, FilesystemSvc.packageInfo.buildNumber.length));
-      if (int.parse(code.split('.').last) <= int.parse(buildNumber) ||
-          PrefsSvc.server.getClientUpdateCheckCode() == code) {
+      if (int.parse(code) <= int.parse(buildNumber) || PrefsSvc.server.getClientUpdateCheckCode() == code) {
         available = false;
       }
     } else {

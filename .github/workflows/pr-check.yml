@@ -19,8 +19,8 @@ on:
   # wasn't enough (removed in c90f304).
   #
   # These paths are the inputs to the expensive caches' keys (native deps hash pubspec.lock;
-  # Gradle also hashes the Android build files). Other commits leave the entries valid, so
-  # there's no point rebuilding for them.
+  # Gradle also hashes the Android build files; the SDK cache keys on FLUTTER_VERSION in this
+  # file). Other commits leave the entries valid, so there's no point rebuilding for them.
   push:
     branches: [master]
     paths:
@@ -28,6 +28,8 @@ on:
       - android/**/*.gradle
       - android/gradle.properties
       - android/gradle/wrapper/gradle-wrapper.properties
+      - .github/workflows/pr-check.yml
+      - .github/actions/setup-flutter/**
 
   # Cache entries are evicted after 7 days without a read, so a quiet stretch would leave
   # the next PR cold whatever the lockfile did. Weekly sits right on that boundary, so
@@ -50,8 +52,8 @@ permissions:
 
 env:
   # Matches the pin in windows/build.ps1 and linux/build.sh.
-  FLUTTER_VERSION: "3.47.8"
-  FVM_VERSION: "4.3.1"
+  FLUTTER_VERSION: "3.50.0"
+  FVM_VERSION: "4.3.2"
   # Android toolchain, mirroring android-builds.yml and android/app/build.gradle.
   ANDROID_NDK_VERSION: "28.2.13676358"
   ANDROID_COMPILE_SDK: "36"
@@ -142,9 +144,13 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
 
       - name: Install system dependencies
-        # Azure's apt mirror occasionally crawls at ~100 KB/s; fail fast so the job can be re-run.
+        # x64 runners point apt at a regional mirror (azure.archive or, on AWS-hosted runners, us-east-2.ec2.archive)
+        # that stalls often enough to time this step out. Swap in Ubuntu's own archive (arm runners use
+        # ports.ubuntu.com and are unaffected).
         timeout-minutes: 10
         run: |
+          sudo sed -i -E 's|http://[a-z0-9.-]+\.archive\.ubuntu\.com|http://archive.ubuntu.com|' \
+            $(ls /etc/apt/apt-mirrors.txt /etc/apt/sources.list /etc/apt/sources.list.d/*.sources 2>/dev/null)
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends \
             clang \
@@ -154,7 +160,6 @@ jobs:
             libgtk-3-dev \
             libwebkit2gtk-4.1-dev \
             libmpv-dev \
-            libayatana-appindicator3-dev \
             libnotify-dev \
             libjson-glib-dev
 

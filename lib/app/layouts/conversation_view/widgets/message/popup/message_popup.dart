@@ -1,6 +1,8 @@
+import 'dart:async';
 import 'dart:math';
 import 'dart:ui';
 
+import 'package:bluebubbles/app/components/subscription_required.dart';
 import 'package:bluebubbles/app/layouts/conversation_view/widgets/message/popup/actions/media_actions.dart'
     as popup_media_actions;
 import 'package:bluebubbles/app/layouts/conversation_view/widgets/message/popup/actions/message_actions.dart'
@@ -12,6 +14,7 @@ import 'package:bluebubbles/app/layouts/conversation_view/widgets/message/popup/
 import 'package:bluebubbles/app/layouts/conversation_view/widgets/message/popup/details_menu_action.dart';
 import 'package:bluebubbles/app/layouts/conversation_view/widgets/message/popup/message_popup_action_context.dart';
 import 'package:bluebubbles/app/layouts/conversation_view/widgets/message/popup/reaction_picker_clipper.dart';
+import 'package:bluebubbles/app/layouts/conversation_view/widgets/message/popup/widgets/emoji_tapback_picker.dart';
 import 'package:bluebubbles/app/layouts/conversation_view/widgets/message/popup/widgets/reaction_details.dart';
 import 'package:bluebubbles/app/components/m3e/m3e_motion.dart';
 import 'package:bluebubbles/app/layouts/findmy/findmy_pin_clipper.dart';
@@ -24,14 +27,17 @@ import 'package:bluebubbles/app/layouts/conversation_view/widgets/message/shared
 import 'package:bluebubbles/app/state/message_state_scope.dart';
 import 'package:bluebubbles/services/services.dart';
 import 'package:collection/collection.dart';
-import 'package:emoji_picker_flutter/emoji_picker_flutter.dart' hide Emoji;
 import 'package:flutter/cupertino.dart' as cupertino;
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart' hide BackButton;
 import 'package:bluebubbles/database/models.dart' hide PayloadType;
 import 'package:flutter/services.dart';
 import 'package:flutter_acrylic/flutter_acrylic.dart';
-import 'package:flutter_svg/svg.dart';
+import 'package:bluebubbles/app/layouts/conversation_view/widgets/message/reaction/tapback_icon.dart';
+import 'package:bluebubbles/app/layouts/conversation_view/widgets/message/reaction/sticker_tapback_image.dart';
+import 'package:bluebubbles/models/library_sticker.dart';
+import 'package:bluebubbles/services/backend/settings/actions/shared_preferences_messaging_actions.dart';
+import 'package:bluebubbles/utils/logger/logger.dart';
 import 'package:get/get.dart';
 import 'package:universal_io/io.dart';
 
@@ -46,7 +52,7 @@ class MessagePopup extends StatefulWidget {
   final MessageState controller;
   final ConversationViewController cvController;
   final MessagePopupServerDetails serverDetails;
-  final Function([String? type, int? part, String? reactionEmoji]) sendTapback;
+  final Function([String? type, int? part, String? emoji]) sendTapback;
   final BuildContext? Function() widthContext;
 
   const MessagePopup({
@@ -85,10 +91,22 @@ class _MessagePopupState extends State<MessagePopup> with SingleTickerProviderSt
       !chat.isGroup &&
       chat.handles.firstWhereOrNull((handle) => handle.address == message.handleRelation.target?.address) != null);
   String? selfReaction;
-  String? selfReactionEmoji;
+  String? selfEmoji;
+
+  /// Your sticker tapback on this part, shown in the tapback row so it can be taken back
+  Message? selfSticker;
+
+  /// The library sticker [selfSticker] is, when it's one sent from here, so recents don't show it a second time
+  String? _selfStickerIdentifier;
+  // Emoji you've reacted with, newest first (not the pickers' typed-emoji recents)
+  late final List<String> recentEmojis = PrefsSvc.messaging.getRecentTapbackEmojis(chatGuid: chat.guid);
   String? currentlySelectedReaction = "init";
   final GlobalKey _childKey = GlobalKey();
+  final GlobalKey _detailsKey = GlobalKey();
+  final GlobalKey _menuKey = GlobalKey();
   double? _measuredChildHeight;
+  double? _measuredChildWidth;
+  double? _measuredMenuHeight;
 
   ConversationViewController get cvController => widget.cvController;
 
@@ -106,9 +124,11 @@ class _MessagePopupState extends State<MessagePopup> with SingleTickerProviderSt
     return !isSending && !hasError;
   }
 
+  // A Genmoji part is a text bubble, so attachment actions don't apply to it
   bool get showDownload =>
       (isSent &&
           part.attachments.isNotEmpty &&
+          !part.hasInlineAttachments &&
           part.attachments.where((element) => AttachmentsSvc.hasLocalFile(element)).isNotEmpty) ||
       isEmbeddedMedia;
 
@@ -116,7 +136,7 @@ class _MessagePopupState extends State<MessagePopup> with SingleTickerProviderSt
       message.isLegacyUrlPreview || message.payloadData?.type == PayloadType.url || message.isPhotoSlideshow;
 
   bool get canOpenInImageViewer =>
-      part.attachments.length == 1 && part.attachments.first.mimeStart == "image";
+      part.attachments.length == 1 && !part.hasInlineAttachments && part.attachments.first.mimeStart == "image";
 
   late bool isEmbeddedMedia = (message.balloonBundleId == "com.apple.Handwriting.HandwritingProvider" ||
           message.balloonBundleId == "com.apple.DigitalTouchBalloonProvider") &&
@@ -134,38 +154,65 @@ class _MessagePopupState extends State<MessagePopup> with SingleTickerProviderSt
   void initState() {
     super.initState();
     controller.forward();
+    // Recent sticker tapbacks draw from, and send, the library's copies
+    if (SettingsSvc.serverDetails.supportsStickerTapbacks) {
+      StickerLibrarySvc.load().then((_) {
+        if (mounted) setState(() {});
+      });
+    }
     if (iOS) {
-      final remainingHeight = max(Get.height - Get.statusBarHeight - 135 - widget.size.height, itemHeight);
-      numberToShow = min(remainingHeight ~/ itemHeight, 5);
+      _fitMenu();
     } else {
       // Potentially make this dynamic in the future
       numberToShow = 5;
     }
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      final measuredHeight = _childKey.currentContext?.size?.height;
+      final measuredSize = _childKey.currentContext?.size;
       currentlySelectedReaction = null;
       reactions = getUniqueReactionMessages(message.associatedMessages
           .where((e) =>
-              ReactionTypes.isReaction(e.associatedMessageType) &&
+              ReactionTypes.isTapbackType(e.associatedMessageType) &&
               (e.associatedMessagePart ?? 0) == part.part)
           .toList());
-      final self = reactions.firstWhereOrNull((e) => e.isFromMe!);
+      final selfMessage = reactions.firstWhereOrNull((e) => e.isFromMe!);
+      final selfType = selfMessage?.associatedMessageType;
+      // A removal is only listed when it failed, standing in for the tapback it was taking back: that one is still
+      // yours, so choosing it again retries the removal
+      final self = ReactionTypes.addedType(selfType);
       if (self != null) {
-        selfReaction = self.associatedMessageType;
-        selfReactionEmoji = self.associatedMessageEmoji;
+        selfReaction = self;
+        selfEmoji = selfMessage!.associatedMessageEmoji;
+        if (self == ReactionTypes.STICKER) {
+          selfSticker = selfType == ReactionTypes.STICKER
+              ? selfMessage
+              : Message.findRemovedStickerTapback(selfMessage) ?? selfMessage;
+          unawaited(_matchSelfSticker());
+        }
         currentlySelectedReaction = selfReaction;
       }
       setState(() {
         if (iOS) {
-          if (measuredHeight != null) {
-            _measuredChildHeight = measuredHeight;
-            final remainingHeight = max(Get.height - Get.statusBarHeight - 135 - measuredHeight, itemHeight);
-            numberToShow = min(remainingHeight ~/ itemHeight, 5);
+          if (measuredSize != null) {
+            _measuredChildHeight = measuredSize.height;
+            _measuredChildWidth = measuredSize.width;
           }
-          messageOffset = itemHeight * numberToShow + 40;
+          _measuredMenuHeight = _menuKey.currentContext?.size?.height;
+          _fitMenu();
+          messageOffset = _messageOffset();
         }
       });
+      // The reaction details and refitted menu only lay out after the setState above, so fit again with their heights
+      if (iOS) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (!mounted) return;
+          setState(() {
+            _measuredMenuHeight = _menuKey.currentContext?.size?.height;
+            _fitMenu();
+            messageOffset = _messageOffset();
+          });
+        });
+      }
     });
   }
 
@@ -188,15 +235,239 @@ class _MessagePopupState extends State<MessagePopup> with SingleTickerProviderSt
     controller.dispose();
     super.dispose();
   }
+  /// How many actions fit under the message on iOS without covering the reaction details; the rest go under "More...".
+  void _fitMenu() {
+    final childHeight = _measuredChildHeight ?? widget.size.height;
+    final detailsHeight = reactions.isEmpty ? 0.0 : _detailsKey.currentContext?.size?.height ?? 0;
+    final remainingHeight =
+        max(Get.height - Get.statusBarHeight - 135 - childHeight - detailsHeight, itemHeight);
+    numberToShow = min(remainingHeight ~/ itemHeight, 5);
+  }
+
+  /// Lifts the preview above the details menu, but keeps it below the status bar.
+  double _messageOffset() {
+    final previewHeight = _measuredChildHeight ?? widget.size.height;
+    final maxBottom = Get.height - Get.statusBarHeight - 8 - previewHeight;
+    return min(_menuHeight + 40, max(40.0, maxBottom));
+  }
+
+  /// The details menu as laid out: its rows aren't always [itemHeight] tall
+  double get _menuHeight => _measuredMenuHeight ?? itemHeight * numberToShow;
 
   void _remeasureChild() {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
-      final h = _childKey.currentContext?.size?.height;
-      if (h != null && h != _measuredChildHeight) {
-        setState(() => _measuredChildHeight = h);
+      final size = _childKey.currentContext?.size;
+      if (size == null) return;
+      if (size.height != _measuredChildHeight || size.width != _measuredChildWidth) {
+        setState(() {
+          _measuredChildHeight = size.height;
+          _measuredChildWidth = size.width;
+        });
       }
     });
+  }
+
+  /// Where the tapback picker's box sits, from the bottom of the screen.
+  double _pickerBottom(BuildContext context, bool narrowScreen) => (iOS
+          ? _menuHeight + 35 + (_measuredChildHeight ?? widget.size.height)
+          : context.height - materialOffset)
+      .clamp(0, context.height - (narrowScreen ? 200 : 125));
+
+  Future<void> _pickEmojiTapback() async {
+    final picked = await showEmojiTapbackPicker(context, stickers: SettingsSvc.serverDetails.supportsStickerTapbacks);
+    if (!mounted) return;
+    switch (picked) {
+      case EmojiTapbackPick(:final emoji):
+        _sendEmojiTapback(emoji);
+      case StickerTapbackPick(:final sticker):
+        await _sendStickerTapback(sticker);
+      case null:
+        break;
+    }
+  }
+
+  static bool _isStickerKey(String recent) =>
+      recent.startsWith(SharedPreferencesMessagingActions.stickerTapbackPrefix);
+
+  /// Recent emoji, and recent stickers the library still has, apart from your current sticker tapback, which the row
+  /// already shows first
+  bool _showRecent(String recent) {
+    if (!_isStickerKey(recent)) return true;
+    final sticker = _recentSticker(recent);
+    return sticker != null && sticker.identifier != _selfStickerIdentifier;
+  }
+
+  Future<void> _matchSelfSticker() async {
+    final attachment = selfSticker?.dbAttachments.firstOrNull;
+    if (attachment == null || !SettingsSvc.serverDetails.supportsStickerTapbacks) return;
+    await StickerLibrarySvc.load();
+    final identifier = await StickerLibrarySvc.identifierOfImage(File(attachment.path));
+    if (identifier != null && mounted) setState(() => _selfStickerIdentifier = identifier);
+  }
+
+  /// The library sticker a recent tapback names, or null for an emoji, or a sticker no longer in the library.
+  LibrarySticker? _recentSticker(String recent) {
+    if (!_isStickerKey(recent) || !SettingsSvc.serverDetails.supportsStickerTapbacks || SubscriptionSvc.locked) {
+      return null;
+    }
+    final id = recent.substring(SharedPreferencesMessagingActions.stickerTapbackPrefix.length);
+    return StickerLibrarySvc.entries.firstWhereOrNull((s) => s.identifier == id);
+  }
+
+  // The size emoji draw at in the row (_emojiTapbackGlyph)
+  Widget _recentStickerGlyph(LibrarySticker sticker) => SizedBox.square(
+        dimension: 26,
+        child: Obx(
+          () => StickerLibrarySvc.cachedThumbnails.contains(sticker.identifier)
+              ? Image.file(StickerLibrarySvc.thumbnailFile(sticker.identifier), fit: BoxFit.contain)
+              : Icon(Icons.sticky_note_2_outlined, size: 20, color: context.theme.colorScheme.outline),
+        ),
+      );
+
+  /// Reacts with [sticker], replacing your current tapback, and shows it while sending like any tapback.
+  Future<void> _sendStickerTapback(LibrarySticker sticker) async {
+    HapticFeedback.lightImpact();
+    popDetails();
+    unawaited(PrefsSvc.messaging.addRecentTapbackEmoji(
+      SharedPreferencesMessagingActions.stickerTapbackKey(sticker.identifier),
+      chatGuid: chat.guid,
+    ));
+    // Only getting the image can fail here: once queued, a failed send shows on the tapback like any other
+    final Uint8List bytes;
+    try {
+      bytes = await StickerLibrarySvc.imageForSending(sticker);
+    } catch (e, s) {
+      Logger.error("Failed to get a sticker to send", error: e, trace: s, tag: "MessagePopup");
+      showSnackbar("Error", "Couldn't get the sticker", type: SnackbarType.error);
+      return;
+    }
+    await OutgoingMsgHandler.queueStickerTapback(
+      chat: chat,
+      selected: message,
+      part: part.part,
+      bytes: bytes,
+      fileName: "sticker.${sticker.fileExtension}",
+    );
+  }
+
+  /// Takes back your sticker tapback, shown while sending like any tapback. The removal is sent as a sticker too, so
+  /// it needs the image: the attachment's file, or its download when that isn't on disk.
+  Future<void> _removeStickerTapback() async {
+    final attachment = selfSticker?.dbAttachments.firstOrNull;
+    if (attachment == null) return;
+    if (SubscriptionSvc.locked) {
+      return showSubscriptionRequired(
+        context,
+        feature: ProFeature.stickers,
+        onUnlocked: () => mounted ? _removeStickerTapback() : null,
+      );
+    }
+    HapticFeedback.lightImpact();
+    popDetails();
+    final Uint8List bytes;
+    try {
+      final file = File(attachment.path);
+      bytes = await file.exists()
+          ? await file.readAsBytes()
+          : Uint8List.fromList((await HttpSvc.attachment.download(attachment.guid!)).data as List<int>);
+    } catch (e, s) {
+      Logger.error("Failed to get the sticker to remove", error: e, trace: s, tag: "MessagePopup");
+      showSnackbar("Error", "Couldn't remove the sticker", type: SnackbarType.error);
+      return;
+    }
+    await OutgoingMsgHandler.queueStickerTapback(
+      chat: chat,
+      selected: message,
+      part: part.part,
+      bytes: bytes,
+      fileName: attachment.transferName ?? "sticker.png",
+      remove: true,
+    );
+  }
+
+  /// Sends [emoji] as your tapback, or takes it back when it's already yours, as Messages does.
+  void _sendEmojiTapback(String emoji) {
+    HapticFeedback.lightImpact();
+    final removing = selfReaction == ReactionTypes.EMOJI && emoji == selfEmoji;
+    if (!removing) unawaited(PrefsSvc.messaging.addRecentTapbackEmoji(emoji, chatGuid: chat.guid));
+    widget.sendTapback(removing ? ReactionTypes.REMOVED_EMOJI : ReactionTypes.EMOJI, part.part, emoji);
+    popDetails();
+  }
+
+
+  // Drawn like ReactionWidget._customGlyph, which centres emoji correctly. 26, not the icons' 22, so they read the same
+  Widget _emojiTapbackGlyph(String emoji) => SizedBox.square(
+        dimension: 26,
+        child: FittedBox(
+          child: Text(emoji,
+              style: const TextStyle(
+                  height: 1, leadingDistribution: TextLeadingDistribution.even, fontFamily: 'Apple Color Emoji')),
+        ),
+      );
+
+  /// Fades the row's edges, so an item scrolled half out of view fades rather than being cut.
+  Widget _fadeScrollEdges(Widget child) => ShaderMask(
+        blendMode: BlendMode.dstIn,
+        shaderCallback: (bounds) {
+          final edge = min(12 / max(bounds.width, 1), 0.5);
+          return LinearGradient(
+            colors: const [Colors.transparent, Colors.white, Colors.white, Colors.transparent],
+            stops: [0, edge, 1 - edge, 1],
+          ).createShader(bounds);
+        },
+        child: child,
+      );
+
+  static const double _addEmojiCircleSize = 45;
+  static const double _addEmojiCircleGap = 6;
+  static const double _addEmojiCircleRoom = _addEmojiCircleSize + _addEmojiCircleGap;
+
+  /// The tapback panel with the add-emoji circle beside it, on the side away from the screen edge it's pinned to.
+  Widget _withAddEmojiCircle(Widget panel) {
+    if (!SettingsSvc.serverDetails.supportsEmojiTapbacks) return panel;
+    // Centered on the panel's pill (its items plus 5 around them; ReactionPickerClipper keeps the bottom 15 for the
+    // thought-bubble dots). Only iOS pads the items vertically, so the pill is 55 tall there and 44 elsewhere.
+    final circle = Padding(
+      padding: EdgeInsets.only(top: max(0, ((iOS ? 55 : 44) - _addEmojiCircleSize) / 2)),
+      child: _addEmojiCircle(context),
+    );
+    const gap = SizedBox(width: _addEmojiCircleGap);
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: message.isFromMe! ? [circle, gap, panel] : [panel, gap, circle],
+    );
+  }
+
+  Color _tapbackPanelColor(BuildContext context) =>
+      context.theme.colorScheme.surfaceContainerHighest.withAlpha(iOS ? 150 : 255).lightenOrDarken(iOS ? 0 : 10);
+
+  // On iOS this "shadow" is the panel's own colour laid under it, which gives it its density
+  Shadow _tapbackPanelShadow(BuildContext context) => iOS
+      ? BoxShadow(color: _tapbackPanelColor(context))
+      : BoxShadow(color: context.theme.colorScheme.shadow, blurRadius: 2);
+
+  /// Opens the full emoji picker. Drawn exactly like the tapback panel, so the two read as a set.
+  Widget _addEmojiCircle(BuildContext context) {
+    return ClipShadowPath(
+      shadow: _tapbackPanelShadow(context),
+      clipper: const _CircleClipper(),
+      child: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 15, sigmaY: 15),
+        child: Material(
+          color: _tapbackPanelColor(context),
+          child: InkWell(
+            onTap: _pickEmojiTapback,
+            child: SizedBox.square(
+              dimension: _addEmojiCircleSize,
+              child: Icon(iOS ? cupertino.CupertinoIcons.add : Icons.add,
+                  size: 24, color: context.theme.colorScheme.outline),
+            ),
+          ),
+        ),
+      ),
+    );
   }
 
   void popDetails({bool returnVal = true}) {
@@ -204,122 +475,36 @@ class _MessagePopupState extends State<MessagePopup> with SingleTickerProviderSt
     Navigator.of(context).pop(returnVal);
   }
 
-  Padding buildEmojiReactionPicker() {
-    final selected = currentlySelectedReaction == ReactionTypes.EMOJI;
-    return Padding(
-      padding: iOS ? const EdgeInsets.all(5.0) : const EdgeInsets.symmetric(horizontal: 5),
-      child: Material(
-        color: selected ? context.theme.colorScheme.primary : Colors.transparent,
-        borderRadius: BorderRadius.circular(20),
-        child: SizedBox(
-          width: iOS ? 35 : null,
-          height: iOS ? 35 : null,
-          child: InkWell(
-            borderRadius: BorderRadius.circular(20),
-            onTap: () {
-              if (selfReactionEmoji != null) {
-                sendEmojiReaction(selfReactionEmoji!);
-              } else {
-                HapticFeedback.lightImpact();
-                showEmojiReactionPicker();
-              }
-            },
-            child: Padding(
-              padding: const EdgeInsets.all(6.5),
-              child: Center(
-                child: selfReactionEmoji != null
-                    ? Text(
-                        selfReactionEmoji!,
-                        style: const TextStyle(fontSize: 18, fontFamily: 'Apple Color Emoji'),
-                        textAlign: TextAlign.center,
-                      )
-                    : Icon(
-                        iOS ? cupertino.CupertinoIcons.smiley : Icons.add_reaction_outlined,
-                        size: iOS ? 22 : 18,
-                        color: selected ? context.theme.colorScheme.onPrimary : context.theme.colorScheme.outline,
-                      ),
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
+  /// Gap kept between the popup's overlays / preview and the screen edges.
+  static const double _edgeMargin = 15;
+
+  /// Incoming overlay X so tapback / details stay on-screen; may shift the iOS preview.
+  ({double clampedOverlayLeft, double clampedChildLeft}) _clampedHorizontalLayout({
+    required double screenWidth,
+    required double paneWidth,
+    required double pickerWidth,
+  }) {
+    const margin = _edgeMargin;
+    final preferredOverlayLeft = widget.childPosition.dx + 10;
+    // Sized from the pane, as the details menu itself is
+    final detailsMenuWidth = iOS ? min(max(paneWidth * 3 / 5, 200), paneWidth * 4 / 5) : 0.0;
+    final overlayWidth = max(pickerWidth, detailsMenuWidth);
+    final maxLeft = max(margin, screenWidth - overlayWidth - margin);
+    final clampedOverlayLeft = preferredOverlayLeft.clamp(margin, maxLeft).toDouble();
+    final shift = preferredOverlayLeft - clampedOverlayLeft;
+    final clampedChildLeft = max(margin, widget.childPosition.dx - shift);
+    return (clampedOverlayLeft: clampedOverlayLeft, clampedChildLeft: clampedChildLeft);
   }
 
-  Future<void> showEmojiReactionPicker() async {
-    // useRootNavigator: false puts the dialog on Navigator.of(context), so that same
-    // navigator pops it - and popDetails() can still reach it afterwards.
-    final emoji = await showBBDialog<String>(
-      useRootNavigator: false,
-      context: context,
-      content: SizedBox(
-        width: 300,
-        child: Theme(
-          data: context.theme.copyWith(canvasColor: Colors.transparent),
-          child: EmojiPicker(
-            onEmojiSelected: (_, emoji) => Navigator.of(context).pop(emoji.emoji),
-            config: Config(
-              height: 300,
-              emojiSet: (_) => emojiSetEnglish,
-              checkPlatformCompatibility: true,
-              emojiViewConfig: EmojiViewConfig(
-                emojiSizeMax: 28,
-                backgroundColor: Colors.transparent,
-                columns: 7,
-                noRecents: Text("No Recents",
-                    style: context.textTheme.headlineMedium!.copyWith(color: context.theme.colorScheme.outline)),
-              ),
-              viewOrderConfig: const ViewOrderConfig(
-                top: EmojiPickerItem.categoryBar,
-                middle: EmojiPickerItem.emojiView,
-                bottom: EmojiPickerItem.searchBar,
-              ),
-              skinToneConfig: const SkinToneConfig(enabled: false),
-              categoryViewConfig: const CategoryViewConfig(
-                backgroundColor: Colors.transparent,
-                dividerColor: Colors.transparent,
-              ),
-              bottomActionBarConfig: BottomActionBarConfig(
-                customBottomActionBar: (config, state, showSearchView) => Material(
-                  color: Colors.transparent,
-                  child: InkWell(
-                    onTap: showSearchView,
-                    child: Padding(
-                      padding: const EdgeInsets.all(12),
-                      child: Row(children: [
-                        Icon(iOS ? cupertino.CupertinoIcons.search : Icons.search,
-                            color: context.theme.colorScheme.outline),
-                        const SizedBox(width: 8),
-                        Text("Search...",
-                            style: context.theme.textTheme.bodyLarge!
-                                .copyWith(color: context.theme.colorScheme.outline)),
-                      ]),
-                    ),
-                  ),
-                ),
-              ),
-              searchViewConfig: SearchViewConfig(
-                backgroundColor: Colors.transparent,
-                buttonIconColor: context.theme.colorScheme.outline,
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-    if (emoji != null && mounted) sendEmojiReaction(emoji);
-  }
-
-  void sendEmojiReaction(String emoji) {
-    final removing = selfReaction == ReactionTypes.EMOJI && selfReactionEmoji == emoji;
-    setState(() {
-      selfReaction = removing ? null : ReactionTypes.EMOJI;
-      currentlySelectedReaction = removing ? null : ReactionTypes.EMOJI;
-      selfReactionEmoji = removing ? null : emoji;
-    });
-    HapticFeedback.lightImpact();
-    widget.sendTapback(removing ? "-${ReactionTypes.EMOJI}" : ReactionTypes.EMOJI, part.part, emoji);
-    popDetails();
+  /// Keep a left-anchored (received) preview fully on-screen when it grows past the cell width.
+  double _clampReceivedPreviewLeft({
+    required double screenWidth,
+    required double preferredLeft,
+  }) {
+    const margin = _edgeMargin;
+    final previewWidth = _measuredChildWidth ?? max(widget.size.width, screenWidth * 0.5);
+    final maxLeft = max(margin, screenWidth - previewWidth - margin);
+    return preferredLeft.clamp(margin, maxLeft).toDouble();
   }
 
   @override
@@ -330,14 +515,50 @@ class _MessagePopupState extends State<MessagePopup> with SingleTickerProviderSt
     // overall screen width. widget.childPosition.dx already reflects any avatar space the bubble
     // was pushed past, so no avatar/group special-casing is needed here.
     final double screenWidth = NavigationSvc.width(widthContext);
-    const double reactionPickerEdgeMargin = 15;
+    // childPosition is relative to the whole window on iOS and to the conversation pane elsewhere
+    final double popupWidth = iOS ? context.width : screenWidth;
     final double reactionPickerAvailableWidth = message.isFromMe!
-        ? screenWidth - reactionPickerEdgeMargin - reactionPickerEdgeMargin
-        : screenWidth - (widget.childPosition.dx + 10) - reactionPickerEdgeMargin;
-    final double reactionItemWidth = iOS ? 47.0 : 44.0; // icon/emoji + its fixed padding, see item build below
-    // + container padding
-    final double reactionRowContentWidth = reactionItemWidth * (ReactionTypes.toList().length + 1) + 10;
-    bool narrowScreen = reactionRowContentWidth > reactionPickerAvailableWidth;
+        ? screenWidth - _edgeMargin - _edgeMargin
+        : popupWidth - (widget.childPosition.dx + 10) - _edgeMargin;
+    final double reactionItemWidth = iOS ? 45.0 : 44.0; // icon/emoji + its fixed padding, see item build below
+    // Emoji tapbacks need a v2 server and macOS 15. As in Messages: one scrolling row of tapbacks, yours, then recents
+    final emojiTapbacks = SettingsSvc.serverDetails.supportsEmojiTapbacks;
+    final ownEmoji = selfReaction == ReactionTypes.EMOJI ? selfEmoji : null;
+    // Sticker tapbacks need the same server and macOS as emoji ones
+    final ownSticker = emojiTapbacks && selfSticker != null;
+    final tapbackItems = [
+      ...ReactionTypes.toList(),
+      if (ownSticker) _ownStickerItem,
+      // A recent sticker only while the library still has it
+      if (emojiTapbacks) ...{?ownEmoji, ...recentEmojis.where(_showRecent)},
+    ];
+    final double reactionRowContentWidth = reactionItemWidth * tapbackItems.length + 10;
+    // A scrolling row never needs to wrap
+    bool narrowScreen = !emojiTapbacks && reactionRowContentWidth > reactionPickerAvailableWidth;
+    // At most about 7.5 items, so the half item shows the row scrolls
+    final double emojiRowMaxWidth =
+        max(min(reactionPickerAvailableWidth - 10 - _addEmojiCircleRoom, reactionItemWidth * 7.5), 0);
+    final double pickerWidth = narrowScreen
+        ? reactionItemWidth * 3 + 10
+        : emojiTapbacks
+            ? min(reactionRowContentWidth, emojiRowMaxWidth + 10) + _addEmojiCircleRoom
+            : reactionRowContentWidth;
+    final isFromMe = message.isFromMe!;
+    final clampedLayout = isFromMe
+        ? null
+        : _clampedHorizontalLayout(screenWidth: popupWidth, paneWidth: screenWidth, pickerWidth: pickerWidth);
+    final clampedOverlayLeft = clampedLayout?.clampedOverlayLeft;
+    // From-me: pin the preview's right edge to the cell's right edge so growth stays on-screen.
+    // Received: left-anchor, then clamp using measured/estimated preview width.
+    const margin = _edgeMargin;
+    final double? previewRight =
+        isFromMe ? max(margin, popupWidth - widget.childPosition.dx - widget.size.width) : null;
+    final double? previewLeft = isFromMe
+        ? null
+        : _clampReceivedPreviewLeft(
+            screenWidth: popupWidth,
+            preferredLeft: clampedLayout?.clampedChildLeft ?? widget.childPosition.dx,
+          );
     final reduceMotion = MediaQuery.disableAnimationsOf(context);
 
     return Theme(
@@ -415,7 +636,8 @@ class _MessagePopupState extends State<MessagePopup> with SingleTickerProviderSt
                     AnimatedPositioned(
                       duration: reduceMotion ? Duration.zero : Durations.medium1,
                       curve: Easing.emphasizedDecelerate,
-                      left: widget.childPosition.dx,
+                      left: previewLeft,
+                      right: previewRight,
                       bottom: messageOffset,
                       child: TweenAnimationBuilder<double>(
                         tween: Tween<double>(begin: 0.8, end: 1),
@@ -429,7 +651,12 @@ class _MessagePopupState extends State<MessagePopup> with SingleTickerProviderSt
                           child: SizeChangedLayoutNotifier(
                             child: ConstrainedBox(
                               key: _childKey,
-                              constraints: BoxConstraints(maxWidth: widget.size.width),
+                              constraints: BoxConstraints(
+                                maxWidth: max(
+                                  widget.size.width,
+                                  NavigationSvc.width(widthContext) * 0.5,
+                                ),
+                              ),
                               // Marked as a clone so anything inside that
                               // reacts to shared state by doing work (URL
                               // preview refreshes, say) knows not to — this
@@ -446,7 +673,7 @@ class _MessagePopupState extends State<MessagePopup> with SingleTickerProviderSt
                         builder: (context, size, child) {
                           return Transform.scale(
                             scale: size.clamp(1, double.infinity),
-                            alignment: message.isFromMe! ? Alignment.centerRight : Alignment.centerLeft,
+                            alignment: isFromMe ? Alignment.centerRight : Alignment.centerLeft,
                             child: child,
                           );
                         },
@@ -461,132 +688,129 @@ class _MessagePopupState extends State<MessagePopup> with SingleTickerProviderSt
                         duration: reduceMotion ? Duration.zero : Durations.medium1,
                         curve: Easing.emphasizedDecelerate,
                         alignment: Alignment.center,
-                        child: reactions.isNotEmpty ? ReactionDetails(reactions: reactions) : const SizedBox.shrink(),
+                        child: reactions.isNotEmpty
+                            ? KeyedSubtree(key: _detailsKey, child: ReactionDetails(reactions: reactions))
+                            : const SizedBox.shrink(),
                       ),
                     ),
                   if (SettingsSvc.settings.enablePrivateAPI.value && isSent && minSierra && chat.isIMessage)
                     Positioned(
-                      bottom: (iOS
-                              ? itemHeight * numberToShow + 35 + (_measuredChildHeight ?? widget.size.height)
-                              : context.height - materialOffset)
-                          .clamp(0, context.height - (narrowScreen ? 200 : 125)),
-                      right: message.isFromMe! ? 15 : null,
-                      left: !message.isFromMe! ? widget.childPosition.dx + 10 : null,
+                      bottom: _pickerBottom(context, narrowScreen),
+                      right: isFromMe ? 15 : null,
+                      left: !isFromMe ? clampedOverlayLeft : null,
                       child: AnimatedSize(
                         curve: Curves.easeInOut,
-                        alignment: message.isFromMe! ? Alignment.centerRight : Alignment.centerLeft,
+                        alignment: isFromMe ? Alignment.centerRight : Alignment.centerLeft,
                         duration: reduceMotion ? Duration.zero : const Duration(milliseconds: 250),
                         child: currentlySelectedReaction == "init"
                             ? const SizedBox(height: 80)
-                            : ClipShadowPath(
-                                shadow: iOS
-                                    ? BoxShadow(
-                                        color: context.theme.colorScheme.surfaceContainerHighest
-                                            .withAlpha(iOS ? 150 : 255)
-                                            .lightenOrDarken(iOS ? 0 : 10))
-                                    : BoxShadow(
-                                        color: context.theme.colorScheme.shadow,
-                                        blurRadius: 2,
-                                      ),
-                                clipper: ReactionPickerClipper(
-                                  messageSize: widget.size,
-                                  isFromMe: message.isFromMe!,
-                                ),
-                                child: BackdropFilter(
-                                  filter: ImageFilter.blur(sigmaX: 15, sigmaY: 15),
-                                  child: Container(
-                                    padding: const EdgeInsets.all(5).add(const EdgeInsets.only(bottom: 15)),
-                                    color: context.theme.colorScheme.surfaceContainerHighest
-                                        .withAlpha(iOS ? 150 : 255)
-                                        .lightenOrDarken(iOS ? 0 : 10),
-                                    child: Column(
-                                        mainAxisSize: MainAxisSize.min,
-                                        children: List.generate(narrowScreen ? 2 : 1, (index) {
-                                          return Row(
-                                            mainAxisSize: MainAxisSize.min,
-                                            mainAxisAlignment: MainAxisAlignment.start,
-                                            children: [
-                                              ...ReactionTypes.toList()
+                            : _withAddEmojiCircle(
+                                ClipShadowPath(
+                                  shadow: _tapbackPanelShadow(context),
+                                  clipper: ReactionPickerClipper(
+                                    messageSize: widget.size,
+                                    isFromMe: message.isFromMe!,
+                                  ),
+                                  child: BackdropFilter(
+                                    filter: ImageFilter.blur(sigmaX: 15, sigmaY: 15),
+                                    child: Container(
+                                      padding: const EdgeInsets.all(5).add(const EdgeInsets.only(bottom: 15)),
+                                      color: _tapbackPanelColor(context),
+                                      child: Column(
+                                          mainAxisSize: MainAxisSize.min,
+                                          crossAxisAlignment:
+                                              message.isFromMe! ? CrossAxisAlignment.end : CrossAxisAlignment.start,
+                                          children: [
+                                            ...List.generate(narrowScreen ? 2 : 1, (index) {
+                                            final row = Row(
+                                              mainAxisSize: MainAxisSize.min,
+                                              mainAxisAlignment: MainAxisAlignment.start,
+                                              children: tapbackItems
                                                   .slice(narrowScreen && index == 1 ? 3 : 0,
                                                       narrowScreen && index == 0 ? 3 : null)
                                                   .map((e) {
-                                              return Padding(
-                                                padding: iOS
-                                                    ? const EdgeInsets.all(5.0)
-                                                    : const EdgeInsets.symmetric(horizontal: 5),
-                                                child: Material(
-                                                  color: currentlySelectedReaction == e
-                                                      ? context.theme.colorScheme.primary
-                                                      : Colors.transparent,
-                                                  borderRadius: BorderRadius.circular(20),
-                                                  child: SizedBox(
-                                                    width: iOS ? 35 : null,
-                                                    height: iOS ? 35 : null,
-                                                    child: InkWell(
-                                                      borderRadius: BorderRadius.circular(20),
-                                                      onTap: () {
-                                                        if (currentlySelectedReaction == e) {
-                                                          currentlySelectedReaction = null;
-                                                        } else {
-                                                          currentlySelectedReaction = e;
-                                                        }
-                                                        setState(() {});
-                                                        HapticFeedback.lightImpact();
-                                                        widget.sendTapback(selfReaction == e ? "-$e" : e, part.part);
-                                                        popDetails();
-                                                      },
-                                                      child: Padding(
-                                                        padding: const EdgeInsets.all(6.5)
-                                                            .add(EdgeInsets.only(right: e == "emphasize" ? 2.5 : 0)),
-                                                        child: iOS
-                                                            ? SvgPicture.asset(
-                                                                'assets/reactions/$e-black.svg',
-                                                                colorFilter: ColorFilter.mode(
-                                                                    e == "love" && currentlySelectedReaction == e
-                                                                        ? Colors.pink
-                                                                        : (currentlySelectedReaction == e
-                                                                            ? context.theme.colorScheme.onPrimary
-                                                                            : context.theme.colorScheme.outline),
-                                                                    BlendMode.srcIn),
-                                                              )
-                                                            : Center(
-                                                                child: Builder(builder: (context) {
-                                                                  final text = Text(
-                                                                    ReactionTypes.reactionToEmoji[e] ?? "X",
-                                                                    style: const TextStyle(
-                                                                        fontSize: 18, fontFamily: 'Apple Color Emoji'),
-                                                                    textAlign: TextAlign.center,
-                                                                  );
-                                                                  // rotate thumbs down to match iOS
-                                                                  if (e == "dislike") {
-                                                                    return Transform(
-                                                                      transform: Matrix4.identity()..rotateY(pi),
-                                                                      alignment: FractionalOffset.center,
-                                                                      child: text,
-                                                                    );
-                                                                  }
-                                                                  return text;
-                                                                }),
-                                                              ),
+                                                final isSticker = e == _ownStickerItem;
+                                                final recentSticker = _recentSticker(e);
+                                                final isEmoji = !isSticker &&
+                                                    recentSticker == null &&
+                                                    !ReactionTypes.toList().contains(e);
+                                                return Padding(
+                                                  padding: iOS
+                                                      ? const EdgeInsets.all(5.0)
+                                                      : const EdgeInsets.symmetric(horizontal: 5),
+                                                  child: Material(
+                                                    color: (isSticker ||
+                                                            (isEmoji ? e == ownEmoji : currentlySelectedReaction == e))
+                                                        ? context.theme.colorScheme.primary
+                                                        : Colors.transparent,
+                                                    borderRadius: BorderRadius.circular(20),
+                                                    // reactionItemWidth less the item's padding
+                                                    child: SizedBox(
+                                                      width: iOS ? 35 : 34,
+                                                      height: iOS ? 35 : 34,
+                                                      child: InkWell(
+                                                        borderRadius: BorderRadius.circular(20),
+                                                        onTap: () async {
+                                                          if (isSticker) return _removeStickerTapback();
+                                                          if (recentSticker != null) {
+                                                            return _sendStickerTapback(recentSticker);
+                                                          }
+                                                          if (isEmoji) return _sendEmojiTapback(e);
+                                                          if (currentlySelectedReaction == e) {
+                                                            currentlySelectedReaction = null;
+                                                          } else {
+                                                            currentlySelectedReaction = e;
+                                                          }
+                                                          setState(() {});
+                                                          HapticFeedback.lightImpact();
+                                                          widget.sendTapback(selfReaction == e ? "-$e" : e, part.part);
+                                                          popDetails();
+                                                        },
+                                                        child: Padding(
+                                                          // Emoji ink covers less of its box than the tapback icons do
+                                                          padding: EdgeInsets.all(
+                                                                  isEmoji || isSticker || recentSticker != null
+                                                                      ? 4.5
+                                                                      : 6.5)
+                                                              .add(EdgeInsets.only(right: e == "emphasize" ? 2.5 : 0)),
+                                                          child: isSticker
+                                                              ? Center(
+                                                                  child: SizedBox.square(
+                                                                    dimension: 26,
+                                                                    child: StickerTapbackImage(
+                                                                        attachment:
+                                                                            selfSticker!.dbAttachments.firstOrNull),
+                                                                  ),
+                                                                )
+                                                              : recentSticker != null
+                                                              ? Center(child: _recentStickerGlyph(recentSticker))
+                                                              : isEmoji
+                                                              ? Center(child: _emojiTapbackGlyph(e))
+                                                              : TapbackIcon(e),
+                                                        ),
                                                       ),
                                                     ),
                                                   ),
-                                                ),
-                                              );
-                                            }),
-                                              if (index == (narrowScreen ? 1 : 0)) buildEmojiReactionPicker(),
-                                            ],
-                                          );
-                                        })),
+                                                );
+                                              }).toList(),
+                                            );
+                                            if (!emojiTapbacks) return row;
+                                            return ConstrainedBox(
+                                              constraints: BoxConstraints(maxWidth: emojiRowMaxWidth),
+                                              child: _fadeScrollEdges(SingleChildScrollView(
+                                                  scrollDirection: Axis.horizontal, child: row)),
+                                            );
+                                          }),
+                                          ]),
+                                    ),
                                   ),
-                                ),
-                              ),
+                                )),
                       ),
                     ),
                   if (iOS)
                     Positioned(
-                      right: message.isFromMe! ? 15 : null,
-                      left: !message.isFromMe! ? widget.childPosition.dx + 10 : null,
+                      right: isFromMe ? 15 : null,
+                      left: !isFromMe ? clampedOverlayLeft : null,
                       bottom: 30,
                       child: ScaleTransition(
                         scale: _menuScale,
@@ -601,7 +825,7 @@ class _MessagePopupState extends State<MessagePopup> with SingleTickerProviderSt
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               const SizedBox(height: 5),
-                              buildDetailsMenu(context),
+                              KeyedSubtree(key: _menuKey, child: buildDetailsMenu(context)),
                             ],
                           ),
                         ),
@@ -761,7 +985,9 @@ class _MessagePopupState extends State<MessagePopup> with SingleTickerProviderSt
           message.isFromMe! &&
           !widget.controller.isSending.value &&
           SettingsSvc.serverDetails.supportsEditAndUnsend &&
-          (part.text?.isNotEmpty ?? false))
+          (part.text?.isNotEmpty ?? false) &&
+          // Its text holds a U+FFFC per Genmoji, which an edit would send as plain text
+          !part.hasInlineAttachments)
         DetailsMenuActionWidget(
           onTap: () => popup_message_actions.edit(_buildActionContext(DetailsMenuAction.Edit)),
           customTitle: canEdit ? 'Edit' : 'Edit (too old)',
@@ -898,4 +1124,17 @@ class _MessagePopupState extends State<MessagePopup> with SingleTickerProviderSt
               }))
     ];
   }
+}
+
+/// The tapback row's item for your own sticker tapback: not a tapback type or an emoji, so it can't collide with one
+const String _ownStickerItem = '\u0000sticker';
+
+class _CircleClipper extends CustomClipper<Path> {
+  const _CircleClipper();
+
+  @override
+  Path getClip(Size size) => Path()..addOval(Offset.zero & size);
+
+  @override
+  bool shouldReclip(_CircleClipper oldClipper) => false;
 }

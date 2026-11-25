@@ -16,6 +16,8 @@ import 'package:bluebubbles/services/network/http_overrides.dart';
 import 'package:bluebubbles/utils/logger/logger.dart';
 import 'package:bluebubbles/utils/media_kit_hot_restart_fix.dart'
     if (dart.library.html) 'package:bluebubbles/utils/media_kit_hot_restart_fix_web.dart';
+import 'package:bluebubbles/utils/linux_launcher_badge.dart'
+    if (dart.library.html) 'package:bluebubbles/utils/linux_launcher_badge_web.dart';
 import 'package:bluebubbles/utils/window_effects.dart';
 import 'package:bluebubbles/app/layouts/conversation_list/pages/conversation_list.dart';
 import 'package:bluebubbles/app/layouts/startup/failure_to_start.dart';
@@ -40,13 +42,13 @@ import 'package:get_it/get_it.dart';
 import 'package:google_mlkit_entity_extraction/google_mlkit_entity_extraction.dart';
 import 'package:intl/date_symbol_data_local.dart';
 import 'package:local_auth/local_auth.dart';
-import 'package:path/path.dart' as p;
 import 'package:permission_handler/permission_handler.dart';
 import 'package:screen_retriever/screen_retriever.dart';
 import 'package:secure_application/secure_application.dart';
 import 'package:timezone/data/latest.dart' as tz;
 import 'package:timezone/timezone.dart' as tz;
-import 'package:tray_manager/tray_manager.dart';
+import 'package:tray_manager/tray_manager.dart'
+    show ContextMenuTrigger, ImageAsset, Menu, MenuItem, MenuItemClickedEvent, MenuItemType, TrayIcon, TrayIconClickedEvent;
 import 'package:universal_html/html.dart' as html;
 import 'package:universal_io/io.dart';
 import 'package:window_manager/window_manager.dart';
@@ -265,6 +267,7 @@ Future<Null> initApp(bool bubble, List<String> arguments) async {
       ThemeData dark = pair.dark;
 
       runApp(MaterialApp(
+          onNavigationNotification: (_) => true,
           home: Main(
         lightTheme: light,
         darkTheme: dark,
@@ -331,10 +334,10 @@ class DesktopWindowListener extends WindowListener {
   void onWindowEvent(String eventName) async {
     switch (eventName) {
       case "hide":
-        await setSystemTrayContextMenu(windowHidden: true);
+        updateSystemTrayToggle(windowHidden: true);
         break;
       case "show":
-        await setSystemTrayContextMenu(windowHidden: false);
+        updateSystemTrayToggle(windowHidden: false);
         break;
     }
   }
@@ -363,6 +366,8 @@ class Main extends StatelessWidget {
     TargetPlatform.windows: ZoomPageTransitionsBuilder(),
     TargetPlatform.linux: ZoomPageTransitionsBuilder(),
   });
+  Widget _withBackAction(BuildContext context, Widget? navigator) =>
+      Actions(actions: {GoBackIntent: GoBackAction(context)}, child: navigator ?? Container());
 
   @override
   Widget build(BuildContext context) {
@@ -392,7 +397,7 @@ class Main extends StatelessWidget {
           ),
         ),
         navigatorKey: NavigationSvc.key,
-        navigatorObservers: [routeObserver],
+        navigatorObservers: [NavigationSvc.sectionObserver],
         scrollBehavior: const MaterialScrollBehavior().copyWith(
           // Specifically for GNU/Linux & Android-x86 family, where touch isn't interpreted as a drag device by Flutter apparently.
           dragDevices: Platform.isLinux || Platform.isAndroid ? PointerDeviceKind.values.toSet() : null,
@@ -408,35 +413,24 @@ class Main extends StatelessWidget {
           _NoLockKeySet(LogicalKeyboardKey.control, LogicalKeyboardKey.keyF): const OpenSearchIntent(),
           _NoLockKeySet(LogicalKeyboardKey.alt, LogicalKeyboardKey.keyR): const ReplyRecentIntent(),
           if (kIsDesktop) _NoLockKeySet(LogicalKeyboardKey.control, LogicalKeyboardKey.keyR): const ReplyRecentIntent(),
-          _NoLockKeySet(LogicalKeyboardKey.alt, LogicalKeyboardKey.keyG): const StartIncrementalSyncIntent(),
-          if (kIsDesktop)
-            _NoLockKeySet(LogicalKeyboardKey.control, LogicalKeyboardKey.shift, LogicalKeyboardKey.keyR):
-                const StartIncrementalSyncIntent(),
-          if (kIsDesktop)
-            _NoLockKeySet(LogicalKeyboardKey.control, LogicalKeyboardKey.keyG): const StartIncrementalSyncIntent(),
-          _NoLockKeySet(LogicalKeyboardKey.control, LogicalKeyboardKey.shift, LogicalKeyboardKey.exclamation):
-              const HeartRecentIntent(),
-          _NoLockKeySet(LogicalKeyboardKey.control, LogicalKeyboardKey.shift, LogicalKeyboardKey.at):
-              const LikeRecentIntent(),
-          _NoLockKeySet(LogicalKeyboardKey.control, LogicalKeyboardKey.shift, LogicalKeyboardKey.numberSign):
-              const DislikeRecentIntent(),
-          _NoLockKeySet(LogicalKeyboardKey.control, LogicalKeyboardKey.shift, LogicalKeyboardKey.dollar):
-              const LaughRecentIntent(),
-          _NoLockKeySet(LogicalKeyboardKey.control, LogicalKeyboardKey.shift, LogicalKeyboardKey.percent):
-              const EmphasizeRecentIntent(),
-          _NoLockKeySet(LogicalKeyboardKey.control, LogicalKeyboardKey.shift, LogicalKeyboardKey.caret):
-              const QuestionRecentIntent(),
           _NoLockKeySet(LogicalKeyboardKey.control, LogicalKeyboardKey.arrowDown): const OpenNextChatIntent(),
           if (kIsDesktop) _NoLockKeySet(LogicalKeyboardKey.control, LogicalKeyboardKey.tab): const OpenNextChatIntent(),
           _NoLockKeySet(LogicalKeyboardKey.control, LogicalKeyboardKey.arrowUp): const OpenPreviousChatIntent(),
           if (kIsDesktop)
             _NoLockKeySet(LogicalKeyboardKey.control, LogicalKeyboardKey.shift, LogicalKeyboardKey.tab):
                 const OpenPreviousChatIntent(),
-          _NoLockKeySet(LogicalKeyboardKey.control, LogicalKeyboardKey.keyI): const OpenChatDetailsIntent(),
           _NoLockKeySet.noRepeat(LogicalKeyboardKey.escape): const GoBackIntent(),
         },
-        builder: (context, child) => _ReduceMotionScope(
-            child: SafeArea(
+        // A route only reports its own pop state, so a pushed page could tell Android nothing handles back and the
+        // gesture left the app. Back always goes through Flutter instead, which still exits when nothing can pop.
+        // Above the navigator so back reaches pages pushed over Home; GetMaterialApp ignores its actions parameter
+        builder: (context, navigator) => NotificationListener<NavigationNotification>(
+          onNotification: (notification) {
+            if (notification.canHandlePop) return false;
+            const NavigationNotification(canHandlePop: true).dispatch(context);
+            return true;
+          },
+          child: _ReduceMotionScope(child: SafeArea(
           top: false,
           bottom: false,
           // secure_application has no Linux implementation; mounting it (and the
@@ -444,7 +438,7 @@ class Main extends StatelessWidget {
           // event, which breaks window close/hide once the app is past setup.
           // Bypass the secure wrapper entirely on Linux.
           child: Platform.isLinux
-              ? TitleBarWrapper(child: _withGoBack(context, child))
+              ? TitleBarWrapper(child: _withBackAction(context, navigator))
               : SecureApplication(
                   child: Builder(
                     builder: (context) {
@@ -530,22 +524,20 @@ class Main extends StatelessWidget {
                               ),
                             );
                           },
-                          child: _withGoBack(context, child),
+                          child: _withBackAction(context, navigator),
                         ),
                       );
                     },
                   ),
                 ),
-        )),
+          )),
+        ),
         defaultTransition: Transition.cupertino,
       ),
     );
   }
 }
 
-// Above the navigator so pages pushed on the root navigator (phone layout) inherit Escape-to-go-back.
-Widget _withGoBack(BuildContext context, Widget? child) =>
-    Actions(actions: {GoBackIntent: GoBackAction(context)}, child: child ?? Container());
 
 // Folds the in-app Reduce Motion toggle into the OS flag, so MediaQuery.disableAnimationsOf is the app's one check.
 class _ReduceMotionScope extends StatelessWidget {
@@ -598,7 +590,7 @@ class Home extends StatefulWidget {
   State<Home> createState() => _HomeState();
 }
 
-class _HomeState extends State<Home> with WidgetsBindingObserver, TrayListener {
+class _HomeState extends State<Home> with WidgetsBindingObserver {
   final ReceivePort port = ReceivePort();
   bool serverCompatible = true;
   bool fullyLoaded = false;
@@ -652,6 +644,15 @@ class _HomeState extends State<Home> with WidgetsBindingObserver, TrayListener {
       }
 
       if (kIsDesktop) {
+        if (Platform.isLinux) {
+          /* ----- BADGE ICON LISTENER ----- */
+          Future<void> updateBadge(int count) =>
+              LinuxLauncherBadge.update(SettingsSvc.settings.windowsTaskbarBadge.value ? count : 0);
+
+          unawaited(updateBadge(ChatsSvc.unreadCount.value));
+          ChatsSvc.unreadCount.listen(updateBadge);
+        }
+
         if (Platform.isWindows) {
           /* ----- CONTACT IMAGE CACHE DELETION ----- */
           Directory temp = FilesystemSvc.appTemp;
@@ -689,8 +690,7 @@ class _HomeState extends State<Home> with WidgetsBindingObserver, TrayListener {
         }
 
         /* ----- SYSTEM TRAY INITIALIZATION ----- */
-        if (SettingsSvc.settings.showTrayIcon.value) await initSystemTray();
-        trayManager.addListener(this);
+        if (SettingsSvc.settings.showTrayIcon.value) initSystemTray();
         _bindTrayWorker();
       }
 
@@ -714,36 +714,9 @@ class _HomeState extends State<Home> with WidgetsBindingObserver, TrayListener {
   Future<void> _applyTrayState() async {
     await windowManager.setPreventClose(SettingsSvc.settings.closeToTrayEffective);
     if (SettingsSvc.settings.showTrayIcon.value) {
-      await initSystemTray();
+      initSystemTray();
     } else {
-      await trayManager.destroy();
-    }
-  }
-
-  @override
-  void onTrayIconMouseDown() async {
-    await showAndFocusWindow();
-  }
-
-  @override
-  void onTrayIconRightMouseDown() async {
-    await trayManager.popUpContextMenu();
-  }
-
-  @override
-  void onTrayMenuItemClick(MenuItem menuItem) async {
-    switch (menuItem.key) {
-      case 'show_app':
-        await showAndFocusWindow();
-        break;
-      case 'hide_app':
-        await windowManager.hide();
-        break;
-      case 'close_app':
-        if (Platform.isLinux) exit(0);
-        await windowManager.setPreventClose(false);
-        await windowManager.close();
-        break;
+      _trayIcon?.setVisible(false);
     }
   }
 
@@ -753,9 +726,6 @@ class _HomeState extends State<Home> with WidgetsBindingObserver, TrayListener {
     WidgetsBinding.instance.removeObserver(this);
     _trayWorker?.dispose();
     windowManager.removeListener(DesktopWindowListener.instance);
-    if (kIsDesktop) {
-      trayManager.removeListener(this);
-    }
     super.dispose();
   }
 
@@ -779,6 +749,8 @@ class _HomeState extends State<Home> with WidgetsBindingObserver, TrayListener {
   /// Render
   @override
   Widget build(BuildContext context) {
+    // Not in the Obx: tracking it swaps in the chat list before setup's last page offers a backup restore
+    final finishedSetup = SettingsSvc.settings.finishedSetup.value;
     return Actions(
       actions: {
         OpenSettingsIntent: OpenSettingsAction(context),
@@ -786,10 +758,12 @@ class _HomeState extends State<Home> with WidgetsBindingObserver, TrayListener {
         OpenSearchIntent: OpenSearchAction(context),
         OpenNextChatIntent: OpenNextChatAction(context),
         OpenPreviousChatIntent: OpenPreviousChatAction(context),
-        StartIncrementalSyncIntent: StartIncrementalSyncAction(),
+        GoBackIntent: GoBackAction(context),
       },
       child: Obx(() => BBScaffold(
             backgroundColor: context.theme.colorScheme.surface.themeOpacity(context),
+            resizeToAvoidBottomInset: !finishedSetup,
+            safeAreaBottom: finishedSetup ? false : null,
             body: Builder(
               builder: (BuildContext context) {
                 if (SettingsSvc.settings.finishedSetup.value) {
@@ -817,30 +791,67 @@ class _HomeState extends State<Home> with WidgetsBindingObserver, TrayListener {
   }
 }
 
-Future<void> initSystemTray() async {
-  String path;
-  if (Platform.isWindows) {
-    path = 'assets/icon/icon.ico';
-  } else if (isFlatpak) {
-    path = 'app.bluebubbles.BlueBubbles';
-  } else if (isSnap) {
-    path = p.joinAll([p.dirname(Platform.resolvedExecutable), 'data/flutter_assets/assets/icon', 'icon.png']);
-  } else {
-    path = 'assets/icon/icon.png';
+// Kept for the app's lifetime: a garbage-collected TrayIcon removes the icon, and a collected MenuItem drops its
+// click listener.
+final List<Object> _trayHandles = [];
+TrayIcon? _trayIcon;
+MenuItem? _trayToggleItem;
+bool _trayWindowHidden = false;
+
+void initSystemTray() {
+  // Each call creates another icon, so a second one (Home's state rebuilt) would show two. Set only on success, so a
+  // failed attempt can be retried.
+  if (_trayIcon != null) {
+    _trayIcon!.setVisible(true);
+    return;
   }
 
-  await trayManager.setIcon(path);
-  if (Platform.isWindows) await trayManager.setToolTip("BlueBubbles");
-  await setSystemTrayContextMenu(windowHidden: !appWindow.isVisible);
+  final trayIcon = TrayIcon.create();
+  final menu = Menu.create();
+  final toggleItem = MenuItem.createWithLabelAndType('Hide App', MenuItemType.normal);
+  final closeItem = MenuItem.createWithLabelAndType('Close App', MenuItemType.normal);
+  if (trayIcon == null || menu == null || toggleItem == null || closeItem == null) {
+    Logger.error("Failed to create the system tray icon", tag: "SystemTray");
+    return;
+  }
+
+  // The icon reaches the panel as pixel data, so a path inside the flatpak or snap sandbox works.
+  trayIcon.icon = ImageAsset.fromAsset(Platform.isWindows ? 'assets/icon/icon.ico' : 'assets/icon/icon.png');
+  trayIcon.setTooltip("BlueBubbles");
+  trayIcon.setContextMenuTrigger(ContextMenuTrigger.rightClicked);
+  trayIcon.addListener((event) async {
+    if (event is TrayIconClickedEvent) await showAndFocusWindow();
+  });
+
+  toggleItem.addListener((event) async {
+    if (event is! MenuItemClickedEvent) return;
+    if (_trayWindowHidden) {
+      await showAndFocusWindow();
+    } else {
+      await windowManager.hide();
+    }
+  });
+  closeItem.addListener((event) async {
+    if (event is! MenuItemClickedEvent) return;
+    if (Platform.isLinux) exit(0);
+    await windowManager.setPreventClose(false);
+    await windowManager.close();
+  });
+
+  menu
+    ..addItem(toggleItem)
+    ..addSeparator()
+    ..addItem(closeItem);
+  trayIcon.setContextMenu(menu);
+  trayIcon.setVisible(true);
+
+  _trayHandles.addAll([trayIcon, menu, closeItem]);
+  _trayIcon = trayIcon;
+  _trayToggleItem = toggleItem;
+  updateSystemTrayToggle(windowHidden: !appWindow.isVisible);
 }
 
-Future<void> setSystemTrayContextMenu({bool windowHidden = false}) async {
-  if (!SettingsSvc.settings.showTrayIcon.value) return;
-  await trayManager.setContextMenu(Menu(
-    items: [
-      MenuItem(label: windowHidden ? 'Show App' : 'Hide App', key: windowHidden ? 'show_app' : 'hide_app'),
-      MenuItem.separator(),
-      MenuItem(label: 'Close App', key: 'close_app'),
-    ],
-  ));
+void updateSystemTrayToggle({required bool windowHidden}) {
+  _trayWindowHidden = windowHidden;
+  _trayToggleItem?.label = windowHidden ? 'Show App' : 'Hide App';
 }

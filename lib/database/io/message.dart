@@ -6,7 +6,7 @@ import 'package:bluebubbles/utils/logger/logger.dart';
 import 'package:bluebubbles/helpers/helpers.dart';
 import 'package:bluebubbles/database/database.dart';
 import 'package:bluebubbles/app/state/message_state.dart';
-import 'package:bluebubbles/database/models.dart';
+import 'package:bluebubbles/database/models.dart' hide PayloadType;
 import 'package:bluebubbles/services/services.dart';
 import 'package:bluebubbles/services/backend/interfaces/message_interface.dart';
 import 'package:collection/collection.dart';
@@ -44,9 +44,12 @@ class Message {
   String? groupTitle;
   int? groupActionType;
   String? balloonBundleId;
+  // Looked up for every message's reactions, and for each app session's turns
+  @Index(type: IndexType.value)
   String? associatedMessageGuid;
   int? associatedMessagePart;
   String? associatedMessageType;
+  @Property(uid: 9052722812174188999)
   String? associatedMessageEmoji;
   String? expressiveSendStyleId;
   Handle? handle;
@@ -132,6 +135,22 @@ class Message {
   @Transient()
   bool get isSticker => associatedMessageType == "sticker" && associatedMessageGuid != null;
 
+  /// A tapback or sticker on another message. Messages can be associated with others for other reasons (each turn of
+  /// an iMessage app session points at the session's first message), so the type decides, not the link.
+  bool get isReaction => associatedMessageGuid != null && ReactionTypes.isReactionType(associatedMessageType);
+
+  /// Matches [isReaction] in a query.
+  static Condition<Message> get reactionCondition =>
+      Message_.associatedMessageGuid.notNull() & Message_.associatedMessageType.oneOf(ReactionTypes.associatedTypes);
+
+  /// Matches messages that aren't [isReaction] in a query. Strings have no `notOneOf`, hence the chain.
+  static Condition<Message> get notReactionCondition =>
+      Message_.associatedMessageGuid.isNull() |
+      Message_.associatedMessageType.isNull() |
+      ReactionTypes.associatedTypes
+          .map((type) => Message_.associatedMessageType.notEquals(type))
+          .reduce((a, b) => a & b);
+
   @Transient()
   bool get isNameChange => itemType == 2;
 
@@ -143,6 +162,13 @@ class Message {
 
   @Transient()
   bool get isGroupPhotoRemoved => itemType == 3 && groupActionType == 2;
+
+  /// The group's current photo as state (`item_type` 3, `group_action_type` 3): the image is attached and no
+  /// sender is recorded. Messages writes it again, under the GUID it already has and dated now, when it resends a
+  /// group's photo, which can happen on any send into the group. It is not a person changing the photo; that is
+  /// [isGroupPhotoChanged].
+  @Transient()
+  bool get isGroupPhotoState => itemType == 3 && groupActionType == 3;
 
   @Transient()
   bool get isReply => threadOriginatorGuid != null;
@@ -242,6 +268,26 @@ class Message {
     } catch (e, s) {
       Logger.error('Failed to parse payload data!', error: e, trace: s);
     }
+    // v2 servers decode the app balloon's archive themselves (`with=appPayload`), and read fields ours misses. Where
+    // ours found no app at all, theirs is the app
+    final appPayload = json['appPayload'];
+    final app = payloadData?.appData?.firstOrNull;
+    if (appPayload is Map && app != null) {
+      app.sessionId = appPayload['session_id'] as String? ?? app.sessionId;
+      app.ldText = appPayload['summary'] as String? ?? app.ldText;
+      app.url = appPayload['url'] as String? ?? app.url;
+    } else if (appPayload is Map) {
+      final caption = appPayload['caption'] as String?;
+      payloadData = PayloadData(type: PayloadType.app, appData: [
+        iMessageAppData(
+          appName: appPayload['app_name'] as String?,
+          ldText: appPayload['summary'] as String?,
+          url: appPayload['url'] as String?,
+          sessionId: appPayload['session_id'] as String?,
+          userInfo: caption == null ? null : UserInfo(caption: caption),
+        ),
+      ]);
+    }
 
     return Message(
       id: json["ROWID"] ?? json['id'],
@@ -268,7 +314,11 @@ class Message {
       associatedMessageGuid: json["associatedMessageGuid"]?.toString().replaceAll("bp:", "").split("/").last,
       associatedMessagePart: json["associatedMessagePart"] ??
           int.tryParse(json["associatedMessageGuid"].toString().replaceAll("p:", "").split("/").first),
-      associatedMessageType: json["associatedMessageType"],
+      associatedMessageType: switch (json["associatedMessageType"]) {
+        "emoji" => ReactionTypes.EMOJI,
+        "-emoji" => ReactionTypes.REMOVED_EMOJI,
+        final value => value,
+      },
       associatedMessageEmoji: json["associatedMessageEmoji"],
       expressiveSendStyleId: json["expressiveSendStyleId"],
       handle: json['handle'] != null ? Handle.fromMap(json['handle']!.cast<String, dynamic>()) : null,
@@ -323,7 +373,7 @@ class Message {
       }
       // Save associated messages or the original message (depending on whether
       // this message is a reaction or regular message
-      if (associatedMessageType != null && associatedMessageGuid != null) {
+      if (associatedMessageType != null && isReaction) {
         Message? associatedMessage = Message.findOne(guid: associatedMessageGuid);
         if (associatedMessage != null) {
           associatedMessage.hasReactions = true;
@@ -441,13 +491,35 @@ class Message {
       query.close();
       return result;
     } else if (associatedMessageGuid != null) {
-      final query = Database.messages.query(Message_.associatedMessageGuid.equals(associatedMessageGuid)).build();
+      // Looks for a reaction to that message
+      final query = Database.messages
+          .query(Message_.associatedMessageGuid.equals(associatedMessageGuid) & Message.reactionCondition)
+          .build();
       query.limit = 1;
       final result = query.findFirst();
       query.close();
       return result;
     }
     return null;
+  }
+
+  /// The sticker tapback [removal] (a `3007`) takes back: the same sender's latest sticker tapback on that message
+  /// part before it. A removal from another device can come without the sticker, which is on this one.
+  static Message? findRemovedStickerTapback(Message removal) {
+    if (kIsWeb || removal.associatedMessageGuid == null) return null;
+    var condition = Message_.associatedMessageGuid.equals(removal.associatedMessageGuid!) &
+        Message_.associatedMessageType.equals(ReactionTypes.STICKER) &
+        Message_.isFromMe.equals(removal.isFromMe ?? false);
+    if (removal.isFromMe != true && removal.handleId != null) {
+      condition = condition & Message_.handleId.equals(removal.handleId!);
+    }
+    if (removal.dateCreated != null) {
+      condition = condition & Message_.dateCreated.lessOrEqual(removal.dateCreated!.millisecondsSinceEpoch);
+    }
+    final query = (Database.messages.query(condition)..order(Message_.dateCreated, flags: Order.descending)).build();
+    final candidates = query.find();
+    query.close();
+    return candidates.firstWhereOrNull((m) => (m.associatedMessagePart ?? 0) == (removal.associatedMessagePart ?? 0));
   }
 
   static Future<Message?> findOneAsync({String? guid, String? associatedMessageGuid}) async {
@@ -580,6 +652,7 @@ class Message {
   /// Call this from the UI with a reactive name (e.g. from [HandleState.displayName])
   /// so that contact-sync updates are reflected without rebuilding the whole tree.
   String buildGroupEventText(String senderName, {String? otherName, bool hideGroupTitle = false}) {
+    if (isGroupPhotoState) return "The group photo was updated.";
     String text = "Unknown group event";
     final name = senderName;
 
@@ -634,7 +707,7 @@ class Message {
   List<Attachment> get previewAttachments => dbAttachments.where((e) => e.mimeType == null).toList();
 
   List<Message> get reactions => associatedMessages
-      .where((item) => ReactionTypes.isReaction(item.associatedMessageType))
+      .where(ReactionTypes.isTapback)
       .toList();
 
   MessageStatusIndicator get indicatorToShow {
@@ -889,20 +962,21 @@ class Message {
       existing.dateDeleted = newMessage.dateDeleted;
     }
 
-    // Update date edited
-    if ((existing.dateEdited == null && newMessage.dateEdited != null) ||
-        (existing.dateEdited != null &&
-            newMessage.dateEdited != null &&
-            existing.dateEdited!.millisecondsSinceEpoch < newMessage.dateEdited!.millisecondsSinceEpoch)) {
+    if (newMessage.dateEdited != null &&
+        (existing.dateEdited == null || !newMessage.dateEdited!.isBefore(existing.dateEdited!))) {
       existing.dateEdited = newMessage.dateEdited;
+      existing.text = newMessage.text;
+      existing.subject = newMessage.subject;
+      existing.attributedBody = newMessage.attributedBody;
+      existing.messageSummaryInfo = newMessage.messageSummaryInfo;
     }
 
     // Also update attributedBody / messageSummaryInfo when the existing record
     // has no data but the incoming message does (independent of edit date).
-    if (!isNullOrEmpty(newMessage.attributedBody)) {
+    if (existing.dateEdited == null && !isNullOrEmpty(newMessage.attributedBody)) {
       existing.attributedBody = newMessage.attributedBody;
     }
-    if (!isNullOrEmpty(newMessage.messageSummaryInfo)) {
+    if (existing.dateEdited == null && !isNullOrEmpty(newMessage.messageSummaryInfo)) {
       existing.messageSummaryInfo = newMessage.messageSummaryInfo;
     }
 
@@ -950,9 +1024,15 @@ class Message {
       existing.dbAttachments.addAll(newMessage.dbAttachments);
     }
 
-    if (existing.payloadData == null && newMessage.payloadData != null) {
+    // Fills in what a push copy saved first left out.
+    if ((existing.payloadData == null && newMessage.payloadData != null) ||
+        (!existing.payloadData.hasAppSession && newMessage.payloadData.hasAppSession)) {
       existing.payloadData = newMessage.payloadData;
     }
+    existing.threadOriginatorPart ??= newMessage.threadOriginatorPart;
+    existing.country ??= newMessage.country;
+
+    existing.associatedMessageEmoji ??= newMessage.associatedMessageEmoji;
 
     if (!existing.wasDeliveredQuietly && newMessage.wasDeliveredQuietly) {
       existing.wasDeliveredQuietly = newMessage.wasDeliveredQuietly;
@@ -1022,6 +1102,37 @@ class Message {
 
     return false;
   }
+
+  /// Takes [incoming]'s values for the fields a push copy can leave out (the server trims it to fit FCM's 4KB limit),
+  /// keeping this message's own where [incoming] has none. Every merge of an incoming copy into a stored one goes
+  /// through here so they agree; [Message.merge] (sync) has its own rules for full copies.
+  ///
+  /// Formatting and edit history are only kept while they still describe the text: a push copy of an edit has the new
+  /// text without them. So call this before this message takes [incoming]'s text and edit date.
+  void takeOmittableFieldsFrom(Message incoming) {
+    final sameContent = (incoming.text ?? text) == text &&
+        (incoming.dateEdited ?? dateEdited)?.millisecondsSinceEpoch == dateEdited?.millisecondsSinceEpoch;
+    if (incoming.attributedBody.isNotEmpty || !sameContent) attributedBody = incoming.attributedBody;
+    if (incoming.messageSummaryInfo.isNotEmpty || !sameContent) messageSummaryInfo = incoming.messageSummaryInfo;
+    // An app balloon's session is only in a full copy
+    if (incoming.payloadData.hasAppSession || !payloadData.hasAppSession) {
+      payloadData = incoming.payloadData ?? payloadData;
+    }
+    threadOriginatorPart = incoming.threadOriginatorPart ?? threadOriginatorPart;
+    datePlayed = incoming.datePlayed ?? datePlayed;
+    country = incoming.country ?? country;
+  }
+
+  /// Whether this copy has fields [stored] lacks of those a push copy leaves out, so replacing an equally recent
+  /// [stored] with it adds something.
+  bool fillsGapsIn(Message stored) =>
+      (attributedBody.isNotEmpty && stored.attributedBody.isEmpty) ||
+      (messageSummaryInfo.isNotEmpty && stored.messageSummaryInfo.isEmpty) ||
+      (payloadData != null && stored.payloadData == null) ||
+      (payloadData.hasAppSession && !stored.payloadData.hasAppSession) ||
+      (threadOriginatorPart != null && stored.threadOriginatorPart == null) ||
+      (datePlayed != null && stored.datePlayed == null) ||
+      (country != null && stored.country == null);
 
   Map<String, dynamic> toMap() {
     return {

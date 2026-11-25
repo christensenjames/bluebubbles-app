@@ -17,9 +17,11 @@ One file per server API domain. Each class implements `BaseApi` and is exposed o
 | `facetime_api.dart` | `FaceTimeApi` | `faceTime` |
 | `icloud_api.dart` | `iCloudApi` | `icloud` |
 | `firebase_api.dart` | `FirebaseApi` | `firebase` |
+| `genmoji_api.dart` | `GenmojiApi` | `genmoji` (v2 only — `_svc.apiRootV2`) |
+| `sticker_api.dart` | `StickerApi` | `sticker` (v2 only, `_svc.apiRootV2`) |
 
 ## `BaseApi`
-`base_api.dart` defines the minimal interface (`dio`, `origin`, `apiRoot`, `headers`, `runApiGuarded()`, `returnSuccessOrError()`) that `HttpService` implements. Every sub-service is constructed with a `BaseApi` reference (`HttpService` itself) rather than importing it directly — this avoids a circular import between `HttpService` and the sub-services it owns.
+`base_api.dart` defines the minimal interface (`dio`, `origin`, `apiRoot`, `apiRootV2`, `headers`, `runApiGuarded()`, `returnSuccessOrError()`) that `HttpService` implements. Every sub-service is constructed with a `BaseApi` reference (`HttpService` itself) rather than importing it directly — this avoids a circular import between `HttpService` and the sub-services it owns.
 
 ## Adding a new endpoint
 1. Add the method to the relevant sub-service file here, calling `_svc.dio`, `_svc.apiRoot`, `_svc.runApiGuarded()` as needed. `ApiInterceptor` adds the auth GUID and custom headers for server requests.
@@ -27,5 +29,9 @@ One file per server API domain. Each class implements `BaseApi` and is exposed o
 3. Never add request methods directly to `HttpService` — see `../CLAUDE.md` and `.claude/rules/api.md`.
 
 ## Related
+
+`MessageApi.query` accepts the optional v2 `dateField` selector (`created`, `delivered`, `read`,
+`updated`, `edited`, `retracted`) for its `after`/`before` bounds. Omit it for legacy server requests.
+
 - Full method-level reference table: `../CLAUDE.md`
 - HTTP conventions (`runApiGuarded`, authentication, error handling): `.claude/rules/api.md`

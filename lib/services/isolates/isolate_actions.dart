@@ -35,6 +35,7 @@ class IsolateActons {
     // Prefs
     IsolateRequestType.saveReplyToMessageState: PrefsActions.saveReplyToMessageState,
     IsolateRequestType.loadReplyToMessageState: PrefsActions.loadReplyToMessageState,
+    IsolateRequestType.clearAllReplyToMessageStates: PrefsActions.clearAllReplyToMessageStates,
     IsolateRequestType.syncAllSettings: PrefsActions.syncAllSettings,
     IsolateRequestType.syncSettings: PrefsActions.syncSettings,
 
@@ -106,13 +107,14 @@ class IsolateActons {
 
     // Log actions
     IsolateRequestType.getLogs: (data) => LogActions.getLogs(data as Map<String, dynamic>),
-    IsolateRequestType.writeMergedLog: (data) => LogActions.writeMergedLog(data as Map<String, dynamic>),
 
     // Send message (routed through isolate so sends survive backgrounding)
     IsolateRequestType.sendTextMessage: SendMessageActions.sendTextMessage,
     IsolateRequestType.sendTapback: SendMessageActions.sendTapback,
     IsolateRequestType.sendMultipartMessage: SendMessageActions.sendMultipartMessage,
     IsolateRequestType.sendAttachmentMessage: SendMessageActions.sendAttachmentMessage,
+    IsolateRequestType.sendMultiAttachmentMessage: SendMessageActions.sendMultiAttachmentMessage,
+    IsolateRequestType.sendAppMessage: SendMessageActions.sendAppMessage,
 
     // CustomGroup
     IsolateRequestType.getAllCustomGroups: CustomGroupActions.getAllIds,

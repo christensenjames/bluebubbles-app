@@ -54,7 +54,7 @@ class ExpressiveChatOptions extends StatelessWidget {
         children: [
           _buildAppearanceGroup(context),
           Obx(() => _buildConversationGroup(context)),
-          _buildContentGroup(context),
+          Obx(() => _buildContentGroup(context)),
           Obx(() => _buildDangerZoneGroup(context)),
         ],
       ),
@@ -427,6 +427,17 @@ class ExpressiveChatOptions extends StatelessWidget {
         ),
       ),
       _OptionRow(
+        enabled: NameAndPhotoSharingSvc.hasSeenPhotos(chat),
+        build: (context) => M3EListTile(
+          icon: Icons.person_add,
+          title: "Show shared photos again",
+          supportingText: "Offer photos you already saved or dismissed in this chat again",
+          onTap: () async {
+            await NameAndPhotoSharingSvc.offerPhotosAgain(chat);
+          },
+        ),
+      ),
+      _OptionRow(
         enabled: true,
         build: (context) => M3EListTile(
           icon: Icons.sms,
@@ -526,7 +537,7 @@ class ExpressiveChatOptions extends StatelessWidget {
         ),
       ),
       _OptionRow(
-        enabled: chat.handles.length > 2 &&
+        enabled: chat.people.length > 2 &&
             SettingsSvc.settings.enablePrivateAPI.value &&
             SettingsSvc.serverDetails.supportsGroupChatManagement,
         build: (context) => M3EListTile(

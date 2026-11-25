@@ -1,4 +1,3 @@
-import 'dart:math';
 import 'dart:ui';
 
 import 'package:bluebubbles/app/components/avatars/contact_avatar_widget.dart';
@@ -7,7 +6,8 @@ import 'package:bluebubbles/helpers/helpers.dart';
 import 'package:bluebubbles/database/models.dart';
 import 'package:bluebubbles/services/services.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_svg/svg.dart';
+import 'package:bluebubbles/app/layouts/conversation_view/widgets/message/reaction/sticker_tapback_image.dart';
+import 'package:bluebubbles/app/layouts/conversation_view/widgets/message/reaction/tapback_icon.dart';
 import 'package:get/get.dart';
 
 class ReactionDetails extends StatelessWidget {
@@ -43,6 +43,9 @@ class ReactionDetails extends StatelessWidget {
                 itemBuilder: (context, index) {
                   final message = reactions[index];
                   final handle = message.handleRelation.target;
+                  // A failed removal is drawn as the tapback it was taking back
+                  final type = ReactionTypes.addedType(message.associatedMessageType);
+                  final svg = ReactionTypes.toList().contains(type);
                   String? reactionName;
                   if (!SettingsSvc.settings.hideNamesForReactions.value) {
                     if (message.isFromMe!) {
@@ -98,39 +101,22 @@ class ReactionDetails extends StatelessWidget {
                           ],
                         ),
                         child: Padding(
-                          padding: SettingsSvc.settings.skin.value == Skins.iOS
+                          padding: svg
                               ? const EdgeInsets.only(top: 8.0, left: 7.0, right: 7.0, bottom: 7.0)
-                                  .add(EdgeInsets.only(right: message.associatedMessageType == "emphasize" ? 1 : 0))
+                                  .add(EdgeInsets.only(right: type == "emphasize" ? 1 : 0))
                               : EdgeInsets.zero,
-                          child: SettingsSvc.settings.skin.value == Skins.iOS &&
-                                  ReactionTypes.baseType(message.associatedMessageType) != ReactionTypes.EMOJI
-                              ? SvgPicture.asset(
-                                  'assets/reactions/${message.associatedMessageType}-black.svg',
-                                  colorFilter: ColorFilter.mode(
-                                    message.associatedMessageType == "love"
-                                        ? Colors.pink
-                                        : message.isFromMe!
-                                            ? context.theme.colorScheme.onPrimary
-                                            : context.theme.colorScheme.onSurfaceVariant,
-                                    BlendMode.srcIn,
-                                  ),
-                                )
+                          child: svg
+                              ? TapbackIcon(type!)
                               : Center(
                                   child: Builder(builder: (context) {
-                                    final text = Text(
-                                      ReactionTypes.emojiFor(
-                                          message.associatedMessageType, message.associatedMessageEmoji),
+                                    if (ReactionTypes.isStickerTapback(message.associatedMessageType)) {
+                                      return StickerTapbackImage(attachment: message.dbAttachments.firstOrNull);
+                                    }
+                                    return Text(
+                                      ReactionTypes.emojiFor(message),
                                       style: const TextStyle(fontSize: 18, fontFamily: 'Apple Color Emoji'),
                                       textAlign: TextAlign.center,
                                     );
-                                    if (message.associatedMessageType == "dislike") {
-                                      return Transform(
-                                        transform: Matrix4.identity()..rotateY(pi),
-                                        alignment: FractionalOffset.center,
-                                        child: text,
-                                      );
-                                    }
-                                    return text;
                                   }),
                                 ),
                         ),

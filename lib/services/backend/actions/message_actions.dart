@@ -1,10 +1,34 @@
 import 'package:bluebubbles/database/database.dart';
 import 'package:bluebubbles/database/models.dart';
+import 'package:bluebubbles/helpers/ui/reaction_helpers.dart';
 import 'package:bluebubbles/helpers/types/helpers/message_helper.dart';
 import 'package:bluebubbles/services/backend/actions/attachment_actions.dart';
 import 'package:bluebubbles/utils/logger/logger.dart';
 
 class MessageActions {
+  /// Marks the turns of [turn]'s iMessage app session that it replaced as [AppSessionTypes.SUPERSEDED], linked to the
+  /// session's first message (which links to itself), as Messages does once a newer turn arrives. Messages rewrites
+  /// those rows in place, so sync, which only fetches new rows, would never see it. Which rows count is
+  /// [AppSessionTypes.isReplacedBy], shared with the on-screen copy in MessagesService. Runs inside a write transaction.
+  /// Returns the rows it rewrote, so a caller holding its own copies of them can match.
+  static List<Message> retireEarlierTurns(Message turn) {
+    if (!AppSessionTypes.replacesEarlierTurns(turn)) return const [];
+    final first = turn.associatedMessageGuid!;
+    final query = Database.messages
+        .query((Message_.guid.equals(first) | Message_.associatedMessageGuid.equals(first)) &
+            Message_.guid.notEquals(turn.guid!) &
+            Message_.dateCreated.lessThan(turn.dateCreated!.millisecondsSinceEpoch))
+        .build();
+    final earlier = query.find().where((m) => AppSessionTypes.isReplacedBy(m, turn)).toList();
+    query.close();
+    for (final message in earlier) {
+      message.associatedMessageType = AppSessionTypes.SUPERSEDED;
+      message.associatedMessageGuid = first;
+    }
+    if (earlier.isNotEmpty) Database.messages.putMany(earlier);
+    return earlier;
+  }
+
   static Future<List<Message>?> getMessages() async {
     // Fetch a message with a limit of 1 using ObjectBox
     final oneDayAgo = DateTime.now().subtract(const Duration(days: 1));
@@ -40,6 +64,8 @@ class MessageActions {
       if (existing.guid != inputNewMessage.guid) {
         existing.guid = inputNewMessage.guid;
       }
+      // Before the text and edit date: whether formatting is kept depends on whether they changed
+      existing.takeOmittableFieldsFrom(inputNewMessage);
       if (inputNewMessage.text != null) {
         existing.text = inputNewMessage.text;
       }
@@ -48,12 +74,6 @@ class MessageActions {
       existing.isDelivered = inputNewMessage.isDelivered;
       existing.dateRead = inputNewMessage.dateRead ?? existing.dateRead;
       existing.dateEdited = inputNewMessage.dateEdited ?? existing.dateEdited;
-      existing.attributedBody =
-          inputNewMessage.attributedBody.isNotEmpty ? inputNewMessage.attributedBody : existing.attributedBody;
-      existing.messageSummaryInfo = inputNewMessage.messageSummaryInfo.isNotEmpty
-          ? inputNewMessage.messageSummaryInfo
-          : existing.messageSummaryInfo;
-      existing.payloadData = inputNewMessage.payloadData ?? existing.payloadData;
       existing.wasDeliveredQuietly =
           inputNewMessage.wasDeliveredQuietly ? inputNewMessage.wasDeliveredQuietly : existing.wasDeliveredQuietly;
       existing.didNotifyRecipient =
@@ -61,9 +81,17 @@ class MessageActions {
       existing.error = inputNewMessage.error;
       existing.errorMessage = inputNewMessage.errorMessage;
       existing.originalROWID ??= inputNewMessage.originalROWID;
+      final type = AppSessionTypes.mergedType(existing.balloonBundleId ?? inputNewMessage.balloonBundleId,
+          existing.associatedMessageType, inputNewMessage.associatedMessageType);
+      if (type == inputNewMessage.associatedMessageType) {
+        existing.associatedMessageGuid = inputNewMessage.associatedMessageGuid ?? existing.associatedMessageGuid;
+      }
+      existing.associatedMessageType = type;
 
       try {
         messageBox.put(existing, mode: PutMode.update);
+        // Our own turn is saved here, when its temp GUID is swapped for the real one
+        retireEarlierTurns(existing);
       } catch (ex) {
         Logger.warn(
             'Failed to replace message! This is likely due to a unique constraint being violated: ${ex.toString()}');
@@ -219,7 +247,7 @@ class MessageActions {
 
       // Save associated messages or the original message (depending on whether
       // this message is a reaction or regular message
-      if (inputMessage.associatedMessageType != null && inputMessage.associatedMessageGuid != null) {
+      if (inputMessage.associatedMessageType != null && inputMessage.isReaction) {
         final associatedQuery = messageBox.query(Message_.guid.equals(inputMessage.associatedMessageGuid!)).build();
         associatedQuery.limit = 1;
         final associatedMessage = associatedQuery.findFirst();
@@ -269,7 +297,10 @@ class MessageActions {
         result = query.findFirst();
         query.close();
       } else if (associatedMessageGuid != null) {
-        final query = messageBox.query(Message_.associatedMessageGuid.equals(associatedMessageGuid)).build();
+        // Looks for a reaction to that message
+        final query = messageBox
+            .query(Message_.associatedMessageGuid.equals(associatedMessageGuid) & Message.reactionCondition)
+            .build();
         query.limit = 1;
         result = query.findFirst();
         query.close();

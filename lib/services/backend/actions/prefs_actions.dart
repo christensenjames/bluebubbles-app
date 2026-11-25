@@ -17,6 +17,8 @@ class PrefsActions {
     );
   }
 
+  static Future<void> clearAllReplyToMessageStates(dynamic _) => PrefsSvc.messaging.clearAllReplyToMessageStates();
+
   static Future<Map<String, dynamic>?> loadReplyToMessageState(dynamic data) async {
     final chatGuid = data['chatGuid'] as String;
 

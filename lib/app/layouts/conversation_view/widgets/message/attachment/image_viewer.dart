@@ -33,6 +33,9 @@ class ImageViewer extends StatefulWidget {
   final bool isFromMe;
   final bool isInReply;
 
+  /// Cover-expand into a parent-fixed frame (collection cards). Layout only.
+  final bool fill;
+
   const ImageViewer({
     super.key,
     required this.file,
@@ -40,6 +43,7 @@ class ImageViewer extends StatefulWidget {
     required this.isFromMe,
     this.controller,
     this.isInReply = false,
+    this.fill = false,
   });
 
   final ConversationViewController? controller;
@@ -86,6 +90,10 @@ class _ImageViewerState extends State<ImageViewer> with AutomaticKeepAliveClient
 
   bool get _isGif => attachment.mimeType?.contains("gif") ?? attachment.path.endsWith(".gif");
 
+  BoxFit get _fit => widget.fill ? BoxFit.cover : BoxFit.contain;
+
+  Widget _wrapForFill(Widget child) => widget.fill ? SizedBox.expand(child: child) : child;
+
   // Read bytes off the UI thread — a synchronous read of a multi-MB GIF during
   // build freezes the app, especially with several GIFs on screen at once.
   Future<Uint8List?> _loadGifBytes() async {
@@ -119,7 +127,8 @@ class _ImageViewerState extends State<ImageViewer> with AutomaticKeepAliveClient
     // genuinely smaller than the minimum dimension — otherwise just show the image
     // at its natural scaled size to avoid the blurred background appearing wider than
     // the actual image content.
-    if (widget.isInReply) {
+    // Skip when fill — collection cards are never in-reply and must expand into the frame.
+    if (!widget.fill && widget.isInReply) {
       final String? imagePath = (!kIsWeb && file.path != null) ? file.path : null;
       final imageBytes = file.bytes;
       if (imagePath != null || imageBytes != null) {
@@ -207,7 +216,7 @@ class _ImageViewerState extends State<ImageViewer> with AutomaticKeepAliveClient
                     autoPlay: false,
                     width: size.width,
                     height: size.height,
-                    fit: BoxFit.contain,
+                    fit: _fit,
                   ),
                   // GIF badge, mirroring the LIVE badge — hidden while playing (hovered).
                   Obx(() => _gifHovering.value ? const SizedBox.shrink() : _buildGifBadge()),
@@ -261,7 +270,9 @@ class _ImageViewerState extends State<ImageViewer> with AutomaticKeepAliveClient
       final displayWidth = size.width;
       final displayHeight = size.height;
       if (file.bytes == null) {
-        imageWidget = SizedBox(width: displayWidth, height: displayHeight);
+        imageWidget = widget.fill
+            ? const ColoredBox(color: Colors.transparent)
+            : SizedBox(width: displayWidth, height: displayHeight);
       } else {
         final qualityFactor = SettingsSvc.settings.previewImageQuality.value;
         final calculatedWidth = (displayWidth * Get.pixelRatio * qualityFactor).round().abs().nonZero;
@@ -269,8 +280,8 @@ class _ImageViewerState extends State<ImageViewer> with AutomaticKeepAliveClient
           file.bytes!,
           gaplessPlayback: true,
           filterQuality: FilterQuality.high,
-          width: displayWidth,
-          // height: displayHeight,
+          width: widget.fill ? null : displayWidth,
+          // height omitted for non-fill — see comment below. Fill expands via SizedBox.
           // Display space, width only. The decoder already applies EXIF
           // orientation (dimensions it reports, and cacheWidth/cacheHeight it
           // accepts, are post-rotation), so nothing here may re-apply it.
@@ -278,7 +289,7 @@ class _ImageViewerState extends State<ImageViewer> with AutomaticKeepAliveClient
           // like BoxFit.fill and stretch the bitmap; width alone preserves the
           // aspect ratio.
           cacheWidth: calculatedWidth,
-          fit: BoxFit.contain,
+          fit: _fit,
           frameBuilder: (context, child, frame, wasSynchronouslyLoaded) => fadeInFirstFrame(
             context,
             child,
@@ -312,8 +323,8 @@ class _ImageViewerState extends State<ImageViewer> with AutomaticKeepAliveClient
           File(file.path!),
           gaplessPlayback: true,
           filterQuality: FilterQuality.high,
-          fit: BoxFit.contain,
-          width: displayWidth,
+          fit: _fit,
+          width: widget.fill ? null : displayWidth,
           // Commented out because it causes clipping issues
           // when an image exists in the same message as text.
           // height: displayHeight,
@@ -323,11 +334,13 @@ class _ImageViewerState extends State<ImageViewer> with AutomaticKeepAliveClient
             future: AttachmentsSvc.ensureImageCompatibility(attachment, actualPath: file.path),
             builder: (context, snapshot) {
               if (snapshot.connectionState == ConnectionState.waiting) {
-                return SizedBox(
-                  width: displayWidth,
-                  height: displayHeight,
-                  child: const Center(child: CircularProgressIndicator()),
-                );
+                return widget.fill
+                    ? const Center(child: CircularProgressIndicator())
+                    : SizedBox(
+                        width: displayWidth,
+                        height: displayHeight,
+                        child: const Center(child: CircularProgressIndicator()),
+                      );
               }
 
               if (snapshot.hasData && snapshot.data != null && snapshot.data != file.path) {
@@ -336,12 +349,12 @@ class _ImageViewerState extends State<ImageViewer> with AutomaticKeepAliveClient
                   File(snapshot.data!),
                   gaplessPlayback: true,
                   filterQuality: FilterQuality.high,
-                  width: displayWidth,
+                  width: widget.fill ? null : displayWidth,
                   // Commented out because it causes clipping issues
                   // when an image exists in the same message as text.
                   // height: displayHeight,
                   cacheWidth: calculatedWidth,
-                  fit: BoxFit.contain,
+                  fit: _fit,
                   frameBuilder: frameBuilder,
                 );
               }
@@ -358,12 +371,12 @@ class _ImageViewerState extends State<ImageViewer> with AutomaticKeepAliveClient
           File(previewPath),
           gaplessPlayback: true,
           filterQuality: FilterQuality.high,
-          width: displayWidth,
+          width: widget.fill ? null : displayWidth,
           // Commented out because it causes clipping issues
           // when an image exists in the same message as text.
           // height: displayHeight,
           cacheWidth: calculatedWidth,
-          fit: BoxFit.contain,
+          fit: _fit,
           frameBuilder: frameBuilder,
           errorBuilder: (context, object, stacktrace) => buildOriginalFallback(),
         );
@@ -396,74 +409,80 @@ class _ImageViewerState extends State<ImageViewer> with AutomaticKeepAliveClient
 
     // No AnimatedSize here: every Image above is given an explicit size, so the
     // box never changes once laid out. Animating it only ever amplified a
-    // residual shift into a visible 150ms slide.
-    return ConstrainedBox(
-      constraints: const BoxConstraints(minHeight: 40, minWidth: 100),
-      child: Stack(
-        alignment: !widget.isFromMe ? Alignment.topRight : Alignment.topLeft,
-        children: [
-          imageWidget,
-          // Live photo video overlay
-          if (attachment.hasLivePhoto) buildLivePhotoOverlay(),
-          // Live photo button indicator
-          if (attachment.hasLivePhoto)
-            Obx(
-              () => !isPlayingLivePhoto.value
-                  ? Positioned(
-                      top: 12,
-                      right: widget.isFromMe ? null : 10,
-                      left: widget.isFromMe ? 10 : null,
-                      child: GestureDetector(
-                        onTap: () {
-                          if (!isDownloadingLivePhoto.value) {
-                            handleLivePhotoTap();
-                          }
-                        },
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
-                          decoration: BoxDecoration(
-                            color: Colors.black.withValues(alpha: 0.6),
-                            borderRadius: BorderRadius.circular(4),
-                          ),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              if (isDownloadingLivePhoto.value)
-                                const SizedBox(
-                                  width: 12,
-                                  height: 12,
-                                  child: CircularProgressIndicator(
-                                    strokeWidth: 2,
-                                    valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-                                  ),
-                                )
-                              else
-                                const Icon(Icons.album_outlined, size: 12, color: Colors.white),
-                              const SizedBox(width: 3),
-                              const Text(
-                                'LIVE',
-                                style: TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 10,
-                                  fontWeight: FontWeight.w600,
-                                  letterSpacing: 0.5,
+    // residual shift into a visible 150ms slide. Fill mode expands into a
+    // parent-fixed gallery frame instead.
+    final stack = Stack(
+      fit: widget.fill ? StackFit.expand : StackFit.loose,
+      alignment: !widget.isFromMe ? Alignment.topRight : Alignment.topLeft,
+      children: [
+        imageWidget,
+        // Live photo video overlay
+        if (attachment.hasLivePhoto) buildLivePhotoOverlay(),
+        // Live photo button indicator
+        if (attachment.hasLivePhoto)
+          Obx(
+            () => !isPlayingLivePhoto.value
+                ? Positioned(
+                    top: 8,
+                    right: widget.isFromMe ? null : 8,
+                    left: widget.isFromMe ? 8 : null,
+                    child: GestureDetector(
+                      onTap: () {
+                        if (!isDownloadingLivePhoto.value) {
+                          handleLivePhotoTap();
+                        }
+                      },
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+                        decoration: BoxDecoration(
+                          color: Colors.black.withValues(alpha: 0.6),
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            if (isDownloadingLivePhoto.value)
+                              const SizedBox(
+                                width: 12,
+                                height: 12,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
                                 ),
+                              )
+                            else
+                              const Icon(Icons.album_outlined, size: 12, color: Colors.white),
+                            const SizedBox(width: 3),
+                            const Text(
+                              'LIVE',
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontSize: 10,
+                                fontWeight: FontWeight.w600,
+                                letterSpacing: 0.5,
                               ),
-                            ],
-                          ),
+                            ),
+                          ],
                         ),
                       ),
-                    )
-                  : const SizedBox.shrink(),
-            ),
-        ],
-      ),
+                    ),
+                  )
+                : const SizedBox.shrink(),
+          ),
+      ],
+    );
+
+    if (widget.fill) return _wrapForFill(stack);
+
+    return ConstrainedBox(
+      constraints: const BoxConstraints(minHeight: 40, minWidth: 100),
+      child: stack,
     );
   }
 
   Widget _loadingBox(BuildContext context, double width, double height) => Container(
-        width: width,
-        height: height,
+        width: widget.fill ? null : width,
+        height: widget.fill ? null : height,
         color: context.theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
         child: Center(
           child: CircularProgressIndicator(

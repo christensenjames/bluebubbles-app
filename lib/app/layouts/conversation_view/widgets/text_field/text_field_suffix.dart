@@ -104,7 +104,8 @@ class _TextFieldSuffixState extends State<TextFieldSuffix> with ThemeHelpers {
 
         return Obx(() {
           // Only reactive values in Obx scope - controller is guaranteed non-null here
-          final hasAttachments = widget.controller!.pickedAttachments.isNotEmpty;
+          final hasAttachments =
+              widget.controller!.pickedAttachments.isNotEmpty || widget.controller!.pendingGame.value != null;
           final showRecording = widget.controller!.showRecording.value && widget.recorderController != null;
           final canSend = alwaysShowSend || hasText || hasSubject || hasAttachments;
 
@@ -130,12 +131,12 @@ class _TextFieldSuffixState extends State<TextFieldSuffix> with ThemeHelpers {
               onLongPress: () => sendTextFieldEffects(
                 context,
                 widget.controller!,
-                widget.textController.text.trim(),
+                widget.textController.text,
                 widget.subjectTextController?.text.trim() ?? "",
                 widget.sendMessage,
                 widget.textController is MentionTextEditingController
-                    ? (widget.textController as MentionTextEditingController).mentionables
-                    : [],
+                    ? (widget.textController as MentionTextEditingController).sendableRuns
+                    : const [],
               ),
             ),
           );
@@ -171,7 +172,7 @@ class TextFieldMaterialSendButton extends StatelessWidget {
     return MultiValueListenableBuilder(
       valueListenables: [textController, subjectTextController].nonNulls.toList(),
       builder: (context, values, _) => Obx(() {
-        final hasAttachments = controller.pickedAttachments.isNotEmpty;
+        final hasAttachments = controller.pickedAttachments.isNotEmpty || controller.pendingGame.value != null;
         final canSend =
             hasAttachments || textController.text.isNotEmpty || (subjectTextController?.text.isNotEmpty ?? false);
         return SendButton(

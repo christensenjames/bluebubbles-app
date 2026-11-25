@@ -23,6 +23,7 @@ class ViewerChrome extends StatelessWidget {
     required this.attachment,
     required this.showActions,
     required this.currentPage,
+    this.onOpenCollectionGallery,
   });
 
   static const double barHeight = 48;
@@ -31,6 +32,7 @@ class ViewerChrome extends StatelessWidget {
   final Attachment attachment;
   final bool showActions;
   final ViewerPageActions? Function() currentPage;
+  final VoidCallback? onOpenCollectionGallery;
 
   static Widget _button(IconData icon, String tooltip, VoidCallback onPressed) => IconButton(
     icon: Icon(icon),
@@ -122,6 +124,8 @@ class ViewerChrome extends StatelessWidget {
                         Expanded(
                           child: Padding(padding: const EdgeInsets.only(left: 4), child: _title(context)),
                         ),
+                        if (onOpenCollectionGallery != null)
+                          _button(Icons.grid_view_outlined, 'Open gallery', onOpenCollectionGallery!),
                         _overflowMenu(context),
                       ],
                     ],

@@ -18,7 +18,6 @@ list(APPEND FLUTTER_PLUGIN_LIST
   local_auth_windows
   maps_launcher
   media_kit_libs_windows_video
-  media_kit_video
   objectbox_flutter_libs
   pasteboard
   permission_handler_windows
@@ -26,15 +25,17 @@ list(APPEND FLUTTER_PLUGIN_LIST
   record_windows
   screen_retriever_windows
   secure_application
-  share_plus
-  tray_manager
+  sqlite3_flutter_libs
   url_launcher_windows
+  share_plus
+  media_kit_video
   window_manager
   windows_taskbar
 )
 
 list(APPEND FLUTTER_FFI_PLUGIN_LIST
   flutter_local_notifications_windows
+  jni
 )
 
 set(PLUGIN_BUNDLED_LIBRARIES)

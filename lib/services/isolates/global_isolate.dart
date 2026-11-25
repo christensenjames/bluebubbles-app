@@ -729,6 +729,7 @@ enum IsolateRequestType {
   // Prefs actions
   saveReplyToMessageState,
   loadReplyToMessageState,
+  clearAllReplyToMessageStates,
   syncAllSettings,
   syncSettings,
 
@@ -791,13 +792,14 @@ enum IsolateRequestType {
 
   // Log actions
   getLogs,
-  writeMergedLog,
 
   // Send message actions (routed through isolate so sends survive backgrounding)
   sendTextMessage,
   sendTapback,
   sendMultipartMessage,
   sendAttachmentMessage,
+  sendMultiAttachmentMessage,
+  sendAppMessage,
 
   // Message actions
   replaceMessage,

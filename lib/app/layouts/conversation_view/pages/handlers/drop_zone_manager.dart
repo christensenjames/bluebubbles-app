@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:io';
 
 import 'package:bluebubbles/database/global/platform_file.dart';
 import 'package:bluebubbles/helpers/helpers.dart';
@@ -29,6 +28,7 @@ class DropZoneManager {
 
   Widget target({required Widget child}) {
     return DropTarget(
+      enable: !Platform.isAndroid,
       onDragEntered: onDropOver,
       onDragUpdated: onDropOver,
       onDragExited: onDropLeave,

@@ -7,17 +7,19 @@ sub-service instances. Each sub-service lives in `api/` and handles one domain a
 **Sub-services (accessed via `HttpSvc.<sub-service>.<method>()`):**
 | Property | Class | File | Key Methods |
 |---|---|---|---|
-| `server` | `ServerApi` | `api/server_api.dart` | `ping`, `lockMac`, `restartImessage`, `serverInfo`, `softRestart`, `hardRestart`, `checkUpdate`, `installUpdate`, `getTotalStats`, `getMediaStats`, `getLogs`, `landingPage` |
+| `server` | `ServerApi` | `api/server_api.dart` | `ping`, `subscription`, `lockMac`, `restartImessage`, `serverInfo`, `softRestart`, `hardRestart`, `checkUpdate`, `installUpdate`, `getTotalStats`, `getMediaStats`, `getLogs`, `landingPage` |
 | `fcm` | `FcmApi` | `api/fcm_api.dart` | `addDevice`, `getServiceAccount` |
-| `attachment` | `AttachmentApi` | `api/attachment_api.dart` | `fetch`, `download`, `downloadLivePhoto`, `downloadBlurhash`, `getCount` |
-| `chat` | `ChatApi` | `api/chat_api.dart` | `query`, `getMessages`, `modifyParticipant`, `leave`, `setDisplayName`, `create`, `getCount`, `fetchOne`, `markRead`, `markUnread`, `getIcon`, `setIcon`, `removeIcon`, `delete`, `deleteMessage` |
-| `message` | `MessageApi` | `api/message_api.dart` | `getCount`, `query`, `fetchOne`, `downloadEmbeddedMedia`, `sendText`, `sendAttachment`, `sendMultipart`, `sendTapback`, `unsend`, `edit`, `notify`, `getScheduled`, `createScheduled`, `updateScheduled`, `deleteScheduled` |
+| `attachment` | `AttachmentApi` | `api/attachment_api.dart` | `fetch`, `download`, `downloadLivePhoto`, `downloadBlurhash`, `upload`, `getCount` |
+| `chat` | `ChatApi` | `api/chat_api.dart` | `query`, `getMessages`, `modifyParticipant`, `leave`, `setDisplayName`, `create`, `getCount`, `fetchOne`, `markRead`, `markUnread`, `shouldShareContact`, `shareContact`, `getIcon`, `setIcon`, `removeIcon`, `delete`, `deleteMessage` |
+| `message` | `MessageApi` | `api/message_api.dart` | `getCount`, `query`, `fetchOne`, `downloadEmbeddedMedia`, `sendText`, `sendAttachment`, `sendAttachmentChunked` (**v2 only**, files over 20 MB), `sendMultipart`, `getAppMessage`, `sendAppMessage`, `sendTapback`, `unsend`, `edit`, `notify`, `getScheduled`, `createScheduled`, `updateScheduled`, `deleteScheduled` |
 | `handle` | `HandleApi` | `api/handle_api.dart` | `handleCount`, `handles`, `handle`, `handleFocusState`, `handleiMessageState`, `handleFaceTimeState` |
-| `contact` | `ContactApi` | `api/contact_api.dart` | `fetchAll`, `query`, `create` |
+| `contact` | `ContactApi` | `api/contact_api.dart` | `fetchAll`, `fetchAllPages` (pages by 1,000 on v2; throws rather than return a partial list), `query`, `create`, `update` / `delete` (batch, by server `id`) |
 | `backup` | `BackupApi` | `api/backup_api.dart` | `getTheme`, `setTheme`, `deleteTheme`, `getSettings`, `setSettings`, `deleteSettings` |
-| `faceTime` | `FaceTimeApi` | `api/facetime_api.dart` | `answer`, `leave` |
+| `faceTime` | `FaceTimeApi` | `api/facetime_api.dart` | `answer`, `leave`, `call` (outgoing, **v2 only** — gate on `ServerDetails.supportsFaceTimeCalls`; throws `FaceTimeException`) |
 | `icloud` | `iCloudApi` | `api/icloud_api.dart` | `getDevices`, `refreshDevices`, `getFriends`, `refreshFriends`, `getAccountInfo`, `getAccountContact`, `setAccountAlias` |
 | `firebase` | `FirebaseApi` | `api/firebase_api.dart` | `getFirebaseProjects`, `getGoogleInfo`, `getServerUrlRTDB`, `getServerUrlCF`, `setRestartDateCF` |
+| `genmoji` | `GenmojiApi` | `api/genmoji_api.dart` | `status`, `create`, `library` (ETag → null on 304), `libraryImages` (≤50, ≤320px), `libraryImage`, `deleteFromLibrary` — **v2 only**, gate on `ServerDetails.supportsGenmoji`; UI goes through `GenmojiLibrarySvc` for the library |
+| `sticker` | `StickerApi` | `api/sticker_api.dart` | `library` (all pages), `image` (full size or `thumbnail`), `send` (`message/sticker`, optional `tapback`/`remove`). **v2 only**; sticker tapbacks gate on `ServerDetails.supportsStickerTapbacks` |
 
 **Core utilities (on `HttpService` directly):**
 - `runApiGuarded()` — wraps every call; handles retries on 502, propagates errors
@@ -25,7 +27,8 @@ sub-service instances. Each sub-service lives in `api/` and handles one domain a
   for `HttpSvc.origin` or `options.extra['serverProbe'] == true` (used by `ServerApi.ping(customUrl:)` for
   server-reported LAN addresses), and strips them from other origins
 - `returnSuccessOrError(response)` — validates status code
-- `dio`, `origin`, `apiRoot`, `headers`, `originOverride` — request infrastructure
+- `dio`, `origin`, `apiRoot`, `apiRootV2`, `headers`, `originOverride` — request infrastructure
+- `apiRootV2` (`/api/v2`) is served only by the Swift server; gate on `ServerDetails.isV2Server` (from `server/info`'s `api_versions`)
 - `downloadFromUrl()`, `downloadAppleEmojiFont()` — utility downloads
 - Timeouts configured globally from settings (`apiTimeout`); don't override per-request
 
@@ -35,6 +38,9 @@ sub-service instances. Each sub-service lives in `api/` and handles one domain a
 3. Never add request methods directly to `HttpService`
 
 See `.claude/rules/api.md` for full HTTP conventions.
+
+## Subscription (`subscription_service.dart`)
+`SubscriptionSvc`: whether the server holds Pro, which games, stickers and Genmoji need. Asks `server.subscription()` at startup, on resume and on every server change; `runApiGuarded` reports any `402` to it (`refused`), which covers tokens without `server:admin` that can't ask. Gate an entry point on `locked` (the server said no, it can't be reached to ask (`offline`, rechecked when the socket reconnects), or Developer Tools' "Disable Subscription Features", `debugDisabled`) and show `showSubscriptionRequired` (`app/components/subscription_required.dart`), which says "Server Offline" with Retry while `offline`; gate offering something on `hasPro` (known yes). Unknown is neither, so the `402` path still decides.
 
 ## WebSocket (`socket_service.dart`)
 socket_io_client connection to the BlueBubbles server. Don't create additional
@@ -65,18 +71,21 @@ socket_io_client connection to the BlueBubbles server. Don't create additional
   rebuild. On Android, with no network at all the socket is closed and reports "No network
   connection"; `startSocket()` refuses to run until a network event arrives. Desktop ignores
   `none`: Windows reports it whenever NCSI finds no internet, even with the server on the LAN.
-- The server's engine.io heartbeat takes up to ~3 min to notice a dead connection
-  (pingInterval 60s + pingTimeout 120s) and can't change until the server rewrite, so
-  the client runs its own over the socket: `get-fcm-client` with an ack, every 30s,
-  5s to answer, a miss retries immediately, rebuild after 2 misses. `checkConnection()`
-  sends one now — called on desktop resume and (debounced) on connectivity changes.
+- The 1.x server's engine.io heartbeat takes up to ~3 min to notice a dead connection
+  (pingInterval 60s + pingTimeout 120s); v2 uses engine.io's defaults (25s + 20s, ~45s).
+  Either way the client runs its own over the socket, on every server version:
+  `get-fcm-client` with an ack, every 30s, 5s to answer, a miss retries immediately,
+  rebuild after 2 misses. v2 acks it with a fixed pong (the only client-sent event it
+  answers). `checkConnection()` sends one now — called on desktop resume and (debounced)
+  on connectivity changes.
   There's no separate HTTP internet probe; it flagged working sockets on slow replies.
   Never use `get-server-config`: the server deletes the password from its live config.
 - The socket follows the origin it dials (`_dialedOrigin`): anything that changes the
   LAN override calls `followOrigin()` once the value settles (`detectLocalhost()` does
   this itself), which rebuilds only if the origin actually moved.
-- A stale LAN override is re-probed by `_runUrlDiscovery()` via
-  `NetworkTasks.detectLocalhost()`, not cleared by `saveNewServerUrl()`.
+- Connection errors and two missed heartbeats clear a LAN override before rebuilding onto the remote URL.
+  Resume preserves the override until a failure; explicit "Fetch Latest URL" clears it immediately.
+  `saveNewServerUrl()` only clears it when the configured remote address changes.
 - Error logs are throttled per signature (`_errorLog`); a single-slot throttle would
   alternate between the differing payloads socket.io emits per failed attempt.
 - On resume, `StartupTasks.onAppResume()` rebuilds the socket **before**

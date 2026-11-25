@@ -5,7 +5,6 @@ import 'package:bluebubbles/app/layouts/conversation_view/widgets/message/misc/t
 import 'package:bluebubbles/app/layouts/conversation_view/widgets/message/text/text_bubble.dart';
 import 'package:bluebubbles/app/layouts/conversation_view/widgets/message/timestamp/message_timestamp.dart';
 import 'package:bluebubbles/database/models.dart';
-import 'package:bluebubbles/helpers/helpers.dart';
 import 'package:bluebubbles/services/services.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
@@ -14,29 +13,20 @@ import 'package:get/get.dart';
 class SamsungTimestampObserver extends StatelessWidget {
   const SamsungTimestampObserver({
     super.key,
-    required this.messageParts,
     required this.part,
     required this.cvController,
-    required this.reactionsForPart,
   });
 
-  final List<MessagePart> messageParts;
   final MessagePart part;
   final ConversationViewController cvController;
-  final Iterable<Message> Function(int, List<Message>) reactionsForPart;
 
   @override
   Widget build(BuildContext context) {
     final ms = MessageStateScope.of(context);
     return Obx(() {
-      // Directly observe MessageState associatedMessages for reactivity
       final isFromMe = ms.isFromMe.value;
-      final associatedMessages = ms.associatedMessages;
-      final reactions = associatedMessages
-          .where((e) => ReactionTypes.isReaction(e.associatedMessageType))
-          .toList();
       return Padding(
-        padding: (messageParts.length == 1 && reactions.isNotEmpty) || reactionsForPart(part.part, reactions).isNotEmpty
+        padding: ms.hasVisibleTapbacks(part)
             ? EdgeInsets.only(left: isFromMe ? 0 : 10, right: isFromMe ? 20 : 0)
             : const EdgeInsets.only(right: 10),
         child: MessageTimestamp(controller: ms, cvController: cvController),
@@ -85,14 +75,9 @@ class EditHistoryObserver extends StatelessWidget {
                                   isFromMe: message.isFromMe!,
                                   showTail: !part.isPkPass &&
                                       message.showTail(newerMessage) &&
-                                      part.part == ms.lastPartNumber,
-                                  connectLower: SettingsSvc.settings.skin.value == Skins.iOS
-                                      ? false
-                                      : (part.part != ms.firstPartNumber && part.part != ms.lastPartNumber) ||
-                                          (part.part == ms.firstPartNumber && ms.parts.length > 1),
-                                  connectUpper: SettingsSvc.settings.skin.value == Skins.iOS
-                                      ? false
-                                      : part.part != ms.firstPartNumber,
+                                      ms.isTrailingMessagePart(part),
+                                  connectLower: BubbleConnect.lower(ms, part),
+                                  connectUpper: BubbleConnect.upper(ms, part),
                                 ),
                                 child: TextBubble(
                                   message: edit,

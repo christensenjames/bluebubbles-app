@@ -1,14 +1,24 @@
 import 'dart:async';
+import 'dart:isolate';
 
 import 'package:bluebubbles/helpers/helpers.dart';
 import 'package:bluebubbles/services/isolates/global_isolate.dart';
+import 'package:bluebubbles/services/backend/sync/server_v2_migrations.dart';
 import 'package:bluebubbles/services/services.dart';
 import 'package:bluebubbles/utils/logger/logger.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter/foundation.dart';
 import 'package:get_it/get_it.dart';
+import 'package:network_info_plus/network_info_plus.dart';
+import 'package:network_tools/network_tools.dart'
+    if (dart.library.html) 'package:bluebubbles/database/html/network_tools.dart';
+import 'package:universal_io/io.dart';
 
 class NetworkTasks {
+  static Future<void>? _configureNetworkToolsFuture;
+  static DateTime? _lastSubnetScanTime;
+  static const Duration _subnetScanThrottle = Duration(minutes: 2);
+
   /// Deduplicates concurrent detectLocalhost() calls — callers share one result.
   static Future<void>? _detectLocalhostFuture;
 
@@ -27,11 +37,26 @@ class NetworkTasks {
       }
     }
 
-    // When we re-connect, try an incremental sync.
-    // The sync function has a guard based on time to ensure that it doesn't
-    // get invoked multiple times in quick succession.
-    unawaited(SyncSvc.startIncrementalSync());
+    // When we re-connect, try an incremental sync. The sync's cooldown keeps it from running several times in quick
+    // succession. Without pushes this one is a catch-up: a sync that started before the socket connected (the one on
+    // resume) may have missed what reached the server in between, so it runs once the cooldown is over instead of
+    // not at all. With pushes, that message arrives as one and its push copy asks for a catch-up itself, so a device
+    // that gets pushes doesn't sync a second time on every resume: the server pays for each device that does.
+    unawaited(
+      SyncSvc.startIncrementalSync(catchUp: !_receivesPushes)
+          .whenComplete(ServerV2Migrations.retryAfterReconnect)
+          .catchError(
+            (Object e, StackTrace s) => Logger.warn('Reconnect sync failed', error: e, trace: s, tag: 'NetworkTasks'),
+          ),
+    );
   }
+
+  /// Whether the server pushes this device every message (FCM or UnifiedPush), socket or not.
+  static bool get _receivesPushes =>
+      !kIsWeb &&
+      Platform.isAndroid &&
+      (SettingsSvc.settings.endpointUnifiedPush.value.isNotEmpty ||
+          (!SettingsSvc.fcmData.isNull && SettingsSvc.settings.firstFcmRegisterDate.value != 0));
 
   static Future<void> detectLocalhost({bool createSnackbar = false}) {
     // Deduplicate: if already running, all callers share the same future.
@@ -74,7 +99,54 @@ class NetworkTasks {
       if (createSnackbar) {
         showToast('Connected to ${HttpSvc.originOverride}');
       }
+      return;
     }
+    final now = DateTime.now();
+    if (_lastSubnetScanTime != null && now.difference(_lastSubnetScanTime!) < _subnetScanThrottle) return;
+    _lastSubnetScanTime = now;
+    _configureNetworkToolsFuture ??= configureNetworkTools(FilesystemSvc.appDocDir.path, enableDebugging: kDebugMode);
+    await _configureNetworkToolsFuture;
+
+    Logger.debug('Falling back to port scanning', tag: 'NetworkTasks');
+    final wifiIP = await _lanIPv4();
+    if (wifiIP == null) {
+      setOriginOverride(null);
+      return;
+    }
+
+    final subnet = wifiIP.substring(0, wifiIP.lastIndexOf('.'));
+    final hosts = <ActiveHost>{};
+    final completer = Completer<void>();
+    HostScannerService.instance.scanDevicesForSinglePort(subnet, int.parse(port)).listen(
+      (host) => hosts.add(host),
+      onDone: () async {
+        setOriginOverride(await _probeAddresses(hosts.map((h) => h.address).toList(), port));
+        if (createSnackbar && HttpSvc.originOverride != null) {
+          showToast('Connected to ${HttpSvc.originOverride}');
+        }
+        completer.complete();
+      },
+      onError: (_, _) {
+        setOriginOverride(null);
+        completer.complete();
+      },
+    );
+    await completer.future;
+  }
+
+  /// The Wi-Fi IPv4 whose /24 gets scanned. On Windows network_info_plus answers through synchronous WLAN API FFI,
+  /// which can take seconds while the network is changing; on the main isolate that blocks the merged UI/platform
+  /// thread and freezes typing, so it runs in a short-lived isolate there.
+  static Future<String?> _lanIPv4() async {
+    if (kIsWeb || !Platform.isWindows) return NetworkInfo().getWifiIP();
+    return Isolate.run(() async {
+      final plugin = NetworkInfoPlusWindowsPlugin();
+      try {
+        return await plugin.getWifiIP();
+      } finally {
+        plugin.closeHandle();
+      }
+    });
   }
 
   /// Sets [HttpSvc.originOverride] and syncs the new value to registered isolates.

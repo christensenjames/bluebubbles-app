@@ -1,16 +1,10 @@
 import 'dart:math';
 
 import 'package:bluebubbles/app/layouts/chat_creator/new_chat_creator.dart';
-import 'package:bluebubbles/app/layouts/conversation_details/conversation_details.dart';
 import 'package:bluebubbles/app/layouts/conversation_view/pages/conversation_view.dart';
 import 'package:bluebubbles/app/layouts/conversation_list/pages/search/search_view.dart';
-import 'package:bluebubbles/app/layouts/settings/settings_page.dart';
-import 'package:bluebubbles/app/wrappers/theme_switcher.dart';
-import 'package:bluebubbles/helpers/helpers.dart';
-import 'package:bluebubbles/database/models.dart';
 import 'package:bluebubbles/services/services.dart';
 import 'package:flutter/material.dart';
-import 'package:get/get.dart';
 import 'package:bluebubbles/models/models.dart' show MessageReplyContext;
 
 class OpenSettingsIntent extends Intent {
@@ -25,31 +19,7 @@ class OpenSettingsAction extends Action<OpenSettingsIntent> {
   @override
   Object? invoke(covariant OpenSettingsIntent intent) async {
     if (SettingsSvc.settings.finishedSetup.value) {
-      final currentChat = ChatsSvc.activeChat?.chat;
-      NavigationSvc.closeAllConversationView(context);
-      await ChatsSvc.setAllInactive();
-      await Navigator.of(Get.context!).push(
-        ThemeSwitcher.buildPageRoute(
-          builder: (BuildContext context) {
-            return const SettingsPage();
-          },
-        ),
-      );
-      if (currentChat != null) {
-        if (SettingsSvc.settings.tabletMode.value) {
-          if (context.mounted) {
-            NavigationSvc.pushAndRemoveUntil(
-              context,
-              ConversationView(
-                chat: currentChat,
-              ),
-              (route) => route.isFirst,
-            );
-          }
-        } else {
-          cvc(currentChat).close();
-        }
-      }
+      NavigationSvc.openSettings();
     }
     return null;
   }
@@ -122,132 +92,6 @@ class ReplyRecentAction extends Action<ReplyRecentIntent> {
   }
 }
 
-class HeartRecentIntent extends Intent {
-  const HeartRecentIntent();
-}
-
-class HeartRecentAction extends Action<HeartRecentIntent> {
-  HeartRecentAction(this.chatGuid);
-
-  final String chatGuid;
-
-  @override
-  Object? invoke(covariant HeartRecentIntent intent) async {
-    final chat = ChatsSvc.getChatState(chatGuid)?.chat;
-    if (chat == null) return null;
-    final message = maybeFindMessagesSvc(chatGuid)?.mostRecent;
-    if (message != null && SettingsSvc.settings.enablePrivateAPI.value) {
-      _sendReactionHelper(chat, message, ReactionTypes.LOVE);
-    }
-    return null;
-  }
-}
-
-class LikeRecentIntent extends Intent {
-  const LikeRecentIntent();
-}
-
-class LikeRecentAction extends Action<LikeRecentIntent> {
-  LikeRecentAction(this.chatGuid);
-
-  final String chatGuid;
-
-  @override
-  Object? invoke(covariant LikeRecentIntent intent) async {
-    final chat = ChatsSvc.getChatState(chatGuid)?.chat;
-    if (chat == null) return null;
-    final message = maybeFindMessagesSvc(chatGuid)?.mostRecent;
-    if (message != null && SettingsSvc.settings.enablePrivateAPI.value) {
-      _sendReactionHelper(chat, message, ReactionTypes.LIKE);
-    }
-    return null;
-  }
-}
-
-class DislikeRecentIntent extends Intent {
-  const DislikeRecentIntent();
-}
-
-class DislikeRecentAction extends Action<DislikeRecentIntent> {
-  DislikeRecentAction(this.chatGuid);
-
-  final String chatGuid;
-
-  @override
-  Object? invoke(covariant DislikeRecentIntent intent) async {
-    final chat = ChatsSvc.getChatState(chatGuid)?.chat;
-    if (chat == null) return null;
-    final message = maybeFindMessagesSvc(chatGuid)?.mostRecent;
-    if (message != null && SettingsSvc.settings.enablePrivateAPI.value) {
-      _sendReactionHelper(chat, message, ReactionTypes.DISLIKE);
-    }
-    return null;
-  }
-}
-
-class LaughRecentIntent extends Intent {
-  const LaughRecentIntent();
-}
-
-class LaughRecentAction extends Action<LaughRecentIntent> {
-  LaughRecentAction(this.chatGuid);
-
-  final String chatGuid;
-
-  @override
-  Object? invoke(covariant LaughRecentIntent intent) async {
-    final chat = ChatsSvc.getChatState(chatGuid)?.chat;
-    if (chat == null) return null;
-    final message = maybeFindMessagesSvc(chatGuid)?.mostRecent;
-    if (message != null && SettingsSvc.settings.enablePrivateAPI.value) {
-      _sendReactionHelper(chat, message, ReactionTypes.LAUGH);
-    }
-    return null;
-  }
-}
-
-class EmphasizeRecentIntent extends Intent {
-  const EmphasizeRecentIntent();
-}
-
-class EmphasizeRecentAction extends Action<EmphasizeRecentIntent> {
-  EmphasizeRecentAction(this.chatGuid);
-
-  final String chatGuid;
-
-  @override
-  Object? invoke(covariant EmphasizeRecentIntent intent) async {
-    final chat = ChatsSvc.getChatState(chatGuid)?.chat;
-    if (chat == null) return null;
-    final message = maybeFindMessagesSvc(chatGuid)?.mostRecent;
-    if (message != null && SettingsSvc.settings.enablePrivateAPI.value) {
-      _sendReactionHelper(chat, message, ReactionTypes.EMPHASIZE);
-    }
-    return null;
-  }
-}
-
-class QuestionRecentIntent extends Intent {
-  const QuestionRecentIntent();
-}
-
-class QuestionRecentAction extends Action<QuestionRecentIntent> {
-  QuestionRecentAction(this.chatGuid);
-
-  final String chatGuid;
-
-  @override
-  Object? invoke(covariant QuestionRecentIntent intent) async {
-    final chat = ChatsSvc.getChatState(chatGuid)?.chat;
-    if (chat == null) return null;
-    final message = maybeFindMessagesSvc(chatGuid)?.mostRecent;
-    if (message != null && SettingsSvc.settings.enablePrivateAPI.value) {
-      _sendReactionHelper(chat, message, ReactionTypes.QUESTION);
-    }
-    return null;
-  }
-}
-
 class OpenNextChatIntent extends Intent {
   const OpenNextChatIntent();
 }
@@ -304,42 +148,6 @@ class OpenPreviousChatAction extends Action<OpenPreviousChatIntent> {
   }
 }
 
-class OpenChatDetailsIntent extends Intent {
-  const OpenChatDetailsIntent();
-}
-
-class OpenChatDetailsAction extends Action<OpenChatDetailsIntent> {
-  OpenChatDetailsAction(this.context, this.chatGuid);
-
-  final BuildContext context;
-  final String chatGuid;
-
-  @override
-  Object? invoke(covariant OpenChatDetailsIntent intent) {
-    final chat = ChatsSvc.getChatState(chatGuid)?.chat;
-    if (chat == null) return null;
-    NavigationSvc.push(
-      context,
-      ConversationDetails(chat: chat),
-    );
-    return null;
-  }
-}
-
-class StartIncrementalSyncIntent extends Intent {
-  const StartIncrementalSyncIntent();
-}
-
-class StartIncrementalSyncAction extends Action<StartIncrementalSyncIntent> {
-  @override
-  Object? invoke(covariant StartIncrementalSyncIntent intent) {
-    if (SettingsSvc.settings.finishedSetup.value) {
-      SyncSvc.startIncrementalSync();
-    }
-    return null;
-  }
-}
-
 class GoBackIntent extends Intent {
   const GoBackIntent();
 }
@@ -364,22 +172,4 @@ class GoBackAction extends ContextAction<GoBackIntent> {
     }
     return null;
   }
-}
-
-void _sendReactionHelper(Chat c, Message selected, String t) {
-  OutgoingMsgHandler.queue(
-    OutgoingReaction(
-      chat: c,
-      message: Message(
-        associatedMessageGuid: selected.guid,
-        associatedMessageType: t,
-        dateCreated: DateTime.now(),
-        hasAttachments: false,
-        isFromMe: true,
-        handleId: 0,
-      ),
-      selectedMessage: selected,
-      reaction: t,
-    ),
-  );
 }

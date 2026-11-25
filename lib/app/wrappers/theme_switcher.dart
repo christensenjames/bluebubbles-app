@@ -3,6 +3,7 @@ import 'package:bluebubbles/app/components/custom/custom_cupertino_page_transiti
 import 'package:bluebubbles/app/components/custom/custom_bouncing_scroll_physics.dart';
 import 'package:bluebubbles/services/services.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_acrylic/flutter_acrylic.dart';
 import 'package:get/get.dart';
 
 class ThemeSwitcher extends StatefulWidget {
@@ -12,21 +13,24 @@ class ThemeSwitcher extends StatefulWidget {
   final Widget? samsungSkin;
 
   static PageRoute<T> buildPageRoute<T>(
-      {required Widget Function(BuildContext context) builder, bool instantPush = false}) {
+      {required Widget Function(BuildContext context) builder, RouteSettings? settings}) {
+    // A page moving over another would show it through the see-through window
+    if (kIsDesktop && SettingsSvc.settings.windowEffect.value != WindowEffect.disabled) {
+      return _CoveringRoute<T>(builder: builder, settings: settings);
+    }
     switch (SettingsSvc.settings.skin.value) {
       case Skins.iOS:
         return PageRouteBuilder<T>(
-            transitionDuration: instantPush ? Duration.zero : const Duration(milliseconds: 300),
+            settings: settings,
             pageBuilder: (context, animation, secondaryAnimation) => builder.call(context),
             transitionsBuilder: (context, animation, secondaryAnimation, child) {
               return CustomCupertinoPageTransition(
                   primaryRouteAnimation: animation, linearTransition: false, child: child);
             });
       case Skins.Material:
+        return MaterialPageRoute<T>(builder: builder, settings: settings);
       case Skins.Samsung:
-        return instantPush
-            ? _InstantPushMaterialPageRoute<T>(builder: builder)
-            : MaterialPageRoute<T>(builder: builder);
+        return MaterialPageRoute<T>(builder: builder, settings: settings);
     }
   }
 
@@ -78,20 +82,44 @@ class _ThemeSwitcherState extends State<ThemeSwitcher> with ThemeHelpers {
   }
 }
 
-class _InstantPushMaterialPageRoute<T> extends MaterialPageRoute<T> {
-  _InstantPushMaterialPageRoute({required super.builder});
+// Opacity 0 skips painting, so hiding costs nothing, unlike a fade
+Widget _hideWhenCovered(Animation<double> secondaryAnimation, Widget? child) =>
+    FadeTransition(opacity: _ShownAnimation(secondaryAnimation), child: child);
 
-  bool _pushed = false;
+/// 0 while a page covers or is coming over this one, 1 once it starts leaving, so a pop reveals this page right away
+class _ShownAnimation extends Animation<double> with AnimationWithParentMixin<double> {
+  _ShownAnimation(this.parent);
 
   @override
-  Duration get transitionDuration => _pushed ? super.transitionDuration : Duration.zero;
+  final Animation<double> parent;
 
-  // A zero-duration push completes synchronously; later forwards, like cancelling a back swipe, need the real duration.
   @override
-  TickerFuture didPush() {
-    final TickerFuture push = super.didPush();
-    _pushed = true;
-    controller!.duration = transitionDuration;
-    return push;
+  double get value => parent.status == AnimationStatus.forward || parent.status == AnimationStatus.completed ? 0 : 1;
+}
+
+/// The skin's transition, with the page below hidden while it's covered
+class _CoveringRoute<T> extends PageRouteBuilder<T> {
+  _CoveringRoute({required WidgetBuilder builder, super.settings})
+      : super(pageBuilder: (context, _, _) => builder(context));
+
+  @override
+  Widget buildTransitions(
+      BuildContext context, Animation<double> animation, Animation<double> secondaryAnimation, Widget child) {
+    final skinned = SettingsSvc.settings.skin.value == Skins.iOS
+        ? CustomCupertinoPageTransition(primaryRouteAnimation: animation, linearTransition: false, child: child)
+        : Theme.of(context).pageTransitionsTheme.buildTransitions(this, context, animation, secondaryAnimation, child);
+    return _hideWhenCovered(secondaryAnimation, skinned);
   }
+
+  // Stays in view under see-through popups
+  @override
+  bool canTransitionTo(TransitionRoute<dynamic> nextRoute) => nextRoute is PageRoute && nextRoute.opaque;
+
+  /// Hides the page below too, even one that isn't a covering route
+  @override
+  DelegatedTransitionBuilder? get delegatedTransition => _delegated;
+
+  static Widget? _delegated(BuildContext _, Animation<double> _, Animation<double> secondaryAnimation, bool _,
+          Widget? child) =>
+      _hideWhenCovered(secondaryAnimation, child);
 }

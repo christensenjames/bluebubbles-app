@@ -17,7 +17,7 @@ class SearchQueryHelper {
   }) async {
     obx.Condition<Message> condition = Message_.text
         .contains(term, caseSensitive: false)
-        .and(Message_.associatedMessageGuid.isNull())
+        .and(Message.notReactionCondition)
         .and(Message_.dateDeleted.isNull())
         .and(Message_.dateCreated.notNull());
 
@@ -40,7 +40,7 @@ class SearchQueryHelper {
 
     final query = qBuilder.order(Message_.dateCreated, flags: Order.descending).build();
     query.limit = 50;
-    final results = query.find();
+    final results = await query.findAsync();
     query.close();
 
     final messages = results.map((e) {

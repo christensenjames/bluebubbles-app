@@ -9,15 +9,28 @@ class MethodChannelActions {
     await service.invokeMethod('ready');
   }
 
+  /// The clipboard's formatting as HTML (styled text or an HTML clip), or null when it's plain.
+  Future<String?> clipboardHtml() async => await service.invokeMethod('clipboard-html') as String?;
+
   Future<void> openBrowser({required String? link}) async {
     if (link == null || link.isEmpty) return;
     await service.invokeMethod('open-browser', {'link': link});
   }
 
-  Future<void> openContactForm({required String address, required bool isEmail}) async {
+  /// [newContact] opens a blank new contact instead of offering to add [address] to an existing one.
+  Future<void> openContactForm({
+    required String address,
+    required bool isEmail,
+    String? name,
+    Uint8List? avatar,
+    bool newContact = false,
+  }) async {
     await service.invokeMethod('open-contact-form', {
       'address': address,
       'address_type': isEmail ? 'email' : 'phone',
+      'new_contact': newContact,
+      'name': ?name,
+      'avatar': ?avatar,
     });
   }
 
@@ -83,10 +96,19 @@ class MethodChannelActions {
     return raw.map((key, value) => MapEntry(key.toString(), value is num ? value.toInt() : 0));
   }
 
-  Future<void> deleteNotification({required int notificationId, String? tag}) async {
+  /// Cancels a notification. With [keepBubble] (for a chat that was read), a notification showing as a bubble is
+  /// hidden from the shade instead, since cancelling it would close the bubble.
+  Future<void> deleteNotification({
+    required int notificationId,
+    String? tag,
+    int? readBefore,
+    bool keepBubble = false,
+  }) async {
     await service.invokeMethod('delete-notification', {
       'notification_id': notificationId,
       'tag': ?tag,
+      'read_before': ?readBefore,
+      'keep_bubble': keepBubble,
     });
   }
 
@@ -97,6 +119,11 @@ class MethodChannelActions {
   Future<void> firebaseDeleteToken() async {
     await service.invokeMethod('firebase-delete-token');
   }
+
+  Future<void> flushPreferences() async {
+    await service.invokeMethod('flush-preferences');
+  }
+
 
   Future<String?> getServerUrl() async {
     return await service.invokeMethod('get-server-url') as String?;

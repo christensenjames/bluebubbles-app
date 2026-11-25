@@ -4,7 +4,6 @@ import 'dart:math';
 
 import 'package:bluebubbles/app/layouts/conversation_view/pages/conversation_view.dart';
 import 'package:bluebubbles/app/layouts/settings/pages/scheduling/scheduled_messages_panel.dart';
-import 'package:bluebubbles/app/wrappers/theme_switcher.dart';
 import 'package:bluebubbles/helpers/helpers.dart';
 import 'package:bluebubbles/helpers/ui/facetime_helpers.dart';
 import 'package:bluebubbles/utils/logger/logger.dart';
@@ -12,13 +11,13 @@ import 'package:bluebubbles/database/models.dart';
 import 'package:bluebubbles/services/services.dart';
 import 'package:collection/collection.dart';
 import 'package:flutter/foundation.dart';
-import 'package:flutter/material.dart' hide Notification;
 import 'package:flutter/services.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart' hide Message;
 import 'package:dio/dio.dart' show CancelToken;
 import 'package:flutter_image_compress/flutter_image_compress.dart';
 import 'package:get/get.dart';
 import 'package:bluebubbles/services/backend/notifications/desktop_notification.dart';
+import 'package:bluebubbles/services/backend/notifications/toast_button_images.dart';
 import 'package:path/path.dart';
 import 'package:synchronized/synchronized.dart';
 import 'package:timezone/timezone.dart';
@@ -34,10 +33,12 @@ class PendingToastItem {
   final String text;
   final bool isReaction;
   final bool isGroupEvent;
+  final DateTime? date;
 
   String get senderText => sender == null ? text : "$sender: $text";
 
-  PendingToastItem({required this.sender, required this.text, required this.isReaction, required this.isGroupEvent});
+  PendingToastItem(
+      {required this.sender, required this.text, required this.isReaction, required this.isGroupEvent, this.date});
 }
 
 class NotificationsService {
@@ -62,6 +63,7 @@ class NotificationsService {
   static int? aliasesToast;
   static String? aliasesToastText;
   static Map<String, int> facetimeNotifications = {};
+  static Map<String, Timer> facetimeTimeouts = {};
   static Map<String, int> activeToasts = {};
   static Map<String, Timer> debounceTimers = {};
   static Map<String, List<PendingToastItem>> pendingMessages = {};
@@ -70,6 +72,15 @@ class NotificationsService {
 
   static const int maxLines = 4;
   static const int charsPerLineEst = 40;
+
+  /// How long a desktop FaceTime toast can ring before it clears itself. Calls with a UUID are normally cleared by
+  /// the server's `disconnected` status, so this only covers a status event that never arrives.
+  static const Duration faceTimeToastTimeout = Duration(minutes: 2);
+
+  /// Calls without a UUID come from servers with FaceTime calling off, which never report the call being answered
+  /// or ended, so this timeout is the only way the toast closes. Kept short so it stops soon after the call is
+  /// answered elsewhere.
+  static const Duration legacyFaceTimeToastTimeout = Duration(seconds: 30);
 
   /// Windows toast identity. The toast icon is registered under the AUMID but only
   /// resolves when it matches the guid (flutter_local_notifications#2738), so one
@@ -222,7 +233,7 @@ class NotificationsService {
     final contactName = message.handleRelation.target?.displayName ?? "Unknown";
     final title = isGroup ? (ChatsSvc.getChatState(chat.guid)?.title.value ?? chat.getTitle()) : contactName;
     final text = hideContent ? "iMessage" : message.getNotificationText();
-    final isReaction = !isNullOrEmpty(message.associatedMessageGuid);
+    final isReaction = message.isReaction;
 
     if (kIsWeb && Notification.permission == "granted") {
       final chatIcon = await avatarAsBytes(chat: chat, quality: 256);
@@ -250,7 +261,7 @@ class NotificationsService {
             : await avatarAsBytes(
                 participantsOverride: !chat.isGroup
                     ? null
-                    : chat.handles.where((e) => e.address == message.handleRelation.target?.address).toList(),
+                    : chat.people.where((e) => e.address == message.handleRelation.target?.address).toList(),
                 chat: chat,
                 quality: 256);
         if (chatIcon.isEmpty) chatIcon = personIcon;
@@ -259,7 +270,7 @@ class NotificationsService {
         // Determine if reaction action should be shown (only if Private API is enabled & not a reaction message)
         final bool showReactionAction = SettingsSvc.settings.enablePrivateAPI.value &&
             SettingsSvc.settings.notificationReactionAction.value &&
-            message.associatedMessageGuid == null;
+            !message.isReaction;
         final String reactionType = SettingsSvc.settings.notificationReactionActionType.value;
 
         await GetIt.I.isReady<MethodChannelService>();
@@ -357,13 +368,15 @@ class NotificationsService {
       return;
     }
     if (message.isKeptAudio) return;
+    // Already read on another device, e.g. a message the socket missed that arrived late.
+    if (message.dateRead != null) return;
     if (chat.shouldMuteNotification(message)) return;
     if (!headless && LifecycleSvc.isAlive) {
       if (ChatsSvc.isChatActive(chat.guid)) return;
       // Desktop always notifies for inactive chats; this chat-list suppression is mobile-only.
       if (!kIsDesktop &&
           ChatsSvc.activeChat == null &&
-          Get.rawRoute?.settings.name == "/" &&
+          NavigationSvc.onChatList &&
           !SettingsSvc.settings.notifyOnChatList.value) {
         return;
       }
@@ -435,6 +448,7 @@ class NotificationsService {
       }
     }
 
+    facetimeTimeouts.remove(key)?.cancel();
     final int? existing = facetimeNotifications.remove(key);
     if (existing != null) {
       await DesktopNotifications.cancel(existing);
@@ -461,10 +475,17 @@ class NotificationsService {
             },
     );
 
-    if (id != null) facetimeNotifications[key] = id;
+    if (id != null) {
+      facetimeNotifications[key] = id;
+      facetimeTimeouts[key] = Timer(
+        callUuid == null ? legacyFaceTimeToastTimeout : faceTimeToastTimeout,
+        () => clearDesktopFaceTimeNotif(key),
+      );
+    }
   }
 
   Future<void> clearDesktopFaceTimeNotif(String callerUuid) async {
+    facetimeTimeouts.remove(callerUuid)?.cancel();
     final int? id = facetimeNotifications.remove(callerUuid);
     if (id != null) await DesktopNotifications.cancel(id);
   }
@@ -482,6 +503,7 @@ class NotificationsService {
         text: text,
         isReaction: isReaction,
         isGroupEvent: isGroupEvent,
+        date: message.dateCreated,
     ));
 
     // Cancel and clean up old timer
@@ -536,13 +558,13 @@ class NotificationsService {
     final (String path, bool isTemporaryFile) = await _chatAvatarPath(chat);
 
     final papi = SettingsSvc.settings.enablePrivateAPI.value;
-    final List<int> selectedIndices = SettingsSvc.settings.selectedActionIndices;
     final List<String> actionValues = SettingsSvc.settings.actionList
-        .whereIndexed((i, e) => selectedIndices.contains(i))
         .map(
           (action) => action == "Mark Read"
               ? 'mark-read'
-              : !lastItem.isReaction && !lastItem.isGroupEvent && papi
+              : lastItem.isReaction || lastItem.isGroupEvent || !papi
+              ? null
+              : ReactionTypes.toList().contains(action) || SettingsSvc.serverDetails.supportsEmojiTapbacks
               ? action
               : null,
         )
@@ -555,9 +577,19 @@ class NotificationsService {
               ? ["Mark $numMessages Messages Read"]
               : const []
         : actionValues
-              .map((action) => action == 'mark-read' ? 'Mark Read' : ReactionTypes.reactionToEmoji[action]!)
+              .map((action) => action == 'mark-read' ? 'Mark Read' : ReactionTypes.reactionToEmoji[action] ?? action)
               .toList();
     final List<String> toastActions = multipleMessages && showMarkRead ? const ['mark-read'] : actionValues;
+    // Tapbacks as images, so they look as they do in the app; Mark Read stays text
+    List<String?> actionImages = const [];
+    if (Platform.isWindows) {
+      actionImages = await Future.wait(
+          toastActions.map((action) async => action == 'mark-read' ? null : await ToastButtonImages.forAction(action)));
+      // All of the tapbacks or none, so a failed image doesn't leave one button looking different
+      if (actionImages.whereIndexed((i, image) => image == null && toastActions[i] != 'mark-read').isNotEmpty) {
+        actionImages = const [];
+      }
+    }
     final DesktopMessageData messageData = DesktopMessageData(
       chatGuid: guid,
       messageGuid: message.guid,
@@ -584,6 +616,7 @@ class NotificationsService {
       body: body,
       attributionText: attribution,
       actionLabels: actionLabels,
+      actionImagePaths: actionImages,
       replyInput: SettingsSvc.settings.showReplyField.value,
       silent: chat.isLikelySpam || SettingsSvc.settings.desktopNotificationSoundPath.value != null,
       messageData: messageData,
@@ -604,7 +637,7 @@ class NotificationsService {
   /// and custom avatars get a generated composite written to a temp file, or to
   /// [persistPath] when the file must outlive this run (appTemp is wiped on startup).
   Future<(String, bool)> _chatAvatarPath(Chat chat, {String? persistPath}) async {
-    if (chat.handles.length == 1 && chat.customAvatarPath == null) {
+    if (chat.people.length == 1 && chat.customAvatarPath == null && chat.handles.isNotEmpty) {
       final avatarPath = chat.handles.first.contactAvatarPath;
       // A reserved character in the file name means a row written before avatar
       // names were sanitized (macOS contact IDs end in `:ABPerson`). Windows can
@@ -676,10 +709,14 @@ class NotificationsService {
         );
         return;
       }
-      final String reaction = interaction.action!;
+      final String action = interaction.action!;
+      // Anything but a classic tapback is the emoji of an emoji tapback
+      final bool emoji = !ReactionTypes.toList().contains(action);
+      final String reaction = emoji ? ReactionTypes.EMOJI : action;
       final Message reactionMessage = Message(
         associatedMessageGuid: selectedMessage.guid!,
         associatedMessageType: reaction,
+        associatedMessageEmoji: emoji ? action : null,
         associatedMessagePart: 0,
         dateCreated: DateTime.now(),
         handleId: 0,
@@ -789,23 +826,19 @@ class NotificationsService {
           failedToast = null;
           await showAndFocusWindow();
           if (scheduled) {
-            Navigator.of(Get.context!).push(
-              ThemeSwitcher.buildPageRoute(
-                builder: (BuildContext context) {
-                  return const ScheduledMessagesPanel();
-                },
-              ),
-            );
+            NavigationSvc.openSettings(initialPage: const ScheduledMessagesPanel());
           } else {
-            bool chatIsOpen = ChatsSvc.activeChat?.chat.guid == chat.guid;
-            if (!chatIsOpen) {
-            NavigationSvc.pushAndRemoveUntil(
-              Get.context!,
-              ConversationView(
-                chat: chat,
-              ),
-              (route) => route.isFirst,
-            );
+            if (ChatsSvc.activeChat?.chat.guid == chat.guid) {
+              // Still open under Settings or Find My: bring it back into view
+              NavigationSvc.closeSections();
+            } else {
+              NavigationSvc.pushAndRemoveUntil(
+                Get.context!,
+                ConversationView(
+                  chat: chat,
+                ),
+                (route) => route.isFirst,
+              );
             }
           }
         },
@@ -842,8 +875,14 @@ class NotificationsService {
 
   int _failedToSendId(int chatId, {bool scheduled = false}) => (chatId + 75000) * (scheduled ? -1 : 1);
 
-  Future<void> clearDesktopNotificationsForChat(String chatGuid) async {
+  Future<void> clearDesktopNotificationsForChat(String chatGuid, {int? readBefore}) async {
     await _lock.synchronized(() async {
+      if (readBefore != null) {
+        // Messages newer than the read keep the toast up; the read ones drop out on its next rebuild.
+        final pending = pendingMessages[chatGuid];
+        pending?.removeWhere((p) => p.date == null || p.date!.millisecondsSinceEpoch <= readBefore);
+        if (pending?.isNotEmpty ?? false) return;
+      }
       final int? toastId = activeToasts[chatGuid];
       if (toastId != null) await DesktopNotifications.cancel(toastId);
       await DesktopNotifications.cancelGroup(chatGuid);

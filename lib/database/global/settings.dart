@@ -199,6 +199,10 @@ class Settings {
   final Rx<Skins> skin = Skins.iOS.obs;
   final Rx<ThemeMode> theme = ThemeMode.system.obs;
   final Rx<SwipeDirection> fullscreenViewerSwipeDir = SwipeDirection.RIGHT.obs;
+  final Rx<MediaCollectionLayout> mediaCollectionLayoutSmall =
+      MediaCollectionLayout.skinDefault.obs;
+  final Rx<MediaCollectionLayout> mediaCollectionLayoutLarge =
+      MediaCollectionLayout.skinDefault.obs;
 
   // Pin settings
   final RxInt pinRowsPortrait = RxInt(3);
@@ -229,19 +233,20 @@ class Settings {
 
   // Notification actions
   final RxBool showReplyField = true.obs;
-  final RxList<int> selectedActionIndices = Platform.isWindows ? [0, 1, 2, 3].obs : [0, 1, 2].obs;
-  final RxList<String> actionList = RxList.from([
-    "Mark Read",
-    ReactionTypes.LOVE,
-    ReactionTypes.LIKE,
-    ReactionTypes.LAUGH,
-    ReactionTypes.EMPHASIZE,
-    ReactionTypes.DISLIKE,
-    ReactionTypes.QUESTION
-  ]);
+
+  /// The desktop notification's buttons, in order: "Mark Read", named tapbacks, and emoji (emoji tapbacks)
+  final RxList<String> actionList = RxList.from(_defaultActionList);
+
+  /// Always every index of [actionList]. Versions before it held only the chosen actions read the chosen ones from
+  /// here, so it's still saved for a backup they restore.
+  final RxList<int> selectedActionIndices = List.generate(_defaultActionList.length, (i) => i).obs;
+
+  /// How many buttons a desktop notification can have: Windows has room for 5, one of them the reply field's. Null on
+  /// Linux, where the notification server decides: GNOME Shell shows 3, KDE Plasma, Cinnamon and XFCE show them all.
+  static int? maxNotificationActions(bool showReplyField) => Platform.isWindows ? (showReplyField ? 4 : 5) : null;
 
   // Text field buttons — enabled buttons, in display order. Absent = hidden.
-  final RxList<TextFieldButton> textFieldButtons = RxList.from(TextFieldButton.values);
+  final RxList<TextFieldButton> textFieldButtons = RxList.from(defaultTextFieldButtons);
 
   final RxList<String> recentEmojis = RxList<String>([]);
 
@@ -483,6 +488,8 @@ class Settings {
       'skin': skin.value.index,
       'theme': theme.value.index,
       'fullscreenViewerSwipeDir': fullscreenViewerSwipeDir.value.index,
+      'mediaCollectionLayoutSmall': mediaCollectionLayoutSmall.value.index,
+      'mediaCollectionLayoutLarge': mediaCollectionLayoutLarge.value.index,
       'pinRowsPortrait': pinRowsPortrait.value,
       'pinColumnsPortrait': pinColumnsPortrait.value,
       'pinRowsLandscape': pinRowsLandscape.value,
@@ -733,13 +740,11 @@ class Settings {
         map['editLastSentMessageOnUpArrow'] ?? editLastSentMessageOnUpArrow.value;
     redactedMode.value = map['redactedMode'] ?? redactedMode.value;
     hideMessageContent.value =
-        map['hideMessageContent'] ?? hideMessageContent.value;
+        map['hideMessageContent'] ?? map['generateFakeMessageContent'] ?? hideMessageContent.value;
     hideAttachments.value = map['hideAttachments'] ?? hideAttachments.value;
     hideContactInfo.value = map['hideContactInfo'] ?? hideContactInfo.value;
     generateFakeAvatars.value =
         map['generateFakeAvatars'] ?? generateFakeAvatars.value;
-    hideMessageContent.value =
-        map['generateFakeMessageContent'] ?? hideMessageContent.value;
     enableUnifiedPush.value =
         map['enableUnifiedPush'] ?? enableUnifiedPush.value;
     endpointUnifiedPush.value =
@@ -765,6 +770,10 @@ class Settings {
     theme.value = _readEnumIndex(map['theme'], ThemeMode.values, theme.value);
     fullscreenViewerSwipeDir.value =
         _readEnumIndex(map['fullscreenViewerSwipeDir'], SwipeDirection.values, fullscreenViewerSwipeDir.value);
+    mediaCollectionLayoutSmall.value =
+        _readEnumIndex(map['mediaCollectionLayoutSmall'], MediaCollectionLayout.values, mediaCollectionLayoutSmall.value);
+    mediaCollectionLayoutLarge.value =
+        _readEnumIndex(map['mediaCollectionLayoutLarge'], MediaCollectionLayout.values, mediaCollectionLayoutLarge.value);
     pinRowsPortrait.value = map['pinRowsPortrait'] ?? pinRowsPortrait.value;
     pinColumnsPortrait.value =
         map['pinColumnsPortrait'] ?? pinColumnsPortrait.value;
@@ -781,12 +790,10 @@ class Settings {
             : titleBarStyle.value;
 
     showReplyField.value = map['showReplyField'] ?? showReplyField.value;
-    if (initializing || map.containsKey('selectedActionIndices')) {
-      selectedActionIndices.value =
-          _processSelectedActionIndices(map['selectedActionIndices'], showReplyField.value);
+    if (initializing || map.containsKey('actionList')) {
+      actionList.value = _processActionList(map['actionList'], map['selectedActionIndices'], showReplyField.value);
+      selectedActionIndices.value = List.generate(actionList.length, (i) => i);
     }
-    actionList.value =
-        _processActionList(map['actionList'] ?? jsonEncode(List<String>.from(actionList)));
     if (map.containsKey('detailsMenuActions')) {
       _detailsMenuActions.value =
           _processDetailsMenuActions(map['detailsMenuActions'], detailsMenuActions);
@@ -837,15 +844,16 @@ class Settings {
     unawaited(SettingsSvc.settings.saveOneAsync('detailsMenuActions'));
   }
 
+  Future<void> setNotificationActions(List<String> actions) async {
+    SettingsSvc.settings.actionList.value = actions;
+    SettingsSvc.settings.selectedActionIndices.value = List.generate(actions.length, (i) => i);
+    await SettingsSvc.settings.saveManyAsync(['actionList', 'selectedActionIndices']);
+  }
+
   /// Set the enabled text field buttons, in display order
   void setTextFieldButtons(List<TextFieldButton> buttons) {
     SettingsSvc.settings.textFieldButtons.value = buttons;
     // saveOneAsync (not save()) so the GlobalIsolate's copy is synced too
-    unawaited(SettingsSvc.settings.saveOneAsync('textFieldButtons'));
-  }
-
-  void resetTextFieldButtons() {
-    SettingsSvc.settings.textFieldButtons.value = TextFieldButton.values;
     unawaited(SettingsSvc.settings.saveOneAsync('textFieldButtons'));
   }
 
@@ -889,32 +897,32 @@ Map<String, String> _processSavedChatFilters(dynamic rawJson) {
   }
 }
 
-List<int> _processSelectedActionIndices(dynamic rawJson, bool showReplyField) {
-  try {
-    return (rawJson is List ? rawJson : jsonDecode(rawJson) as List)
-        .cast<int>()
-        .take(Platform.isWindows ? (showReplyField ? 4 : 5) : 3)
-        .sorted(Comparable.compare);
-  } catch (e) {
-    debugPrint("Using default selectedActionIndices");
-    return [0, 1, 2, 3, 4].take(Platform.isWindows ? (showReplyField ? 4 : 5) : 3).sorted(Comparable.compare);
-  }
-}
+final List<String> _defaultActionList = [
+  "Mark Read",
+  ReactionTypes.LOVE,
+  ReactionTypes.LIKE,
+  if (Platform.isWindows) ReactionTypes.LAUGH,
+];
 
-List<String> _processActionList(dynamic rawJson) {
+/// The chosen notification actions. Versions before multiple emoji saved every action in [rawActions] and the chosen
+/// ones' indices in [rawIndices], with an "Emoji" placeholder for their one emoji slot.
+List<String> _processActionList(dynamic rawActions, dynamic rawIndices, bool showReplyField) {
   try {
-    return (rawJson is List ? rawJson : jsonDecode(rawJson) as List).cast<String>();
+    final actions = (rawActions is List ? rawActions : jsonDecode(rawActions) as List).cast<String>().toList();
+    List<int>? indices;
+    try {
+      indices =
+          rawIndices == null ? null : (rawIndices is List ? rawIndices : jsonDecode(rawIndices) as List).cast<int>();
+    } catch (_) {}
+    final chosen = indices == null
+        ? actions
+        : indices.sorted(Comparable.compare).where((i) => i >= 0 && i < actions.length).map((i) => actions[i]);
+    final unique = chosen.where((a) => a != "Emoji").toSet().toList();
+    final max = Settings.maxNotificationActions(showReplyField);
+    return max == null ? unique : unique.take(max).toList();
   } catch (e) {
     debugPrint("Using default actionList");
-    return [
-      "Mark Read",
-      ReactionTypes.LOVE,
-      ReactionTypes.LIKE,
-      ReactionTypes.LAUGH,
-      ReactionTypes.EMPHASIZE,
-      ReactionTypes.DISLIKE,
-      ReactionTypes.QUESTION
-    ];
+    return List.of(_defaultActionList);
   }
 }
 
@@ -927,7 +935,7 @@ List<TextFieldButton> _processTextFieldButtons(dynamic rawJson) {
         .toList();
   } catch (e) {
     debugPrint("Using default textFieldButtons");
-    return TextFieldButton.values;
+    return defaultTextFieldButtons;
   }
 }
 List<String> _processRecentEmojis(dynamic rawJson) {

@@ -13,7 +13,7 @@ esac
 
 libs_root=$(jq -r '.packages[] | select(.name == "objectbox_flutter_libs") | .rootUri' .dart_tool/package_config.json)
 libs_root=${libs_root#file://}
-version=$(sed -n 's/^set(OBJECTBOX_VERSION \(.*\))$/\1/p' "$libs_root/linux/CMakeLists.txt")
+version=$(sed -n 's/^[[:space:]]*set(OBJECTBOX_VERSION \([^)]*\)).*/\1/p' "$libs_root/linux/CMakeLists.txt")
 [[ -n $version ]] || { echo "OBJECTBOX_VERSION not found in $libs_root/linux/CMakeLists.txt" >&2; exit 1; }
 
 tmp=$(mktemp -d)

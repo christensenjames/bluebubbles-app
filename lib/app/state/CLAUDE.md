@@ -29,13 +29,24 @@ ObjectBox entities are heavy (lazy-loaded relations, DB context required). Re-qu
 | `muteType` / `muteArgs` | `RxnString` | mute settings |
 | `title` / `displayName` / `subtitle` | `RxnString` | contact name changes |
 | `latestMessage` | `Rxn<Message>` | new message received |
-| `textFieldText` / `textFieldAttachments` | reactive | draft persistence |
+| `textFieldText` / `textFieldAttachments` | reactive | draft persistence; `textFieldRuns` (plain, JSON) holds the draft's mention runs |
 | `isActive` / `isAlive` | `RxBool` | lifecycle (conversation open) |
 
 ## MessageState Observable Fields
 Key observables: `guid`, `text`, `dateDelivered`, `dateRead`, `dateEdited`, `error`, `hasReactions`, `associatedMessages`, `isSending`, `isSent`, `hasError`, `isReaction`.
 
 Also owns `attachmentStates: Map<String, AttachmentState>` keyed by attachment GUID.
+
+**Part helpers** — `parts` holds raw message parts keyed by part id (`MessagePart.part`), not list index. Use
+`partById`, `isLeadingMessagePart` / `isTrailingMessagePart` and `hasSubjectAbove` rather than comparing `part.part`
+against `parts.length`. All of them treat a collapsed media collection (`MessagePart.collapseMediaCollections`) as
+covering every raw id in its span. Bubble connect styling (Material/Samsung) is `BubbleConnect.upper` / `.lower` in
+`conversation_view/widgets/message/misc/tail_clipper.dart`, built on these.
+
+`displayParts` is `parts` as rendered (media runs collapsed into collection bubbles). It is memoized on the raw parts
+and the flags that affect collapsing, so it returns the same `MessagePart` instances across rebuilds — read it instead
+of calling `collapseMediaCollections` in a widget. `tapbacksForBubble` / `stickersForBubble` use its length to decide
+whether the message is a single bubble.
 
 ## AttachmentState Observable Fields
 | Field | Type | Driven by |
@@ -91,3 +102,5 @@ final state = controller.messageState?.getAttachmentState(attachmentGuid);
 // or via service:
 final state = msvc.getAttachmentState(messageGuid, attachmentGuid);
 ```
+
+`attributedBodyToMessagePart` preserves runs with offsets relative to each part's text, including edit-history parts. Mentions remain run attributes rather than a separate range list. Skipped standalone attachment placeholders do not shift later text runs.

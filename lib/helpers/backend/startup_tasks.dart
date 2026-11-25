@@ -4,9 +4,11 @@ import 'dart:io';
 import 'package:bluebubbles/env.dart';
 import 'package:bluebubbles/helpers/helpers.dart';
 import 'package:bluebubbles/database/database.dart';
+import 'package:bluebubbles/database/models.dart';
 import 'package:bluebubbles/services/isolates/global_isolate.dart';
 import 'package:bluebubbles/services/isolates/incremental_sync_isolate.dart';
 import 'package:bluebubbles/services/backend/interfaces/prefs_interface.dart';
+import 'package:bluebubbles/services/backend/sync/server_v2_migrations.dart';
 import 'package:bluebubbles/services/services.dart';
 import 'package:bluebubbles/utils/logger/logger.dart';
 import 'package:flutter/foundation.dart';
@@ -15,6 +17,7 @@ import 'package:bluebubbles/services/backend/notifications/desktop_notification.
 import 'package:flutter/services.dart';
 import 'package:in_app_review/in_app_review.dart';
 import 'package:app_install_date/app_install_date.dart';
+import 'package:dio/dio.dart';
 import 'package:get_it/get_it.dart';
 
 class StartupTasks {
@@ -272,6 +275,10 @@ class StartupTasks {
     await _step("Loading chats...");
     GetIt.I.registerSingleton<ChatsService>(ChatsService());
     GetIt.I.registerSingleton<TypingIndicatorService>(TypingIndicatorService());
+    GetIt.I.registerSingleton<NameAndPhotoSharingService>(NameAndPhotoSharingService());
+    // Lazy: read nothing from disk until a picker first opens the Genmoji or sticker library.
+    GetIt.I.registerLazySingleton<GenmojiLibraryService>(GenmojiLibraryService.new);
+    GetIt.I.registerLazySingleton<StickerLibraryService>(StickerLibraryService.new);
     GetIt.I.registerSingleton<SocketService>(SocketService());
     Logger.info("Waiting on NotificationsService...");
     await _waitForInterop(notifications: true);
@@ -281,6 +288,8 @@ class StartupTasks {
       ScheduledMessagesService(),
       dispose: (svc) => svc.dispose(),
     );
+    GetIt.I.registerSingleton<SubscriptionService>(SubscriptionService()..init());
+    if (!kIsWeb && !kIsDesktop && !isBubble) unawaited(OpenPigeon.init());
 
     Logger.info("Registering CustomGroupsService...");
     GetIt.I.registerSingleton<CustomGroupsService>(CustomGroupsService());
@@ -309,7 +318,17 @@ class StartupTasks {
     if (SettingsSvc.settings.finishedSetup.value) {
       unawaited(NetworkTasks.detectLocalhost()
           .catchError((e, s) => Logger.warn("Failed to detect localhost on startup!", error: e, trace: s))
-          .then((_) => SyncSvc.startIncrementalSync()));
+          .then((_) async {
+        if (kIsDesktop) {
+          await _repairChatlessMessages().catchError((e, s) {
+            Logger.warn("Failed to repair chatless messages!", error: e, trace: s);
+          });
+        }
+        await SyncSvc.startIncrementalSync();
+        await ServerV2Migrations.runOnce().catchError((e, s) {
+          Logger.warn("Failed to run v2 server migrations!", error: e, trace: s);
+        });
+      }));
     }
   }
 
@@ -483,7 +502,50 @@ class StartupTasks {
     Logger.info("onStartup tasks complete");
   }
 
+  /// In Desktop 2.1.4 and 2.1.5, saving a link's preview wrote the message back with no chat. Ask the server which
+  /// chat each affected message belongs to and link it back. A failed request retries next launch, unless the server
+  /// itself says the message no longer exists.
+  static Future<void> _repairChatlessMessages() async {
+    if (PrefsSvc.database.getChatlessMessageRepairDone()) return;
+
+    // Every preview save writes a `…FetchedAt` stamp or a `…Md5` image hash, so this matches only previewed links
+    final preview = Message_.dbMetadata.contains('FetchedAt').or(Message_.dbMetadata.contains('Md5'));
+    final query = Database.messages.query(Message_.chat.equals(0).and(preview)).build();
+    final messages = await query.findAsync();
+    query.close();
+
+    var retry = false;
+    for (final message in messages) {
+      // Unsent messages have no server record to look up
+      final guid = message.guid;
+      if (guid == null || guid.startsWith('temp') || guid.startsWith('error')) continue;
+
+      try {
+        final response = await HttpSvc.message.fetchOne(guid, withQuery: "chats");
+        final chats = (response.data['data']?['chats'] as List?) ?? const [];
+        final chatGuid = chats.whereType<Map>().firstOrNull?['guid'] as String?;
+        final chat = chatGuid == null ? null : Chat.findOne(guid: chatGuid);
+        if (chat == null) continue;
+        await message.saveAsync(chat: chat);
+        Logger.info("Relinked message $guid to chat $chatGuid");
+      } catch (e, s) {
+        Logger.warn("Failed to look up chat for message $guid", error: e, trace: s);
+        // Tunnels and proxies can also return a 404, so only the server's own error means the message is gone.
+        // Anything else retries next launch; stop now rather than wait out a timeout per message.
+        if (e is! Response || !'${e.data}'.contains('Message does not exist!')) {
+          retry = true;
+          break;
+        }
+      }
+    }
+
+    if (!retry) await PrefsSvc.database.setChatlessMessageRepairDone();
+  }
+
   static Future<void> onAppResume() async {
+    // OpenPigeon may have just been installed, or the server licensed
+    unawaited(OpenPigeon.refresh());
+    if (GetIt.I.isRegistered<SubscriptionService>()) unawaited(SubscriptionSvc.refresh());
     final LifecycleService? lifecycle =
         (GetIt.I.isRegistered<LifecycleService>() && GetIt.I.isReadySync<LifecycleService>())
             ? GetIt.I<LifecycleService>()
@@ -502,15 +564,26 @@ class StartupTasks {
             ? GetIt.I<IntentsService>().pendingOpenChatGuid
             : null;
         final redirectingAway = pendingGuid != null && pendingGuid != activeChat.chat.guid;
-        if (!redirectingAway) {
+        // Settings, Find My or a page over the chat hides it, so it isn't being read and its field mustn't take focus
+        final covered = activeChat.isCovered.value;
+        if (!redirectingAway && !covered) {
           ChatsSvc.setChatHasUnread(activeChat.chat, false);
         }
+
+        // Another Android engine may have saved messages for this chat while this one was away: a collapsed bubble's
+        // are all pushed to the main or worker engine. Desktop runs one engine, and its syncs dispatch what they save.
+        if (!kIsDesktop) unawaited(maybeFindMessagesSvc(activeChat.chat.guid)?.addMissedFromDb());
 
         // On desktop, always restore focus when the app is resumed (window regains focus).
         // On mobile, only refocus if the user has auto-open keyboard enabled AND the
         // conversation view is the active route (not obscured by ConversationDetails etc.).
         ConversationViewController _cvc = cvc(activeChat.chat);
-        if (!_cvc.showingOverlays && !_cvc.showingSubRoute && _cvc.editing.isEmpty) {
+        // The attachment picker closes when the field takes focus, and system pickers it opens resume the app
+        if (!covered &&
+            !_cvc.showingOverlays &&
+            !_cvc.showingSubRoute &&
+            _cvc.editing.isEmpty &&
+            !_cvc.showAttachmentPicker.value) {
           if (kIsDesktop || SettingsSvc.settings.autoOpenKeyboard.value) {
             _cvc.lastFocusedNode.requestFocus();
           } else if (_cvc.lastFocusedNode.hasFocus) {

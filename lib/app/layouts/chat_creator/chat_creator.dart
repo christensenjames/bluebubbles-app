@@ -114,7 +114,7 @@ class ChatCreatorState extends State<ChatCreator> with ThemeHelpers {
         filteredContacts.value = tuple.contacts;
         filteredChats.value = List<Chat>.from(tuple.chats);
         if (addressController.text.isNotEmpty) {
-          filteredChats.sort((a, b) => a.handles.length.compareTo(b.handles.length));
+          filteredChats.sort((a, b) => a.people.length.compareTo(b.people.length));
         }
       });
     });
@@ -227,9 +227,9 @@ class ChatCreatorState extends State<ChatCreator> with ThemeHelpers {
           ChatsSvc.activeChat!.controller!.textController.text = widget.initialText!;
         } else if (fakeController.value?.textController.text != null &&
             fakeController.value!.textController.text.isNotEmpty) {
-          ChatsSvc.activeChat!.controller!.textController.text = fakeController.value!.textController.text;
+          ChatsSvc.activeChat!.controller!.textController.copyFrom(fakeController.value!.textController);
         } else if (textController.text.isNotEmpty) {
-          ChatsSvc.activeChat!.controller!.textController.text = textController.text;
+          ChatsSvc.activeChat!.controller!.textController.copyFrom(textController);
         }
 
         fakeController.value = ChatsSvc.activeChat!.controller;
@@ -510,7 +510,7 @@ class ChatCreatorState extends State<ChatCreator> with ThemeHelpers {
                               }
 
                               final ctrl = fakeController.value!;
-                              ctrl.textController.text = textController.text;
+                              ctrl.textController.copyFrom(textController);
                               ctrl.pickedAttachments.value = List<PlatformFile>.from(widget.initialAttachments);
                               ctrl.replyToMessage = null;
 
@@ -519,6 +519,7 @@ class ChatCreatorState extends State<ChatCreator> with ThemeHelpers {
                               ctrl.pendingSend = SendData(
                                 attachments: widget.initialAttachments,
                                 text: ctrl.textController.text,
+                                runs: ctrl.textController.sendableRuns,
                                 subject: "",
                                 replyGuid: ctrl.replyToMessage?.message.threadOriginatorGuid ??
                                     ctrl.replyToMessage?.message.guid,
@@ -536,16 +537,7 @@ class ChatCreatorState extends State<ChatCreator> with ThemeHelpers {
                                 (route) => route.isFirst,
                                 // don't force close the active chat in tablet mode
                                 closeActiveChat: false,
-                                // only used in non-tablet mode context
-                                customRoute: ThemeSwitcher.buildPageRoute(
-                                  instantPush: true,
-                                  builder: (_) => TitleBarWrapper(
-                                      child: ConversationView(
-                                    chat: existingChat,
-                                    customService: messagesService,
-                                    fromChatCreator: true,
-                                  )),
-                                ),
+                                animate: false,
                               );
                             } else {
                               if (!(createCompleter?.isCompleted ?? true)) return;
@@ -622,17 +614,9 @@ class ChatCreatorState extends State<ChatCreator> with ThemeHelpers {
                                 if (!mounted) return;
                                 NavigationSvc.pushAndRemoveUntil(
                                   Get.context!,
-                                  ConversationView(chat: newChat),
+                                  ConversationView(chat: newChat, fromChatCreator: true),
                                   (route) => route.isFirst,
-                                  customRoute: ThemeSwitcher.buildPageRoute(
-                                    instantPush: true,
-                                    builder: (_) => TitleBarWrapper(
-                                      child: ConversationView(
-                                        chat: newChat,
-                                        fromChatCreator: true,
-                                      ),
-                                    ),
-                                  ),
+                                  animate: false,
                                 );
                               }).catchError((error) {
                                 final createDialogCtxNow = createDialogCtx;

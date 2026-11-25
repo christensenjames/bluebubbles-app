@@ -10,7 +10,7 @@
 
 ## Usage
 
-**`ConversationFullscreenHolder`** — use when viewing an attachment that belongs to a chat/message (in-bubble tap, gallery card), where paging through the chat's other attachments and replying to a specific attachment matter:
+**`ConversationFullscreenHolder`** — use when viewing an attachment that belongs to a chat/message (in-bubble tap, collection card, conversation-details media grid), where paging through the chat's other attachments and replying to a specific attachment matter:
 ```dart
 Navigator.push(context, MaterialPageRoute(
   builder: (_) => ConversationFullscreenHolder(attachment: attachment, showInteractions: true),
@@ -31,9 +31,15 @@ Both dispatch on the attachment's mime type and render `FullscreenImage` or `Ful
 - `FullscreenVideo` disposes only a player it created; a player borrowed from the inline chat video (`videoController`) is handed back with speed and loop reset
 - `FullscreenVideo` puts its actions (close, info, re-download, save, share, PiP, speed, loop, mute) inside media_kit's control overlay; `FullscreenImage` keeps its own action bar for shares/saves
 - Material skin only: `ConversationFullscreenHolder` draws one shared `ViewerChrome` (`viewer_chrome.dart`) over every page and owns its visibility and the system-UI mode; pages are built with `onTap`/`sharedChrome` and draw no bars of their own. `FullscreenImage` zooms with `ZoomableMedia` (swipe-down dismiss, `Hero` from the chat bubble through `ThemeSwitcher.buildTransparentPageRoute`) and leaves `PageView` paging unlocked. iOS/Samsung keep PhotoView, per-page bars, and the paging lock. `SingleAttachmentFullscreenViewer` passes neither flag, so its pages keep their own close bar.
+- Video player is disposed when the route is popped
+- Shares/saves to gallery are triggered from within the action bar
+- `galleryAttachments` limits paging to a list; `onOpenCollectionGallery` shows a grid button. Openers inside a media
+  collection fill both from `MediaCollectionScope` (see `.../attachment/collections/CLAUDE.md`); the collection gallery
+  page is outside the scope, so its fullscreen has no grid button (no nesting)
 
 ## Related
 - Attachment models: `lib/database/io/attachment.dart`
 - Attachment download state: `lib/services/ui/attachments_service.dart`
 - Thumbnails in the chat: `lib/app/layouts/conversation_view/widgets/message/attachment/`
+- Collection overview: `lib/app/layouts/conversation_view/widgets/message/attachment/collections/`
 - Composer preview: `lib/app/layouts/conversation_view/widgets/text_field/picked_attachment.dart`

@@ -1,6 +1,7 @@
 import 'package:bluebubbles/app/components/m3e/m3e_motion.dart';
 import 'package:bluebubbles/app/state/message_state_scope.dart';
 import 'package:bluebubbles/app/layouts/conversation_view/widgets/message/reaction/reaction.dart';
+import 'package:bluebubbles/app/layouts/conversation_view/widgets/message/reaction/reaction_clipper.dart';
 import 'package:bluebubbles/helpers/helpers.dart';
 import 'package:bluebubbles/database/models.dart';
 import 'package:defer_pointer/defer_pointer.dart';
@@ -85,9 +86,17 @@ class ReactionHolder extends StatefulWidget {
   const ReactionHolder({
     super.key,
     required this.reactions,
+    this.tailType = ReactionTailType.standard,
+    this.tailDirection,
   });
 
   final Iterable<Message> reactions;
+  final ReactionTailType tailType;
+  final ReactionTailDirection? tailDirection;
+
+  /// How far a holder pinned to a bubble's top corner hangs past the bubble's top / side edge.
+  static const double bubbleOverhangTop = -14;
+  static const double bubbleOverhangSide = -20;
 
   @override
   State<ReactionHolder> createState() => _ReactionHolderState();
@@ -96,7 +105,7 @@ class ReactionHolder extends StatefulWidget {
 class _ReactionHolderState extends State<ReactionHolder> {
   Iterable<Message> get reactions => getUniqueReactionMessages(widget.reactions.toList());
 
-  // Cache the unique reactions to prevent unnecessary rebuilds
+  // Each sender's latest reaction, worked out once per update rather than on every build
   late List<Message> _cachedReactions;
 
   // Track which reaction keys have been animated
@@ -112,22 +121,10 @@ class _ReactionHolderState extends State<ReactionHolder> {
   @override
   void didUpdateWidget(ReactionHolder oldWidget) {
     super.didUpdateWidget(oldWidget);
-    // Only rebuild if reactions actually changed
-    if (!_reactionsEqual(oldWidget.reactions, widget.reactions)) {
-      _cachedReactions = reactions.toList();
-    }
-  }
-
-  /// Check if two reaction lists are equal by comparing GUIDs
-  /// This prevents unnecessary rebuilds when the same data is passed
-  bool _reactionsEqual(Iterable<Message> a, Iterable<Message> b) {
-    final listA = a.toList();
-    final listB = b.toList();
-    if (listA.length != listB.length) return false;
-    for (int i = 0; i < listA.length; i++) {
-      if (listA[i].guid != listB[i].guid) return false;
-    }
-    return true;
+    // Always: a send that fails changes its reaction in place (same GUID, same object), so comparing the old list
+    // with the new can't see it, and a failed removal is drawn where the pending one wasn't. Pop-ins are tracked by
+    // _seenReactionKeys, not by this list, so recomputing doesn't replay them.
+    _cachedReactions = reactions.toList();
   }
 
   @override
@@ -138,9 +135,14 @@ class _ReactionHolderState extends State<ReactionHolder> {
     }
 
     final isFromMe = MessageStateScope.of(context).isFromMe.value;
+    // Explicit tailDirection stacks along that edge (e.g. collection trailing).
+    final stackFromEnd = widget.tailDirection != null
+        ? widget.tailDirection == ReactionTailDirection.left
+        : isFromMe;
     return SizedBox(
-      height: 35,
-      width: 35,
+      height:
+          widget.tailType == ReactionTailType.inside ? ReactionWidgetState.iosClipHeight : ReactionWidgetState.iosSize,
+      width: ReactionWidgetState.iosSize,
       child: Stack(
         clipBehavior: Clip.none,
         children: _cachedReactions
@@ -165,8 +167,8 @@ class _ReactionHolderState extends State<ReactionHolder> {
               return Positioned(
                 key: ValueKey(stableKey),
                 top: 0,
-                left: !isFromMe ? null : -i * 2.0,
-                right: isFromMe ? null : -i * 2.0,
+                left: stackFromEnd ? -i * 2.0 : null,
+                right: stackFromEnd ? null : -i * 2.0,
                 child: DeferPointer(
                   child: _ReactionAnimator(
                     key: ValueKey(stableKey),
@@ -176,6 +178,8 @@ class _ReactionHolderState extends State<ReactionHolder> {
                     child: ReactionWidget(
                       reaction: e,
                       reactions: _cachedReactions,
+                      tailType: widget.tailType,
+                      tailDirection: widget.tailDirection,
                     ),
                   ),
                 ),

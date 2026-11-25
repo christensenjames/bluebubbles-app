@@ -17,7 +17,10 @@ class TabletModeWrapper extends StatefulWidget {
   final bool allowResize;
   final double? minWidthLeft;
   final double? maxWidthLeft;
-  final VoidCallback? onCollapse;
+
+  /// When set, the phone layout keeps [right] mounted over [left] and shows it while true, so pages survive a
+  /// layout switch
+  final RxBool? rightOpen;
 
   const TabletModeWrapper(
       {super.key,
@@ -30,7 +33,7 @@ class TabletModeWrapper extends StatefulWidget {
       this.maxRatio = 0,
       this.minWidthLeft,
       this.maxWidthLeft,
-      this.onCollapse})
+      this.rightOpen})
       : assert(initialRatio >= 0),
         assert(initialRatio <= 1);
 
@@ -42,7 +45,6 @@ class _TabletModeWrapperState extends State<TabletModeWrapper> with ThemeHelpers
   //from 0-1
   late final RxDouble _ratio;
   double? _maxWidth;
-  bool? altLayoutCache;
   StreamSubscription? _eventSub;
 
   double get _width1 => max(
@@ -82,11 +84,24 @@ class _TabletModeWrapperState extends State<TabletModeWrapper> with ThemeHelpers
   @override
   Widget build(BuildContext context) {
     if (!showAltLayout) {
-      if (altLayoutCache ?? false) widget.onCollapse?.call();
-      altLayoutCache = false;
-      return TitleBarWrapper(child: widget.left);
+      final rightOpen = widget.rightOpen;
+      if (rightOpen == null) return TitleBarWrapper(child: widget.left);
+      return TitleBarWrapper(
+        child: Stack(
+          children: [
+            // Offstage alone keeps the hidden pane's animations running and its focusables reachable
+            Obx(() => Offstage(
+                  offstage: rightOpen.value,
+                  child: TickerMode(
+                    enabled: !rightOpen.value,
+                    child: ExcludeFocus(excluding: rightOpen.value, child: widget.left),
+                  ),
+                )),
+            Obx(() => IgnorePointer(ignoring: !rightOpen.value, child: widget.right)),
+          ],
+        ),
+      );
     }
-    altLayoutCache = true;
     return LayoutBuilder(
       builder: (context, BoxConstraints constraints) {
         _maxWidth = constraints.maxWidth - widget.dividerWidth;

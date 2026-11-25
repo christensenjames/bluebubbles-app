@@ -6,8 +6,11 @@ import 'package:bluebubbles/app/state/message_state.dart';
 import 'package:bluebubbles/helpers/types/extensions/extensions.dart';
 import 'package:bluebubbles/helpers/types/constants.dart';
 import 'package:bluebubbles/helpers/types/helpers/string_helpers.dart';
+import 'package:bluebubbles/helpers/types/helpers/message_helper.dart';
+import 'package:bluebubbles/helpers/ui/reaction_helpers.dart';
 import 'package:bluebubbles/database/models.dart';
 import 'package:bluebubbles/services/services.dart';
+import 'package:bluebubbles/services/backend/interfaces/chat_interface.dart';
 import 'package:bluebubbles/services/backend/interfaces/sync_interface.dart';
 import 'package:bluebubbles/utils/logger/logger.dart';
 import 'package:collection/collection.dart';
@@ -189,7 +192,7 @@ class MessagesService extends GetxController {
       // Re-apply uploading state for any attachment that is still actively
       // being sent.  When MessagesService is torn down (user navigates away)
       // and then re-created (user re-enters), AttachmentState is constructed
-      // fresh from the persisted data.  Because prepAttachment sets
+      // fresh from the persisted data.  Because prepAttachments sets
       // isDownloaded=true before the upload completes, the constructor
       // defaults those attachments to transferState=complete/isSending=false,
       // hiding the in-progress send overlay.  This call corrects that.
@@ -262,7 +265,7 @@ class MessagesService extends GetxController {
   }
 
   /// Notifies that an attachment upload is starting (called from
-  /// [OutgoingMessageHandler.prepAttachment] before the HTTP call is made).
+  /// [OutgoingMessageHandler.prepAttachments] before the HTTP call is made).
   ///
   /// Ensures the message and attachment are registered in the state maps and
   /// transitions the attachment to [AttachmentTransferState.uploading].
@@ -289,7 +292,7 @@ class MessagesService extends GetxController {
 
     // Populate uploadPreviewFile so the UI can show the image behind the
     // progress overlay while the upload is in flight.  The file was already
-    // copied to attachment.path by prepAttachment.
+    // copied to attachment.path by prepAttachments.
     if (!kIsWeb && attachment.transferName != null) {
       final path = attachment.path;
       if (path.isNotEmpty && File(path).existsSync()) {
@@ -478,7 +481,7 @@ class MessagesService extends GetxController {
 
     // Force-complete the state.  updateFromAttachment's isDownloaded guard
     // may skip the transition when isDownloaded was already true (set in
-    // prepAttachment), so we do it explicitly here.
+    // prepAttachments), so we do it explicitly here.
     state.updateIsDownloadedInternal(true);
     state.updateActiveDownloadInternal(null);
     if (state.transferState.value != AttachmentTransferState.complete) {
@@ -784,12 +787,54 @@ class MessagesService extends GetxController {
     await _handleNewMessage(message);
   }
 
+  /// Dates of the loaded messages, leaving out ones being sent: those carry this device's clock, not the server's.
+  Iterable<DateTime> get _loadedDates =>
+      struct.messages.where((m) => !m.isSending).map((m) => m.dateCreated).whereType<DateTime>();
+
+  /// Adds [message], which an update arrived for while this chat isn't showing it, if it falls within the loaded
+  /// range: another engine may have saved it first, leaving this one only the update, which [updateMessage] skips.
+  Future<void> addMissedMessage(Message message) async {
+    final date = message.dateCreated;
+    if (date == null || message.dateDeleted != null) return;
+    final oldest = _loadedDates.fold<DateTime?>(null, (o, d) => o == null || d.isBefore(o) ? d : o);
+    if (oldest != null && date.isBefore(oldest)) return;
+    await addNewMessage(message);
+  }
+
+  /// Shows messages another engine saved while this one was away, from the newest one showing onwards. A bubble
+  /// misses everything pushed while it was collapsed: its socket is disconnected and nothing tells it about them.
+  Future<void> addMissedFromDb() async {
+    if (chat.id == null) return;
+    final newest = _loadedDates.fold<DateTime?>(null, (n, d) => n == null || d.isAfter(n) ? d : n);
+    if (newest == null) return;
+    final missed = await ChatInterface.getMessagesAsync(
+      chatId: chat.id!,
+      chatGuid: chat.guid,
+      participantsData: chat.handles.map((e) => e.toMap()).toList(),
+      since: newest.millisecondsSinceEpoch,
+    );
+    for (final message in missed.reversed) {
+      await addNewMessage(message);
+    }
+  }
+
+  /// The on-screen half of [MessageActions.retireEarlierTurns]: a turn that arrives while this chat is open, live, by
+  /// sync or as our own send, collapses the earlier turns of its session already showing.
+  void _retireEarlierTurns(Message turn) {
+    if (!AppSessionTypes.replacesEarlierTurns(turn)) return;
+    for (final state in messageStates.values) {
+      if (!AppSessionTypes.isReplacedBy(state.message, turn)) continue;
+      state.updateAssociatedMessageInfoInternal(
+          associatedMessageGuid: turn.associatedMessageGuid, associatedMessageType: AppSessionTypes.SUPERSEDED);
+    }
+  }
+
   Future<void> _handleNewMessage(Message message) async {
     // Add to struct first to ensure it's available for lookups
     struct.addMessages([message]);
 
     // Create or update MessageState for this message.
-    // If it already exists (e.g. created by prepAttachment before the ObjectBox
+    // If it already exists (e.g. created by prepAttachments before the ObjectBox
     // watch fired), update the metadata rather than overwriting transfer states.
     if (message.guid != null) {
       if (!messageStates.containsKey(message.guid!)) {
@@ -803,8 +848,10 @@ class MessagesService extends GetxController {
       }
     }
 
+    _retireEarlierTurns(message);
+
     // Handle reactions with improved reactivity
-    if (message.associatedMessageGuid != null) {
+    if (message.isReaction) {
       final parentMessage = struct.getMessage(message.associatedMessageGuid!);
       if (parentMessage != null) {
         // Add to parent's associated messages list
@@ -842,18 +889,21 @@ class MessagesService extends GetxController {
     }
 
     // Only call newFunc for non-reactions (regular messages)
-    if (message.associatedMessageGuid == null) {
+    if (!message.isReaction) {
       newFunc.call(message);
     }
 
     // Incrementally update indicator ownership for new outgoing messages.
     // Reactions don't carry receipt status so skip them.
-    if (message.associatedMessageGuid == null) {
+    if (!message.isReaction) {
       _updateIndicatorsForMessage(message);
     }
   }
 
   void updateMessage(Message updated, {String? oldGuid}) {
+    if (updated.isReaction && updated.associatedMessageGuid != null) {
+      messageStates[updated.associatedMessageGuid!]?.updateAssociatedMessageInternal(updated, tempGuid: oldGuid);
+    }
     // Try to find the message - check oldGuid first, then fallback to updated.guid
     // This handles race conditions where the GUID was already replaced
     Message? toUpdate;
@@ -898,6 +948,8 @@ class MessagesService extends GetxController {
     struct.removeMessage(oldGuid ?? updated.guid!);
     struct.removeAttachments(toUpdate.dbAttachments.map((e) => e.guid!));
     struct.addMessages([updated]);
+    // Our own turn arrives here, as the swap from its temp GUID, rather than as a new message
+    _retireEarlierTurns(updated);
 
     // Update MessageState - try oldGuid first, then fallback to updated.guid
     MessageState? messageState;
@@ -1148,7 +1200,7 @@ class MessagesService extends GetxController {
   /// Generates new temp GUID, clears error state, and updates both DB and MessageState
   Future<void> retryFailedMessage(Message message, {String? oldGuid}) async {
     final guidToDelete = oldGuid ?? message.guid!;
-    final attachments = List<Attachment>.from(message.dbAttachments);
+    final attachments = List<Attachment>.from(message.dbAttachments)..sort((a, b) => (a.id ?? 0).compareTo(b.id ?? 0));
     final isBatch = !kIsWeb && message.itemType != 5 &&
         (attachments.length >= 2 ||
             (attachments.isNotEmpty &&
@@ -1224,7 +1276,7 @@ class MessagesService extends GetxController {
 
       // Move the attachment directory so the file is immediately accessible
       // at the new guid-based path.  This lets _restoreInFlightAttachmentStates
-      // populate uploadPreviewFile even before prepAttachment runs.
+      // populate uploadPreviewFile even before prepAttachments runs.
       if (!kIsWeb) {
         final oldDir = Directory("${Attachment.baseDirectory}/$oldAttGuid");
         final newDir = Directory("${Attachment.baseDirectory}/$attachmentGuid");
@@ -1237,14 +1289,14 @@ class MessagesService extends GetxController {
 
       // Persist the updated GUID to DB immediately (in-place update via
       // existing ObjectBox ID).  Without this there is a window between
-      // retryFailedMessage returning and prepAttachment's c.addMessage call
+      // retryFailedMessage returning and prepAttachments's c.addMessage call
       // where message.dbAttachments is empty, causing _restoreInFlightAttachmentStates
       // to skip the message on re-entry and the progress overlay to never show.
       await a.saveAsync(message);
 
       // Pre-register in attachmentProgress so _restoreInFlightAttachmentStates
-      // finds the entry the moment the user re-enters, even before prepAttachment
-      // runs its own add.  prepAttachment will add a second entry for the same
+      // finds the entry the moment the user re-enters, even before prepAttachments
+      // runs its own add.  prepAttachments will add a second entry for the same
       // guid; both are cleaned up together by the removeWhere in onSuccess/onError.
       if (!OutgoingMsgHandler.attachmentProgress.any((e) => e.guid == attachmentGuid)) {
         OutgoingMsgHandler.attachmentProgress.add(AttachmentUploadProgress(attachmentGuid, 0.0.obs));
@@ -1285,7 +1337,14 @@ class MessagesService extends GetxController {
     }
 
     // Queue for sending (message already in UI, just updated)
-    if (isBatch) {
+    if (AppSessionTypes.isGame(message)) {
+      OutgoingMsgHandler.queue(OutgoingAppMessage(
+        chat: chat,
+        message: message,
+        attachment: message.dbAttachments.firstOrNull,
+        isRetry: true,
+      ));
+    } else if (isBatch) {
       OutgoingMsgHandler.queue(OutgoingMultipartMessage(
         chat: chat,
         message: message,
@@ -1545,36 +1604,7 @@ class MessagesService extends GetxController {
     try {
       Logger.debug("[loadChunk] Starting to load messages (offset: $offset, limit: $limit)", tag: "MessageReactivity");
 
-      _messages = await Chat.getMessagesAsync(
-        chat,
-        offset: offset,
-        limit: limit,
-        onSupplementalDataLoaded: () {
-          // Phase 2 complete - reactions have been loaded into message.associatedMessages
-          Logger.info("[loadChunk] Supplemental data loaded, syncing MessageStates for ${_messages.length} messages",
-              tag: "MessageReactivity");
-
-          // Ensure MessageStates exist first (in case they weren't created yet)
-          _ensureMessageStates(_messages);
-
-          // Sync associatedMessages into MessageState observables
-          for (final message in _messages) {
-            if (message.guid != null && message.associatedMessages.isNotEmpty) {
-              final messageState = messageStates[message.guid];
-              if (messageState != null) {
-                // Clear and repopulate the observable list to trigger reactivity
-                messageState.associatedMessages.clear();
-                messageState.associatedMessages.addAll(message.associatedMessages);
-                messageState.hasReactions.value = message.associatedMessages.isNotEmpty;
-
-                Logger.debug(
-                    "[loadChunk] Synced ${message.associatedMessages.length} reactions into MessageState for ${message.guid}",
-                    tag: "MessageReactivity");
-              }
-            }
-          }
-        },
-      );
+      _messages = await Chat.getMessagesAsync(chat, offset: offset, limit: limit);
 
       Logger.debug("[loadChunk] Loaded ${_messages.length} messages from local DB");
       if (_messages.isEmpty) {
@@ -1621,7 +1651,7 @@ class MessagesService extends GetxController {
             }
           }
         } else {
-          final reactions = syncResult.messages.where((e) => e.associatedMessageGuid != null);
+          final reactions = syncResult.messages.where((e) => e.isReaction);
           for (Message m in reactions) {
             final associatedMessage =
                 syncResult.messages.firstWhereOrNull((element) => element.guid == m.associatedMessageGuid);
@@ -1640,6 +1670,7 @@ class MessagesService extends GetxController {
     // Create MessageStates for all loaded messages
     _ensureMessageStates(_messages);
     Logger.debug("[loadChunk] Created MessageStates for ${_messages.length} messages", tag: "MessageState");
+    unawaited(_loadReactions(_messages));
 
     // Compute initial delivered indicator ownership after messages are loaded.
     _recomputeDeliveredIndicators();
@@ -1701,7 +1732,29 @@ class MessagesService extends GetxController {
       // Create MessageStates for loaded messages
       _ensureMessageStates(_messages);
     }
+    unawaited(_loadReactions(_messages));
     _recomputeDeliveredIndicators();
+  }
+
+  /// Loads the saved reactions on [messages] into their [MessageState]s, in the background. Every page this service
+  /// shows comes through here, wherever it was fetched from: a reaction is a message of its own, often on a different
+  /// page from the message it reacts to, so they're looked up by the messages they target.
+  Future<void> _loadReactions(List<Message> messages) async {
+    if (kIsWeb) return;
+    final guids = messages.where((m) => !m.isReaction && m.guid != null).map((m) => m.guid!).toList();
+    if (guids.isEmpty) return;
+    try {
+      final reactions =
+          MessageHelper.normalizedAssociatedMessages(await ChatInterface.loadSupplementalData(messageGuids: guids));
+      // Merged in rather than replacing the list, so a reaction that came in live while this loaded is kept.
+      for (final reaction in reactions) {
+        getMessageStateIfExists(reaction.associatedMessageGuid!)?.addAssociatedMessageInternal(reaction);
+      }
+      Logger.debug("[loadReactions] Loaded ${reactions.length} reactions for ${guids.length} messages",
+          tag: "MessageReactivity");
+    } catch (e, s) {
+      Logger.error("Failed to load reactions", error: e, trace: s, tag: "MessageReactivity");
+    }
   }
 
   static Future<List<dynamic>> getMessages(
@@ -1717,7 +1770,12 @@ class MessagesService extends GetxController {
       int offset = 0,
       int limit = 100}) async {
     Completer<List<dynamic>> completer = Completer();
-    final withQuery = <String>["attributedBody", "messageSummaryInfo", "payloadData"];
+    final withQuery = <String>[
+      "attributedBody",
+      "messageSummaryInfo",
+      "payloadData",
+      if (SettingsSvc.serverDetails.isV2Server) "appPayload",
+    ];
     if (withChats) withQuery.add("chat");
     if (withAttachments) withQuery.add("attachment");
     if (withHandles) withQuery.add("handle");

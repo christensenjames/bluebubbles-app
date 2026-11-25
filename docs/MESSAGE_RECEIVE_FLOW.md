@@ -67,15 +67,21 @@ Routing by `MessageEventType`:
 
 **Key file:** `lib/services/backend/incoming_message_handler.dart`
 
+**Push copies and catch-up.** A push (FCM / UnifiedPush, `MessageSource.methodChannel`) is handed in as soon as it arrives, whether or not a socket is connected, so its notification isn't held up. Its copy is lighter than the socket's: the server trims it to fit FCM's 4KB limit (no `attributedBody`, `messageSummaryInfo`, `payloadData`/`appPayload`, `threadOriginatorPart`, `datePlayed`, `country`, nor attachments' `hasLivePhoto`/`isOutgoing`). So:
+- A copy saved from a push is remembered in `_pushCopies`. The socket's copy of it gets past dedupe and replaces it (`Message.fillsGapsIn` lets an equally recent copy replace one that lacks fields), and merges keep what a lighter copy leaves out (`Message.takeOmittableFieldsFrom`, `Attachment.takeFlagsFrom`).
+- If the socket hasn't replaced it within 5s, or a message was lost on the way (an update push with no stored message, or a parked update that expired), one catch-up incremental sync is asked for (`requestCatchUp`). Everything within those 5s shares it, and the sync fetches in pages from its own isolate, so a burst of pushes costs one sync, never a request per message. It only runs with the socket connected: otherwise the sync on reconnecting covers them. A headless isolate's push copies are filled in by the app's next sync.
+- `startIncrementalSync(catchUp: true)` (the catch-up, and the sync on socket connect on a device without pushes) isn't dropped by the 30s cooldown: it runs once the cooldown is over, so a sync that started before the socket connected can't leave a gap. A device that gets pushes skips that one: the server pushes every message whether or not a socket is up, so the message arrives as a push and its push copy asks for a catch-up itself. Every connected device costs the server, so none syncs again on every resume for nothing.
+
 ---
 
 ### Step 4 — Handle New Message (`incoming_message_handler.dart`)
 
 **`_processNewMessage(IncomingPayload)`:**
 
-1. **Deduplication** — checks `_processedGuids`, which remembers the 100 most recent processed GUIDs in this handler instance. If the real GUID was already processed here, returns early.
+1. **Deduplication** — checks `_processedGuids` (a 100-entry ring buffer). If the real GUID was already processed (e.g. delivered by both socket and Firebase), returns early, unless it's a fuller copy of one saved from a push (see Step 3).
 
-2. **Existing record check** — looks up the message by `tempGuid` and by real GUID. If either already exists in the DB (HTTP response saved it before the socket event, or duplicate delivery), redirects to `_processUpdatedMessage()` for a clean GUID swap or field refresh. When running on the main thread, if this chat has a `MessagesService` and the message is not already in its in-memory list, it then adds the saved message so it appears in the open conversation.
+2. **Existing record check** — looks up the message by `tempGuid` and by real GUID. If either already exists, redirects to `_processUpdatedMessage()` for a GUID swap or field refresh. A repeated group photo state row (`itemType` 3, `groupActionType` 3) is ignored; on the main thread, a saved message missing from the open conversation is added.
+   **Group photo resends** — for a 3/3 row that is new to the DB, the photo it carries (its attachment, else the chat's `properties`, else a `GET /chat/:guid` for a push payload that has neither) is compared with `Chat.knownGroupPhotoGuid`. The same photo means Messages resent it rather than anyone changing it, and the row is not added. Otherwise it is kept and its photo becomes the known one; a person changing the photo (3/1) is always kept and updates it too. The incremental and full syncs apply the same rule to each chat's batch. See `lib/helpers/types/helpers/group_photo_helpers.dart`.
 
 3. **Chat hydration** — calls `_hydrateChat()` to ensure the chat has valid participants and a DB ID before insertion. If not running in an isolate and hydration resolved new contact links, fires `ContactsSvcV2.notifyHandlesUpdated()`.
 
@@ -106,7 +112,7 @@ Routing by `MessageEventType`:
 
 2. **Locate existing DB record** — tries `tempGuid` first (outgoing echo), then the real GUID.
 
-3. **Out-of-order buffering** — if no DB record exists yet, parks the payload via `_parkPendingUpdate()` (which re-checks the DB for a race and replaces any pending entry for the same GUID). A matching `new-message` flushes it; after the 500-item cap evicts it or its 10s timer expires, it is retried once at the front and dropped if no DB record exists.
+3. **Out-of-order buffering** — if no DB record exists yet, parks the payload via `_parkPendingUpdate()` (which re-checks the DB for a race and replaces any pending entry for the same GUID). A matching `new-message` flushes it; eviction at the 500-item cap or expiration after 10 seconds requests a catch-up sync.
 
 4. **Chat hydration** — calls `_hydrateChat()`, same as new-message step 3.
 
@@ -115,7 +121,7 @@ Routing by `MessageEventType`:
 6. **Persist attachment GUID swaps** — calls `_replaceAttachments()`, which resolves the correct local attachment slot by `temp-` prefix or by index, handles parallel-delivery collisions, and (after all swaps) reloads the message from the DB and calls `MessagesSvc(chat.guid).updateMessage()` once for the whole batch.
 
 7. **Drive UI reactivity — gated on `!isIsolate`:**
-   - Calls `_dispatchUpdatedMessage()` → `MessagesSvc(chat.guid).updateMessage(message, oldGuid: tempGuid)` + `EventDispatcherSvc.emit('updated-message', ...)`.
+   - Calls `_dispatchUpdatedMessage()` → `MessagesSvc(chat.guid).updateMessage(message, oldGuid: tempGuid)` + `EventDispatcherSvc.emit('updated-message', ...)`. If the open view wasn't showing the message, it calls `addMissedMessage(message)`, which adds it unless it's deleted or older than everything loaded. On Android another engine can save a message first (a push is saved by the main or worker engine, never a bubble's), so this engine's socket copy arrives as an update. On resume, Android also calls `addMissedFromDb()` for the active chat, which adds everything saved since the newest message showing, in one query in `GlobalIsolate` (`ChatInterface.getMessagesAsync(since:)`). This covers what a bubble missed while it was collapsed.
    - Calls `ChatsSvc.updateChat(c, override: true)` unconditionally to refresh chat-list ordering.
    - Only calls `ChatsSvc.updateChatLatestMessage(c.guid, m)` if this chat's current `ChatState.latestMessage` already points at the same message GUID — i.e. it re-syncs the latest-message pointer rather than blindly overwriting it.
 

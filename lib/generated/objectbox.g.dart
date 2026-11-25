@@ -31,7 +31,7 @@ final _entities = <obx_int.ModelEntity>[
   obx_int.ModelEntity(
     id: const obx_int.IdUid(1, 2065429213543838585),
     name: 'Attachment',
-    lastPropertyId: const obx_int.IdUid(23, 7107471023966534193),
+    lastPropertyId: const obx_int.IdUid(24, 5276996574275850643),
     flags: 0,
     properties: <obx_int.ModelProperty>[
       obx_int.ModelProperty(
@@ -140,6 +140,12 @@ final _entities = <obx_int.ModelEntity>[
         type: 13,
         flags: 0,
       ),
+      obx_int.ModelProperty(
+        id: const obx_int.IdUid(24, 5276996574275850643),
+        name: 'stickerPlacement',
+        type: 13,
+        flags: 0,
+      ),
     ],
     relations: <obx_int.ModelRelation>[],
     backlinks: <obx_int.ModelBacklink>[],
@@ -147,7 +153,7 @@ final _entities = <obx_int.ModelEntity>[
   obx_int.ModelEntity(
     id: const obx_int.IdUid(3, 9017250848141753702),
     name: 'Chat',
-    lastPropertyId: const obx_int.IdUid(40, 5837765102481903712),
+    lastPropertyId: const obx_int.IdUid(42, 2602396250608668078),
     flags: 0,
     properties: <obx_int.ModelProperty>[
       obx_int.ModelProperty(
@@ -325,6 +331,18 @@ final _entities = <obx_int.ModelEntity>[
       obx_int.ModelProperty(
         id: const obx_int.IdUid(40, 5837765102481903712),
         name: 'spamVerdict',
+        type: 9,
+        flags: 0,
+      ),
+      obx_int.ModelProperty(
+        id: const obx_int.IdUid(41, 4875992845906556952),
+        name: 'textFieldRuns',
+        type: 9,
+        flags: 0,
+      ),
+      obx_int.ModelProperty(
+        id: const obx_int.IdUid(42, 2602396250608668078),
+        name: 'knownGroupPhotoGuid',
         type: 9,
         flags: 0,
       ),
@@ -659,7 +677,8 @@ final _entities = <obx_int.ModelEntity>[
         id: const obx_int.IdUid(28, 8696985708980146227),
         name: 'associatedMessageGuid',
         type: 9,
-        flags: 0,
+        flags: 8,
+        indexId: const obx_int.IdUid(21, 5185758702423746949),
       ),
       obx_int.ModelProperty(
         id: const obx_int.IdUid(29, 574575341112766208),
@@ -1127,7 +1146,7 @@ obx_int.ModelDefinition getObjectBoxModel() {
     generatorVersion: obx_int.GeneratorVersion.v2025_12_16,
     entities: _entities,
     lastEntityId: const obx_int.IdUid(19, 6026421545462496199),
-    lastIndexId: const obx_int.IdUid(20, 7536809638379289421),
+    lastIndexId: const obx_int.IdUid(21, 5185758702423746949),
     lastRelationId: const obx_int.IdUid(3, 2372732884714308620),
     lastSequenceId: const obx_int.IdUid(0, 0),
     retiredEntityUids: const [
@@ -1300,7 +1319,10 @@ obx_int.ModelDefinition getObjectBoxModel() {
         final exifOffset = object.exif == null
             ? null
             : fbb.writeListInt8(obx_int.toFlexBuffer(object.exif!));
-        fbb.startTable(24);
+        final stickerPlacementOffset = object.stickerPlacement == null
+            ? null
+            : fbb.writeListInt8(obx_int.toFlexBuffer(object.stickerPlacement!));
+        fbb.startTable(25);
         fbb.addInt64(0, object.id ?? 0);
         fbb.addInt64(1, object.originalROWID);
         fbb.addOffset(2, guidOffset);
@@ -1318,6 +1340,7 @@ obx_int.ModelDefinition getObjectBoxModel() {
         fbb.addBool(19, object.isDownloaded);
         fbb.addOffset(20, metadataOffset);
         fbb.addOffset(22, exifOffset);
+        fbb.addOffset(23, stickerPlacementOffset);
         fbb.finish(fbb.endTable());
         return object.id ?? 0;
       },
@@ -1367,6 +1390,11 @@ obx_int.ModelDefinition getObjectBoxModel() {
           30,
         );
         final metadataParam = obx_int.flexBufferToMap(buffer, rootOffset, 44);
+        final stickerPlacementParam = obx_int.flexBufferToMap(
+          buffer,
+          rootOffset,
+          50,
+        );
         final exifParam = obx_int.flexBufferToMap(buffer, rootOffset, 48);
         final webUrlParam = const fb.StringReader(
           asciiOptimization: true,
@@ -1396,6 +1424,7 @@ obx_int.ModelDefinition getObjectBoxModel() {
                 height: heightParam,
                 width: widthParam,
                 metadata: metadataParam,
+                stickerPlacement: stickerPlacementParam,
                 exif: exifParam,
                 webUrl: webUrlParam,
                 hasLivePhoto: hasLivePhotoParam,
@@ -1481,7 +1510,13 @@ obx_int.ModelDefinition getObjectBoxModel() {
         final spamVerdictOffset = object.spamVerdict == null
             ? null
             : fbb.writeString(object.spamVerdict!);
-        fbb.startTable(41);
+        final textFieldRunsOffset = object.textFieldRuns == null
+            ? null
+            : fbb.writeString(object.textFieldRuns!);
+        final knownGroupPhotoGuidOffset = object.knownGroupPhotoGuid == null
+            ? null
+            : fbb.writeString(object.knownGroupPhotoGuid!);
+        fbb.startTable(43);
         fbb.addInt64(0, object.id ?? 0);
         fbb.addOffset(2, guidOffset);
         fbb.addOffset(4, chatIdentifierOffset);
@@ -1514,6 +1549,8 @@ obx_int.ModelDefinition getObjectBoxModel() {
         fbb.addOffset(37, dynamicWallpaperIdOffset);
         fbb.addOffset(38, dynamicWallpaperConfigOffset);
         fbb.addOffset(39, spamVerdictOffset);
+        fbb.addOffset(40, textFieldRunsOffset);
+        fbb.addOffset(41, knownGroupPhotoGuidOffset);
         fbb.finish(fbb.endTable());
         return object.id ?? 0;
       },
@@ -1572,6 +1609,9 @@ obx_int.ModelDefinition getObjectBoxModel() {
         final textFieldTextParam = const fb.StringReader(
           asciiOptimization: true,
         ).vTableGetNullable(buffer, rootOffset, 46);
+        final textFieldRunsParam = const fb.StringReader(
+          asciiOptimization: true,
+        ).vTableGetNullable(buffer, rootOffset, 84);
         final textFieldAttachmentsParam = const fb.ListReader<String>(
           fb.StringReader(asciiOptimization: true),
           lazy: false,
@@ -1614,6 +1654,9 @@ obx_int.ModelDefinition getObjectBoxModel() {
         final dynamicWallpaperConfigParam = const fb.StringReader(
           asciiOptimization: true,
         ).vTableGetNullable(buffer, rootOffset, 80);
+        final knownGroupPhotoGuidParam = const fb.StringReader(
+          asciiOptimization: true,
+        ).vTableGetNullable(buffer, rootOffset, 86);
         final object =
             Chat(
                 id: idParam,
@@ -1629,6 +1672,7 @@ obx_int.ModelDefinition getObjectBoxModel() {
                 autoSendReadReceipts: autoSendReadReceiptsParam,
                 autoSendTypingIndicators: autoSendTypingIndicatorsParam,
                 textFieldText: textFieldTextParam,
+                textFieldRuns: textFieldRunsParam,
                 textFieldAttachments: textFieldAttachmentsParam,
                 dateDeleted: dateDeletedParam,
                 style: styleParam,
@@ -1640,6 +1684,7 @@ obx_int.ModelDefinition getObjectBoxModel() {
                 wallpaperType: wallpaperTypeParam,
                 dynamicWallpaperId: dynamicWallpaperIdParam,
                 dynamicWallpaperConfig: dynamicWallpaperConfigParam,
+                knownGroupPhotoGuid: knownGroupPhotoGuidParam,
               )
               ..dbOnlyLatestMessageDate = dbOnlyLatestMessageDateValue == null
                   ? null
@@ -2906,6 +2951,16 @@ class Chat_ {
   /// See [Chat.spamVerdict].
   static final spamVerdict = obx.QueryStringProperty<Chat>(
     _entities[1].properties[28],
+  );
+
+  /// See [Chat.textFieldRuns].
+  static final textFieldRuns = obx.QueryStringProperty<Chat>(
+    _entities[1].properties[29],
+  );
+
+  /// See [Chat.knownGroupPhotoGuid].
+  static final knownGroupPhotoGuid = obx.QueryStringProperty<Chat>(
+    _entities[1].properties[30],
   );
 
   /// see [Chat.handles]

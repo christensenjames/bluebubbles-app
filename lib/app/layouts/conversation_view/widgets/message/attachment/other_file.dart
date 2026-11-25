@@ -1,7 +1,6 @@
 import 'dart:convert';
 
 import 'package:bluebubbles/app/state/chat_state_scope.dart';
-import 'package:bluebubbles/app/wrappers/theme_switcher.dart';
 import 'package:bluebubbles/app/layouts/fullscreen_media/conversation_fullscreen_holder.dart';
 import 'package:bluebubbles/utils/logger/logger.dart';
 import 'package:bluebubbles/helpers/helpers.dart';
@@ -100,13 +99,12 @@ class OtherFile extends StatelessWidget {
         if (attachment.mimeStart == "image" || (attachment.mimeStart == "video")) {
           final focused = FocusManager.instance.primaryFocus;
           if (focused is! FocusScopeNode) focused?.unfocus();
-          Navigator.of(Get.context!).push(
-            ThemeSwitcher.buildPageRoute(
-              builder: (context) => ConversationFullscreenHolder(
-                currentChat: currentChat,
-                attachment: attachment,
-                showInteractions: true,
-              ),
+          NavigationSvc.push(
+            context,
+            ConversationFullscreenHolder(
+              currentChat: currentChat,
+              attachment: attachment,
+              showInteractions: true,
             ),
           );
           return;

@@ -1,8 +1,6 @@
 import 'dart:math';
 
 import 'package:bluebubbles/app/layouts/settings/pages/server/backup_restore_panel.dart';
-import 'package:bluebubbles/app/layouts/settings/settings_page.dart';
-import 'package:bluebubbles/app/wrappers/theme_switcher.dart';
 import 'package:bluebubbles/helpers/ui/theme_helpers.dart';
 import 'package:bluebubbles/utils/logger/logger.dart';
 import 'package:bluebubbles/app/layouts/conversation_list/pages/conversation_list.dart';
@@ -181,15 +179,7 @@ class _SyncProgressState extends State<SyncProgress> {
                               duration: Duration.zero,
                               transition: Transition.noTransition);
                           Get.delete<SetupViewController>(force: true);
-                          Navigator.of(Get.context!).push(
-                            ThemeSwitcher.buildPageRoute(
-                              builder: (BuildContext context) {
-                                return const SettingsPage(
-                                  initialPage: BackupRestorePanel(),
-                                );
-                              },
-                            ),
-                          );
+                          NavigationSvc.openSettings(initialPage: const BackupRestorePanel());
                         },
                         child: Row(
                           mainAxisSize: MainAxisSize.min,

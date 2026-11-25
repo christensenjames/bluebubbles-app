@@ -420,6 +420,7 @@ class MetadataHttpClient {
       case DioExceptionType.connectionTimeout:
       case DioExceptionType.sendTimeout:
       case DioExceptionType.receiveTimeout:
+      case DioExceptionType.transformTimeout:
         return MetadataFetchStatus.timeout;
       case DioExceptionType.cancel:
         return MetadataFetchStatus.cancelled;

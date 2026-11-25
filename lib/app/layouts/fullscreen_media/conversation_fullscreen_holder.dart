@@ -17,7 +17,6 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/gestures.dart';
 import "package:flutter/material.dart";
 import 'package:flutter/services.dart';
-import 'package:gesture_x_detector/gesture_x_detector.dart';
 import 'package:get/get.dart';
 
 class ConversationFullscreenHolder extends StatefulWidget {
@@ -31,7 +30,8 @@ class ConversationFullscreenHolder extends StatefulWidget {
       this.initialAttachmentGuid,
       this.replyMessage,
       this.replyPartIndex,
-      this.galleryAttachments});
+      this.galleryAttachments,
+      this.onOpenCollectionGallery});
 
   final Chat? currentChat;
   final Attachment attachment;
@@ -43,11 +43,14 @@ class ConversationFullscreenHolder extends StatefulWidget {
   final int? replyPartIndex;
 
   /// When non-null, the fullscreen carousel is limited to these attachments
-  /// instead of all images in the chat. Used when opening from a gallery card.
+  /// instead of all images in the chat (a media collection, or a filtered gallery).
   final List<Attachment>? galleryAttachments;
 
   static String heroTagFor(Attachment attachment) =>
       'attachment-hero-${attachment.message.target?.guid}-${attachment.guid}';
+  /// When set, shows a grid button that opens the enclosing media collection's gallery
+  /// (see `MediaCollection.openGallery`). Called with this screen's context.
+  final void Function(BuildContext context)? onOpenCollectionGallery;
 
   @override
   ConversationFullscreenHolderState createState() => ConversationFullscreenHolderState();
@@ -59,8 +62,12 @@ class ConversationFullscreenHolderState extends State<ConversationFullscreenHold
   final focusNode = FocusNode();
   late final PageController controller;
   late final messageService = widget.currentChat == null ? null : maybeFindMessagesSvc(widget.currentChat!.guid);
-  late List<Attachment> attachments = widget.galleryAttachments != null
-      ? List<Attachment>.from(widget.galleryAttachments!)
+
+  /// Explicit list, else chat-wide images.
+  List<Attachment>? get _scopedGallery => widget.galleryAttachments;
+
+  late List<Attachment> attachments = _scopedGallery != null
+      ? List<Attachment>.from(_scopedGallery!)
       : (widget.currentChat == null
           ? [attachment]
           : (messageService?.struct.attachments.where((e) => e.mimeStart == "image").toList() ?? [attachment]));
@@ -92,6 +99,11 @@ class ConversationFullscreenHolderState extends State<ConversationFullscreenHold
   bool get _isVideoAttachment => attachment.mimeStart == "video";
   late bool showAppBar = kIsDesktop || kIsWeb || !_isVideoAttachment;
   bool get _canReply => widget.replyMessage != null && widget.replyPartIndex != null && widget.currentChat != null;
+  bool get _hasCollectionGallery => widget.onOpenCollectionGallery != null;
+
+  void _openCollectionGallery() {
+    widget.onOpenCollectionGallery!(context);
+  }
 
   GlobalKey _pageKey(int index) => _pageKeys.putIfAbsent(index, GlobalKey.new);
 
@@ -159,6 +171,7 @@ class ConversationFullscreenHolderState extends State<ConversationFullscreenHold
               attachment: attachments[currentIndex],
               showActions: widget.showInteractions,
               currentPage: _currentPage,
+              onOpenCollectionGallery: _hasCollectionGallery ? _openCollectionGallery : null,
             ),
           ),
         ],
@@ -173,7 +186,7 @@ class ConversationFullscreenHolderState extends State<ConversationFullscreenHold
     if (kIsWeb || !widget.showInteractions) {
       controller = PageController(initialPage: 0);
     } else {
-      if (widget.currentChat != null || widget.galleryAttachments != null) {
+      if (widget.currentChat != null || _scopedGallery != null) {
         final targetGuid = widget.initialAttachmentGuid ?? attachment.guid;
         currentIndex = attachments.indexWhere((e) => e.guid == targetGuid);
         if (currentIndex == -1 && widget.currentChat != null) {
@@ -222,21 +235,12 @@ class ConversationFullscreenHolderState extends State<ConversationFullscreenHold
           appBar: !iOS || !showAppBar
               ? null
               : BBAppBar(
-                  leading: XGestureDetector(
-                    supportTouch: true,
-                    onTap: !kIsDesktop
-                        ? null
-                        : (details) {
-                            Navigator.of(context).pop();
-                          },
-                    child: TextButton(
-                      child: Text("Done",
-                          style: context.theme.textTheme.bodyLarge!.copyWith(color: context.theme.colorScheme.primary)),
-                      onPressed: () {
-                        if (kIsDesktop) return;
-                        Navigator.of(context).pop();
-                      },
-                    ),
+                  leading: TextButton(
+                    child: Text("Done",
+                        style: context.theme.textTheme.bodyLarge!.copyWith(color: context.theme.colorScheme.primary)),
+                    onPressed: () {
+                      Navigator.of(context).pop();
+                    },
                   ),
                   leadingWidth: 75,
                   titleText: kIsWeb || !widget.showInteractions || widget.currentChat == null
@@ -246,6 +250,11 @@ class ConversationFullscreenHolderState extends State<ConversationFullscreenHold
                       context.theme.textTheme.titleLarge!.copyWith(color: context.theme.colorScheme.onSurfaceVariant),
                   iconTheme: IconThemeData(color: context.theme.colorScheme.primary),
                   actions: [
+                    if (_hasCollectionGallery)
+                      IconButton(
+                        onPressed: _openCollectionGallery,
+                        icon: Icon(iOS ? CupertinoIcons.square_grid_2x2 : Icons.grid_view_outlined),
+                      ),
                     if (_canReply)
                       IconButton(
                         tooltip: "Reply",
@@ -366,6 +375,7 @@ class ConversationFullscreenHolderState extends State<ConversationFullscreenHold
                           attachment: attachment,
                           file: content,
                           showInteractions: widget.showInteractions,
+                          onOpenCollectionGallery: _hasCollectionGallery ? _openCollectionGallery : null,
                           updatePhysics: (ScrollPhysics p) {
                             if (physics != p) {
                               setState(() {
@@ -394,6 +404,7 @@ class ConversationFullscreenHolderState extends State<ConversationFullscreenHold
                           mute: widget.mute,
                           isCurrentPage: index == currentIndex,
                           sharedChrome: material,
+                          onOpenCollectionGallery: _hasCollectionGallery ? _openCollectionGallery : null,
                           onOverlayToggle: (show) {
                             if (material && index != currentIndex) return;
                             _setOverlay(show);

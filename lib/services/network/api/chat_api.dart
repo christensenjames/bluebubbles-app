@@ -1,4 +1,5 @@
 import 'package:bluebubbles/services/network/api/base_api.dart';
+import 'package:bluebubbles/services/network/api/message_api.dart';
 import 'package:bluebubbles/services/services.dart';
 import 'package:dio/dio.dart';
 
@@ -103,6 +104,8 @@ class ChatApi {
           "service": service,
           "method": SettingsSvc.settings.enablePrivateAPI.value ? 'private-api' : 'apple-script',
         },
+        // The server answers once Messages has made the chat and sent its first message, as on the send routes
+        options: Options(receiveTimeout: MessageApi.awaitsIMessageTimeout),
         cancelToken: cancelToken,
       );
       return _svc.returnSuccessOrError(response);
@@ -152,6 +155,28 @@ class ChatApi {
     return _svc.runApiGuarded(() async {
       final response = await _svc.dio.post(
         "${_svc.apiRoot}/chat/$guid/read",
+        cancelToken: cancelToken,
+      );
+      return _svc.returnSuccessOrError(response);
+    });
+  }
+
+  /// Whether Messages would offer to share your name and photo with chat [guid]. `data` is a bare bool.
+  Future<Response> shouldShareContact(String guid, {CancelToken? cancelToken}) async {
+    return _svc.runApiGuarded(() async {
+      final response = await _svc.dio.get(
+        "${_svc.apiRoot}/chat/$guid/share/contact/status",
+        cancelToken: cancelToken,
+      );
+      return _svc.returnSuccessOrError(response);
+    });
+  }
+
+  /// Share your name and photo with chat [guid]
+  Future<Response> shareContact(String guid, {CancelToken? cancelToken}) async {
+    return _svc.runApiGuarded(() async {
+      final response = await _svc.dio.post(
+        "${_svc.apiRoot}/chat/$guid/share/contact",
         cancelToken: cancelToken,
       );
       return _svc.returnSuccessOrError(response);

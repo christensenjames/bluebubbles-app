@@ -31,6 +31,7 @@ class FullscreenVideo extends StatefulWidget {
     this.onOverlayToggle,
     this.isCurrentPage = true,
     this.sharedChrome = false,
+    this.onOpenCollectionGallery,
   });
 
   final PlatformFile file;
@@ -45,6 +46,7 @@ class FullscreenVideo extends StatefulWidget {
 
   /// True when the holder draws the shared chrome, so this page drops its own top bar.
   final bool sharedChrome;
+  final VoidCallback? onOpenCollectionGallery;
 
   @override
   State<StatefulWidget> createState() => _FullscreenVideoState();
@@ -502,6 +504,8 @@ class _FullscreenVideoState extends State<FullscreenVideo>
       if (!iOS && !widget.sharedChrome) ...[
         button(const Icon(Icons.close), () => Navigator.of(context).pop()),
         const Spacer(),
+        if (widget.onOpenCollectionGallery != null)
+          button(const Icon(Icons.grid_view_outlined), widget.onOpenCollectionGallery!),
         if (widget.showInteractions) ...[
           button(const Icon(Icons.file_download_outlined), () => AttachmentsSvc.saveToDisk(widget.file)),
           if (!kIsWeb && !kIsDesktop) button(const Icon(Icons.share_outlined), shareFile),

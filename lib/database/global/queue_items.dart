@@ -2,7 +2,7 @@ import 'dart:async';
 
 import 'package:bluebubbles/database/models.dart';
 
-enum QueueType { sendMessage, sendReaction, sendAttachment, sendMultipart }
+enum QueueType { sendMessage, sendReaction, sendAttachment, sendMultipart, sendMultiAttachment, sendAppMessage }
 
 abstract class QueueItem {
   QueueType type;
@@ -59,6 +59,10 @@ class OutgoingReaction extends OutgoingQueueItem {
   @override
   bool clearNotificationsIfFromMe;
 
+  /// A sticker tapback's image (its removal's too), saved with the temp reaction so it draws while sending. Shares
+  /// the message's temp GUID.
+  Attachment? sticker;
+
   OutgoingReaction({
     super.completer,
     required super.chat,
@@ -67,6 +71,7 @@ class OutgoingReaction extends OutgoingQueueItem {
     required this.reaction,
     this.isRetry = false,
     this.clearNotificationsIfFromMe = true,
+    this.sticker,
   }) : super(type: QueueType.sendReaction);
 }
 
@@ -101,4 +106,47 @@ class OutgoingMultipartMessage extends OutgoingQueueItem {
     this.isRetry = false,
     this.clearNotificationsIfFromMe = true,
   }) : super(type: QueueType.sendMultipart);
+}
+
+/// Several attachments sent as one message (`attachment/upload` + `message/multipart`). Each attachment's temp
+/// GUID is `<message temp GUID>-<index>`, see [tempGuidFor].
+class OutgoingMultiAttachment extends OutgoingQueueItem {
+  List<Attachment> attachments;
+  @override
+  bool isRetry;
+
+  OutgoingMultiAttachment({
+    super.completer,
+    required super.chat,
+    required super.message,
+    required this.attachments,
+    this.isRetry = false,
+  }) : super(type: QueueType.sendMultiAttachment);
+
+  static String tempGuidFor(String messageGuid, int index) => '$messageGuid-$index';
+
+  /// [sent]'s temp GUID before the server confirmed [message], by the attachment each part names. Null if none.
+  static String? sentTempGuid(String messageGuid, Message message, Attachment sent) {
+    for (final run in message.attributedBody.expand((body) => body.runs)) {
+      final part = run.attributes?.messagePart;
+      if (part != null && run.attributes?.attachmentGuid == sent.guid) return tempGuidFor(messageGuid, part);
+    }
+    return null;
+  }
+}
+
+/// An iMessage app balloon (an OpenPigeon game turn), sent from its message's `payloadData`. [attachment] is the
+/// balloon's picture, if it has one, and shares the message's temp GUID.
+class OutgoingAppMessage extends OutgoingQueueItem {
+  Attachment? attachment;
+  @override
+  bool isRetry;
+
+  OutgoingAppMessage({
+    super.completer,
+    required super.chat,
+    required super.message,
+    this.attachment,
+    this.isRetry = false,
+  }) : super(type: QueueType.sendAppMessage);
 }

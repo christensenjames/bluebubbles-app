@@ -1,5 +1,6 @@
 import 'package:bluebubbles/database/database.dart';
 import 'package:bluebubbles/database/migrations/message_handle_id_migration.dart';
+import 'package:bluebubbles/database/migrations/emoji_reaction_migration.dart';
 import 'package:bluebubbles/database/migrations/chat_latest_message_migration.dart';
 import 'package:bluebubbles/database/migrations/message_handle_relationship_migration.dart';
 import 'package:bluebubbles/database/migrations/preview_icon_migration.dart';
@@ -62,6 +63,21 @@ void main() {
     final savedEmpty = Database.chats.get(empty.id!)!;
     expect(savedEmpty.dbLatestMessage.target, isNull);
     expect(savedEmpty.dbOnlyLatestMessageDate, isNull);
+  });
+
+  test('version 13 converts legacy emoji reaction types without changing other messages', () {
+    final added = Message(guid: 'added', associatedMessageType: 'emoji');
+    final removed = Message(guid: 'removed', associatedMessageType: '-emoji');
+    final other = Message(guid: 'other', associatedMessageType: 'love');
+    Database.messages.putMany([added, removed, other]);
+
+    EmojiReactionMigration.migrate();
+
+    expect(Database.messages.get(added.id!)!.associatedMessageType, '2006');
+    expect(Database.messages.get(removed.id!)!.associatedMessageType, '3006');
+    expect(Database.messages.get(other.id!)!.associatedMessageType, 'love');
+    expect(Message.fromMap({'guid': 'wire', 'associatedMessageType': 'emoji'}).associatedMessageType, '2006');
+    expect(Message.fromMap({'guid': 'wire', 'associatedMessageType': '-emoji'}).associatedMessageType, '3006');
   });
 
   test('version 10 collects valid hashes and skips corrupt metadata', () {

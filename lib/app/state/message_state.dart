@@ -1,9 +1,11 @@
 import 'dart:async';
+import 'dart:ui' show Size;
 
 import 'package:bluebubbles/app/state/attachment_state.dart';
 import 'package:bluebubbles/app/state/handle_state.dart';
 import 'package:bluebubbles/app/wrappers/stateful_boilerplate.dart';
 import 'package:bluebubbles/database/models.dart';
+import 'package:bluebubbles/helpers/ui/reaction_helpers.dart';
 import 'package:bluebubbles/services/services.dart';
 import 'package:collection/collection.dart';
 import 'package:flutter/foundation.dart';
@@ -73,9 +75,9 @@ class MessageState extends StatefulController {
   final RxBool isSent; // not temp guid
   final RxBool isReaction; // has associatedMessageGuid
 
-  /// Set to the part index that should play its bubble animation next frame.
+  /// Set to the message-part id that should play its bubble animation next frame.
   /// Consumers (BubbleEffects, TextBubble) wrap their animation trigger in Obx
-  /// and react when this equals their own part index.  Reset to null after
+  /// and react when this equals their own part id.  Reset to null after
   /// the animation has been kicked off so it can be retriggered later.
   final RxnInt playEffectPart = RxnInt(null);
 
@@ -83,6 +85,13 @@ class MessageState extends StatefulController {
   /// once. Prevents the animation from firing again on subsequent renders.
   /// Manual replay via the replay button always works regardless of this flag.
   final RxBool hasEffectPlayed;
+
+  /// Whether this message's details menu is open, so its stickers can get out of the way.
+  final RxBool showingPopup = false.obs;
+
+  /// Pixel size of each placed sticker's decoded image, by attachment guid, so the room kept for a sticker
+  /// matches what draws even when the server sent no dimensions
+  final RxMap<String, Size> stickerSizes = <String, Size>{}.obs;
 
   /// Increment to trigger a re-download of all attachments in this message.
   /// [AttachmentHolder] registers `ever()` on this key to call _loadContent().
@@ -125,6 +134,91 @@ class MessageState extends StatefulController {
   /// Reactive list of parsed message parts (text/attachments/edits/unsends).
   /// Populated by [buildMessageParts] in [onInit] and on content changes.
   final RxList<MessagePart> parts = <MessagePart>[].obs;
+
+  List<MessagePart>? _displayParts;
+  List<Object?>? _displayPartsKey;
+
+  /// [parts] as the conversation view renders them: runs of consecutive media-only parts collapsed into one
+  /// collection bubble ([MessagePart.collapseMediaCollections]).
+  ///
+  /// Memoized: the same [MessagePart] instances come back until [parts] changes in a way that affects
+  /// collapsing (a different part, or a change to its attachments, text, redaction or unsent flag), so
+  /// widgets and `MediaCollectionScope` can compare parts by identity. Reactive when read inside an Obx
+  /// (reads [parts]).
+  List<MessagePart> get displayParts {
+    final raw = parts.toList();
+    // Everything collapseMediaCollections reads: the part, its attachments (list, count and mime types), whether it
+    // has text, and the flags copied onto collapsed / per-attachment parts.
+    final key = <Object?>[
+      for (final p in raw) ...[
+        p,
+        p.attachments,
+        p.attachments.length,
+        ...p.attachments.map((a) => a.mimeStart),
+        p.text == null,
+        p.shouldRedact,
+        p.isUnsent,
+      ],
+    ];
+    if (_displayParts == null || !listEquals(key, _displayPartsKey)) {
+      _displayParts = List.unmodifiable(MessagePart.collapseMediaCollections(raw));
+      _displayPartsKey = key;
+    }
+    return _displayParts!;
+  }
+
+  /// Finds a part by its message-part id ([MessagePart.part]), not list index.
+  MessagePart? partById(int partId) {
+    final idx = parts.indexWhere((p) => p.part == partId);
+    return idx >= 0 ? parts[idx] : null;
+  }
+
+  bool isLeadingMessagePart(MessagePart p) => parts.isEmpty || p.coversPartId(parts.first.part);
+
+  /// Whether [p] is the trailing bubble of this message (covers the last raw part id).
+  ///
+  /// Uses [parts] from [buildMessageParts] (not the collapsed UI list). Collapsed
+  /// galleries keep a span in [MessagePart.attachmentPartIndices] and set
+  /// [MessagePart.part] to the first id, so trailing is decided via [MessagePart.coversPartId].
+  bool isTrailingMessagePart(MessagePart p) {
+    if (parts.isEmpty) return true;
+    return p.coversPartId(parts.last.part);
+  }
+
+  /// Whether the message's subject bubble renders directly above [p] (subject sits above the leading part).
+  /// Reactive when read inside an Obx (reads [subject]).
+  bool hasSubjectAbove(MessagePart p) {
+    final subjectText = subject.value;
+    return isLeadingMessagePart(p) && subjectText != null && subjectText.isNotEmpty;
+  }
+
+  /// Tapbacks drawn on [part]'s bubble, matched against every raw part id it covers.
+  ///
+  /// When the message renders as a single bubble ([displayParts] has one entry) every tapback shows on it,
+  /// whatever part it targets. Reactive when read inside an Obx (reads [associatedMessages] and [parts]).
+  List<Message> tapbacksForBubble(MessagePart part) =>
+      _associatedForBubble(part, (e) => ReactionTypes.isTapbackType(e.associatedMessageType) ||
+          ReactionTypes.isReaction(e.associatedMessageType));
+
+  /// Whether [part]'s bubble draws any tapback: each sender's latest, minus removals and emoji tapbacks still waiting
+  /// on their emoji. Layout that makes room for the tapback row should read this, not [tapbacksForBubble].
+  bool hasVisibleTapbacks(MessagePart part) => getUniqueReactionMessages(tapbacksForBubble(part)).isNotEmpty;
+
+  /// Stickers drawn on [part]'s bubble. Same matching rules as [tapbacksForBubble].
+  List<Message> stickersForBubble(MessagePart part) =>
+      _associatedForBubble(part, (e) => e.associatedMessageType == "sticker");
+
+  List<Message> _associatedForBubble(MessagePart part, bool Function(Message) test) {
+    final matches = associatedMessages.where(test);
+    if (displayParts.length == 1) return matches.toList();
+    return matches.where((e) => part.coversPartId(e.associatedMessagePart ?? 0)).toList();
+  }
+
+  /// Tapbacks targeting exactly the raw message-part id [partId] (one attachment inside a collection).
+  List<Message> tapbacksForPartId(int partId) => associatedMessages
+      .where((e) => (ReactionTypes.isTapbackType(e.associatedMessageType) ||
+          ReactionTypes.isReaction(e.associatedMessageType)) && (e.associatedMessagePart ?? 0) == partId)
+      .toList();
 
   /// Reactive state for the handle that sent this message.
   /// Null for outgoing messages or when no handle is attached.
@@ -190,7 +284,7 @@ class MessageState extends StatefulController {
         hasError = (message.error > 0).obs,
         isSending = (message.guid?.startsWith('temp') == true && message.error == 0).obs,
         isSent = (!(message.guid?.startsWith('temp') ?? false)).obs,
-        isReaction = (message.associatedMessageGuid != null).obs,
+        isReaction = message.isReaction.obs,
         hasEffectPlayed = message.hasEffectPlayed.obs {
     // Create AttachmentState for every attachment already on the message.
     for (final attachment in message.dbAttachments) {
@@ -223,7 +317,7 @@ class MessageState extends StatefulController {
 
   /// Signals that the bubble animation for [part] should play.
   /// [BubbleEffects] and [TextBubble] observe [playEffectPart] via ever() and
-  /// fire their animation when its value matches their own part index.
+  /// fire their animation when its value matches their own message-part id.
   /// Resetting to null first ensures re-triggering the same part always fires.
   void triggerBubbleEffect(int part) {
     if (playEffectPart.value == part) playEffectPart.value = null;
@@ -339,6 +433,12 @@ class MessageState extends StatefulController {
     }
   }
 
+  /// Record the decoded pixel size of a placed sticker's image. Called by [StickerHolder] once the image resolves,
+  /// since only the image knows it when the server sent no dimensions.
+  void updateStickerSizeInternal(String attachmentGuid, Size value) {
+    if (stickerSizes[attachmentGuid] != value) stickerSizes[attachmentGuid] = value;
+  }
+
   /// Update message text content
   void updateTextInternal(String? value) {
     if (text.value != value) {
@@ -436,10 +536,14 @@ class MessageState extends StatefulController {
 
     if (index >= 0) {
       // Update existing reaction
+      _carryAttachments(associatedMessages[index], reaction);
+      _carryStickerSize(associatedMessages[index], reaction);
       associatedMessages[index] = reaction;
     } else {
-      // Check if this replaces a temp reaction
-      final tempIndex = associatedMessages.indexWhere((e) =>
+      // Check if this replaces a temp reaction. Stickers send their temp GUID, so they match above.
+      final tempIndex = ReactionTypes.sendsSticker(reaction.associatedMessageType)
+          ? -1
+          : associatedMessages.indexWhere((e) =>
           (e.guid?.startsWith('temp') == true || e.guid?.startsWith('error') == true) &&
           e.associatedMessageType == reaction.associatedMessageType &&
           e.associatedMessageEmoji == reaction.associatedMessageEmoji &&
@@ -447,6 +551,8 @@ class MessageState extends StatefulController {
 
       if (tempIndex >= 0) {
         // Replace temp reaction
+        _carryAttachments(associatedMessages[tempIndex], reaction);
+        _carryStickerSize(associatedMessages[tempIndex], reaction);
         associatedMessages[tempIndex] = reaction;
       } else {
         // Add new reaction
@@ -457,6 +563,22 @@ class MessageState extends StatefulController {
     // Update underlying message and hasReactions flag
     message.associatedMessages = associatedMessages.toList();
     hasReactions.value = associatedMessages.isNotEmpty;
+  }
+
+  /// A socket event's copy of a message has no linked attachments (they arrive beside it, and are saved to the stored
+  /// row). Replacing the stored copy with it would drop a sticker's image until the stored copy is read back, so it
+  /// keeps the ones already linked, as [Message.merge] does.
+  void _carryAttachments(Message from, Message to) {
+    if (to.dbAttachments.isEmpty && from.dbAttachments.isNotEmpty) to.dbAttachments.addAll(from.dbAttachments);
+  }
+
+  /// The server's copy of a sent sticker has a new attachment guid and no measured size until its file downloads, so
+  /// it takes the sent one's, or [StickerSpace] would resize the bubble in between
+  void _carryStickerSize(Message from, Message to) {
+    if (from.associatedMessageType != "sticker") return;
+    final size = stickerSizes[from.dbAttachments.firstOrNull?.guid];
+    final guid = to.dbAttachments.firstOrNull?.guid;
+    if (size != null && guid != null && !stickerSizes.containsKey(guid)) stickerSizes[guid] = size;
   }
 
   /// Alias for addAssociatedMessageInternal to match controller naming
@@ -545,23 +667,31 @@ class MessageState extends StatefulController {
     if (associatedMessageGuid != null && this.associatedMessageGuid.value != associatedMessageGuid) {
       this.associatedMessageGuid.value = associatedMessageGuid;
       message.associatedMessageGuid = associatedMessageGuid;
-      isReaction.value = true;
     }
 
-    if (associatedMessageType != null && this.associatedMessageType.value != associatedMessageType) {
-      this.associatedMessageType.value = associatedMessageType;
-      message.associatedMessageType = associatedMessageType;
+    // A replaced app turn stays replaced when a stale copy still says type 2
+    final type = associatedMessageType == null
+        ? null
+        : AppSessionTypes.mergedType(message.balloonBundleId, this.associatedMessageType.value, associatedMessageType);
+    if (type != null && this.associatedMessageType.value != type) {
+      this.associatedMessageType.value = type;
+      message.associatedMessageType = type;
     }
 
     if (associatedMessagePart != null && this.associatedMessagePart.value != associatedMessagePart) {
       this.associatedMessagePart.value = associatedMessagePart;
       message.associatedMessagePart = associatedMessagePart;
     }
+
+    // Depends on the type as well as the guid, so it's settled once both are in
+    if (isReaction.value != message.isReaction) isReaction.value = message.isReaction;
   }
 
   /// Update state from database message object
   /// Used when message is refreshed from DB or merged with updates
   void updateFromMessage(Message updatedMessage) {
+    // Before the text and edit date: whether formatting is kept depends on whether they changed
+    message.takeOmittableFieldsFrom(updatedMessage);
     // Update all observable fields
     updateGuidInternal(updatedMessage.guid);
     updateTextInternal(updatedMessage.text);
@@ -601,21 +731,18 @@ class MessageState extends StatefulController {
     // Merge other non-observable properties
     message.handleId = updatedMessage.handleId;
     message.otherHandle = updatedMessage.otherHandle;
-    message.country = updatedMessage.country;
     message.hasDdResults = updatedMessage.hasDdResults;
-    message.datePlayed = updatedMessage.datePlayed;
     message.itemType = updatedMessage.itemType;
     message.groupTitle = updatedMessage.groupTitle;
     message.groupActionType = updatedMessage.groupActionType;
     message.balloonBundleId = updatedMessage.balloonBundleId;
+    // Kept when the update lacks it, like Message.merge: only v2 servers send it, and the backfill fills it in later
+    message.associatedMessageEmoji = updatedMessage.associatedMessageEmoji ?? message.associatedMessageEmoji;
     message.expressiveSendStyleId = updatedMessage.expressiveSendStyleId;
-    message.dateDeleted = updatedMessage.dateDeleted;
+    // A local delete isn't the server's to undo.
+    message.dateDeleted = updatedMessage.dateDeleted ?? message.dateDeleted;
     message.metadata = updatedMessage.metadata;
-    message.threadOriginatorPart = updatedMessage.threadOriginatorPart;
     message.bigEmoji = updatedMessage.bigEmoji;
-    message.attributedBody = updatedMessage.attributedBody;
-    message.messageSummaryInfo = updatedMessage.messageSummaryInfo;
-    message.payloadData = updatedMessage.payloadData;
     message.hasApplePayloadData = updatedMessage.hasApplePayloadData;
     message.isBookmarked = updatedMessage.isBookmarked;
 
@@ -764,6 +891,12 @@ class MessageState extends StatefulController {
         ));
       }
     }
+    // An app balloon draws everything from its payload, on its first part. The rest (a game's fallback text, say)
+    // render nothing but still get a row each, tall enough for the sender's avatar
+    if (message.hasApplePayloadData || message.isLegacyUrlPreview || message.isInteractive) {
+      final first = newParts.map((e) => e.part).minOrNull;
+      newParts.removeWhere((e) => e.part != first);
+    }
     newParts.sort((a, b) => a.part.compareTo(b.part));
     // Stamp each freshly-built part with the current redaction state so widgets
     // read MessagePart.displayText / displaySubject without checking settings.
@@ -778,53 +911,44 @@ class MessageState extends StatefulController {
   List<MessagePart> attributedBodyToMessagePart(AttributedBody body) {
     final mainString = body.string;
     final list = <MessagePart>[];
-    body.runs.sort((a, b) => (a.range.firstOrNull ?? 0).compareTo(b.range.firstOrNull ?? 0));
-    body.runs.forEachIndexed((i, e) {
-      if (e.attributes?.messagePart == null) return;
-      // A truncated or malformed attributedBody can carry a run range that does not address
-      // its own string. Slicing it would throw out of onInit, so drop the run — except for an
-      // attachment run, which carries no text of its own and still has an attachment to show.
+    final runs = body.runs.toList()
+      ..sort((a, b) => (a.range.firstOrNull ?? 0).compareTo(b.range.firstOrNull ?? 0));
+    final inlineGuids = body.inlineRuns.map((e) => e.attributes!.attachmentGuid).toSet();
+    final chatGuid = cvController?.chat.guid ?? ChatsSvc.activeChat?.chat.guid;
+    for (final (i, e) in runs.indexed) {
+      if (e.attributes?.messagePart == null) continue;
       final runText = _sliceRun(mainString, e.range);
-      if (runText == null && !e.isAttachment) return;
+      if (runText == null && !e.isAttachment) continue;
+      final isInline = inlineGuids.contains(e.attributes!.attachmentGuid);
+      Attachment? attachment;
+      if (e.isAttachment) {
+        final guid = e.attributes!.attachmentGuid!;
+        attachment = message.dbAttachments.firstWhereOrNull((a) => a.guid == guid) ??
+            (chatGuid == null ? null : maybeFindMessagesSvc(chatGuid)?.struct.getAttachment(guid)) ??
+            _asyncResolvedAttachments[guid];
+        if (attachment == null) _resolveAttachmentFromDb(guid);
+      }
       final existingPart = list.firstWhereOrNull((element) => element.part == e.attributes!.messagePart!);
       if (existingPart != null) {
         final currentLength = existingPart.text?.length ?? 0;
-        existingPart.text = (existingPart.text ?? "") + (runText ?? "");
-        if (e.hasMention) {
-          existingPart.mentions.add(Mention(
-            mentionedAddress: e.attributes?.mention,
-            range: [currentLength, currentLength + (runText?.length ?? 0)],
-          ));
-          existingPart.mentions.sort((a, b) => a.range.first.compareTo(b.range.first));
+        final inlineAttachment = isInline ? attachment : null;
+        if ((!e.isAttachment || inlineAttachment != null) && runText != null) {
+          existingPart.text = (existingPart.text ?? "") + runText;
+          existingPart.runs.add(Run(range: [currentLength, runText.length], attributes: e.attributes));
         }
+        if (inlineAttachment != null) existingPart.attachments.add(inlineAttachment);
       } else {
-        Attachment? foundAttachment;
-        if (e.isAttachment && (cvController?.chat != null || ChatsSvc.activeChat != null)) {
-          final attachmentGuid = e.attributes!.attachmentGuid!;
-          foundAttachment = message.dbAttachments.firstWhereOrNull((a) => a.guid == attachmentGuid);
-          foundAttachment ??= maybeFindMessagesSvc(cvController?.chat.guid ?? ChatsSvc.activeChat!.chat.guid)
-              ?.struct
-              .getAttachment(attachmentGuid);
-          foundAttachment ??= _asyncResolvedAttachments[attachmentGuid];
-          if (foundAttachment == null) _resolveAttachmentFromDb(attachmentGuid);
-        }
-
+        if (e.isAttachment && attachment == null) continue;
+        final text = e.isAttachment && !isInline ? null : runText;
         list.add(MessagePart(
           subject: i == 0 ? message.subject : null,
-          text: e.isAttachment ? null : runText,
-          attachments: foundAttachment != null ? [foundAttachment] : [],
-          mentions: !e.hasMention
-              ? []
-              : [
-                  Mention(
-                    mentionedAddress: e.attributes?.mention,
-                    range: [0, runText?.length ?? 0],
-                  )
-                ],
+          text: text,
+          attachments: attachment != null ? [attachment] : [],
+          runs: text == null ? [] : [Run(range: [0, text.length], attributes: e.attributes)],
           part: e.attributes!.messagePart!,
         ));
       }
-    });
+    }
     return list;
   }
 

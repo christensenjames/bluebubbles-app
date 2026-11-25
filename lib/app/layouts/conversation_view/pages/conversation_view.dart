@@ -2,6 +2,7 @@ import 'package:bluebubbles/app/components/wallpaper/wallpaper.dart';
 import 'package:bluebubbles/app/layouts/conversation_details/spam_action.dart';
 import 'package:bluebubbles/app/layouts/conversation_view/widgets/header/cupertino_header.dart';
 import 'package:bluebubbles/app/layouts/conversation_view/widgets/header/material_header.dart';
+import 'package:bluebubbles/app/layouts/conversation_view/widgets/shared_contact_banner.dart';
 import 'package:bluebubbles/app/layouts/conversation_view/widgets/messages_view_components.dart';
 import 'package:bluebubbles/app/layouts/conversation_view/widgets/text_field/conversation_text_field.dart';
 import 'package:bluebubbles/app/layouts/conversation_view/widgets/text_field/emoji_row.dart';
@@ -74,9 +75,12 @@ class ConversationViewState extends State<ConversationView> with ThemeHelpers<Co
   @override
   void initState() {
     super.initState();
+    controller.viewOwner = this;
     controller.fromChatCreator = widget.fromChatCreator;
     controller.fromSearchResult = widget.initialScrollToGuid != null;
     ChatsSvc.setActiveChatSync(chat);
+    _sectionWorker = ever(NavigationSvc.openSection, (_) => _updateCovered());
+    _updateCovered();
     ChatsSvc.activeChat?.controller = controller;
     Logger.debug("Conversation View initialized for ${chat.guid} (${controller.composerIds})");
 
@@ -117,6 +121,31 @@ class ConversationViewState extends State<ConversationView> with ThemeHelpers<Co
   }
 
   Widget _buildBodyContent() {
+    // Built once so keyboard animation frames only rebuild the padding
+    final messages = Expanded(
+      child: Stack(
+        children: [
+          MessagesView(
+            key: Key(chat.guid),
+            customService: widget.customService,
+            initialScrollToGuid: widget.initialScrollToGuid,
+            dropZoneManager: _dropZoneManager,
+            controller: controller,
+          ),
+          ScrollDownButton(controller: controller),
+        ],
+      ),
+    );
+    final textField = ConversationTextField(parentController: controller);
+    final composer = Obx(() {
+      final enabled = SettingsSvc.settings.swipeToCloseKeyboard.value ||
+          SettingsSvc.settings.swipeToOpenKeyboard.value;
+      return GestureDetector(
+        onPanStart: enabled ? (_) => _composerPanDy = 0 : null,
+        onPanUpdate: enabled ? _onPanUpdate : null,
+        child: textField,
+      );
+    });
     return GradientBackground(
       controller: controller,
       child: Stack(
@@ -134,7 +163,7 @@ class ConversationViewState extends State<ConversationView> with ThemeHelpers<Co
                     height: bottomInset,
                     child: IgnorePointer(
                       child: ColoredBox(
-                        color: controller.showAttachmentPicker.value
+                        color: controller.showAttachmentPicker.value || controller.showGamePicker.value
                             ? context.theme.colorScheme.surface
                             : Colors.transparent,
                       ),
@@ -144,8 +173,7 @@ class ConversationViewState extends State<ConversationView> with ThemeHelpers<Co
           ),
           Builder(
             builder: (context) {
-              final bottomInset = MediaQuery.paddingOf(context).bottom;
-              final textField = ConversationTextField(parentController: controller);
+              final bottomInset = MediaQuery.paddingOf(context).bottom + MediaQuery.viewInsetsOf(context).bottom;
               final body = Padding(
                 padding: EdgeInsets.only(bottom: bottomInset),
                 child: _dropZoneManager.target(
@@ -173,29 +201,8 @@ class ConversationViewState extends State<ConversationView> with ThemeHelpers<Co
                         ),
                       );
                     }),
-                    Expanded(
-                      child: Stack(
-                        children: [
-                          MessagesView(
-                            key: Key(chat.guid),
-                            customService: widget.customService,
-                            initialScrollToGuid: widget.initialScrollToGuid,
-                            dropZoneManager: _dropZoneManager,
-                            controller: controller,
-                          ),
-                          ScrollDownButton(controller: controller),
-                        ],
-                      ),
-                    ),
-                    Obx(() {
-                      final enabled = SettingsSvc.settings.swipeToCloseKeyboard.value ||
-                          SettingsSvc.settings.swipeToOpenKeyboard.value;
-                      return GestureDetector(
-                        onPanStart: enabled ? (_) => _composerPanDy = 0 : null,
-                        onPanUpdate: enabled ? _onPanUpdate : null,
-                        child: textField,
-                      );
-                    }),
+                    messages,
+                    composer,
                     EmojiRow(parentController: controller),
                   ],
                   ),
@@ -219,6 +226,15 @@ class ConversationViewState extends State<ConversationView> with ThemeHelpers<Co
               });
             },
           ),
+          // The body extends behind the header, whose height is in the top padding
+          Builder(
+            builder: (context) => Positioned(
+              top: MediaQuery.paddingOf(context).top,
+              left: 0,
+              right: 0,
+              child: SharedContactBanner(chat: chat),
+            ),
+          ),
         ],
       ),
     );
@@ -226,21 +242,9 @@ class ConversationViewState extends State<ConversationView> with ThemeHelpers<Co
 
   void _buildActionsMap() {
     _actionsMap = {
-      OpenChatDetailsIntent: OpenChatDetailsAction(context, widget.chat.guid),
       GoBackIntent: GoBackAction(context),
+      if (SettingsSvc.settings.enablePrivateAPI.value) ReplyRecentIntent: ReplyRecentAction(widget.chat.guid),
     };
-
-    if (SettingsSvc.settings.enablePrivateAPI.value) {
-      _actionsMap.addAll({
-        ReplyRecentIntent: ReplyRecentAction(widget.chat.guid),
-        HeartRecentIntent: HeartRecentAction(widget.chat.guid),
-        LikeRecentIntent: LikeRecentAction(widget.chat.guid),
-        DislikeRecentIntent: DislikeRecentAction(widget.chat.guid),
-        LaughRecentIntent: LaughRecentAction(widget.chat.guid),
-        EmphasizeRecentIntent: EmphasizeRecentAction(widget.chat.guid),
-        QuestionRecentIntent: QuestionRecentAction(widget.chat.guid),
-      });
-    }
   }
 
   @override
@@ -248,29 +252,42 @@ class ConversationViewState extends State<ConversationView> with ThemeHelpers<Co
     super.didChangeDependencies();
     controller.inSplitPane = identical(Navigator.of(context), Get.keys[2]?.currentState);
     final route = ModalRoute.of(context);
-    if (route != null) {
-      routeObserver.subscribe(this, route);
-    }
+    if (route != null) NavigationSvc.paneRouteObserver.subscribe(this, route);
   }
+
+  bool _pageOver = false;
+  late final Worker _sectionWorker;
+
+  void _updateCovered() => ChatsSvc.getOrCreateChatState(chat)
+      .updateCoveredInternal(_pageOver || NavigationSvc.openSection.value != null);
 
   @override
   void didPushNext() {
     // A route was pushed on top of the conversation view (e.g. ConversationDetails).
     controller.showingSubRoute = true;
+    _pageOver = true;
+    _updateCovered();
   }
 
   @override
   void didPopNext() {
     // The route above was popped — conversation view is visible again.
     controller.showingSubRoute = false;
+    _pageOver = false;
+    _updateCovered();
   }
 
   @override
   void dispose() {
-    routeObserver.unsubscribe(this);
+    _sectionWorker.dispose();
+    NavigationSvc.paneRouteObserver.unsubscribe(this);
     controller.saveReplyToMessageState(); // P8bda
-    Logger.debug("Conversation View disposed for ${chat.guid} (${controller.composerIds})");
-    controller.deleteIfCurrent();
+    // A replacement view may already have taken this controller over; deleting it would dispose the focus nodes
+    // and text controllers its composer is using
+    if (identical(controller.viewOwner, this)) {
+      controller.deleteIfCurrent();
+      if (controller.isClosed) controller.disposeComposer();
+    }
     super.dispose();
   }
 
@@ -310,6 +327,7 @@ class ConversationViewState extends State<ConversationView> with ThemeHelpers<Co
                   ? Colors.transparent
                   : (material ? colorScheme.surfaceContainer : colorScheme.surface),
               extendBodyBehindAppBar: !material,
+              resizeToAvoidBottomInset: false,
               appBar: _appBar,
               body: _bodyContent,
             ),
@@ -329,7 +347,9 @@ class ConversationViewState extends State<ConversationView> with ThemeHelpers<Co
           child: Obx(() => PopScope(
                 canPop: !controller.inSelectMode.value &&
                     !controller.showAttachmentPicker.value &&
-                    !LifecycleSvc.isBubble,
+                    !LifecycleSvc.isBubble &&
+                    !controller.showGamePicker.value &&
+                    !controller.showTextFormattingPanel.value,
                 onPopInvokedWithResult: <T>(bool didPop, T? result) {
                   if (didPop) {
                     controller.close();
@@ -340,9 +360,24 @@ class ConversationViewState extends State<ConversationView> with ThemeHelpers<Co
                     controller.selected.clear();
                     return;
                   }
+                  if (controller.showAttachmentPicker.value &&
+                      (controller.showGenmojiLibrary.value || controller.showStickerLibrary.value)) {
+                    controller.showGenmojiLibrary.value = false;
+                    controller.showStickerLibrary.value = false;
+                    return;
+                  }
                   if (controller.showAttachmentPicker.value) {
                     controller.showAttachmentPicker.value = false;
                     controller.updateWidgets<ConversationTextField>(null);
+                    return;
+                  }
+                  if (controller.showGamePicker.value) {
+                    controller.showGamePicker.value = false;
+                    return;
+                  }
+                  if (controller.showTextFormattingPanel.value) {
+                    controller.focusNode.unfocus();
+                    controller.showTextFormattingPanel.value = false;
                     return;
                   }
                   if (LifecycleSvc.isBubble) {

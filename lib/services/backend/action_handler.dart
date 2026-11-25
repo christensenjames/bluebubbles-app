@@ -177,6 +177,8 @@ class ActionHandler extends GetxService {
       case "chat-read-status-changed":
         final String? chatGuid = data["chatGuid"];
         Chat? chat = (chatGuid != null ? ChatsSvc.findChatByGuid(chatGuid) : null) ?? Chat.findOne(guid: chatGuid);
+        final int? readBefore = (data["lastReadMessageTimestamp"] as num?)?.toInt();
+        if (chat != null && data["read"] == true && await chat.clearNotificationsForPartialRead(readBefore)) return;
         if (chat != null && (data["read"] == true || data["read"] == false)) {
           if (data["read"] == false && ChatsSvc.isChatActive(chat.guid)) {
             // Keep the open chat's unread dot clear, but let its header offer Mark Read again.
@@ -186,7 +188,8 @@ class ActionHandler extends GetxService {
           // Route through ChatsService so the ChatState the conversation list
           // renders from is updated too. Writing only to the DB row leaves the
           // unread dot stale until the state is rebuilt (open chat / restart).
-          await ChatsSvc.setChatHasUnread(chat, !data["read"]!, force: data["read"] == true, privateMark: false);
+          await ChatsSvc.setChatHasUnread(chat, !data["read"]!,
+              force: data["read"] == true, privateMark: false, readBefore: readBefore);
           chat.syncLatestIncomingRead(data["read"]);
         }
         return;

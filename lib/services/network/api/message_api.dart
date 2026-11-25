@@ -1,6 +1,10 @@
+import 'dart:io';
+import 'dart:math';
+
 import 'package:bluebubbles/database/models.dart';
 import 'package:bluebubbles/services/network/api/base_api.dart';
 import 'package:bluebubbles/services/services.dart';
+import 'package:bluebubbles/utils/logger/logger.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 import 'package:get/get.dart' hide Response, FormData, MultipartFile;
@@ -9,6 +13,12 @@ class MessageApi {
   final BaseApi _svc;
 
   MessageApi(this._svc);
+
+  /// How long to wait on a route that answers only once iMessage has acted: v2 cuts them off at 300s, 1.x worst
+  /// case is ~3 min. `chat/new` (which sends the first message) waits the same way.
+  static const awaitsIMessageTimeout = Duration(minutes: 5, seconds: 15);
+
+  Options get _awaitsIMessage => Options(receiveTimeout: awaitsIMessageTimeout);
 
   /// Get the number of messages in the server iMessage DB
   Future<Response> getCount({
@@ -39,12 +49,15 @@ class MessageApi {
   /// [withQuery] options: `"chats"` / `"chat"`, `"attachment"` / `"attachments"`,
   /// `"handle"`, `"chats.participants"` / `"chat.participants"`,
   /// `"attachment.metadata"`, `"attributedBody"`
+  /// [dateField] selects the date compared with [after]/[before] on v2 servers.
+  /// Leave it null for v1 servers.
   Future<Response> query({
     List<String> withQuery = const [],
     List<dynamic> where = const [],
     String sort = "DESC",
     int? before,
     int? after,
+    String? dateField,
     String? chatGuid,
     int offset = 0,
     int limit = 100,
@@ -60,6 +73,7 @@ class MessageApi {
           "sort": sort,
           "before": before,
           "after": after,
+          if (dateField != null) "dateField": dateField,
           "chatGuid": chatGuid,
           "offset": offset,
           "limit": limit,
@@ -149,6 +163,7 @@ class MessageApi {
         "${_svc.apiRoot}/message/text",
         data: data,
         cancelToken: cancelToken,
+        options: _awaitsIMessage,
       );
       return _svc.returnSuccessOrError(response);
     });
@@ -202,11 +217,90 @@ class MessageApi {
         onSendProgress: onSendProgress,
         options: Options(
           sendTimeout: _svc.dio.options.sendTimeout! * 12,
-          receiveTimeout: _svc.dio.options.receiveTimeout! * 12,
+          receiveTimeout: _awaitsIMessage.receiveTimeout,
         ),
       );
       return _svc.returnSuccessOrError(response);
     });
+  }
+
+  static const attachmentChunkSize = 20 * 1024 * 1024;
+  static const maxChunkAttempts = 3;
+
+  /// v2 servers only. The last slice sends the message.
+  Future<Response> sendAttachmentChunked(
+    String chatGuid,
+    String tempGuid,
+    PlatformFile file, {
+    void Function(int, int)? onSendProgress,
+    String? method,
+    String? effectId,
+    String? subject,
+    String? selectedMessageGuid,
+    int? partIndex,
+    bool? isAudioMessage,
+  }) async {
+    final total = file.size;
+    final totalChunks = (total / attachmentChunkSize).ceil();
+    final fields = <String, dynamic>{
+      "attachmentGuid": tempGuid,
+      "chatGuid": chatGuid,
+      "name": file.name,
+      "method": method,
+      "totalChunks": totalChunks,
+      if (SettingsSvc.settings.enablePrivateAPI.value && SettingsSvc.settings.privateAPIAttachmentSend.value) ...{
+        "effectId": effectId,
+        "subject": subject,
+        "selectedMessageGuid": selectedMessageGuid,
+        "partIndex": partIndex,
+        "isAudioMessage": isAudioMessage,
+      },
+    }..removeWhere((key, value) => value == null);
+
+    final raf = await File(file.path!).open();
+    try {
+      late Response response;
+      for (var i = 0; i < totalChunks; i++) {
+        final start = i * attachmentChunkSize;
+        await raf.setPosition(start);
+        final bytes = await raf.read(min(attachmentChunkSize, total - start));
+        final isLast = i == totalChunks - 1;
+        for (var attempt = 1;; attempt++) {
+          try {
+            response = await _svc.runApiGuarded(() async {
+              final formData = FormData.fromMap({
+                ...fields,
+                "chunkIndex": i,
+                if (isLast) "isComplete": true,
+                "chunk": MultipartFile.fromBytes(bytes, filename: file.name),
+              });
+              final response = await _svc.dio.post(
+                "${_svc.apiRoot}/message/attachment/chunk",
+                data: formData,
+                onSendProgress: onSendProgress == null ? null : (count, _) => onSendProgress(start + count, total),
+                options: Options(
+                  // The last slice answers once iMessage has sent the file
+                  receiveTimeout: isLast ? awaitsIMessageTimeout : null,
+                  headers: _svc.headers,
+                ),
+              );
+              return _svc.returnSuccessOrError(response);
+            });
+            break;
+          } catch (e) {
+            // A resent slice overwrites the stored one, but retrying the last could send the message twice
+            final status = e is Response ? e.statusCode ?? 0 : 0;
+            if (isLast || (status >= 400 && status < 500) || attempt == maxChunkAttempts) rethrow;
+            Logger.warn("Attachment slice ${i + 1}/$totalChunks failed (attempt $attempt), retrying",
+                error: e, tag: "MessageApi");
+            await Future.delayed(Duration(seconds: attempt));
+          }
+        }
+      }
+      return response;
+    } finally {
+      await raf.close();
+    }
   }
 
   /// Send a multipart message. [chatGuid] specifies the chat, [tempGuid] specifies a
@@ -242,6 +336,61 @@ class MessageApi {
         "${_svc.apiRoot}/message/multipart",
         data: data,
         cancelToken: cancelToken,
+        options: _awaitsIMessage,
+      );
+      return _svc.returnSuccessOrError(response);
+    });
+  }
+
+  /// Get the decoded iMessage app payload (url, session id, captions) of message [guid]. v2 servers only.
+  Future<Response> getAppMessage(String guid, {CancelToken? cancelToken}) async {
+    return _svc.runApiGuarded(() async {
+      final response = await _svc.dio.get(
+        "${_svc.origin}/api/v2/message/app/$guid",
+        cancelToken: cancelToken,
+      );
+      return _svc.returnSuccessOrError(response);
+    });
+  }
+
+  /// Send an iMessage app balloon with the app's own payload [url], passed through untouched. v2 servers only.
+  /// [image] is the balloon's picture (e.g. the game board) as base64 JPEG, PNG or HEIC, at most 4 MB. [tempGuid] is
+  /// echoed on the reply and on the matching `new-message`, so the temp message can be swapped for the real one; the
+  /// server refuses a second request with the same [tempGuid] only while the first is still in flight, so it does
+  /// not catch a retry of a send that already went out. [liveLayout] marks the balloon live, so a recipient with the
+  /// app draws it rather than the template.
+  Future<Response> sendAppMessage(
+    String chatGuid, {
+    required String balloonBundleId,
+    required String url,
+    String? sessionId,
+    String? appName,
+    int? appId,
+    String? summary,
+    String? caption,
+    String? image,
+    String? tempGuid,
+    bool liveLayout = false,
+    CancelToken? cancelToken,
+  }) async {
+    return _svc.runApiGuarded(() async {
+      final response = await _svc.dio.post(
+        "${_svc.origin}/api/v2/message/app",
+        data: {
+          "chatGuid": chatGuid,
+          "balloonBundleId": balloonBundleId,
+          "url": url,
+          "sessionId": sessionId,
+          "appName": appName,
+          "appId": appId,
+          "summary": summary,
+          "caption": caption,
+          "image": image,
+          "tempGuid": tempGuid,
+          "liveLayout": liveLayout,
+        },
+        options: _awaitsIMessage,
+        cancelToken: cancelToken,
       );
       return _svc.returnSuccessOrError(response);
     });
@@ -256,7 +405,7 @@ class MessageApi {
     String selectedMessageGuid,
     String reaction, {
     int? partIndex,
-    String? reactionEmoji,
+    String? emoji,
     CancelToken? cancelToken,
   }) async {
     return _svc.runApiGuarded(() async {
@@ -268,8 +417,11 @@ class MessageApi {
           "selectedMessageGuid": selectedMessageGuid,
           "reaction": reaction,
           "partIndex": partIndex,
-          "reactionEmoji": ?reactionEmoji,
+          "emoji": ?emoji,
+          // The fork server reads reactionEmoji.
+          "reactionEmoji": ?emoji,
         },
+        options: _awaitsIMessage,
         cancelToken: cancelToken,
       );
       return _svc.returnSuccessOrError(response);
@@ -282,6 +434,7 @@ class MessageApi {
       final response = await _svc.dio.post(
         "${_svc.apiRoot}/message/$selectedMessageGuid/unsend",
         data: {"partIndex": partIndex ?? 0},
+        options: _awaitsIMessage,
         cancelToken: cancelToken,
       );
       return _svc.returnSuccessOrError(response);
@@ -304,6 +457,7 @@ class MessageApi {
           "backwardsCompatibilityMessage": backwardsCompatText,
           "partIndex": partIndex ?? 0,
         },
+        options: _awaitsIMessage,
         cancelToken: cancelToken,
       );
       return _svc.returnSuccessOrError(response);
@@ -315,6 +469,7 @@ class MessageApi {
     return _svc.runApiGuarded(() async {
       final response = await _svc.dio.post(
         "${_svc.apiRoot}/message/$selectedMessageGuid/notify",
+        options: _awaitsIMessage,
         cancelToken: cancelToken,
       );
       return _svc.returnSuccessOrError(response);

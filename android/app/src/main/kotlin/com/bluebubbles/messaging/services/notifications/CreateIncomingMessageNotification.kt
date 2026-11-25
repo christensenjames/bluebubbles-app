@@ -102,7 +102,11 @@ class CreateIncomingMessageNotification: MethodCallHandlerImpl() {
             NotificationCompat.BigPictureStyle().bigPicture(picture).bigLargeIcon(null as Bitmap?)
         } else {
             // copy the style of the chat's existing notification so earlier messages stay visible
-            val chatNotification = notificationManager.activeNotifications.lastOrNull { it.notification.extras.getString("chatGuid") == chatGuid && it.notification.extras.getString("channelId") == channelId }
+            val chatNotification = notificationManager.activeNotifications.lastOrNull {
+                it.notification.extras.getString("chatGuid") == chatGuid &&
+                    it.notification.extras.getString("channelId") == channelId &&
+                    !it.notification.extras.getBoolean(DeleteNotificationHandler.readHiddenExtra)
+            }
             val messagingStyle = chatNotification?.let {
                 NotificationCompat.MessagingStyle.extractMessagingStyleFromNotification(it.notification)
             } ?: NotificationCompat.MessagingStyle(Person.Builder().setName("You").build())

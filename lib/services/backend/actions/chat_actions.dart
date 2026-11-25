@@ -1,7 +1,8 @@
 import 'package:bluebubbles/database/database.dart';
 import 'package:bluebubbles/database/models.dart';
-import 'package:bluebubbles/helpers/helpers.dart';
 import 'package:bluebubbles/services/backend/actions/attachment_actions.dart';
+import 'package:bluebubbles/services/backend/actions/message_actions.dart';
+import 'package:bluebubbles/helpers/helpers.dart';
 import 'package:bluebubbles/services/backend/actions/contact_v2_actions.dart';
 import 'package:bluebubbles/services/services.dart';
 import 'package:bluebubbles/utils/logger/logger.dart';
@@ -13,7 +14,8 @@ class ChatActions {
     if (kIsDesktop || kIsWeb) return;
     final chatId = data['chatId'] as int;
 
-    await MethodChannelSvc.actions.deleteNotification(notificationId: chatId, tag: 'new_message');
+    await MethodChannelSvc.actions.deleteNotification(
+        notificationId: chatId, tag: 'new_message', readBefore: data['readBefore'] as int?, keepBubble: true);
   }
 
   static Future<List<String>> markAllChatsRead(dynamic data) async {
@@ -122,6 +124,7 @@ class ChatActions {
       }
       if (updateFlags['updateTextFieldText']!) {
         chat.textFieldText = inputChat.textFieldText;
+        chat.textFieldRuns = inputChat.textFieldRuns;
       }
       if (updateFlags['updateTextFieldAttachments']!) {
         chat.textFieldAttachments = inputChat.textFieldAttachments;
@@ -152,6 +155,9 @@ class ChatActions {
       }
       if (updateFlags['updateSpamVerdict'] == true) {
         chat.spamVerdict = inputChat.spamVerdict;
+      }
+      if (updateFlags['updateKnownGroupPhotoGuid'] == true) {
+        chat.knownGroupPhotoGuid = inputChat.knownGroupPhotoGuid;
       }
       if (updateFlags['updateLatestMessage'] == true) {
         final latestMessageId = chatData['dbLatestMessageId'] as int?;
@@ -299,6 +305,10 @@ class ChatActions {
       if (dbChat != null) {
         dbChat.dateDeleted = DateTime.now().toUtc();
         dbChat.hasUnreadMessage = false;
+        // The row stays, so its draft would come back with the chat
+        dbChat.textFieldText = null;
+        dbChat.textFieldRuns = null;
+        dbChat.textFieldAttachments = [];
         chatBox.put(dbChat);
       }
     });
@@ -349,7 +359,8 @@ class ChatActions {
     final latestMessageData = data['latestMessageData'] as Map<String, dynamic>;
     final checkForMessageText = data['checkForMessageText'] as bool;
 
-    return Database.runInTransaction(TxMode.write, () {
+    final moves = <RekeyedFileMove>[];
+    final result = Database.runInTransaction(TxMode.write, () {
       final messageBox = Database.messages;
       final attachmentBox = Database.attachments;
       final handleBox = Database.handles;
@@ -430,7 +441,7 @@ class ChatActions {
       }
 
       // Handle associated messages (reactions)
-      if (inputMessage.associatedMessageType != null && inputMessage.associatedMessageGuid != null) {
+      if (inputMessage.associatedMessageType != null && inputMessage.isReaction) {
         final assocQuery = messageBox.query(Message_.guid.equals(inputMessage.associatedMessageGuid!)).build();
         assocQuery.limit = 1;
         final associatedMessage = assocQuery.findFirst();
@@ -466,6 +477,7 @@ class ChatActions {
       try {
         messageId = messageBox.put(inputMessage);
         inputMessage.id = messageId;
+        MessageActions.retireEarlierTurns(inputMessage);
       } on UniqueViolationException catch (_) {
         // If unique violation, try to find the message again
         final retryQuery = messageBox.query(Message_.guid.equals(inputMessage.guid ?? '')).build();
@@ -492,6 +504,7 @@ class ChatActions {
 
           // Process and link attachments if present
           if (inputAttachments.isNotEmpty) {
+            moves.addAll(AttachmentActions.adoptRekeyedGuids(inputAttachments));
             for (final attachment in inputAttachments) {
               // Find existing attachment
               final attachQuery = attachmentBox.query(Attachment_.guid.equals(attachment.guid ?? '')).build();
@@ -541,6 +554,8 @@ class ChatActions {
         'isNewer': isNewerInIsolate,
       };
     });
+    AttachmentActions.moveRekeyedFiles(moves);
+    return result;
   }
 
   static Future<List<int>> loadSupplementalData(dynamic data) async {
@@ -549,9 +564,12 @@ class ChatActions {
     return Database.runInTransaction(TxMode.read, () {
       final messageBox = Database.messages;
 
-      // Query reactions and return just their IDs
-      final reactionsQuery =
-          (messageBox.query(Message_.associatedMessageGuid.oneOf(messageGuids))..order(Message_.originalROWID)).build();
+      // Query reactions and return just their IDs. An iMessage app turn points at its session's first message too,
+      // and isn't one
+      final reactionsQuery = (messageBox
+              .query(Message_.associatedMessageGuid.oneOf(messageGuids) & Message.reactionCondition)
+            ..order(Message_.originalROWID))
+          .build();
       final reactions = reactionsQuery.find();
       reactionsQuery.close();
 
@@ -832,6 +850,7 @@ class ChatActions {
     final limit = data['limit'] as int? ?? 25;
     final includeDeleted = data['includeDeleted'] as bool? ?? false;
     final searchAround = data['searchAround'] as int?;
+    final since = data['since'] as int?;
 
     return Database.runInTransaction(TxMode.read, () {
       final participants = participantsData.map((e) => Handle.fromMap(e)).toList();
@@ -839,14 +858,16 @@ class ChatActions {
       final messages = <Message>[];
 
       if (searchAround == null) {
-        final query = (messageBox.query(includeDeleted
-                ? Message_.dateCreated.notNull().and(Message_.dateDeleted.isNull().or(Message_.dateDeleted.notNull()))
-                : Message_.dateDeleted.isNull().and(Message_.dateCreated.notNull()))
+        final dated = includeDeleted
+            ? Message_.dateCreated.notNull().and(Message_.dateDeleted.isNull().or(Message_.dateDeleted.notNull()))
+            : Message_.dateDeleted.isNull().and(Message_.dateCreated.notNull());
+        final query = (messageBox.query(since == null ? dated : dated.and(Message_.dateCreated.greaterOrEqual(since)))
               ..link(Message_.chat, Chat_.id.equals(chatId))
               ..order(Message_.dateCreated, flags: Order.descending))
             .build();
+        // Everything since a date is one result: a page of it would leave a gap
         query
-          ..limit = limit
+          ..limit = since == null ? limit : 0
           ..offset = offset;
         messages.addAll(query.find());
         query.close();

@@ -1,4 +1,6 @@
 import 'dart:async';
+import 'dart:convert';
+import 'dart:math';
 
 import 'package:app_links/app_links.dart';
 import 'package:bluebubbles/app/components/wallpaper/chat_wallpaper_type.dart';
@@ -11,6 +13,7 @@ import 'package:bluebubbles/helpers/backend/startup_tasks.dart';
 import 'package:bluebubbles/helpers/helpers.dart';
 import 'package:bluebubbles/database/models.dart';
 import 'package:bluebubbles/services/backend/interfaces/chat_interface.dart';
+import 'package:bluebubbles/services/backend/interfaces/prefs_interface.dart';
 import 'package:bluebubbles/services/backend/notifications/desktop_notification.dart';
 import 'package:bluebubbles/services/services.dart';
 import 'package:bluebubbles/utils/logger/logger.dart';
@@ -252,11 +255,60 @@ class ChatsService {
     return allChats.where((c) => c.isGroup).toList();
   }
 
-  /// Get pinned chats
-  List<Chat> get pinnedChats {
-    return getSortedChats().where((c) => (c.pinIndex ?? -1) >= 0).toList()
-      ..sort((a, b) => (a.pinIndex ?? 0).compareTo(b.pinIndex ?? 0));
+  /// Pinned chats in pin order ([getSortedChats] already puts them first, ordered).
+  List<Chat> get pinnedChats => getSortedChats().where((c) => c.isPinned ?? false).toList();
+
+  /// Saves a new pin order. [visible] may be a filtered subset of the pins: the pins it leaves out keep their
+  /// positions, and the visible ones fill the remaining positions in the new order.
+  Future<void> reorderPins(List<Chat> visible) async {
+    final pins = pinnedChats;
+    final byGuid = {for (final chat in pins) chat.guid: chat};
+    final ordered = mergePinOrder(
+      pins.map((c) => c.guid).toList(),
+      visible.where((c) => c.isPinned ?? false).map((c) => c.guid).toList(),
+    ).map((guid) => byGuid[guid]!).toList();
+    // Each changed chat's index before this reorder, to put back if the save fails.
+    final previous = <Chat, int?>{};
+    ordered.forEachIndexed((i, chat) {
+      if (chat.pinIndex == i) return;
+      previous[chat] = chat.pinIndex;
+      _setPinIndex(chat, i);
+    });
+    if (previous.isEmpty) return;
+    // Re-sort before saving so the grid shows the new order without waiting on the DB.
+    refreshSortOrder();
+    // All of them, even past a failure, so one bad write doesn't leave the rest of the order unsaved.
+    final saved = <Chat>[];
+    Object? error;
+    StackTrace? trace;
+    await Future.wait(previous.keys.map((chat) async {
+      try {
+        await chat.saveAsync(updatePinIndex: true);
+        saved.add(chat);
+      } catch (e, s) {
+        error ??= e;
+        trace ??= s;
+      }
+    }));
+    if (error == null) return;
+
+    Logger.error("Failed to save the pin order", error: error, trace: trace, tag: "ChatsService");
+    showToast("Failed to save the pin order!", isError: true);
+    // Back to the order before the drag, so the pins show what the database has: the writes that did land are
+    // written back too.
+    previous.forEach(_setPinIndex);
+    refreshSortOrder();
+    await Future.wait(saved.map((chat) => chat.saveAsync(updatePinIndex: true).then<void>((_) {}, onError: (e, s) {
+          Logger.error("Failed to restore a pin's index", error: e, trace: s, tag: "ChatsService");
+        })));
   }
+
+  void _setPinIndex(Chat chat, int? index) {
+    chat.pinIndex = index;
+    chatStates[chat.guid]?.updatePinIndexInternal(index);
+  }
+
+  int get _nextPinIndex => pinnedChats.fold<int>(-1, (m, c) => max(m, c.pinIndex ?? -1)) + 1;
 
   /// Search chats by title
   List<Chat> searchChats(String query) {
@@ -449,7 +501,6 @@ class ChatsService {
 
         final address = uri.path;
         final handle = Handle.findOne(addressAndService: HandleLookupKey(address, "iMessage"));
-        NavigationSvc.closeSettings(Get.context!);
         await NavigationSvc.pushAndRemoveUntil(
           Get.context!,
           NewChatCreator(
@@ -692,30 +743,18 @@ class ChatsService {
 
   /// State-aware sort comparison used by [_findInsertionIndex] and [refreshSortOrder].
   ///
-  /// Mirrors [Chat.sort] for pin-index ordering but resolves the latest-message
-  /// date from [chatStates] instead of [Chat.dbOnlyLatestMessageDate].  Using the
-  /// reactive state avoids a race condition where the DB write for the new message
-  /// has not yet completed when the chat list needs to be repositioned.
+  /// Pins first in [Chat.pinIndex] order, then everything else by latest message. The date comes from
+  /// [chatStates] rather than [Chat.dbOnlyLatestMessageDate], because the DB write for a new message may not
+  /// have landed yet when the list is repositioned.
   int _sortCompare(Chat a, Chat b) {
-    final aIsPinned = a.isPinned ?? false;
-    final bIsPinned = b.isPinned ?? false;
+    final byPin = comparePinOrder(
+      aPinned: a.isPinned ?? false,
+      aIndex: a.pinIndex,
+      bPinned: b.isPinned ?? false,
+      bIndex: b.pinIndex,
+    );
+    if (byPin != 0) return byPin;
 
-    // Both pinned with an explicit order → sort by pinIndex.
-    if (aIsPinned && bIsPinned && a.pinIndex != null && b.pinIndex != null) {
-      return a.pinIndex!.compareTo(b.pinIndex!);
-    }
-
-    // b is ordered-pinned, a is not → b comes first.
-    if (bIsPinned && b.pinIndex != null && (!aIsPinned || a.pinIndex == null)) return 1;
-    // a is ordered-pinned, b is not → a comes first.
-    if (aIsPinned && a.pinIndex != null && (!bIsPinned || b.pinIndex == null)) return -1;
-
-    // One pinned, one not.
-    if (!aIsPinned && bIsPinned) return 1;
-    if (aIsPinned && !bIsPinned) return -1;
-
-    // Both unpinned (or both pinned without an index): sort by most-recent message.
-    // Use ChatState latestMessage date to avoid the DB-write race condition.
     final aDate = chatStates[a.guid]?.latestMessage.value?.dateCreated ??
         a.dbOnlyLatestMessageDate ??
         DateTime.fromMillisecondsSinceEpoch(0);
@@ -856,7 +895,6 @@ class ChatsService {
   /// that set are affected (e.g. the currently filtered/visible subset) —
   /// otherwise every unread chat is marked, regardless of any active filter.
   Future<void> markAllAsRead({Set<String>? chatGuids}) async {
-    // Phase 1: instant UI update from in-memory state — no DB query needed
     final unreadStates = chatStates.values
         .where((s) => s.hasUnreadMessage.value && (chatGuids == null || chatGuids.contains(s.chat.guid)))
         .toList();
@@ -868,10 +906,10 @@ class ChatsService {
       if (id != null) {
         chatIds.add(id);
         if (!kIsDesktop && !kIsWeb) {
-          // Nothing in this codebase can re-post a deleted notification, so this is not revertible.
           MethodChannelSvc.actions.deleteNotification(
             notificationId: id,
             tag: NotificationsService.NEW_MESSAGE_TAG,
+            keepBubble: true,
           );
         }
       }
@@ -899,50 +937,6 @@ class ChatsService {
       Logger.warn("Failed to sync ${failedGuids.length} chat(s) as read to the server: ${failedGuids.join(", ")}",
           tag: "ChatsService");
       showToast("Marked as read, but ${failedGuids.length} chat(s) failed to sync to your Mac", isError: true);
-    }
-  }
-
-  void updateChatPinIndex(int oldIndex, int newIndex) {
-    final chatList = getSortedChats();
-    final items = List<Chat>.from(chatList.where((c) => (c.pinIndex ?? -1) >= 0));
-    items.sort((a, b) => (a.pinIndex ?? 0).compareTo(b.pinIndex ?? 0));
-
-    final item = items[oldIndex];
-
-    // Remove the item at the old index, and re-add it at the newIndex
-    // We dynamically subtract 1 from the new index depending on if the newIndex is > the oldIndex
-    items.removeAt(oldIndex);
-    items.insert(newIndex + (oldIndex < newIndex ? -1 : 0), item);
-
-    // Move the pinIndex for each of the chats, and save the pinIndex in the DB
-    items.forEachIndexed((i, e) async {
-      e.pinIndex = i;
-      await e.saveAsync(updatePinIndex: true);
-
-      // Update chat state
-      final state = chatStates[e.guid];
-      if (state != null) {
-        state.pinIndex.value = i;
-      }
-    });
-  }
-
-  void removePinIndices() {
-    final chatList = getSortedChats();
-    // Create a snapshot to avoid concurrent modification during iteration
-    final pinnedChats = List<Chat>.from(chatList.where((c) => (c.pinIndex ?? -1) >= 0 && c.pinIndex != null));
-    for (var element in pinnedChats) {
-      element.pinIndex = null;
-      element.saveAsync(updatePinIndex: true);
-
-      // Update chat state
-      final state = chatStates[element.guid];
-      if (state != null) {
-        state.pinIndex.value = null;
-      }
-
-      // Trigger reposition to re-sort the chat
-      _repositionChat(element, immediate: true);
     }
   }
 
@@ -1026,7 +1020,12 @@ class ChatsService {
       int? after,
       int? before}) async {
     Completer<List<dynamic>> completer = Completer();
-    final withQuery = <String>["message.attributedBody", "message.messageSummaryInfo", "message.payloadData"];
+    final withQuery = <String>[
+      "message.attributedBody",
+      "message.messageSummaryInfo",
+      "message.payloadData",
+      if (SettingsSvc.serverDetails.isV2Server) "message.appPayload",
+    ];
     if (withAttachment) withQuery.add("attachment");
     if (withHandle) withQuery.add("handle");
 
@@ -1170,6 +1169,7 @@ class ChatsService {
       handleIds: handleIds,
       attachmentsPath: FilesystemSvc.attachmentsPath,
     );
+    await _clearChatPrefs(chat.guid);
 
     // Remove from service state
     removeChat(chat);
@@ -1215,6 +1215,12 @@ class ChatsService {
     }
   }
 
+  /// Forgets the prefs kept for [chatGuid]: its tapback emoji, its saved reply and being the chat to reopen.
+  Future<void> _clearChatPrefs(String chatGuid) async {
+    await PrefsSvc.messaging.clearChat(chatGuid);
+    await PrefsInterface.saveReplyToMessageState(chatGuid, null, null);
+  }
+
   /// Performs a full messaging reset: wipes all Messages, Attachments, Chats,
   /// Handles, and Contacts (ContactV2) from the database, deletes all
   /// associated files from disk, and flushes every in-memory service cache
@@ -1243,6 +1249,9 @@ class ChatsService {
     for (final guid in chatGuids) {
       maybeFindMessagesSvc(guid)?.close(force: true);
     }
+    // By key, so chats that were never loaded (or were deleted before their prefs were cleared) go too
+    await PrefsSvc.messaging.clearAllChats();
+    await PrefsInterface.clearAllReplyToMessageStates();
     HandleSvc.reset();
 
     // Use init() rather than reset() so the empty-database case is handled
@@ -1269,6 +1278,12 @@ class ChatsService {
     // Perform the actual DB soft delete
     await ChatInterface.softDeleteChat(chatData: chat.toMap());
     chat.clearTranscript();
+    // The DB row's draft is cleared, but this object can be reused if the chat comes back
+    chat.textFieldText = null;
+    chat.textFieldRuns = null;
+    chat.textFieldAttachments = [];
+    // Its transcript is gone, so what was kept for it goes too
+    await _clearChatPrefs(chat.guid);
 
     // Propagate dateDeleted to ChatState before removing it so any live
     // listeners (e.g. ConversationTileController) can react reactively.
@@ -1299,8 +1314,8 @@ class ChatsService {
 
   /// Toggle chat pin status with service updates
   Future<Chat> _toggleChatPin(Chat chat, bool isPinned) async {
-    // Perform DB operation
-    await chat.togglePinAsync(isPinned);
+    // A new pin goes at the end, like Messages on the Mac.
+    await chat.togglePinAsync(isPinned, pinIndex: isPinned ? _nextPinIndex : null);
 
     // Update service state
     updateChat(chat);
@@ -1329,7 +1344,7 @@ class ChatsService {
 
   /// Toggle chat unread status with active chat awareness
   Future<Chat> _toggleChatHasUnread(Chat chat, bool hasUnread,
-      {bool force = false, bool clearLocalNotifications = true, bool privateMark = true}) async {
+      {bool force = false, bool clearLocalNotifications = true, bool privateMark = true, int? readBefore}) async {
     // Check if chat is active and adjust behavior
     final isActive = isChatActive(chat.guid);
 
@@ -1351,7 +1366,10 @@ class ChatsService {
 
     // Perform DB operation with adjusted parameters
     await chat.toggleHasUnreadAsync(hasUnread,
-        force: actualForce, clearLocalNotifications: actualClearNotifications, privateMark: actualPrivateMark);
+        force: actualForce,
+        clearLocalNotifications: actualClearNotifications,
+        privateMark: actualPrivateMark,
+        readBefore: readBefore);
 
     // Update service state
     updateChat(chat);
@@ -1405,28 +1423,14 @@ class ChatsService {
   Future<void> setChatPinned(Chat chat, bool value) async {
     final state = getChatState(chat.guid);
 
-    if (state != null && state.isPinned.value == value) return;
+    if ((state?.isPinned.value ?? chat.isPinned ?? false) == value) return;
 
     // Update DB
     await _toggleChatPin(chat, value);
 
     // Update state if available
     state?.updateIsPinnedInternal(value);
-  }
-
-  /// Set chat pin index
-  Future<void> setChatPinIndex(Chat chat, int? value) async {
-    final state = getChatState(chat.guid);
-
-    if (state != null && state.pinIndex.value == value) return;
-
-    // Update Chat model (use state.chat if available, otherwise use passed in chat)
-    final chatToUpdate = state?.chat ?? chat;
-    chatToUpdate.pinIndex = value;
-    await chatToUpdate.saveAsync(updatePinIndex: true);
-
-    // Update state if available
-    state?.updatePinIndexInternal(value);
+    state?.updatePinIndexInternal(chat.pinIndex);
   }
 
   /// Set chat unread status
@@ -1436,6 +1440,7 @@ class ChatsService {
     bool force = false,
     bool clearLocalNotifications = true,
     bool privateMark = true,
+    int? readBefore,
   }) async {
     final state = getChatState(chat.guid);
 
@@ -1443,7 +1448,10 @@ class ChatsService {
 
     // Update DB with active chat awareness
     await _toggleChatHasUnread(chat, value,
-        force: force, clearLocalNotifications: clearLocalNotifications, privateMark: privateMark);
+        force: force,
+        clearLocalNotifications: clearLocalNotifications,
+        privateMark: privateMark,
+        readBefore: readBefore);
 
     // Update state if available
     state?.updateHasUnreadInternal(value);
@@ -1475,6 +1483,9 @@ class ChatsService {
 
     // Update state if available
     state?.updateArchivedInternal(value);
+    // Archiving unpins.
+    state?.updateIsPinnedInternal(chat.isPinned ?? false);
+    state?.updatePinIndexInternal(chat.pinIndex);
   }
 
   /// Set chat auto send read receipts
@@ -1738,8 +1749,8 @@ class ChatsService {
     final redacted = SettingsSvc.settings.redactedMode.value;
     final hideContactInfo = redacted && SettingsSvc.settings.hideContactInfo.value;
     final hideMessageContent = redacted && SettingsSvc.settings.hideMessageContent.value;
-    state.updateSubtitleInternal(
-        message.getNotificationText(hideContactInfo: hideContactInfo, hideMessageContent: hideMessageContent));
+    state.updateSubtitleInternal(message.getNotificationText(
+        hideContactInfo: hideContactInfo, hideMessageContent: hideMessageContent, keepInlineAttachments: true));
     state.chat.setLatestMessage(message);
     _repositionChat(state.chat, immediate: repositionImmediate);
     if (markReadIfFromMe && advanced && message.isFromMe == true && state.hasUnreadMessage.value) {
@@ -1748,20 +1759,31 @@ class ChatsService {
     }
   }
 
+  /// The composer replaces its runs list on every change to it, so the same list is the same runs: a draft saved
+  /// again after only typing plain text reuses the JSON from last time instead of encoding it again.
+  final _encodedDraftRuns = Expando<String>('encodedDraftRuns');
+
+  String? _encodeDraftRuns(List<Run> runs) {
+    if (runs.isEmpty) return null;
+    return _encodedDraftRuns[runs] ??= jsonEncode(runs.map((r) => r.toMap()).toList());
+  }
+
   /// Set chat text field text
   /// ChatState is updated synchronously and is the source of truth for the UI.
   /// The DB write is fire-and-forget so callers never need to await this.
-  Future<void> setChatTextFieldText(Chat chat, String? value) async {
+  Future<void> setChatTextFieldText(Chat chat, String? value, {List<Run> runs = const []}) async {
     final state = getChatState(chat.guid);
+    final encodedRuns = _encodeDraftRuns(runs);
 
-    if (state != null && state.textFieldText.value == value) return;
+    if (state != null && state.textFieldText.value == value && state.textFieldRuns.value == encodedRuns) return;
 
     // Update ChatState first — this is the source of truth for the text field UI.
-    state?.updateTextFieldTextInternal(value);
+    state?.updateTextFieldTextInternal(value, encodedRuns);
 
     // Persist to the chat model and DB asynchronously (fire-and-forget).
     final chatToUpdate = state?.chat ?? chat;
     chatToUpdate.textFieldText = value;
+    chatToUpdate.textFieldRuns = encodedRuns;
     unawaited(chatToUpdate.saveAsync(updateTextFieldText: true));
   }
 

@@ -18,8 +18,11 @@ import com.bluebubbles.messaging.services.notifications.NotificationChannelHandl
 import com.bluebubbles.messaging.services.notifications.NotificationListenerPermissionRequestHandler
 import com.bluebubbles.messaging.services.notifications.StartNotificationListenerHandler
 import com.bluebubbles.messaging.services.notifications.UnifiedPushHandler
+import com.bluebubbles.messaging.services.system.AndroidIdHandler
 import com.bluebubbles.messaging.services.system.BrowserLaunchRequestHandler
+import com.bluebubbles.messaging.services.system.ClipboardHtmlHandler
 import com.bluebubbles.messaging.services.system.CheckChromeOsHandler
+import com.bluebubbles.messaging.services.system.FlushPreferencesHandler
 import com.bluebubbles.messaging.services.system.NewContactFormRequestHandler
 import com.bluebubbles.messaging.services.system.OpenCalendarRequestHandler
 import com.bluebubbles.messaging.services.system.OpenConversationNotificationSettingsHandler
@@ -140,6 +143,7 @@ class MethodCallHandler {
             ServerUrlRequestHandler.tag -> ServerUrlRequestHandler().handleMethodCall(call, result, context)
             UpdateNextRestartHandler.tag -> UpdateNextRestartHandler().handleMethodCall(call, result, context)
             BrowserLaunchRequestHandler.tag -> BrowserLaunchRequestHandler().handleMethodCall(call, result, context)
+            ClipboardHtmlHandler.tag -> ClipboardHtmlHandler().handleMethodCall(call, result, context)
             PushShareTargetsHandler.tag -> PushShareTargetsHandler().handleMethodCall(call, result, context)
             NewContactFormRequestHandler.tag -> NewContactFormRequestHandler().handleMethodCall(call, result, context)
             OpenExistingContactRequestHandler.tag -> OpenExistingContactRequestHandler().handleMethodCall(call, result, context)
@@ -148,6 +152,8 @@ class MethodCallHandler {
             PictureInPictureHandler.supportedTag, PictureInPictureHandler.enterTag, PictureInPictureHandler.autoEnterTag -> PictureInPictureHandler().handleMethodCall(call, result, context)
             SaveFileToDownloadsHandler.tag -> SaveFileToDownloadsHandler().handleMethodCall(call, result, context)
             CheckChromeOsHandler.tag -> CheckChromeOsHandler().handleMethodCall(call, result, context)
+            AndroidIdHandler.tag -> AndroidIdHandler().handleMethodCall(call, result, context)
+            FlushPreferencesHandler.tag -> FlushPreferencesHandler().handleMethodCall(call, result, context)
             NotificationListenerPermissionRequestHandler.tag -> NotificationListenerPermissionRequestHandler().handleMethodCall(call, result, context)
             StartNotificationListenerHandler.tag -> StartNotificationListenerHandler().handleMethodCall(call, result, context)
             OpenConversationNotificationSettingsHandler.tag -> OpenConversationNotificationSettingsHandler().handleMethodCall(call, result, context)

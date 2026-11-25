@@ -3,6 +3,7 @@
 #
 
 list(APPEND FLUTTER_PLUGIN_LIST
+  app_links_linux
   bitsdojo_window_linux
   desktop_drop
   desktop_webview_auth
@@ -12,21 +13,21 @@ list(APPEND FLUTTER_PLUGIN_LIST
   file_selector_linux
   flutter_acrylic
   flutter_timezone
-  gtk
   maps_launcher
   media_kit_libs_linux
-  media_kit_video
   objectbox_flutter_libs
   pasteboard
   printing
   record_linux
   screen_retriever_linux
-  tray_manager
+  sqlite3_flutter_libs
   url_launcher_linux
+  media_kit_video
   window_manager
 )
 
 list(APPEND FLUTTER_FFI_PLUGIN_LIST
+  jni
 )
 
 set(PLUGIN_BUNDLED_LIBRARIES)

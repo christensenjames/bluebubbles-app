@@ -3,7 +3,6 @@ import 'dart:async';
 
 import 'package:audio_waveforms/audio_waveforms.dart' as aw;
 import 'package:bluebubbles/app/layouts/settings/pages/message_view/message_options_order_panel.dart';
-import 'package:bluebubbles/app/layouts/settings/pages/message_view/text_field_buttons_panel.dart';
 import 'package:bluebubbles/app/layouts/settings/widgets/content/next_button.dart';
 import 'package:bluebubbles/helpers/helpers.dart';
 import 'package:bluebubbles/helpers/types/classes/language_codes.dart';
@@ -200,16 +199,6 @@ class _ConversationPanelState extends State<ConversationPanel> with ThemeHelpers
                     ),
                   if (!kIsWeb) const SettingsDivider(padding: EdgeInsets.only(left: 16.0)),
                   if (!kIsWeb)
-                    SettingsTile(
-                      title: "Text Field Buttons",
-                      subtitle: "Choose which buttons appear next to the message text field, and their order",
-                      onTap: () {
-                        NavigationSvc.pushSettings(context, const TextFieldButtonsPanel());
-                      },
-                      trailing: const NextButton(),
-                    ),
-                  if (!kIsWeb) const SettingsDivider(padding: EdgeInsets.only(left: 16.0)),
-                  if (!kIsWeb)
                     Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
@@ -286,12 +275,11 @@ class _ConversationPanelState extends State<ConversationPanel> with ThemeHelpers
                             ? _soundName(SettingsSvc.settings.sendSoundPath.value!, "send-")
                             : "Adds a sound to be played when sending a message",
                         onTap: () async {
-                          FilePickerResult? result = await FilePicker.pickFiles(type: FileType.audio, withData: true);
-                          if (result != null) {
-                            PlatformFile platformFile = result.files.first;
+                          PlatformFile? platformFile = await FilePicker.pickFile(type: FileType.audio);
+                          if (platformFile != null) {
                             String path = join(FilesystemSvc.soundsPath, "send-${platformFile.name}");
                             await File(path).create(recursive: true);
-                            await File(path).writeAsBytes(platformFile.bytes!);
+                            await File(path).writeAsBytes(await platformFile.readAsBytes());
                             SettingsSvc.settings.sendSoundPath.value = path;
                             await SettingsSvc.settings.saveOneAsync('sendSoundPath');
                           }
@@ -362,12 +350,11 @@ class _ConversationPanelState extends State<ConversationPanel> with ThemeHelpers
                             ? _soundName(SettingsSvc.settings.receiveSoundPath.value!, "receive-")
                             : "Adds a sound to be played when receiving a message",
                         onTap: () async {
-                          FilePickerResult? result = await FilePicker.pickFiles(type: FileType.audio, withData: true);
-                          if (result != null) {
-                            PlatformFile platformFile = result.files.first;
+                          PlatformFile? platformFile = await FilePicker.pickFile(type: FileType.audio);
+                          if (platformFile != null) {
                             String path = join(FilesystemSvc.soundsPath, "receive-${platformFile.name}");
                             await File(path).create(recursive: true);
-                            await File(path).writeAsBytes(platformFile.bytes!);
+                            await File(path).writeAsBytes(await platformFile.readAsBytes());
                             SettingsSvc.settings.receiveSoundPath.value = path;
                             await SettingsSvc.settings.saveOneAsync('receiveSoundPath');
                           }

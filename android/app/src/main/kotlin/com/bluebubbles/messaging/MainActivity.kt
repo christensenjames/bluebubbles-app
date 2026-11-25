@@ -23,6 +23,7 @@ import androidx.core.view.WindowInsetsCompat
 import androidx.lifecycle.Lifecycle
 import com.bluebubbles.messaging.services.backend_ui_interop.MethodCallHandler
 import com.bluebubbles.messaging.services.filesystem.PickImagesHandler
+import com.bluebubbles.messaging.services.extensions.OpenPigeonHost
 import com.bluebubbles.messaging.services.foreground.ForegroundServiceBroadcastReceiver
 import com.bluebubbles.messaging.Constants
 import com.bluebubbles.messaging.utils.PersistentLog
@@ -90,12 +91,13 @@ class MainActivity : FlutterFragmentActivity() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) refeedImeInsetsAfterAnimation()
     }
 
+    private var runningImeAnimations = 0
+
     // Flutter replays stale IME insets after resuming mid-animation; re-feed the real ones past its listener.
     @RequiresApi(Build.VERSION_CODES.R)
     private fun refeedImeInsetsAfterAnimation() {
         val decor = window.decorView
         decor.setWindowInsetsAnimationCallback(object : WindowInsetsAnimation.Callback(DISPATCH_MODE_CONTINUE_ON_SUBTREE) {
-            private var runningImeAnimations = 0
             override fun onPrepare(animation: WindowInsetsAnimation) {
                 if (animation.typeMask and WindowInsets.Type.ime() == 0) return
                 runningImeAnimations++
@@ -119,6 +121,12 @@ class MainActivity : FlutterFragmentActivity() {
 
     override fun onWindowFocusChanged(hasFocus: Boolean) {
         super.onWindowFocusChanged(hasFocus)
+        if (hasFocus && Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            val view = findViewById<FlutterView>(FlutterFragment.FLUTTER_VIEW_ID)
+            view?.post {
+                if (runningImeAnimations == 0) view.rootWindowInsets?.let(view::dispatchApplyWindowInsets)
+            }
+        }
         val flutterView = findViewById<FlutterView>(FlutterFragment.FLUTTER_VIEW_ID) ?: return
         if (!hasFocus) {
             imeVisibleOnFocusLoss =
@@ -171,6 +179,7 @@ class MainActivity : FlutterFragmentActivity() {
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, Constants.methodChannel).setMethodCallHandler {
             call, result -> MethodCallHandler().methodCallHandler(call, result, this)
         }
+        OpenPigeonHost.register(flutterEngine, this)
 
         val defaultHandler = Thread.getDefaultUncaughtExceptionHandler()
         Thread.setDefaultUncaughtExceptionHandler { thread, throwable ->

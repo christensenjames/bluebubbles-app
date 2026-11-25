@@ -69,7 +69,7 @@ class MessagesViewState extends State<MessagesView> with MessagesServiceMixin, T
   late final DropZoneManager dropZoneManager = widget.dropZoneManager ?? DropZoneManager(controller: controller);
   late final MessageAnimationOrchestrator animationOrchestrator;
 
-  RxMap<String, Widget> internalSmartReplies = <String, Widget>{}.obs;
+  RxMap<String, Widget> quickActions = <String, Widget>{}.obs;
   final RxBool latestMessageDeliveredState = false.obs;
   final RxBool jumpingToOldestUnread = false.obs;
 
@@ -117,12 +117,12 @@ class MessagesViewState extends State<MessagesView> with MessagesServiceMixin, T
         );
         if (!mounted) return;
         setState(() {});
-      } else if (e.type == "add-custom-smartreply") {
+      } else if (e.type == "offer-recent-photo") {
         if (!mounted) return;
-        if (e.data != null && internalSmartReplies['attach-recent'] == null) {
-          internalSmartReplies['attach-recent'] = _buildReply("Attach recent photo", onTap: () async {
+        if (e.data != null && quickActions['attach-recent'] == null) {
+          quickActions['attach-recent'] = _buildQuickAction("Attach recent photo", onTap: () async {
             controller.pickedAttachments.add(e.data);
-            internalSmartReplies.clear();
+            quickActions.clear();
           });
         }
       }
@@ -209,11 +209,11 @@ class MessagesViewState extends State<MessagesView> with MessagesServiceMixin, T
         Future.delayed(const Duration(milliseconds: 100), () {
           if (!mounted) return;
           if (messageService.getMessageStateIfExists(chat.lastReadMessageGuid!)?.built ?? false) return;
-          internalSmartReplies['scroll-last-read'] = _buildReply("Jump to oldest unread", onTap: () async {
+          quickActions['scroll-last-read'] = _buildQuickAction("Jump to oldest unread", onTap: () async {
             if (jumpingToOldestUnread.value) return;
             jumpingToOldestUnread.value = true;
             await jumpToMessage(chat.lastReadMessageGuid!);
-            internalSmartReplies.remove('scroll-last-read');
+            quickActions.remove('scroll-last-read');
             jumpingToOldestUnread.value = false;
           });
         });
@@ -411,8 +411,10 @@ class MessagesViewState extends State<MessagesView> with MessagesServiceMixin, T
     // via the SliverAnimatedList API instead of swapping _listKey, which would tear
     // down the whole sliver (and its AutomaticKeepAlive cache of loaded images/url
     // previews), causing them to redecode when scrolling back down.
+    // An empty list needs the setState below anyway: it's what lifts the list's empty-state opacity.
     final addedCount = _messages.length - previousLength;
-    final isSimpleAppend = addedCount > 0 &&
+    final isSimpleAppend = previousLength > 0 &&
+        addedCount > 0 &&
         const ListEquality().equals(_messages.sublist(0, previousLength), previousMessages);
 
     if (isSimpleAppend) {
@@ -450,6 +452,17 @@ class MessagesViewState extends State<MessagesView> with MessagesServiceMixin, T
   void _applyNewMessage(Message message) async {
     // Check if widget is still mounted before processing
     if (!mounted) {
+      return;
+    }
+
+    // service.init() registers this callback before the initial loadChunk above
+    // has awaited, so a message arriving in that window (e.g. from incremental
+    // sync) lands here while the mixin's service reference is still null.
+    // MessagesService._handleNewMessage has already added the message to struct
+    // and created its MessageState, so the initializeMessagesService pass that
+    // follows the load picks it up — there is no built list to insert into yet.
+    if (!isMessagesServiceInitialized) {
+      Logger.debug("handleNewMessage: View not initialized yet, deferring ${message.guid} to initial load");
       return;
     }
 
@@ -593,9 +606,9 @@ class MessagesViewState extends State<MessagesView> with MessagesServiceMixin, T
     }
   }
 
-  Widget _buildReply(String text, {Function()? onTap}) => Builder(
-        builder: (replyContext) {
-          final theme = Theme.of(replyContext);
+  Widget _buildQuickAction(String text, {Function()? onTap}) => Builder(
+        builder: (actionContext) {
+          final theme = Theme.of(actionContext);
           final hasBackground =
               ChatsSvc.getChatState(controller.chat.guid)?.hasCustomWallpaper ?? false;
           return Container(
@@ -653,7 +666,7 @@ class MessagesViewState extends State<MessagesView> with MessagesServiceMixin, T
     final list = GestureDetector(
         behavior: HitTestBehavior.deferToChild,
         onHorizontalDragUpdate: (details) {
-          if (controller.isGalleryDragging) return;
+          if (controller.isCollectionDragging) return;
           // Only the iOS skin renders the swipe-revealed MessageTimestamp.
           if (iOS && !kIsWeb && !kIsDesktop) {
             controller.timestampOffset.value += details.delta.dx * 0.3;
@@ -671,14 +684,13 @@ class MessagesViewState extends State<MessagesView> with MessagesServiceMixin, T
         },
         child: Stack(
           children: [
-            // Hidden until the first messages load, then shown at once: fading in replayed on every chat switch.
-            Opacity(
-              opacity: _messages.isEmpty && widget.customService == null ? 0 : 1,
-              child: Obx(
-                () => AnimatedOpacity(
-                  opacity: dropZoneManager.dragging.value ? 0.3 : 1,
-                  duration: Durations.short3,
-                  curve: Easing.standard,
+            Obx(
+              () => TweenAnimationBuilder<double>(
+                tween: Tween(end: dropZoneManager.dragging.value ? 0.3 : 1),
+                duration: Durations.short3,
+                curve: Easing.standard,
+                builder: (context, dim, child) =>
+                    Opacity(opacity: _messages.isEmpty && widget.customService == null ? 0 : dim, child: child),
                   child: DeferredPointerHandler(
                     child: ScrollbarWrapper(
                       reverse: true,
@@ -697,10 +709,10 @@ class MessagesViewState extends State<MessagesView> with MessagesServiceMixin, T
                         scrollCacheExtent: const ScrollCacheExtent.pixels(500),
                         slivers: <Widget>[
                           SliverToBoxAdapter(
-                            child: SmartRepliesRow(
+                            child: ConversationPillsRow(
                               controller: controller,
                               smartReplies: smartRepliesManager.smartReplies,
-                              internalSmartReplies: internalSmartReplies,
+                              quickActions: quickActions,
                             ),
                           ),
                           if (!chat.isGroup && chat.isIMessage)
@@ -816,7 +828,6 @@ class MessagesViewState extends State<MessagesView> with MessagesServiceMixin, T
                   ),
                 ),
               ),
-            ),
             DragDropOverlay(
               dragging: dropZoneManager.dragging,
             ),

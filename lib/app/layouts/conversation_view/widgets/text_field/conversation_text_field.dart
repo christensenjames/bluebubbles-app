@@ -1,14 +1,16 @@
 import 'dart:async';
-import 'dart:math';
+import 'dart:convert';
+import 'package:bluebubbles/helpers/ui/recent_emojis.dart';
 
 import 'package:audio_waveforms/audio_waveforms.dart';
 import 'package:bluebubbles/app/components/custom_text_editing_controllers.dart';
+import 'package:bluebubbles/app/layouts/conversation_view/widgets/message/interactive/open_pigeon_view.dart';
 import 'package:bluebubbles/app/layouts/conversation_view/widgets/media_picker/text_field_attachment_picker.dart';
 import 'package:bluebubbles/app/layouts/conversation_view/widgets/message/send_animation.dart';
 import 'package:bluebubbles/app/layouts/conversation_view/widgets/text_field/conversation_text_field_local_controller.dart';
 import 'package:bluebubbles/app/layouts/conversation_view/widgets/text_field/helpers/text_field_match_helper.dart';
 import 'package:bluebubbles/app/layouts/conversation_view/widgets/text_field/text_field_component.dart';
-import 'package:bluebubbles/app/layouts/conversation_view/widgets/text_field/text_field_emoji_picker_section.dart';
+import 'package:bluebubbles/app/layouts/conversation_view/widgets/text_field/text_effect_picker.dart';
 import 'package:bluebubbles/app/layouts/conversation_view/widgets/text_field/text_field_icon_bar.dart';
 import 'package:bluebubbles/app/layouts/conversation_view/widgets/text_field/text_field_recording_overlay.dart';
 import 'package:bluebubbles/app/layouts/conversation_view/widgets/text_field/text_field_suffix.dart';
@@ -18,7 +20,6 @@ import 'package:bluebubbles/helpers/helpers.dart';
 import 'package:bluebubbles/services/services.dart';
 import 'package:bluebubbles/services/ui/chat/send_data.dart';
 import 'package:bluebubbles/utils/logger/logger.dart';
-import 'package:collection/collection.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart' hide Response;
@@ -47,7 +48,6 @@ class ConversationTextFieldState extends CustomState<ConversationTextField, void
     with TickerProviderStateMixin {
   final recorderController = kIsWeb ? null : RecorderController();
   final localController = ConversationTextFieldLocalController();
-  final _emojiScrollController = ScrollController();
   bool _sending = false;
 
   Chat get chat => controller.chat;
@@ -56,13 +56,6 @@ class ConversationTextFieldState extends CustomState<ConversationTextField, void
 
   bool get showAttachmentPicker => controller.showAttachmentPicker.value;
 
-  late final double emojiPickerHeight = max(256, context.height * 0.4);
-  late final emojiColumns =
-      NavigationSvc.width(context) ~/ 56; // Intentionally not responsive to prevent rebuilds when resizing
-  RxBool get showEmojiPicker => controller.showEmojiPicker;
-
-  final proxyController = TextEditingController();
-
   @override
   void initState() {
     super.initState();
@@ -70,8 +63,6 @@ class ConversationTextFieldState extends CustomState<ConversationTextField, void
 
     // Load the initial chat drafts
     getDrafts();
-
-    controller.textController.processMentions();
 
     // Save state
     localController.oldTextFieldSelection.value = controller.textController.selection;
@@ -89,23 +80,14 @@ class ConversationTextFieldState extends CustomState<ConversationTextField, void
 
     controller.textController.addListener(_onTextChange);
     controller.subjectTextController.addListener(_onSubjectTextChange);
+    _matchDraft();
+  }
 
-    if (kIsDesktop || kIsWeb) {
-      proxyController.addListener(() {
-        if (proxyController.text.isEmpty) return;
-        String emoji = proxyController.text;
-        proxyController.clear();
-        TextEditingController realController =
-            controller.editing.lastOrNull?.controller ?? controller.lastFocusedTextController;
-        String text = realController.text;
-        TextSelection selection = realController.selection;
-
-        realController.text = text.substring(0, selection.start) + emoji + text.substring(selection.end);
-        realController.selection = TextSelection.collapsed(offset: selection.start + emoji.length);
-
-        (controller.editing.lastOrNull?.controller.focusNode ?? controller.lastFocusedNode).requestFocus();
-      });
-    }
+  /// A draft loads before the text listener that suggests for a partial :emoji or @mention
+  void _matchDraft() {
+    final text = controller.textController;
+    if (text.text.contains(":")) TextFieldMatchHelper.processEmojiMatches(controller, text, false);
+    if (SettingsSvc.settings.enablePrivateAPI.value) TextFieldMatchHelper.processMentionMatches(controller, text, false);
   }
 
   void getDrafts() async {
@@ -120,9 +102,15 @@ class ConversationTextFieldState extends CustomState<ConversationTextField, void
     if (controller.fromChatCreator) return;
     // Read from ChatState — it is the source of truth and is always up-to-date,
     // even before the async DB write from a previous session has completed.
-    final incomingText = text ?? ChatsSvc.getChatState(chatGuid)?.textFieldText.value ?? chat.textFieldText;
+    final state = ChatsSvc.getChatState(chatGuid);
+    final incomingText = text ?? state?.textFieldText.value ?? chat.textFieldText;
     if (incomingText != null && incomingText.isNotEmpty && incomingText != controller.textController.text) {
-      controller.textController.text = incomingText;
+      final storedRuns = text != null ? null : (state != null ? state.textFieldRuns.value : chat.textFieldRuns);
+      // Drafts saved before runs existed hold mentions as escape sequences in the text itself
+      final (draft, runs) = storedRuns == null
+          ? MentionTextEditingController.parseLegacyDraft(incomingText, controller.textController.mentionables)
+          : (incomingText, (jsonDecode(storedRuns) as List).map((r) => Run.fromMap((r as Map).cast())).toList());
+      controller.textController.setTextAndRuns(draft, runs);
     }
   }
 
@@ -166,6 +154,8 @@ class ConversationTextFieldState extends CustomState<ConversationTextField, void
     if (_focusNode.hasFocus && controller.showAttachmentPicker.value) {
       controller.showAttachmentPicker.value = false;
     }
+    if (_focusNode.hasFocus && controller.showGamePicker.value) controller.showGamePicker.value = false;
+    if (!subject && !_focusNode.hasFocus) controller.showTextFormattingPanel.value = false;
   }
 
   void textListener(bool subject) {
@@ -173,7 +163,8 @@ class ConversationTextFieldState extends CustomState<ConversationTextField, void
     if (!subject) {
       localController.debounceDraftSave?.cancel();
       localController.debounceDraftSave = Timer(const Duration(milliseconds: 500), () {
-        unawaited(ChatsSvc.setChatTextFieldText(chat, controller.textController.text));
+        unawaited(ChatsSvc.setChatTextFieldText(chat, controller.textController.text,
+            runs: controller.textController.runs));
       });
     }
 
@@ -191,7 +182,6 @@ class ConversationTextFieldState extends CustomState<ConversationTextField, void
 
     if (!subject) {
       // Handle people arrow-keying or clicking into mentions
-      String text = controller.textController.text;
       TextSelection selection = controller.textController.selection;
 
       // Work around an Android IME quirk where tapping the field while it already has
@@ -204,74 +194,6 @@ class ConversationTextFieldState extends CustomState<ConversationTextField, void
           localController.oldTextFieldSelection.value.baseOffset == selection.baseOffset) {
         selection = TextSelection.collapsed(offset: selection.extentOffset);
         controller.textController.selection = selection;
-      }
-
-      if (selection.isCollapsed && selection.start != -1) {
-        final behind = text.substring(0, selection.baseOffset);
-        final behindMatches = MentionTextEditingController.escapingChar.allMatches(behind);
-        if (behindMatches.length % 2 != 0) {
-          // Assuming the rest of the code works, we're guaranteed to be inside a mention now
-          final ahead = text.substring(selection.baseOffset);
-          final aheadMatches = MentionTextEditingController.escapingChar.allMatches(ahead);
-
-          // Now we determine which side of the mention to put the cursor on.
-          // We can use the old selection to figure out if the user is moving left/right
-          if (localController.oldTextFieldSelection.value.isCollapsed) {
-            if (localController.oldTextFieldSelection.value.baseOffset > selection.baseOffset) {
-              // moving left
-              localController.oldTextFieldSelection.value = TextSelection.collapsed(offset: behindMatches.last.start);
-              controller.textController.selection = localController.oldTextFieldSelection.value;
-              return;
-            } else if (localController.oldTextFieldSelection.value.baseOffset < selection.baseOffset) {
-              // moving right
-              localController.oldTextFieldSelection.value =
-                  TextSelection.collapsed(offset: behind.length + aheadMatches.first.end);
-              controller.textController.selection = localController.oldTextFieldSelection.value;
-              return;
-            }
-          }
-
-          // If we get here then we need to pick the closest side
-          if (selection.baseOffset - behindMatches.last.end < aheadMatches.first.start - selection.baseOffset) {
-            // moving left
-            localController.oldTextFieldSelection.value = TextSelection.collapsed(offset: behindMatches.last.start);
-            controller.textController.selection = localController.oldTextFieldSelection.value;
-            return;
-          } else {
-            // Closer to right
-            localController.oldTextFieldSelection.value =
-                TextSelection.collapsed(offset: behind.length + aheadMatches.first.end);
-            controller.textController.selection = localController.oldTextFieldSelection.value;
-            return;
-          }
-        }
-      }
-
-      if (!selection.isCollapsed && localController.oldTextFieldSelection.value.baseOffset == selection.baseOffset) {
-        if (localController.oldTextFieldSelection.value.extentOffset < selection.extentOffset) {
-          // Means we're shift+selecting rightwards
-          final behind = text.substring(0, selection.extentOffset);
-          final ahead = text.substring(selection.extentOffset);
-          final aheadMatches = MentionTextEditingController.escapingChar.allMatches(ahead);
-          if (aheadMatches.length % 2 != 0) {
-            // Assuming the rest of the code works, we're guaranteed to be inside a mention now
-            localController.oldTextFieldSelection.value =
-                TextSelection(baseOffset: selection.baseOffset, extentOffset: behind.length + aheadMatches.first.end);
-            controller.textController.selection = localController.oldTextFieldSelection.value;
-            return;
-          }
-        } else if (localController.oldTextFieldSelection.value.extentOffset > selection.extentOffset) {
-          // Means we're shift+selecting leftwards
-          final behind = text.substring(0, selection.extentOffset);
-          final behindMatches = MentionTextEditingController.escapingChar.allMatches(behind);
-          if (behindMatches.length % 2 != 0) {
-            // Assuming the rest of the code works, we're guaranteed to be inside a mention now
-            localController.oldTextFieldSelection.value =
-                TextSelection(baseOffset: selection.baseOffset, extentOffset: behindMatches.last.start);
-            controller.textController.selection = localController.oldTextFieldSelection.value;
-            return;
-          }
-        }
       }
 
       localController.oldTextFieldSelection.value = controller.textController.selection;
@@ -303,30 +225,36 @@ class ConversationTextFieldState extends CustomState<ConversationTextField, void
       });
     } else {
       localController.debounceEmojiSearch?.cancel();
-      controller.emojiMatches.value = [];
+      controller.emojiMatches.setIfChanged([]);
       controller.emojiSelectedIndex.value = 0;
     }
 
     // Debounce mention search to avoid running regex on every keystroke
-    if (SettingsSvc.settings.enablePrivateAPI.value && !subject && newEmojiText.contains("@")) {
+    if (SettingsSvc.settings.enablePrivateAPI.value && !subject) {
       localController.debounceMentionSearch?.cancel();
       localController.debounceMentionSearch = Timer(const Duration(milliseconds: 150), () {
         TextFieldMatchHelper.processMentionMatches(controller, _controller, subject);
       });
     } else {
       localController.debounceMentionSearch?.cancel();
-      controller.mentionMatches.value = [];
+      controller.mentionMatches.setIfChanged([]);
       controller.mentionSelectedIndex.value = 0;
     }
   }
 
   @override
   void dispose() {
-    final draftText = controller.textController.text.trim().isNotEmpty ? controller.textController.text : '';
+    final hasDraft = controller.textController.text.trim().isNotEmpty;
     final draftAttachments = controller.pickedAttachments.where((e) => e.path != null).map((e) => e.path!).toList();
-    // Update ChatState synchronously and fire DB save in the background.
-    unawaited(ChatsSvc.setChatTextFieldText(chat, draftText));
-    unawaited(ChatsSvc.setChatTextFieldAttachments(chat, draftAttachments));
+    final draftText = hasDraft ? controller.textController.text : '';
+    final draftRuns = hasDraft ? controller.textController.runs : const <Run>[];
+    final draftChat = chat;
+    // The tree is locked during dispose, and updating ChatState here would rebuild Obx widgets (the chat tile's
+    // draft line) mid-finalize, so defer the update until after the frame's teardown.
+    Future.microtask(() {
+      unawaited(ChatsSvc.setChatTextFieldText(draftChat, draftText, runs: draftRuns));
+      unawaited(ChatsSvc.setChatTextFieldAttachments(draftChat, draftAttachments));
+    });
     Logger.debug('Saved composer draft for ${chat.guid} (${controller.composerIds}, has text: ${draftText.isNotEmpty})',
         tag: 'Composer');
 
@@ -334,9 +262,7 @@ class ConversationTextFieldState extends CustomState<ConversationTextField, void
     controller.subjectFocusNode.removeListener(_onSubjectFocusChange);
     controller.textController.removeListener(_onTextChange);
     controller.subjectTextController.removeListener(_onSubjectTextChange);
-    proxyController.dispose();
     recorderController?.dispose();
-    _emojiScrollController.dispose();
     controller.showAttachmentPicker.value = false;
     localController.cancelAllTimers();
     Get.delete<ConversationTextFieldLocalController>();
@@ -349,13 +275,30 @@ class ConversationTextFieldState extends CustomState<ConversationTextField, void
 
   Future<void> sendMessage({String? effect}) async {
     final text = controller.textController.text;
+    final game = controller.pendingGame.value;
+    if (game != null && controller.scheduledDate.value != null) {
+      return showSnackbar("Error", "Games can't be scheduled!", type: SnackbarType.error);
+    }
+    if (game != null) {
+      controller.pendingGame.value = null;
+      // Queued like any send, so it's drawn sending at once and a failure can be retried
+      unawaited(OpenPigeon.sendGame(chat, game));
+      if (text.isEmpty && controller.subjectTextController.text.isEmpty && controller.pickedAttachments.isEmpty) {
+        // Nothing else to send, but the send is still done with whatever it was replying to, as a text send is
+        controller.replyToMessage = null;
+        return;
+      }
+    }
     if (controller.scheduledDate.value != null) {
       final date = controller.scheduledDate.value!;
       if (date.isBefore(DateTime.now())) {
         return showSnackbar("Error", "Pick a date in the future!", type: SnackbarType.error);
       }
-      if (text.contains(MentionTextEditingController.escapingChar)) {
+      if (controller.textController.mentionRuns.isNotEmpty) {
         return showSnackbar("Error", "Mentions are not allowed in scheduled messages!", type: SnackbarType.error);
+      }
+      if (controller.textController.sendableRuns.isNotEmpty) {
+        return showSnackbar("Error", "Formatting is not allowed in scheduled messages!", type: SnackbarType.error);
       }
       final rootNav = Navigator.of(context, rootNavigator: true);
       final route = DialogRoute(
@@ -425,7 +368,6 @@ class ConversationTextFieldState extends CustomState<ConversationTextField, void
             break;
         }
       }
-      // The composer is only cleared after send returns, so a second tap meanwhile would send it again.
       if (_sending) return;
       _sending = true;
       try {
@@ -434,6 +376,7 @@ class ConversationTextFieldState extends CustomState<ConversationTextField, void
         await controller.send(SendData(
           attachments: controller.pickedAttachments,
           text: text,
+          runs: controller.textController.sendableRuns,
           subject: controller.subjectTextController.text,
           replyGuid: controller.replyToMessage?.message.threadOriginatorGuid ?? controller.replyToMessage?.message.guid,
           replyPart: controller.replyToMessage?.partIndex,
@@ -443,6 +386,8 @@ class ConversationTextFieldState extends CustomState<ConversationTextField, void
         _sending = false;
       }
     }
+    // The composer's picker records what's picked in it; typed and pasted emoji only get here
+    unawaited(RecentEmojis.addFromText("${controller.subjectTextController.text} $text"));
     controller.pickedAttachments.clear();
     controller.textController.clear();
     controller.subjectTextController.clear();
@@ -559,27 +504,27 @@ class ConversationTextFieldState extends CustomState<ConversationTextField, void
                       duration: Durations.medium1,
                       curve: Easing.emphasizedDecelerate,
                       alignment: Alignment.bottomCenter,
-                      child: !showAttachmentPicker
-                          ? SizedBox(width: pickerWidth)
-                          : Column(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                const SizedBox(height: 8),
-                                AttachmentPicker(
-                                  controller: controller,
-                                  sendMessage: sendMessage,
+                      child: controller.showGamePicker.value
+                          ? OpenPigeonKeyboard(controller: controller)
+                          : controller.showTextFormattingPanel.value
+                          ? TextFormattingPanel(
+                              controller: controller.textController,
+                              height: controller.textFormattingPanelHeight,
+                            )
+                          : !showAttachmentPicker
+                              ? SizedBox(width: pickerWidth)
+                              : Column(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    const SizedBox(height: 8),
+                                    AttachmentPicker(
+                                      controller: controller,
+                                      sendMessage: sendMessage,
+                                    ),
+                                  ],
                                 ),
-                              ],
-                            ),
                     ));
               }),
-              TextFieldEmojiPickerSection(
-                controller: controller,
-                proxyController: proxyController,
-                emojiScrollController: _emojiScrollController,
-                emojiPickerHeight: emojiPickerHeight,
-                emojiColumns: emojiColumns,
-              ),
             ],
           ),
       );

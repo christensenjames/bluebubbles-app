@@ -1,6 +1,9 @@
+import 'dart:convert';
+
 import 'package:bluebubbles/database/models.dart';
 import 'package:bluebubbles/services/isolates/global_isolate.dart';
 import 'package:bluebubbles/services/services.dart';
+import 'package:universal_io/io.dart';
 
 /// Isolate-dispatchable actions for sending messages via HTTP.
 ///
@@ -44,7 +47,7 @@ class SendMessageActions {
     final selectedMessageGuid = map['selectedMessageGuid'] as String;
     final reaction = map['reaction'] as String;
     final partIndex = map['partIndex'] as int?;
-    final reactionEmoji = map['reactionEmoji'] as String?;
+    final emoji = map['emoji'] as String?;
 
     final response = await HttpSvc.message.sendTapback(
       chatGuid,
@@ -52,7 +55,7 @@ class SendMessageActions {
       selectedMessageGuid,
       reaction,
       partIndex: partIndex,
-      reactionEmoji: reactionEmoji,
+      emoji: emoji,
     );
     return response.data as Map<String, dynamic>;
   }
@@ -109,6 +112,68 @@ class SendMessageActions {
     return response.data as Map<String, dynamic>;
   }
 
+  /// Uploads each file, then sends one multipart message naming them in order.
+  static Future<Map<String, dynamic>> sendMultiAttachmentMessage(dynamic data) async {
+    final map = data as Map<String, dynamic>;
+    final chatGuid = map['chatGuid'] as String;
+    final tempGuid = map['tempGuid'] as String;
+    final files = (map['files'] as List).cast<Map<String, dynamic>>();
+
+    final parts = <Map<String, dynamic>>[];
+    for (final (index, file) in files.indexed) {
+      final attachmentGuid = file['guid'] as String;
+      final name = file['name'] as String;
+      final path = file['path'] as String;
+      final upload = await HttpSvc.attachment.upload(
+        PlatformFile(path: path, name: name, size: await File(path).length()),
+        onSendProgress: (count, total) {
+          if (total <= 0) return;
+          IsolateEventEmitter.emit(
+            IsolateEvent.attachmentUploadProgress,
+            {
+              'chatGuid': chatGuid,
+              'messageGuid': tempGuid,
+              'attachmentGuid': attachmentGuid,
+              'progress': count / total,
+            },
+          );
+        },
+      );
+      parts.add({'partIndex': index, 'attachment': upload, 'name': name});
+    }
+
+    final response = await HttpSvc.message.sendMultipart(
+      chatGuid,
+      tempGuid,
+      parts,
+      effectId: map['effectId'] as String?,
+      subject: map['subject'] as String?,
+      selectedMessageGuid: map['selectedMessageGuid'] as String?,
+      partIndex: map['partIndex'] as int?,
+    );
+    return response.data as Map<String, dynamic>;
+  }
+
+  /// Sends an iMessage app balloon, with the picture at `imagePath` (if any) as its image.
+  static Future<Map<String, dynamic>> sendAppMessage(dynamic data) async {
+    final map = data as Map<String, dynamic>;
+    final imagePath = map['imagePath'] as String?;
+    final response = await HttpSvc.message.sendAppMessage(
+      map['chatGuid'] as String,
+      balloonBundleId: map['balloonBundleId'] as String,
+      url: map['url'] as String,
+      sessionId: map['sessionId'] as String?,
+      appName: map['appName'] as String?,
+      appId: map['appId'] as int?,
+      summary: map['summary'] as String?,
+      caption: map['caption'] as String?,
+      image: imagePath == null ? null : base64Encode(await File(imagePath).readAsBytes()),
+      tempGuid: map['tempGuid'] as String,
+      liveLayout: map['liveLayout'] as bool? ?? false,
+    );
+    return response.data as Map<String, dynamic>;
+  }
+
   /// Sends an attachment via HTTP.
   ///
   /// Reads the file from [filePath] inside the isolate and constructs
@@ -126,8 +191,9 @@ class SendMessageActions {
     final selectedMessageGuid = map['selectedMessageGuid'] as String?;
     final partIndex = map['partIndex'] as int?;
     final isAudioMessage = map['isAudioMessage'] as bool? ?? false;
+    final chunked = map['chunked'] as bool? ?? false;
 
-    final response = await HttpSvc.message.sendAttachment(
+    final response = await (chunked ? HttpSvc.message.sendAttachmentChunked : HttpSvc.message.sendAttachment)(
       chatGuid,
       tempGuid,
       PlatformFile(

@@ -39,15 +39,14 @@ import kotlinx.coroutines.guava.future
 // Background worker plugins — only those required for notification/sync processing
 import com.dexterous.flutterlocalnotifications.FlutterLocalNotificationsPlugin
 import com.fluttercandies.flutter_image_compress.ImageCompressPlugin
+import com.github.dart_lang.jni.JniPlugin
+import com.github.dart_lang.jni_flutter.JniFlutterPlugin
 import com.johnstef.flutter_user_certificates_android.FlutterUserCertificatesAndroidPlugin
 import dev.fluttercommunity.plus.device_info.DeviceInfoPlusPlugin
 import dev.fluttercommunity.plus.packageinfo.PackageInfoPlugin
 import io.flutter.plugins.flutter_plugin_android_lifecycle.FlutterAndroidLifecyclePlugin
-import io.flutter.plugins.pathprovider.PathProviderPlugin
-import io.flutter.plugins.sharedpreferences.SharedPreferencesPlugin
 import io.objectbox.objectbox_flutter_libs.ObjectboxFlutterLibsPlugin
 import net.wolverinebeach.flutter_timezone.FlutterTimezonePlugin
-import org.unifiedpush.flutter.connector.Plugin as UnifiedPushConnectorPlugin
 
 class DartWorker(context: Context, workerParams: WorkerParameters): ListenableWorker(context, workerParams) {
 
@@ -312,8 +311,7 @@ class DartWorker(context: Context, workerParams: WorkerParameters): ListenableWo
         val plugins = engine.plugins
         // Core Flutter platform channels
         plugins.add(FlutterAndroidLifecyclePlugin())
-        plugins.add(PathProviderPlugin())
-        plugins.add(SharedPreferencesPlugin())
+        plugins.add(SharedPreferencesEnginePlugin())
         // App information (used by FilesystemService and SettingsService init)
         plugins.add(PackageInfoPlugin())
         plugins.add(DeviceInfoPlusPlugin())
@@ -323,12 +321,13 @@ class DartWorker(context: Context, workerParams: WorkerParameters): ListenableWo
         plugins.add(FlutterLocalNotificationsPlugin())
         // Rotates the image attached to message notifications
         plugins.add(ImageCompressPlugin())
+        // JNI bridge: path_provider (2.3+) and flutter_user_certificates_android call Android through it
+        plugins.add(JniPlugin())
+        plugins.add(JniFlutterPlugin()) // supplies the application context jni lookups need
         // Transport security (custom user certificates)
         plugins.add(FlutterUserCertificatesAndroidPlugin())
         // Timezone (used during message date handling)
         plugins.add(FlutterTimezonePlugin())
-        // UnifiedPush
-        plugins.add(UnifiedPushConnectorPlugin())
     }
 
     // Dumb thing that appears to be necessary for Android 11 and under (see https://stackoverflow.com/questions/69684656/upgrading-to-workmanager-2-7-0-how-to-implement-getforegroundinfoasync-for-rxwo)

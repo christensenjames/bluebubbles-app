@@ -233,6 +233,7 @@ List<Widget> buildSettingItemList({
       "Enter Relative Path",
       "Save Documents Location",
       "Ask Where to Save Attachments",
+      "Multi-Attachment Layout",
       "Mute in Attachment Preview",
       "Mute in Fullscreen Player",
       "Arrow Key Direction",
@@ -304,7 +305,6 @@ List<Widget> buildSettingItemList({
       "Pin Configuration",
       "Pin Rows",
       "Pins Per Row",
-      "Pinned Order",
       "Swipe Actions for Conversation Tiles",
       "Swipe Right Action",
       "Swipe Left Action",
@@ -415,8 +415,9 @@ List<Widget> buildSettingItemList({
             "Show Tray Icon",
             "Desktop Notifications",
             "Notification Sound Volume",
-            "Actions",
-            "Show Reply Field",
+            "Notification Layout",
+            "Notification Actions",
+            "Reply Field",
           ],
           onTap: () {
             ns.pushAndRemoveSettingsUntil(context, const DesktopPanel(), (Route route) => route.isFirst);

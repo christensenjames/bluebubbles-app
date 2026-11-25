@@ -8,7 +8,6 @@ import 'package:bluebubbles/helpers/helpers.dart';
 import 'package:bluebubbles/services/backend_ui_interop/intents.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:gesture_x_detector/gesture_x_detector.dart';
 import 'package:get/get.dart';
 
 /// A lightweight, single-item counterpart to [ConversationFullscreenHolder].
@@ -68,21 +67,12 @@ class _SingleAttachmentFullscreenViewerState extends State<SingleAttachmentFulls
           appBar: !iOS || !showAppBar
               ? null
               : BBAppBar(
-                  leading: XGestureDetector(
-                    supportTouch: true,
-                    onTap: !kIsDesktop
-                        ? null
-                        : (details) {
-                            Navigator.of(context).pop();
-                          },
-                    child: TextButton(
-                      child: Text("Done",
-                          style: context.theme.textTheme.bodyLarge!.copyWith(color: context.theme.colorScheme.primary)),
-                      onPressed: () {
-                        if (kIsDesktop) return;
-                        Navigator.of(context).pop();
-                      },
-                    ),
+                  leading: TextButton(
+                    child: Text("Done",
+                        style: context.theme.textTheme.bodyLarge!.copyWith(color: context.theme.colorScheme.primary)),
+                    onPressed: () {
+                      Navigator.of(context).pop();
+                    },
                   ),
                   leadingWidth: 75,
                   titleText: "Media",

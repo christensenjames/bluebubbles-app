@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:math';
 
 import 'package:animations/animations.dart';
 import 'package:bluebubbles/app/components/image_blur_canvas.dart';
@@ -20,9 +19,19 @@ import 'package:universal_io/io.dart';
 import 'package:video_player/video_player.dart';
 
 class MediaGalleryCard extends StatefulWidget {
-  const MediaGalleryCard({super.key, required this.attachment, this.showSenderAvatar = true});
+  const MediaGalleryCard({
+    super.key,
+    required this.attachment,
+    this.showSenderAvatar = true,
+    this.chat,
+    this.galleryAttachments,
+  });
   final Attachment attachment;
   final bool showSenderAvatar;
+  final Chat? chat;
+
+  /// Limits fullscreen paging to this list instead of all chat images.
+  final List<Attachment>? galleryAttachments;
 
   @override
   State<MediaGalleryCard> createState() => _MediaGalleryCardState();
@@ -126,14 +135,14 @@ class _MediaGalleryCardState extends State<MediaGalleryCard> with AutomaticKeepA
 
     try {
       videoPreviewPath = await AttachmentsSvc.getVideoThumbnail(file.path!);
-      // Duration only renders off-desktop; Linux/Windows also lack video_player, where create() throws.
+      if (!mounted) return;
       if (!kIsDesktop && !kIsWeb) {
         final tempController = VideoPlayerController.file(File(file.path!));
         try {
           await tempController.initialize();
+          if (!mounted) return;
           duration = tempController.value.duration;
         } finally {
-          // Not awaited: if create() threw, dispose() waits forever on the plugin's creation completer.
           unawaited(tempController.dispose());
         }
       }
@@ -175,9 +184,19 @@ class _MediaGalleryCardState extends State<MediaGalleryCard> with AutomaticKeepA
               opacity: 0.3,
               child: file.path != null
                   ? (attachment.mimeType?.startsWith("image") ?? false)
-                      ? ImageDisplay(attachment: attachment, file: file)
+                      ? ImageDisplay(
+                          attachment: attachment,
+                          file: file,
+                          chat: widget.chat,
+                          galleryAttachments: widget.galleryAttachments,
+                        )
                       : (attachment.mimeType?.startsWith("video") ?? false) && videoPreviewPath != null
-                          ? ImageDisplay(attachment: attachment, imagePath: videoPreviewPath)
+                          ? ImageDisplay(
+                              attachment: attachment,
+                              imagePath: videoPreviewPath,
+                              chat: widget.chat,
+                              galleryAttachments: widget.galleryAttachments,
+                            )
                           : const SizedBox.shrink()
                   : const SizedBox.shrink(),
             ),
@@ -346,17 +365,22 @@ class _MediaGalleryCardState extends State<MediaGalleryCard> with AutomaticKeepA
             attachment: attachment,
             file: file,
             showSenderAvatar: widget.showSenderAvatar,
+            chat: widget.chat,
+            galleryAttachments: widget.galleryAttachments,
             onPressChanged: _setPressed,
           );
           addPadding = false;
         } else if ((attachment.mimeType?.startsWith("video") ?? false) && !kIsDesktop && !kIsWeb) {
           if (videoPreviewPath != null) {
             child = ImageDisplay(
-                attachment: attachment,
-                imagePath: videoPreviewPath,
-                duration: duration,
-                showSenderAvatar: widget.showSenderAvatar,
-                onPressChanged: _setPressed);
+              attachment: attachment,
+              imagePath: videoPreviewPath,
+              duration: duration,
+              showSenderAvatar: widget.showSenderAvatar,
+              chat: widget.chat,
+              galleryAttachments: widget.galleryAttachments,
+              onPressChanged: _setPressed,
+            );
             addPadding = false;
           } else if (videoPreviewFailed) {
             child = Text(
@@ -414,6 +438,8 @@ class ImageDisplay extends StatefulWidget {
     this.imagePath,
     this.duration,
     this.showSenderAvatar = true,
+    this.chat,
+    this.galleryAttachments,
     this.onPressChanged,
   });
 
@@ -422,6 +448,8 @@ class ImageDisplay extends StatefulWidget {
   final String? imagePath;
   final Duration? duration;
   final bool showSenderAvatar;
+  final Chat? chat;
+  final List<Attachment>? galleryAttachments;
   final ValueChanged<bool>? onPressChanged;
 
   @override
@@ -438,15 +466,15 @@ class _ImageDisplayState extends State<ImageDisplay> {
 
   @override
   Widget build(BuildContext context) {
-    final double cardSize = NavigationSvc.width(context) / max(2, NavigationSvc.width(context) ~/ 200);
-
     return OpenContainer(
       transitionDuration: Durations.medium4,
       closedShape: const RoundedRectangleBorder(borderRadius: BorderRadius.all(Radius.circular(M3EShapes.lg))),
       openBuilder: (_, closeContainer) {
         return ConversationFullscreenHolder(
+          currentChat: widget.chat,
           attachment: attachment,
           showInteractions: true,
+          galleryAttachments: widget.galleryAttachments,
         );
       },
       closedBuilder: (_, openContainer) {
@@ -458,9 +486,7 @@ class _ImageDisplayState extends State<ImageDisplay> {
                 openContainer();
               },
               onHighlightChanged: widget.onPressChanged,
-              child: SizedBox(
-                width: cardSize,
-                height: cardSize,
+              child: SizedBox.expand(
                 child: Stack(
                   fit: StackFit.expand,
                   children: [

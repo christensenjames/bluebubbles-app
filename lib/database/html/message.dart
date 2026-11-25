@@ -293,6 +293,8 @@ class Message {
     return null;
   }
 
+  static Message? findRemovedStickerTapback(Message removal) => null;
+
   static List<Message> find() {
     return [];
   }
@@ -315,6 +317,9 @@ class Message {
   String? get url => text?.replaceAll("\n", " ").split(" ").firstWhereOrNull((String e) => e.hasUrl);
 
   bool get isInteractive => balloonBundleId != null && !isLegacyUrlPreview;
+
+  /// A tapback or sticker on another message; see the io [Message.isReaction].
+  bool get isReaction => associatedMessageGuid != null && ReactionTypes.isReactionType(associatedMessageType);
 
   String get interactiveText {
     String text = "";

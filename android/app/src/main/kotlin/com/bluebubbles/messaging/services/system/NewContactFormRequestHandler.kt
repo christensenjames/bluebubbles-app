@@ -1,8 +1,12 @@
 package com.bluebubbles.messaging.services.system
 
+import android.content.ContentValues
 import android.content.Context
 import android.content.Intent
+import android.graphics.Bitmap
+import android.graphics.BitmapFactory
 import android.provider.ContactsContract
+import java.io.ByteArrayOutputStream
 import com.bluebubbles.messaging.models.MethodCallHandlerImpl
 import io.flutter.plugin.common.MethodCall
 import io.flutter.plugin.common.MethodChannel
@@ -20,9 +24,13 @@ class NewContactFormRequestHandler: MethodCallHandlerImpl() {
     ) {
         val address: String = call.argument("address")!!
         val addressType: String = call.argument("address_type")!!
+        val name: String? = call.argument("name")
 
-        val intent = Intent(Intent.ACTION_INSERT_OR_EDIT)
-            .setType(ContactsContract.Contacts.CONTENT_ITEM_TYPE)
+        // Insert-or-edit opens a contact picker first, and some contacts apps drop the extras when "create new" is
+        // picked from it
+        val newContact = call.argument<Boolean>("new_contact") == true
+        val intent = (if (newContact) Intent(Intent.ACTION_INSERT, ContactsContract.Contacts.CONTENT_URI)
+            else Intent(Intent.ACTION_INSERT_OR_EDIT).setType(ContactsContract.Contacts.CONTENT_ITEM_TYPE))
             // Problem in Android 4.0+ (https://developer.android.com/training/contacts-provider/modify-data#add-the-navigation-flag)
             .putExtra("finishActivityOnSaveCompleted", true)
         if (addressType == "email") {
@@ -30,7 +38,27 @@ class NewContactFormRequestHandler: MethodCallHandlerImpl() {
         } else {
             intent.putExtra(ContactsContract.Intents.Insert.PHONE, address)
         }
+        name?.let { intent.putExtra(ContactsContract.Intents.Insert.NAME, it) }
+        call.argument<ByteArray>("avatar")?.let { photo(it) }?.let {
+            val row = ContentValues().apply {
+                put(ContactsContract.Data.MIMETYPE, ContactsContract.CommonDataKinds.Photo.CONTENT_ITEM_TYPE)
+                put(ContactsContract.CommonDataKinds.Photo.PHOTO, it)
+            }
+            intent.putParcelableArrayListExtra(ContactsContract.Intents.Insert.DATA, arrayListOf(row))
+        }
         context.startActivity(intent)
         result.success(null)
+    }
+
+    /// Shrinks a photo to fit in the intent, which shares the 1 MB binder transaction limit.
+    private fun photo(bytes: ByteArray): ByteArray? {
+        val bitmap = BitmapFactory.decodeByteArray(bytes, 0, bytes.size) ?: return null
+        val scale = 512f / maxOf(bitmap.width, bitmap.height)
+        val scaled = if (scale < 1) {
+            Bitmap.createScaledBitmap(bitmap, (bitmap.width * scale).toInt(), (bitmap.height * scale).toInt(), true)
+        } else {
+            bitmap
+        }
+        return ByteArrayOutputStream().also { scaled.compress(Bitmap.CompressFormat.JPEG, 90, it) }.toByteArray()
     }
 }

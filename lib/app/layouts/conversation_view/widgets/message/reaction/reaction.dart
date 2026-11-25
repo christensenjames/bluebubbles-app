@@ -1,10 +1,9 @@
-import 'dart:math';
-
 import 'package:bluebubbles/app/layouts/conversation_view/widgets/message/popup/widgets/reaction_details.dart';
 import 'package:bluebubbles/app/state/message_state.dart';
 import 'package:bluebubbles/app/state/chat_state_scope.dart';
 import 'package:bluebubbles/app/state/message_state_scope.dart';
 import 'package:bluebubbles/app/layouts/conversation_view/widgets/message/reaction/reaction_clipper.dart';
+import 'package:bluebubbles/app/layouts/conversation_view/widgets/message/reaction/sticker_tapback_image.dart';
 import 'package:bluebubbles/app/layouts/conversation_view/widgets/message/shared/message_error_helper.dart';
 import 'package:bluebubbles/helpers/helpers.dart';
 import 'package:bluebubbles/database/models.dart';
@@ -12,7 +11,7 @@ import 'package:bluebubbles/services/services.dart';
 import 'package:defer_pointer/defer_pointer.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_svg/svg.dart';
+import 'package:bluebubbles/app/layouts/conversation_view/widgets/message/reaction/tapback_icon.dart';
 import 'package:get/get.dart';
 
 class ReactionWidget extends StatefulWidget {
@@ -22,6 +21,7 @@ class ReactionWidget extends StatefulWidget {
     this.reactions,
     this.chatGuid,
     this.tailDirection,
+    this.tailType = ReactionTailType.standard,
   });
 
   final Message reaction;
@@ -37,6 +37,8 @@ class ReactionWidget extends StatefulWidget {
   /// the fallback would produce the wrong arc orientation.
   /// Bubble coloring is always driven by the reaction's own [isFromMe] field.
   final ReactionTailDirection? tailDirection;
+
+  final ReactionTailType tailType;
 
   @override
   ReactionWidgetState createState() => ReactionWidgetState();
@@ -61,13 +63,15 @@ class ReactionWidgetState extends State<ReactionWidget> with ThemeHelpers {
         chatGuid != null ? maybeFindMessagesSvc(chatGuid)?.getMessageStateIfExists(_parentMessage?.guid ?? '') : null;
     if (parentController != null) {
       // Find our reaction in the observable associatedMessages list
-      final found = parentController.associatedMessages.firstWhereOrNull((m) =>
-          m.guid == widget.reaction.guid ||
-          (m.associatedMessageType == widget.reaction.associatedMessageType &&
+      // GUID first: every emoji tapback shares type 2006, so the tuple can match an older, replaced one
+      final associated = parentController.associatedMessages;
+      final found = associated.firstWhereOrNull((m) => m.guid == widget.reaction.guid) ??
+          associated.firstWhereOrNull((m) =>
+              m.associatedMessageType == widget.reaction.associatedMessageType &&
               m.associatedMessageEmoji == widget.reaction.associatedMessageEmoji &&
               m.associatedMessagePart == widget.reaction.associatedMessagePart &&
               m.isFromMe == widget.reaction.isFromMe &&
-              m.handleId == widget.reaction.handleId));
+              m.handleId == widget.reaction.handleId);
       if (found != null) return found;
     }
     // Fallback to widget.reaction if not found in MessageState
@@ -84,9 +88,13 @@ class ReactionWidgetState extends State<ReactionWidget> with ThemeHelpers {
   ReactionTailDirection get _effectiveTailDirection =>
       widget.tailDirection ?? (messageIsFromMe ? ReactionTailDirection.left : ReactionTailDirection.right);
 
+  /// Layout follows [_effectiveTailDirection] so icon + clip stay consistent.
+  bool get _alignToEnd => _effectiveTailDirection == ReactionTailDirection.left;
+
   /// Guard against associatedMessageType being null.
   /// An empty string produces no SVG match, which is handled in build().
-  String get reactionType => reaction.associatedMessageType ?? '';
+  // A failed removal is drawn as the tapback it was taking back
+  String get reactionType => ReactionTypes.addedType(reaction.associatedMessageType) ?? '';
 
   MessageState? get reactionController {
     // Use same resolution order as reaction getter
@@ -95,25 +103,40 @@ class ReactionWidgetState extends State<ReactionWidget> with ThemeHelpers {
     return maybeFindMessagesSvc(chatGuid)?.getMessageStateIfExists(reaction.guid!);
   }
 
-  Widget _badgeGlyph(BuildContext context, String type, String? emoji, bool isFromMe) {
-    if (ReactionTypes.baseType(type) == ReactionTypes.EMOJI) {
-      return Text(
-        ReactionTypes.emojiFor(type, emoji),
-        style: const TextStyle(fontSize: 15, fontFamily: 'Apple Color Emoji'),
-        textAlign: TextAlign.center,
-      );
-    }
-    return SvgPicture.asset(
-      'assets/reactions/$type-black.svg',
-      colorFilter: ColorFilter.mode(
-          type == "love"
-              ? Colors.pink
-              : (isFromMe ? context.theme.colorScheme.onPrimary : context.theme.colorScheme.onSurfaceVariant),
-          BlendMode.srcIn),
-    );
-  }
 
   static const double iosSize = 35;
+
+  /// Inside tails extend ~5px past [iosSize] on y.
+  static const double iosClipHeight = 40;
+
+  double get _clipHeight => widget.tailType == ReactionTailType.inside ? iosClipHeight : iosSize;
+
+  /// Around the glyph in the iOS bubble. The SVGs are drawn inset; emoji and stickers would look shrunken with the
+  /// same padding.
+  static EdgeInsetsGeometry _glyphPadding(String type) => ReactionTypes.toList().contains(type)
+      ? const EdgeInsets.all(6.5).add(EdgeInsets.only(right: type == "emphasize" ? 1 : 0))
+      : const EdgeInsets.all(3);
+
+  // Named tapbacks are their icons on every skin, so they don't look like the same emoji sent as an emoji tapback
+  Widget _circleGlyph(Message reaction, String type) =>
+      SizedBox.square(dimension: _circleGlyphSize, child: _customGlyph(reaction) ?? TapbackIcon(type));
+
+  // The same share of the 30px circle as the iOS bubble's glyph takes of its round part (15 of 28)
+  static const double _circleGlyphSize = 30 * 15 / 28;
+
+  /// Emoji and sticker tapbacks have no SVG, so they're drawn from the reaction itself.
+  Widget? _customGlyph(Message reaction) {
+    final type = reaction.associatedMessageType;
+    if (ReactionTypes.isStickerTapback(type)) {
+      return StickerTapbackImage(attachment: reaction.dbAttachments.firstOrNull);
+    }
+    if (!ReactionTypes.isEmojiTapback(type)) return null;
+    return FittedBox(
+      child: Text(ReactionTypes.emojiFor(reaction),
+          style: const TextStyle(
+              height: 1, leadingDistribution: TextLeadingDistribution.even, fontFamily: 'Apple Color Emoji')),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -202,46 +225,35 @@ class ReactionWidgetState extends State<ReactionWidget> with ThemeHelpers {
                   ),
                 );
               },
-              child: Center(
-                child: Builder(builder: (context) {
-                  final text = Text(
-                    ReactionTypes.emojiFor(reactionType, reaction.associatedMessageEmoji),
-                    style: const TextStyle(fontSize: 15, fontFamily: 'Apple Color Emoji'),
-                    textAlign: TextAlign.center,
-                  );
-                  // rotate thumbs down to match iOS
-                  if (reactionType == "dislike") {
-                    return Transform(
-                      transform: Matrix4.identity()..rotateY(pi),
-                      alignment: FractionalOffset.center,
-                      child: text,
-                    );
-                  }
-                  return text;
-                }),
-              ),
+              child: Center(child: _circleGlyph(reaction, reactionType)),
             ));
       }
       return Stack(
-        alignment: messageIsFromMe ? Alignment.centerRight : Alignment.centerLeft,
+        alignment: _alignToEnd ? Alignment.centerRight : Alignment.centerLeft,
         fit: StackFit.passthrough,
         clipBehavior: Clip.none,
         children: [
           Positioned(
             top: -1,
-            left: messageIsFromMe ? 0 : -1,
-            right: !messageIsFromMe ? 0 : -1,
+            left: _alignToEnd ? 0 : -1,
+            right: !_alignToEnd ? 0 : -1,
             child: ClipPath(
-              clipper: ReactionBorderClipper(tailDirection: _effectiveTailDirection),
+              clipper: ReactionBorderClipper(
+                tailDirection: _effectiveTailDirection,
+                tailType: widget.tailType,
+              ),
               child: Container(
                 width: iosSize + 2,
-                height: iosSize + 2,
+                height: _clipHeight + 2,
                 color: context.theme.colorScheme.surface,
               ),
             ),
           ),
           ClipPath(
-              clipper: ReactionClipper(tailDirection: _effectiveTailDirection),
+              clipper: ReactionClipper(
+                tailDirection: _effectiveTailDirection,
+                tailType: widget.tailType,
+              ),
               child: Obx(() {
                 // reactionController is null when no MessageState exists for the reaction (typical).
                 // Fall back to checking the GUID prefix so temp reactions always show as pending.
@@ -249,26 +261,25 @@ class ReactionWidgetState extends State<ReactionWidget> with ThemeHelpers {
                     (reaction.guid?.startsWith('temp') == true && reaction.error == 0);
                 return Container(
                     width: iosSize,
-                    height: iosSize,
+                    height: _clipHeight,
                     color: reactionIsFromMe
                         ? context.theme.colorScheme.primary.darkenAmount(isSending ? 0.2 : 0)
                         : ((context.theme.extensions[BubbleColors] as BubbleColors?)?.receivedBubbleColor ??
                             context.theme.colorScheme.surfaceContainerHighest),
-                    alignment: messageIsFromMe ? Alignment.topRight : Alignment.topLeft,
+                    alignment: _alignToEnd ? Alignment.topRight : Alignment.topLeft,
                     child: SizedBox(
                       width: iosSize * 0.8,
                       height: iosSize * 0.8,
                       child: Center(
                           child: Padding(
-                        padding:
-                            const EdgeInsets.all(6.5).add(EdgeInsets.only(right: reactionType == "emphasize" ? 1 : 0)),
-                        child: _badgeGlyph(context, reactionType, reaction.associatedMessageEmoji, reactionIsFromMe),
+                        padding: _glyphPadding(reactionType),
+                        child: _customGlyph(reaction) ?? TapbackIcon(reactionType),
                       )),
                     ));
               })),
           Positioned(
-            left: !messageIsFromMe ? 0 : -75,
-            right: messageIsFromMe ? 0 : -75,
+            left: !_alignToEnd ? 0 : -75,
+            right: _alignToEnd ? 0 : -75,
             child: Obx(() {
               final hasError = reactionController?.hasError.value ?? false;
               if (reaction.error > 0 || hasError) {
@@ -308,6 +319,10 @@ class ReactionWidgetState extends State<ReactionWidget> with ThemeHelpers {
                             reaction: reaction,
                             chat: chat,
                           ),
+                          removeLabel: ReactionTypes.isRemoval(reaction.associatedMessageType) ? "OK" : "Remove",
+                          title: ReactionTypes.isRemoval(reaction.associatedMessageType)
+                              ? "Couldn't Remove Reaction"
+                              : null,
                         ),
                       );
                     },
@@ -353,23 +368,7 @@ class ReactionWidgetState extends State<ReactionWidget> with ThemeHelpers {
             ),
           ],
         ),
-        child: Center(
-          child: Builder(builder: (ctx) {
-            final text = Text(
-              ReactionTypes.emojiFor(rType, reaction.associatedMessageEmoji),
-              style: const TextStyle(fontSize: 15, fontFamily: 'Apple Color Emoji'),
-              textAlign: TextAlign.center,
-            );
-            if (rType == "dislike") {
-              return Transform(
-                transform: Matrix4.identity()..rotateY(pi),
-                alignment: FractionalOffset.center,
-                child: text,
-              );
-            }
-            return text;
-          }),
-        ),
+        child: Center(child: _circleGlyph(reaction, rType)),
       );
     }
 
@@ -398,19 +397,25 @@ class ReactionWidgetState extends State<ReactionWidget> with ThemeHelpers {
             left: !tailIsRight ? 0 : -1,
             right: tailIsRight ? 0 : -1,
             child: ClipPath(
-              clipper: ReactionBorderClipper(tailDirection: tailDirection),
+              clipper: ReactionBorderClipper(
+                tailDirection: tailDirection,
+                tailType: widget.tailType,
+              ),
               child: Container(
                 width: iosSize + 2,
-                height: iosSize + 2,
+                height: _clipHeight + 2,
                 color: context.theme.colorScheme.surface,
               ),
             ),
           ),
           ClipPath(
-            clipper: ReactionClipper(tailDirection: tailDirection),
+            clipper: ReactionClipper(
+              tailDirection: tailDirection,
+              tailType: widget.tailType,
+            ),
             child: Container(
               width: iosSize,
-              height: iosSize,
+              height: _clipHeight,
               color: isFromMe
                   ? context.theme.colorScheme.primary
                   : ((context.theme.extensions[BubbleColors] as BubbleColors?)?.receivedBubbleColor ??
@@ -421,8 +426,8 @@ class ReactionWidgetState extends State<ReactionWidget> with ThemeHelpers {
                 height: iosSize * 0.8,
                 child: Center(
                   child: Padding(
-                    padding: const EdgeInsets.all(6.5).add(EdgeInsets.only(right: rType == "emphasize" ? 1 : 0)),
-                    child: _badgeGlyph(context, rType, reaction.associatedMessageEmoji, isFromMe),
+                    padding: _glyphPadding(rType),
+                    child: _customGlyph(reaction) ?? TapbackIcon(rType),
                   ),
                 ),
               ),

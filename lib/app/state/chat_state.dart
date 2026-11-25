@@ -34,6 +34,8 @@ class ChatState {
   final RxnString subtitle;
   final Rxn<Message> latestMessage;
   final RxnString textFieldText;
+
+  final RxnString textFieldRuns;
   final RxList<String> textFieldAttachments;
   final RxnBool autoSendReadReceipts;
   final RxnBool autoSendTypingIndicators;
@@ -61,6 +63,9 @@ class ChatState {
 
   final RxBool isActive;
   final RxBool isAlive;
+
+  /// A covered conversation view doesn't count as being looked at
+  final RxBool isCovered = false.obs;
   ConversationViewController? controller;
 
   // If true, attachment widgets should be hidden. There is no "fake" attachment
@@ -68,7 +73,7 @@ class ChatState {
   // Updated by ChatsService when hideAttachments or redactedMode settings change.
   final RxBool shouldHideAttachments;
 
-  /// Reactive state wrappers for the chat's participants (handles).
+  /// Reactive state wrappers for the chat's members, one per person ([Chat.people], not [Chat.handles]).
   /// Updated when contact data changes — drives subtitle and avatar recomputes.
   final RxList<HandleState> participants = <HandleState>[].obs;
   final List<Worker> _participantWorkers = [];
@@ -95,7 +100,7 @@ class ChatState {
         chatCreatorSubtitle = RxnString(chat.isGroup
             ? chat.getChatCreatorSubtitle()
             : (chat.handles.isNotEmpty ? (chat.handles.first.formattedAddress ?? chat.handles.first.address) : null)),
-        subtitle = RxnString(chat.dbLatestMessage.target?.getNotificationText()),
+        subtitle = RxnString(chat.dbLatestMessage.target?.getNotificationText(keepInlineAttachments: true)),
         latestMessage = Rxn<Message>(chat.dbLatestMessage.target),
         latestMessageStatus = Rx<MessageStatusIndicator>(
           chat.dbLatestMessage.target?.isFromMe != true
@@ -103,6 +108,7 @@ class ChatState {
               : (chat.dbLatestMessage.target?.indicatorToShow ?? MessageStatusIndicator.NONE),
         ),
         textFieldText = RxnString(chat.textFieldText),
+        textFieldRuns = RxnString(chat.textFieldRuns),
         textFieldAttachments = chat.textFieldAttachments.obs,
         autoSendReadReceipts = RxnBool(chat.autoSendReadReceipts),
         autoSendTypingIndicators = RxnBool(chat.autoSendTypingIndicators),
@@ -125,7 +131,7 @@ class ChatState {
             (SettingsSvc.settings.redactedMode.value && SettingsSvc.settings.hideAttachments.value).obs {
     // Populate participants from handles and wire up ever() listeners so the
     // chatCreatorSubtitle stays live when contacts sync.
-    participants.addAll(chat.handles.map((h) => HandleSvc.getOrCreateHandleState(h)));
+    participants.addAll(chat.people.map((h) => HandleSvc.getOrCreateHandleState(h)));
     for (final hs in participants) {
       _participantWorkers.add(
         ever(hs.displayName, (_) {
@@ -361,14 +367,15 @@ class ChatState {
     return message.getNotificationText(
       hideContactInfo: hideContactInfo,
       hideMessageContent: hideMessageContent,
+      keepInlineAttachments: true,
     );
   }
 
-  /// Rebuild [participants] from [handles] (or this chat's own handles if omitted),
+  /// Rebuild [participants] from [handles] (or this chat's own handles if omitted), one per person,
   /// then recompute subtitle. Pass [handles] when calling from [updateFromChat] so
   /// the fresh DB handles are used instead of the potentially stale cached [ToMany].
   void _updateParticipantsInternal([List<Handle>? handles]) {
-    final newHandles = (handles ?? chat.handles).toList();
+    final newHandles = Chat.peopleIn(handles ?? chat.handles);
 
     // Skip the RxList rebuild when the participant set is unchanged — clearing
     // and re-adding notifies every watching Obx (avatars, titles) even though
@@ -428,7 +435,8 @@ class ChatState {
     if (latestMessageStatus.value != value) latestMessageStatus.value = value;
   }
 
-  void updateTextFieldTextInternal(String? value) {
+  void updateTextFieldTextInternal(String? value, [String? runs]) {
+    if (textFieldRuns.value != runs) textFieldRuns.value = runs;
     if (textFieldText.value != value) {
       textFieldText.value = value;
     }
@@ -531,7 +539,7 @@ class ChatState {
   // These are called by ChatsService - do NOT call directly
 
   /// Check if this chat is currently active and alive
-  bool get isChatActive => isActive.value && isAlive.value;
+  bool get isChatActive => isActive.value && isAlive.value && !isCovered.value;
 
   void updateActiveInternal(bool value) {
     if (isActive.value != value) {
@@ -543,6 +551,10 @@ class ChatState {
     if (isAlive.value != value) {
       isAlive.value = value;
     }
+  }
+
+  void updateCoveredInternal(bool value) {
+    if (isCovered.value != value) isCovered.value = value;
   }
 
   void updateActiveAndAliveInternal(bool value) {

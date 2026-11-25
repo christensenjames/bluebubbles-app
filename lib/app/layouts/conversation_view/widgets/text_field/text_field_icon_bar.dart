@@ -1,27 +1,25 @@
+import 'package:bluebubbles/app/layouts/conversation_view/widgets/media_picker/attachment_actions.dart';
+import 'package:bluebubbles/app/layouts/conversation_view/widgets/media_picker/desktop_attachment_menu.dart';
 import 'package:bluebubbles/app/layouts/conversation_view/widgets/text_field/buttons/text_field_button.dart';
+import 'package:bluebubbles/app/layouts/conversation_view/widgets/text_field/buttons/text_field_button_drag.dart';
 import 'package:bluebubbles/app/layouts/conversation_view/widgets/text_field/conversation_text_field_local_controller.dart';
-import 'package:bluebubbles/app/layouts/conversation_view/widgets/text_field/helpers/schedule_message_helper.dart';
-import 'package:bluebubbles/database/io/klipy.dart';
 import 'package:bluebubbles/database/models.dart';
 import 'package:bluebubbles/helpers/helpers.dart';
 import 'package:bluebubbles/services/services.dart';
-import 'package:bluebubbles/utils/logger/logger.dart';
 import 'package:bluebubbles/utils/share.dart';
-import 'package:chunked_stream/chunked_stream.dart';
 import 'package:file_picker/file_picker.dart' as pf;
 import 'package:file_picker/file_picker.dart' hide PlatformFile;
-import 'package:flutter/cupertino.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_dotenv/flutter_dotenv.dart';
+import 'package:flutter/rendering.dart' show OverflowBoxFit;
 import 'package:get/get.dart';
-import 'package:klipy_flutter/klipy_flutter.dart';
 import 'package:universal_io/io.dart';
 
 /// Left-side icon buttons in the conversation text field row.
 ///
-/// Which buttons appear, and in what order, comes from
-/// `SettingsSvc.settings.textFieldButtons` (configurable — see [TextFieldButton]).
+/// Which buttons appear, and in what order, comes from `SettingsSvc.settings.textFieldButtons`. On desktop the user
+/// arranges them here: hold a button to drag it before another, into the slot after the last one to put it last, or
+/// onto `+` to move it into the menu. The row makes room where a drop would land ([TextFieldButtonDrag]).
 ///
 /// All button logic is self-contained here; heavy async flows reference
 /// [controller] and [localController] directly.
@@ -39,81 +37,105 @@ class TextFieldIconBar extends StatelessWidget {
 
   Chat get _chat => controller.chat;
 
-  bool get _iOS => SettingsSvc.settings.skin.value == Skins.iOS;
-
   bool get _showAttachmentPicker => controller.showAttachmentPicker.value;
 
   @override
   Widget build(BuildContext context) {
-    return Obx(() => Row(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.end,
-          children: [
-            _attachmentButton(context),
-            if (!materialComposer)
-              ...SettingsSvc.settings.textFieldButtons.platformSupportedButtons.map(
-                (b) => _build(context, b),
+    return Obx(() {
+      // Read here: DragTarget builders run outside this Obx's tracking
+      final buttons = SettingsSvc.settings.textFieldButtons.platformSupportedButtons;
+      final dragged = TextFieldButtonDrag.dragged.value;
+      final at = TextFieldButtonDrag.rowIndex.value;
+      final snapping = TextFieldButtonDrag.snap.value;
+      Widget slot(Key key, int i, Widget child) => _RowSlot(
+            key: key,
+            index: i,
+            // An invisible copy of the dragged button, so the room is exactly its size
+            room: dragged != null && at == i
+                ? IgnorePointer(
+                    child: Opacity(
+                      opacity: 0,
+                      child: KeyedSubtree(key: TextFieldButtonDrag.rowSlot, child: _button(dragged)),
+                    ),
+                  )
+                : null,
+            snapping: snapping,
+            child: child,
+          );
+      return Row(
+        mainAxisSize: MainAxisSize.min,
+        // Centered: `+` is smaller than the buttons beside it
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          // With nothing left for the menu, `+` only shows while a button is dragged, to drop it in. It slides in and out
+          // clipped rather than swapped, and always animates: it goes as a drop lands, which snaps the rest
+          ConstrainedBox(
+            constraints: const BoxConstraints(minWidth: 6),
+            child: ClipRect(
+              child: AnimatedAlign(
+                duration: TextFieldButtonDrag.slide,
+                curve: Curves.easeOutCubic,
+                alignment: Alignment.centerRight,
+                widthFactor: kIsDesktop &&
+                        dragged == null &&
+                        TextFieldButton.values.platformSupportedButtons.every(buttons.contains)
+                    ? 0
+                    : 1,
+                child: _attachmentButton(context),
               ),
-          ],
-        ));
+            ),
+          ),
+          for (final (i, b) in (materialComposer ? <TextFieldButton>[] : buttons).indexed)
+            kIsDesktop
+                ? slot(ValueKey(b), i, _draggableButton(context, b, i, dragging: b == dragged, snapping: snapping))
+                : _button(b),
+          if (kIsDesktop) slot(const ValueKey('end'), buttons.length, _endSpace()),
+        ],
+      );
+    });
   }
-
-  Widget _build(BuildContext context, TextFieldButton button) => switch (button) {
-        TextFieldButton.Gif => _gifButton(context),
-        TextFieldButton.Emoji => _emojiButton(context),
-        TextFieldButton.Location => _locationButton(context),
-        TextFieldButton.Schedule => _scheduleButton(context),
-      };
 
   Widget _attachmentButton(BuildContext context) {
     final hasBackground = ChatsSvc.getChatState(controller.chat.guid)?.hasCustomWallpaper ?? false;
     final material = context.material;
     final double size = materialComposer ? 48 : material ? 54 : 36;
+    Widget button(VoidCallback onPressed) => IconButton(
+          tooltip: "Add attachment",
+          style: IconButton.styleFrom(
+            backgroundColor: materialComposer
+                ? null
+                : material
+                    ? context.theme.colorScheme.surfaceContainer
+                    : hasBackground
+                        ? context.theme.colorScheme.surfaceContainerHighest
+                        : context.theme.colorScheme.outline.withValues(alpha: 0.2),
+            shape: const CircleBorder(),
+            padding: EdgeInsets.zero,
+            minimumSize: Size(size, size),
+            fixedSize: Size(size, size),
+          ),
+          icon: Icon(
+            materialComposer ? Icons.add_circle_outline : Icons.add,
+            color: material ? context.theme.colorScheme.onSurfaceVariant : context.theme.colorScheme.outline,
+            size: materialComposer ? 24 : material ? 26 : 22,
+          ),
+          visualDensity: materialComposer ? VisualDensity.standard : Platform.isAndroid ? VisualDensity.compact : null,
+          onPressed: onPressed,
+        );
+
     return Padding(
-          padding: EdgeInsets.symmetric(horizontal: materialComposer ? 0 : material ? 8 : 10),
-          child: IconButton(
-            tooltip: "Add attachment",
-            style: IconButton.styleFrom(
-              backgroundColor: materialComposer
-                  ? null
-                  : material
-                      ? context.theme.colorScheme.surfaceContainer
-                      : (hasBackground
-                          ? context.theme.colorScheme.surfaceContainerHighest
-                          : context.theme.colorScheme.outline.withValues(alpha: 0.2)),
-              shape: const CircleBorder(),
-              padding: EdgeInsets.zero,
-              minimumSize: Size(size, size),
-              fixedSize: Size(size, size),
-            ),
-            icon: Icon(
-              materialComposer ? Icons.add_circle_outline : Icons.add,
-              color: material ? context.theme.colorScheme.onSurfaceVariant : context.theme.colorScheme.outline,
-              size: materialComposer ? 24 : material ? 26 : 22,
-            ),
-            visualDensity: materialComposer
-                ? VisualDensity.standard
-                : Platform.isAndroid
-                    ? VisualDensity.compact
-                    : null,
-            onPressed: () async {
-              if (kIsDesktop) {
-                final res = await FilePicker.pickFiles(withReadStream: true, allowMultiple: true);
-                if (res == null || res.files.isEmpty || res.files.first.readStream == null) return;
-                for (pf.PlatformFile e in res.files) {
-                  if (e.size / 1024000 > 1000) {
-                    showSnackbar("Error", "This file is over 1 GB! Please compress it before sending.",
-                        type: SnackbarType.error);
-                    continue;
-                  }
-                  controller.pickedAttachments.add(PlatformFile(
-                    path: e.path,
-                    name: e.name,
-                    size: e.size,
-                    bytes: await readByteStream(e.readStream!),
-                  ));
-                }
-              } else if (kIsWeb) {
+      padding: EdgeInsets.symmetric(horizontal: materialComposer ? 0 : material ? 8 : 10),
+      child: kIsDesktop
+          // Desktop has no attachment sheet: `+` opens a menu of the same actions instead. It also takes row
+          // buttons dragged onto it
+          ? DesktopAttachmentMenu(
+              controller: controller,
+              inRow: SettingsSvc.settings.textFieldButtons,
+              arrangeable: true,
+              builder: (_, toggle) => button(toggle),
+            )
+          : button(() {
+              if (kIsWeb) {
                 showBBDialog(
                   context: context,
                   title: "What would you like to do?",
@@ -124,13 +146,10 @@ class TextFieldIconBar extends StatelessWidget {
                       ListTile(
                         title: Text("Upload file", style: Theme.of(context).textTheme.bodyLarge),
                         onTap: () async {
-                          final res = await FilePicker.pickFiles(withData: true, allowMultiple: true);
-                          if (res == null || res.files.isEmpty || res.files.first.bytes == null) {
-                            return;
-                          }
-
-                          for (pf.PlatformFile e in res.files) {
-                            if (e.size / 1024000 > 1000) {
+                          final res = await FilePicker.pickFiles();
+                          for (pf.PlatformFile e in res) {
+                            final size = await e.length() ?? 0;
+                            if (size / 1024000 > 1000) {
                               showSnackbar("Error", "This file is over 1 GB! Please compress it before sending.",
                                   type: SnackbarType.error);
                               continue;
@@ -138,8 +157,8 @@ class TextFieldIconBar extends StatelessWidget {
                             controller.pickedAttachments.add(PlatformFile(
                               path: null,
                               name: e.name,
-                              size: e.size,
-                              bytes: e.bytes!,
+                              size: size,
+                              bytes: await e.readAsBytes(),
                             ));
                           }
                           Get.back();
@@ -162,128 +181,82 @@ class TextFieldIconBar extends StatelessWidget {
                 }
                 controller.showAttachmentPicker.value = !_showAttachmentPicker;
               }
-            },
-          ),
-        );
+            }),
+    );
   }
 
-  Widget _gifButton(BuildContext context) => IconButton(
-              tooltip: "Send a GIF",
-              icon: Icon(Icons.gif, color: context.theme.colorScheme.outline, size: 28),
-              onPressed: () async {
-                if (kIsDesktop || kIsWeb) {
-                  controller.showingOverlays = true;
-                }
-                KlipyClient klipy = KlipyClient(apiKey: kIsWeb ? KLIPY_API_KEY : dotenv.get('KLIPY_API_KEY'));
-                TextEditingController klipyController = TextEditingController();
-                FocusNode focus = FocusNode();
-                Future<KlipyResultObject?> resultFuture = klipy.showAsBottomSheet(
-                  maxExtent: 0.8,
-                  minExtent: 0.5,
-                  debounce: const Duration(seconds: 1),
-                  context: context,
-                  searchFieldController: klipyController,
-                  // Copied and slightly modified from source, just so I can autofocus
-                  searchFieldWidget: Padding(
-                    padding: const EdgeInsets.all(8),
-                    child: Stack(
-                      alignment: Alignment.center,
-                      children: [
-                        TextField(
-                          focusNode: focus,
-                          controller: klipyController,
-                          decoration: InputDecoration(
-                            border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(8),
-                              borderSide: const BorderSide(
-                                width: 0,
-                                style: BorderStyle.none,
-                              ),
-                            ),
-                            contentPadding: const EdgeInsets.fromLTRB(28, 5, 32, 7),
-                            filled: true,
-                            hintStyle: const KlipySearchFieldStyle().hintStyle,
-                            hintText: "Search KLIPY",
-                            isCollapsed: true,
-                            isDense: true,
-                          ),
-                          style: context.theme.textTheme.bodyMedium!,
-                        ),
-                        const Positioned(
-                          left: 4,
-                          child: Icon(
-                            Icons.search,
-                            color: Color(0xFF8A8A86),
-                            size: 22,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  style: KlipyStyle(
-                    color: context.theme.colorScheme.surfaceContainerHighest,
-                    attributionStyle: KlipyAttributionStyle(brightnes: context.theme.brightness),
-                    tabBarStyle: KlipyTabBarStyle(
-                      decoration: BoxDecoration(
-                          color: context.theme.colorScheme.surfaceContainerHighest,
-                          borderRadius: BorderRadius.circular(8)),
-                      indicator: BoxDecoration(
-                        color: context.theme.colorScheme.primary,
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      labelColor: context.theme.colorScheme.onSurface,
-                      unselectedLabelColor: context.theme.colorScheme.onSurface.withValues(alpha: 0.5),
-                    ),
-                  ),
-                );
-                focus.requestFocus();
-                KlipyResultObject? result = await resultFuture;
-                if (kIsDesktop || kIsWeb) {
-                  controller.showingOverlays = false;
-                }
-                final selectedGif = result?.media.tinyGif ?? result?.media.tinyGifTransparent;
-                if (result != null && selectedGif != null) {
-                  final response = await HttpSvc.downloadFromUrl(selectedGif.url);
-                  if (response.statusCode == 200) {
-                    try {
-                      final Uint8List data = response.data;
-                      controller.pickedAttachments.add(PlatformFile(
-                        path: null,
-                        name: "${result.id}.gif",
-                        size: data.length,
-                        bytes: data,
-                      ));
-                      return;
-                    } catch (e, s) {
-                      Logger.warn("Failed to attach GIF from picker", error: e, trace: s, tag: 'TextFieldIconBar');
-                    }
-                  }
-                }
-              });
-
-  Widget _emojiButton(BuildContext context) => IconButton(
-        tooltip: "Emoji",
-        icon: Icon(_iOS ? CupertinoIcons.smiley_fill : Icons.emoji_emotions,
-            color: context.theme.colorScheme.outline, size: 28),
-        onPressed: () {
-          controller.showEmojiPicker.value = !controller.showEmojiPicker.value;
-          (controller.editing.lastOrNull?.controller.focusNode ?? controller.lastFocusedNode).requestFocus();
-        },
+  Widget _button(TextFieldButton b) => Builder(
+        // Own context so the Genmoji popover anchors on this button
+        builder: (context) => IconButton(
+          tooltip: b.label,
+          icon: Icon(b.icon, color: context.theme.colorScheme.outline, size: 28),
+          onPressed: () => AttachmentActions.run(b, context, controller),
+        ),
       );
 
-  Widget _locationButton(BuildContext context) => IconButton(
-        tooltip: "Share location",
-        icon: Icon(_iOS ? CupertinoIcons.location_solid : Icons.location_on_outlined,
-            color: context.theme.colorScheme.outline, size: 28),
-        onPressed: () async {
-          await Share.location(_chat);
-        },
+  /// Room to drop a button at the end of the row: narrow, and as tall as the buttons (an invisible, clipped one), so it
+  /// doesn't change the row's height
+  Widget _endSpace() => SizedBox(
+        width: 16,
+        child: ClipRect(
+          child: OverflowBox(
+            alignment: Alignment.centerLeft,
+            maxWidth: double.infinity,
+            fit: OverflowBoxFit.deferToChild,
+            child: IgnorePointer(child: Opacity(opacity: 0, child: _button(TextFieldButton.values.first))),
+          ),
+        ),
       );
 
-  Widget _scheduleButton(BuildContext context) => IconButton(
-        tooltip: "Schedule message",
-        icon: Icon(_iOS ? CupertinoIcons.clock_fill : Icons.schedule_rounded,
-            color: context.theme.colorScheme.outline, size: 28),
-        onPressed: () => scheduleMessage(context, controller),
+  /// Desktop: hold to drag. While it's dragged its place closes; the room made where it would land shows instead.
+  Widget _draggableButton(BuildContext context, TextFieldButton b, int index,
+          {required bool dragging, required bool snapping}) =>
+      TextFieldButtonDrag.slides(
+        snapping: snapping,
+        dragging
+            ? const SizedBox.shrink()
+            : LongPressDraggable<TextFieldButton>(
+                data: b,
+                dragAnchorStrategy: pointerDragAnchorStrategy,
+                feedback: centeredDragFeedback(Icon(b.icon, color: context.theme.colorScheme.outline, size: 28)),
+                onDragStarted: () => TextFieldButtonDrag.start(b, from: index),
+                // These run even though closing its place unmounts this
+                onDraggableCanceled: (_, offset) => TextFieldButtonDrag.cancel(context, offset),
+                child: _button(b),
+              ),
+      );
+}
+
+/// Desktop: a drop target for the composer row, before the button at [index] (or at the end). It opens room for the
+/// dragged button ([room]) when a drop here would put it there.
+class _RowSlot extends StatelessWidget {
+  const _RowSlot({
+    super.key,
+    required this.index,
+    required this.room,
+    required this.snapping,
+    required this.child,
+  });
+
+  final int index;
+  final Widget? room;
+  final bool snapping;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) => DragTarget<TextFieldButton>(
+        onWillAcceptWithDetails: (_) {
+          TextFieldButtonDrag.enterRow(index);
+          return true;
+        },
+        onLeave: (_) => TextFieldButtonDrag.leaveRow(index),
+        onAcceptWithDetails: (details) => TextFieldButtonDrag.dropOnRow(context, index, details.offset),
+        builder: (context, _, _) => Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextFieldButtonDrag.slides(room ?? const SizedBox.shrink(), snapping: snapping),
+            child,
+          ],
+        ),
       );
 }

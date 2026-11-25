@@ -59,7 +59,7 @@ class _ChatOptionsState extends State<ChatOptions> with ThemeHelpers {
         children: [
           _buildAppearanceGroup(context),
           Obx(() => _buildConversationGroup(context)),
-          _buildContentGroup(context),
+          Obx(() => _buildContentGroup(context)),
           Obx(() => _buildDangerZoneGroup(context)),
         ],
       ),
@@ -490,6 +490,22 @@ class _ChatOptionsState extends State<ChatOptions> with ThemeHelpers {
         ),
       ),
       _OptionRow(
+        enabled: NameAndPhotoSharingSvc.hasSeenPhotos(chat),
+        build: (context) => SettingsTile(
+          title: "Show Shared Photos Again",
+          subtitle: "Offer photos you already saved or dismissed in this chat again",
+          backgroundColor: tileColor,
+          leading: const SettingsLeadingIcon(
+            iosIcon: CupertinoIcons.person_crop_circle_badge_plus,
+            materialIcon: Icons.person_add,
+            containerColor: Colors.blue,
+          ),
+          onTap: () async {
+            await NameAndPhotoSharingSvc.offerPhotosAgain(chat);
+          },
+        ),
+      ),
+      _OptionRow(
         enabled: true,
         build: (context) => SettingsTile(
           title: "Fetch Chat Details",
@@ -800,7 +816,7 @@ class _ChatOptionsState extends State<ChatOptions> with ThemeHelpers {
       ),
       _OptionRow(
         enabled:
-            chat.handles.length > 2 &&
+            chat.people.length > 2 &&
             SettingsSvc.settings.enablePrivateAPI.value &&
             SettingsSvc.serverDetails.supportsGroupChatManagement,
         build: (context) => SettingsTile(

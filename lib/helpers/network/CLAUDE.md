@@ -6,8 +6,8 @@ Pure helpers for network operations. No UI dependencies.
 
 | File | What's inside |
 |------|---------------|
-| `network_helpers.dart` | `sanitizeServerAddress(url)` — normalizes server URLs (detects ngrok/Cloudflare tunnels, ensures correct scheme); `isValidServerAddress(url)` — accepts LAN hostnames, localhost, IPs, and long TLDs that GetX `isURL` rejects; `getOrCreateUniqueId()` — persistent install ID; `getDeviceName()` — device name for server registration |
-| `network_error_handler.dart` | `handleSendError(error, message)` — classifies `DioException`/HTTP errors into timeout vs. connection failure, sets `message.error`/`errorMessage` for UI display; unwraps a `badResponse` `DioException` to its `Response` when available; `failedBeforeReachingServer(error)` — takes a `DioException`; true when it never reached the server, so a retry cannot duplicate it (GlobalIsolate rebuilds it from the isolate's structured `networkError`); `httpStatusCodeOf(error)` — status code from a failed API call (handles both the `Response` that `ApiInterceptor` rejects with and a raw `DioException`) |
+| `network_helpers.dart` | `sanitizeServerAddress(url)` normalizes server URLs; `isValidServerAddress(url)` validates LAN hostnames and URLs; `getOrCreateUniqueId()` provides a persistent install ID; `getAndroidId()` provides Android's ID; `getDeviceName()` provides the device name for server registration |
+| `network_error_handler.dart` | `handleSendError(error, message)` classifies send failures and sets message error state; `failedBeforeReachingServer(error)` identifies safe retries; `httpStatusCodeOf(error)` extracts HTTP status codes |
 | `metadata_helper.dart` | `MetadataHelper` — public entry point for URL preview metadata. Thin facade over `metadata/` |
 | `metadata/` | The URL preview metadata pipeline → `metadata/CLAUDE.md` |
 | `network_tasks.dart` | `onConnect()` — called when network becomes available; triggers localhost detection, incremental sync, and socket reconnection |
@@ -24,4 +24,4 @@ Pure helpers for network operations. No UI dependencies.
 
 **Never use `HttpSvc.dio` for third-party URLs.** It carries the user's `customHeaders` (server auth secrets) as defaults and an interceptor that converts HTTP errors into fake successes. `metadata/network/metadata_http_client.dart` exists for outbound requests to sites the user did not configure.
 
-**Network reconnect** — `onConnect()` in `network_tasks.dart` is the entry point wired to connectivity change events. Localhost detection probes only local addresses reported by the server. Don't call sync or socket logic directly from connectivity listeners; call `onConnect()` instead.
+**Network reconnect** — `onConnect()` in `network_tasks.dart` is the entry point wired to connectivity change events. Don't call sync or socket logic directly from connectivity listeners; call `onConnect()` instead. After incremental sync, it also retries unfinished v2 migrations.

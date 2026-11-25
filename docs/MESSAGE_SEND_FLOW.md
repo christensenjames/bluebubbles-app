@@ -18,13 +18,13 @@ UI (send button tap)
           text-only      → _buildOutgoingMessages() (may split into 2 msgs on
               old macOS) → _persistOutgoingMessages() → chat.addMessage()
               (saved to DB with tempGuid — appears in UI as "sending")
-          attachment     → prepAttachment() (copy file, save to DB)
+          attachment     → prepAttachments() (copy files, save to DB)
           batch          → _prepMultipartAttachments() (stage all files,
               save one message with all attachments)
           retried up to 3x on transient failure; a terminal failure is
               surfaced as a failed message, never silently dropped
-      → item enters the serial `_queue`; OutgoingMessageHandler._processNext()
-        drains it one item at a time
+      → item enters its chat's queue in `_queues`; OutgoingMessageHandler._processChat()
+        drains it one item at a time (chats send in parallel)
           → _dispatchItem() → sendMessage() / sendMultipart() / sendAttachment()
           → _sendWithRace(): registers a send-progress tracker, then fires the
             HTTP call through SendMessageInterface → GlobalIsolate →
@@ -82,17 +82,17 @@ Immediately before an animated text-bearing item is queued, `send()` closes `Con
 
 ### Step 3 — OutgoingMessageHandler: Prepare (`outgoing_message_handler.dart`)
 
-**`OutgoingMessageHandler.queue(item)`** runs entirely synchronously with respect to the caller before the item is placed on the serial send queue:
+**`OutgoingMessageHandler.queue(item)`** runs entirely synchronously with respect to the caller before the item is placed on its chat's send queue:
 
 1. **`_ensureTempGuid(item)`** — assigns `item.message.generateTempGuid()` only if the message has no GUID yet. Attachment sends and batches already have one from Step 2; UI retries arrive with a new temp GUID assigned by `retryFailedMessage()`.
-2. **`_prepItemWithRetry(item)`** — text-only/reaction items build their message(s) once through `_buildOutgoingMessages()` and persist through `_persistOutgoingMessages()`. Standalone attachments use `prepAttachment()`. Attachment batches bypass text splitting and use `_prepMultipartAttachments()` to stage all files and save one message with all attachment relations. Prep retries up to 3 attempts (250ms × attempt backoff) while a message remains unsaved; terminal errors use the existing failure finalizer.
-3. If prep yields no messages, the item settles without entering the send queue. Otherwise, the resulting message(s) are wrapped back into queue entries and pushed onto the internal `Queue<_OutgoingEntry>`. `pendingChatGuids` (an `RxSet<String>`, used by UI to show/hide a "Cancel Outgoing Messages" control) gets the chat GUID added, then `_processNext()` is kicked off.
+2. **`_prepItemWithRetry(item)`** — text-only/reaction items build their message(s) once through `_buildOutgoingMessages()` and persist through `_persistOutgoingMessages()`. Standalone attachments use `prepAttachments()`. Composer attachment batches bypass text splitting and use `_prepMultipartAttachments()` to stage all files and save one message with all attachment relations. Prep retries up to 3 attempts (250ms × attempt backoff) while a message remains unsaved; terminal errors use the existing failure finalizer.
+3. If prep yields no messages, the item settles without entering the send queue. Otherwise, entries go into the chat's `Queue<_OutgoingEntry>` in `_queues`. `pendingChatGuids` tracks chats with pending work, and `_processChat()` drains each chat independently.
 
 **`_buildOutgoingMessages()`** — on macOS versions older than Big Sur, a long text message containing a URL is split into two separate `Message`s (each with its own tempGuid) to prevent server-side matching glitches. This is the only case that produces more than one message per send.
 
 **`_persistOutgoingMessages()`** saves each message to ObjectBox **with its tempGuid** via `chat.addMessage(message, clearNotificationsIfFromMe: ...)` — skipping the DB write if a retry finds the GUID already saved. This is intentional — the message appears in the UI immediately in a "sending" state before the server has confirmed anything. It also pushes the message into `MessagesSvc.addNewMessage()` (or, for a reaction, directly into the parent's `associatedMessages` via `addAssociatedMessageInternal`) and calls `ChatsSvc.updateChatLatestMessage()` so the chat tile subtitle updates immediately.
 
-`prepAttachment()` uses `_stageAttachment()` to copy the source file (or write staged bytes), optimize GIFs, load image metadata, and stage interactive media if applicable, then saves the message and pushes it into `MessagesSvc`. `_prepMultipartAttachments()` reuses the same staging helper, saves all attachments together through one `chat.addMessage()`, and registers each attachment's upload state. Already-staged batch files are reused during prep retries and UI retries.
+`prepAttachments()` stages attachment sends, saving their messages and pushing them into `MessagesSvc`. `_prepMultipartAttachments()` stages composer batches, saves all attachments together through one `chat.addMessage()`, and registers each attachment's upload state. Already-staged batch files are reused during prep retries and UI retries.
 
 **Key file:** `lib/services/backend/outgoing_message_handler.dart`
 
@@ -100,7 +100,7 @@ Immediately before an animated text-bearing item is queued, `send()` closes `Con
 
 ### Step 4 — OutgoingMessageHandler: Send (`outgoing_message_handler.dart`)
 
-`OutgoingMessageHandler._processNext()` dequeues items one at a time (guarded by an `_isProcessing` flag so only one drain loop runs) and calls `_dispatchItem()`, which routes to `sendMessage()`, `sendMultipart()`, or `sendAttachment()` based on the concrete queue item type. Before a standalone attachment is sent, its staged file is checked; if missing, the message is finalized as failed instead of silently returning and leaving the send pending.
+`OutgoingMessageHandler._processChat()` dequeues each chat's items one at a time, allowing different chats to send in parallel, and calls `_dispatchItem()`, which routes to `sendMessage()`, `sendMultipart()`, or `sendAttachment()`. Before a standalone attachment is sent, its staged file is checked; if missing, the message is finalized as failed instead of silently returning and leaving the send pending.
 
 Each send method wraps its work in `_handleSend()`, which starts a 5-second timer that nudges `chat.sendProgress` to `0.9` if the send is still in flight (a "this is taking a while" UI signal), then drives it to `1 → 0` on completion — unless an earlier socket-triggered `completeSendProgressIfExists()` call already did so.
 
@@ -160,7 +160,7 @@ Text and standalone attachment sends can produce a `"new-message"` socket event 
 - **If `tempGuid` is present:** The real GUID and the tempGuid are known. `IncomingMsgHandler.handle()` is called with the `tempGuid` set, which — inside `IncomingMessageHandler._processNewMessage()`/`_processUpdatedMessage()` — calls `OutgoingMsgHandler.completeSendProgressIfExists(tempGuid, Origin.incomingMessageHandler)`. This:
   - Removes the progress tracker from `_sendProgressTrackers`
   - Drives `chat.sendProgress` to `1` (then back to `0` after 500ms), unless it's already `0`
-  - Completes the `race` completer, unblocking `_sendWithRace()` so `_processNext()` moves on
+  - Completes the `race` completer, unblocking `_sendWithRace()` so `_processChat()` moves on
   - `IncomingMessageHandler` continues processing the payload (GUID swap) in its own queue, independent of the outgoing side
 
 - **If `tempGuid` is null:** the real GUID is added to `MessageHandlerSvc.outOfOrderTempGuids` in `action_handler.dart` for outgoing messages. The handler waits 500ms for a `new-message` echo with a `tempGuid`; only that echo cancels processing of the delayed event. If no such echo arrives, the null-tempGuid event is processed normally. Multipart sends do not provide a matching tempGuid echo.
@@ -231,9 +231,9 @@ If the HTTP call fails before the socket confirms the send, `_sendWithRace()`'s 
 4. `Message.replaceMessage(tempGuid, m)` persists the error state — since `m.guid` is still the tempGuid, this is an in-place field update, not a rename. If this throws (the socket already replaced the record), the error is logged and the original message is returned unchanged rather than propagating the exception.
 5. `MessagesSvc.updateMessage(errorMsg, oldGuid: tempGuid)` propagates the failure to the UI; `ChatsSvc.updateChatLatestMessage()` is refreshed if this message was the chat's latest.
 6. Type-specific `onExtra` callbacks run afterward — e.g. updating a reaction's parent message state, or clearing attachment upload progress and calling `notifyAttachmentTransferError()`.
-7. Back in `_processNext()`'s `catchError`, if `SettingsSvc.settings.cancelQueuedMessages` is enabled, every other still-queued item for the same chat is pulled off the queue, marked `MessageError.BAD_REQUEST` with `"Canceled due to previous failure"`, and finalized the same way.
+7. Back in `_processChat()`'s `catchError`, if `SettingsSvc.settings.cancelQueuedMessages` is enabled, every other still-queued item for the same chat is pulled off the queue, marked `MessageError.BAD_REQUEST` with `"Canceled due to previous failure"`, and finalized the same way.
 
-**User-initiated cancellation** (distinct from the auto-cancel-on-failure above): `OutgoingMessageHandler.cancelMessage(tempGuid)` / `cancelPendingForChat(chatGuid)` remove not-yet-dispatched items from `_queue` and finalize them via `_finalizeOutgoingFailure` with `ClientMessageError.userCanceled`. `hasPendingMessage(tempGuid)` lets the UI check whether a message can still be cancelled (once it's been dequeued for dispatch, it's in flight and can't be). `pendingChatGuids` is the reactive set backing a "Cancel Outgoing Messages" affordance in the UI.
+**User-initiated cancellation** (distinct from the auto-cancel-on-failure above): `OutgoingMessageHandler.cancelMessage(tempGuid)` / `cancelPendingForChat(chatGuid)` remove not-yet-dispatched items from `_queues` and finalize them via `_finalizeOutgoingFailure` with `ClientMessageError.userCanceled`. `hasPendingMessage(tempGuid)` lets the UI check whether a message can still be cancelled (once it's been dequeued for dispatch, it's in flight and can't be). `pendingChatGuids` is the reactive set backing a "Cancel Outgoing Messages" affordance in the UI.
 
 An upload or multipart-send failure uses `_finalizeOutgoingFailure()` once for the whole batch and clears every attachment's upload state. Batch preparation failure, user cancellation, and cancellation after an earlier queued failure use the same attachment cleanup. `MessagesService.retryFailedMessage()` recognizes a non-audio batch from persisted attachment count plus text/subject, independent of current settings. It assigns a new message temp GUID and distinct attachment GUIDs, moves each local directory, rewrites attributed attachment references, and queues one `OutgoingMultipartMessage` containing all files. Every retry uploads the complete batch again.
 
@@ -246,9 +246,9 @@ An upload or multipart-send failure uses `_finalizeOutgoingFailure()` once for t
 | Send button | `lib/app/layouts/conversation_view/widgets/text_field/send_button.dart` | `onPressed` callback |
 | Build message | `lib/app/layouts/conversation_view/widgets/message/send_animation.dart` | `send()` |
 | tempGuid generation | `lib/database/io/message.dart` | `generateTempGuid()` → `"temp-XXXXXXXX"` |
-| Queue + prep + send | `lib/services/backend/outgoing_message_handler.dart` | `queue()`, `_ensureTempGuid()`, `_prepItemWithRetry()`, `_processNext()`, `_dispatchItem()` |
+| Queue + prep + send | `lib/services/backend/outgoing_message_handler.dart` | `queue()`, `_ensureTempGuid()`, `_prepItemWithRetry()`, `_processChat()`, `_dispatchItem()` |
 | Build/split messages | `lib/services/backend/outgoing_message_handler.dart` | `_buildOutgoingMessages()` |
-| Save to DB (temp) | `lib/services/backend/outgoing_message_handler.dart` | `_persistOutgoingMessages()` / `prepAttachment()` / `_prepMultipartAttachments()` → `chat.addMessage()` |
+| Save to DB (temp) | `lib/services/backend/outgoing_message_handler.dart` | `_persistOutgoingMessages()` / `prepAttachments()` / `_prepMultipartAttachments()` → `chat.addMessage()` |
 | HTTP dispatch | `lib/services/backend/outgoing_message_handler.dart` | `sendMessage()`, `sendMultipart()`, `sendAttachment()` |
 | HTTP interface (isolate routing) | `lib/services/backend/interfaces/send_message_interface.dart` | `sendTextMessage()`, `sendTapback()`, `sendMultipartMessage()`, `sendAttachmentMessage()` |
 | HTTP isolate actions | `lib/services/backend/actions/send_message_actions.dart` | same names, run inside isolate |

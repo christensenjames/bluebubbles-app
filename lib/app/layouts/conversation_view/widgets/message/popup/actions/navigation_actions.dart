@@ -6,26 +6,26 @@ import 'package:bluebubbles/app/layouts/chat_creator/new_chat_creator.dart';
 import 'package:bluebubbles/app/layouts/conversation_view/pages/conversation_view.dart';
 import 'package:bluebubbles/app/layouts/conversation_view/widgets/message/popup/message_popup_action_context.dart';
 import 'package:bluebubbles/app/layouts/conversation_view/widgets/message/reply/reply_thread_popup.dart';
-import 'package:bluebubbles/app/wrappers/theme_switcher.dart';
 import 'package:bluebubbles/database/models.dart';
 import 'package:bluebubbles/helpers/helpers.dart';
 import 'package:bluebubbles/services/services.dart';
 import 'package:bluebubbles/models/models.dart' show MessageReplyContext;
-import 'package:collection/collection.dart';
 import 'package:flutter/widgets.dart';
 
 void reply(MessagePopupActionContext ctx) {
   ctx.popDetails();
-  ctx.cvController.replyToMessage = MessageReplyContext(ctx.message, ctx.part.part);
+  final part = ctx.part;
+  ctx.cvController.replyToMessage = MessageReplyContext(
+    ctx.message,
+    part.part,
+    attachmentGuid: part.attachments.length == 1 ? part.attachments.first.guid : null,
+  );
 }
 
 void openDm(MessagePopupActionContext ctx) {
   if (ctx.dmChat == null) return;
   ctx.popDetails();
-  Navigator.pushReplacement(
-    ctx.context,
-    ThemeSwitcher.buildPageRoute(builder: (BuildContext context) => ConversationView(chat: ctx.dmChat!)),
-  );
+  NavigationSvc.pushAndRemoveUntil(ctx.context, ConversationView(chat: ctx.dmChat!), (route) => route.isFirst);
 }
 
 void showThread(MessagePopupActionContext ctx) {
@@ -33,9 +33,9 @@ void showThread(MessagePopupActionContext ctx) {
   if (ctx.message.threadOriginatorGuid != null) {
     final mwc = ctx.service.getMessageStateIfExists(ctx.message.threadOriginatorGuid!);
     if (mwc == null) return ctx.showSnack("Error", "Failed to find thread!", type: SnackbarType.error);
-    final part = mwc.parts.firstWhereOrNull((p) => p.part == ctx.message.normalizedThreadPart);
-    if (part == null) return ctx.showSnack("Error", "Failed to find thread!", type: SnackbarType.error);
-    showReplyThread(ctx.context, mwc.message, part, ctx.service, ctx.cvController);
+    final originatorPart = mwc.partById(ctx.message.normalizedThreadPart);
+    if (originatorPart == null) return ctx.showSnack("Error", "Failed to find thread!", type: SnackbarType.error);
+    showReplyThread(ctx.context, mwc.message, originatorPart, ctx.service, ctx.cvController);
   } else {
     showReplyThread(ctx.context, ctx.message, ctx.part, ctx.service, ctx.cvController);
   }

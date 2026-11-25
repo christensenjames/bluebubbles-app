@@ -37,6 +37,16 @@ enum MessageEventType {
   updatedMessage,
 }
 
+/// Whether [incoming] is Messages resending a group's photo state (`item_type` 3, `group_action_type` 3) that is
+/// already stored as [stored] under the same GUID. Such a row is not a change, so the stored one is kept as it is.
+///
+/// Reads the columns rather than `Message.isGroupPhotoState`, which only the native model declares.
+@visibleForTesting
+bool isGroupPhotoResend({required Message incoming, required Message stored}) {
+  bool isPhotoState(Message m) => m.itemType == 3 && m.groupActionType == 3;
+  return isPhotoState(incoming) && isPhotoState(stored) && incoming.guid != null && incoming.guid == stored.guid;
+}
+
 // ─── Payload ─────────────────────────────────────────────────────────────────
 
 /// A fully-parsed incoming message event, regardless of transport.
@@ -170,6 +180,20 @@ class IncomingMessageHandler {
   /// evicted (timer cancelled + warning) to prevent unbounded memory growth
   /// when a server sends many update events for GUIDs that never resolve.
   static const int _maxPendingUpdates = 500;
+
+  // ── Push copies and catch-up ─────────────────────────────────────────────
+
+  /// GUIDs saved here from a push copy that no fuller copy has replaced yet. A push copy lacks fields the socket
+  /// sends (the server trims it for FCM's 4KB limit), so the socket's copy of one goes through dedupe to replace it.
+  final Set<String> _pushCopies = {};
+
+  /// How long the socket gets to deliver its own copy of a pushed message before a catch-up sync is asked for.
+  static const Duration _socketCopyGrace = Duration(seconds: 5);
+
+  /// Whether a message was lost on the way (an update for a message never stored), so the next catch-up runs even
+  /// with no push copy left.
+  bool _catchUpRequested = false;
+  Timer? _catchUpTimer;
 
   // ── Per-GUID serial chain ────────────────────────────────────────────────
 
@@ -310,6 +334,9 @@ class IncomingMessageHandler {
     _pendingUpdates.clear();
     _inflightByGuid.clear();
     _processedGuids.clear();
+    _catchUpTimer?.cancel();
+    _catchUpTimer = null;
+    _pushCopies.clear();
     // Fail any payloads still waiting in the queue so their futures don't hang.
     while (_incomingQueue.isNotEmpty) {
       _incomingQueue.removeFirst().completer.completeError(
@@ -331,8 +358,10 @@ class IncomingMessageHandler {
       tag: _tag,
     );
 
-    // 1. Deduplication — skip real GUIDs we have already fully handled.
-    if (m.guid != null && _hasProcessed(m.guid!)) {
+    // 1. Deduplication — skip real GUIDs we have already fully handled, unless this is a fuller copy of one saved
+    //    from a push.
+    final replacesPushCopy = payload.source != MessageSource.methodChannel && _pushCopies.contains(m.guid);
+    if (m.guid != null && _hasProcessed(m.guid!) && !replacesPushCopy) {
       Logger.debug('[new-message] skipping already-processed ${m.guid}', tag: _tag);
       return;
     }
@@ -355,6 +384,19 @@ class IncomingMessageHandler {
       return;
     }
 
+    // 2b. A group photo resent under a new message GUID, or one this app never had. Decided before the chat is
+    //     hydrated, which saves the server's copy of the chat over the stored one.
+    String? groupPhoto;
+    if (m.isGroupPhotoState || m.isGroupPhotoChanged) {
+      groupPhoto = await _groupPhotoOf(payload);
+      final known = Chat.findOne(guid: payload.chat.guid)?.knownGroupPhotoGuid;
+      if (m.isGroupPhotoState && isKnownGroupPhoto(groupPhoto, known)) {
+        Logger.debug('[new-message] ${m.guid} repeats a group photo already shown — not adding it', tag: _tag);
+        if (m.guid != null) _markProcessed(m.guid!);
+        return;
+      }
+    }
+
     // 3. Chat hydration — ensures participants and DB ID are populated.
     final hydrated = await _hydrateChat(payload.chat, m);
     Chat c = hydrated.chat;
@@ -362,10 +404,16 @@ class IncomingMessageHandler {
       ContactsSvcV2.notifyHandlesUpdated(hydrated.affectedHandleIds);
     }
 
+    // The photo this event showed is now the known one, so a later resend of it is recognised.
+    if (groupPhoto != null && groupPhoto != c.knownGroupPhotoGuid) {
+      c.knownGroupPhotoGuid = groupPhoto;
+      await c.saveAsync(updateKnownGroupPhotoGuid: true);
+    }
+
     // 4. Persist to DB.
     //    Only suppress the "from me" notification clear for reactions so that a
     //    notification-triggered reaction doesn't lose its source notification.
-    final clearNotificationFromMe = (m.isFromMe ?? false) && m.associatedMessageGuid == null;
+    final clearNotificationFromMe = (m.isFromMe ?? false) && !m.isReaction;
     final saved = _saveMessageForTest != null
         ? await _saveMessageForTest(c, m, incomingAttachments)
         : (await c.addMessage(
@@ -377,7 +425,10 @@ class IncomingMessageHandler {
 
     // 5. Mark as processed before any async I/O so a duplicate delivery that
     //    races in while we're playing a sound or sending a notification skips.
-    if (saved.guid != null) _markProcessed(saved.guid!);
+    if (saved.guid != null) {
+      _markProcessed(saved.guid!);
+      _notePersisted(saved.guid!, payload.source);
+    }
 
     // 6. Complete any pending outgoing send-progress tracker.
     if (tempGuid != null && GetIt.I.isRegistered<OutgoingMessageHandler>()) {
@@ -465,6 +516,25 @@ class IncomingMessageHandler {
     if (saved.guid != null) _flushPendingUpdate(saved.guid!, c);
   }
 
+  /// The photo a group-photo event carries: the payload's own attachment, else the photo its chat's `properties` name.
+  /// A push payload carries neither, so then the chat is fetched once to read the photo the server has now. Null when
+  /// that fails too, and the event is kept, since a photo that cannot be identified cannot be called a repeat.
+  Future<String?> _groupPhotoOf(IncomingPayload payload) async {
+    final fromPayload = groupPhotoGuidFor(
+      attachmentGuids: payload.attachments.map((a) => a.guid),
+      chatGroupPhotoGuid: payload.chat.serverGroupPhotoGuid,
+    );
+    if (fromPayload != null) return fromPayload;
+    try {
+      final response = await HttpSvc.chat.fetchOne(payload.chat.guid);
+      final data = response.data is Map ? response.data['data'] : null;
+      if (data is Map) return groupPhotoGuidInProperties(data['properties']);
+    } catch (e, s) {
+      Logger.warn('Could not read the group photo for a chat', error: e, trace: s, tag: _tag);
+    }
+    return null;
+  }
+
   // ── Updated-message pipeline ────────────────────────────────────────────
 
   Future<void> _processUpdatedMessage(IncomingPayload payload) async {
@@ -507,6 +577,18 @@ class IncomingMessageHandler {
       return;
     }
 
+    // A push copy never carries datePlayed, which isNewerThan counts: without it, a pushed edit or unsend of a played
+    // message would look older than the stored one.
+    if (payload.source == MessageSource.methodChannel) m.datePlayed ??= existing.datePlayed;
+
+    // 3b. A group photo resent. Messages writes the group's photo state again under the GUID it already has and
+    //     dated now, and the server announces it as a new row. Applying it would move the stored event to now and
+    //     draw it a second time after whatever the user just sent, for a photo that did not change.
+    if (isGroupPhotoResend(incoming: m, stored: existing)) {
+      Logger.debug('[updated-message] ${m.guid} is a group photo resent — keeping the stored row', tag: _tag);
+      return;
+    }
+
     // 4. Chat hydration.
     final hydrated = await _hydrateChat(payload.chat, m);
     Chat c = hydrated.chat;
@@ -516,7 +598,11 @@ class IncomingMessageHandler {
 
     // 5. Persist the GUID swap / field update.
     final existingGuid = tempGuid ?? existing.guid!;
-    await _replaceMessage(c, existingGuid, existing, m);
+    final written = await _replaceMessage(c, existingGuid, existing, m);
+    // A full copy that adds nothing to the stored one leaves it as complete as written
+    if (m.guid != null && (written || (payload.source != MessageSource.methodChannel && !m.fillsGapsIn(existing)))) {
+      _notePersisted(m.guid!, payload.source);
+    }
 
     // 6. Persist attachment GUID swaps (e.g. temp attachment → real GUID).
     await _replaceAttachments(c, existingGuid, existing, m, replacementAttachments);
@@ -589,19 +675,27 @@ class IncomingMessageHandler {
   ///
   /// Handles the case where a parallel delivery path (e.g. HTTP response +
   /// socket) has already written [replacement.guid] to the DB.
-  Future<void> _replaceMessage(
-    Chat chat,
-    String existingGuid,
-    Message existing,
-    Message replacement,
-  ) async {
+  ///
+  /// Returns whether [replacement] was written.
+  Future<bool> _replaceMessage(Chat chat, String existingGuid, Message existing, Message replacement) async {
     final alreadyPresent = Message.findOne(guid: replacement.guid);
+    var written = false;
 
     if (alreadyPresent != null) {
       // The replacement record already exists (parallel delivery).
-      // Only overwrite if the incoming payload is newer.
-      if (replacement.isNewerThan(alreadyPresent)) {
+      // Only overwrite if the incoming payload is newer, or re-links the message: an iMessage app turn becomes type 3
+      // when a newer turn replaces it, which changes none of the dates isNewerThan compares. A stale copy that would
+      // take a replaced turn back to type 2 doesn't count.
+      final relinkedType = AppSessionTypes.mergedType(alreadyPresent.balloonBundleId,
+          alreadyPresent.associatedMessageType, replacement.associatedMessageType);
+      // An equally recent copy replaces it too when it has fields the stored one lacks (a push copy saved first).
+      if ((!alreadyPresent.isNewerThan(replacement) && replacement.fillsGapsIn(alreadyPresent)) ||
+          replacement.isNewerThan(alreadyPresent) ||
+          relinkedType != alreadyPresent.associatedMessageType ||
+          (relinkedType == replacement.associatedMessageType &&
+              replacement.associatedMessageGuid != alreadyPresent.associatedMessageGuid)) {
         await Message.replaceMessage(replacement.guid, replacement);
+        written = true;
       }
 
       // Clean up the stale temp record when the real one is now present.
@@ -612,6 +706,7 @@ class IncomingMessageHandler {
     } else {
       try {
         await Message.replaceMessage(existingGuid, replacement);
+        written = true;
       } catch (ex, st) {
         Logger.warn(
           '[_replaceMessage] failed: $existingGuid → ${replacement.guid}',
@@ -621,9 +716,9 @@ class IncomingMessageHandler {
         );
       }
     }
+    return written;
   }
 
-  // Match by equal GUID first, then the temp batch slot, then the attachment index.
   Future<void> _replaceAttachments(
     Chat chat,
     String existingGuid,
@@ -631,21 +726,44 @@ class IncomingMessageHandler {
     Message replacement,
     List<Attachment?> replacementAttachments,
   ) async {
+    final unmatched = existing.dbAttachments.toList();
     for (int i = 0; i < replacementAttachments.length; i++) {
       final newAttachment = replacementAttachments[i];
       if (newAttachment == null) continue;
 
       // Resolve which local GUID currently owns this attachment slot.
       final String attachmentExistingGuid;
-      if (existing.dbAttachments.any((attachment) => attachment.guid == newAttachment.guid)) {
+      if (existingGuid.startsWith('temp-') &&
+          unmatched.any((attachment) => attachment.guid == newAttachment.guid)) {
         attachmentExistingGuid = newAttachment.guid!;
-      } else if (i < existing.dbAttachments.length &&
-          existing.dbAttachments[i].guid?.startsWith('$existingGuid-') == true) {
-        attachmentExistingGuid = existing.dbAttachments[i].guid!;
-      } else if (existingGuid.startsWith('temp-')) {
+        unmatched.removeWhere((attachment) => attachment.guid == attachmentExistingGuid);
+      } else if (existingGuid.startsWith('temp-') && existing.dbAttachments.length <= 1) {
         attachmentExistingGuid = existingGuid;
-      } else if (existing.dbAttachments.isNotEmpty && i < existing.dbAttachments.length) {
-        attachmentExistingGuid = existing.dbAttachments[i].guid ?? existingGuid;
+      } else if (existingGuid.startsWith('temp-')) {
+        // Multi-attachment send: match each temp attachment by message part, then name, then position
+        final partGuid = OutgoingMultiAttachment.sentTempGuid(existingGuid, replacement, newAttachment);
+        final match = unmatched.firstWhereOrNull((a) => partGuid != null && a.guid == partGuid) ??
+            unmatched.firstWhereOrNull((a) => a.transferName == newAttachment.transferName) ??
+            unmatched.firstOrNull;
+        // No attachment carries the message's temp GUID in a multi-attachment send, so there's nothing to replace
+        if (match == null) continue;
+        unmatched.remove(match);
+        attachmentExistingGuid = match.guid!;
+      } else if (existing.dbAttachments.isNotEmpty) {
+        // Real GUIDs: the server doesn't promise the attachments' order, so match by GUID, then by the GUID Messages
+        // renamed it from, and by position only when no server attachment claims the row there
+        final positional = i < existing.dbAttachments.length ? existing.dbAttachments[i] : null;
+        final match = unmatched.firstWhereOrNull((a) => a.guid == newAttachment.guid) ??
+            unmatched.firstWhereOrNull(
+              (a) => newAttachment.originalGuid != null && a.guid == newAttachment.originalGuid,
+            ) ??
+            (positional != null &&
+                    unmatched.contains(positional) &&
+                    !replacementAttachments.any((r) => r?.guid == positional.guid || r?.originalGuid == positional.guid)
+                ? positional
+                : null);
+        if (match != null) unmatched.remove(match);
+        attachmentExistingGuid = match?.guid ?? existingGuid;
       } else {
         attachmentExistingGuid = existingGuid;
       }
@@ -658,8 +776,10 @@ class IncomingMessageHandler {
         if (alreadyPresent != null) {
           await Attachment.replaceAttachmentAsync(newAttachment.guid, newAttachment);
 
-          // Delete the stale temp record if it's distinct from the real one.
-          if (attachmentExistingGuid != newAttachment.guid) {
+          // Delete the stale temp record if it's distinct from the real one, or the row still under the GUID Messages
+          // renamed it from. Any other real GUID is another attachment.
+          if (attachmentExistingGuid != newAttachment.guid &&
+              (attachmentExistingGuid.startsWith('temp-') || attachmentExistingGuid == newAttachment.originalGuid)) {
             final staleTemp = await Attachment.findOneAsync(attachmentExistingGuid);
             if (staleTemp != null) await Attachment.deleteAsync(staleTemp.guid!);
           }
@@ -761,7 +881,13 @@ class IncomingMessageHandler {
   /// Notifies the UI layer about an update to an existing message.
   void _dispatchUpdatedMessage(Chat chat, Message message, {String? oldGuid}) {
     if (Get.isRegistered<MessagesService>(tag: chat.guid)) {
-      MessagesSvc(chat.guid).updateMessage(message, oldGuid: oldGuid);
+      final svc = MessagesSvc(chat.guid);
+      final showing =
+          svc.struct.getMessage(oldGuid ?? message.guid!) != null || svc.struct.getMessage(message.guid!) != null;
+      svc.updateMessage(message, oldGuid: oldGuid);
+      // Not showing: either history older than what's loaded, or another engine saved it first (a push while this is
+      // a bubble), so this engine only sees the update.
+      if (!showing) unawaited(svc.addMissedMessage(message));
     }
 
     EventDispatcherSvc.emit('updated-message', {
@@ -786,8 +912,9 @@ class IncomingMessageHandler {
   /// always carries the most up-to-date data.  The expiry timer is reset so the
   /// fresh update gets its own full timeout window.
   ///
-  /// If no matching new-message arrives within [_pendingUpdateTimeout], the
-  /// parked payload is discarded with a warning.
+  /// If no matching new-message arrives within [_pendingUpdateTimeout], it was lost, and the parked payload is dropped
+  /// for a catch-up sync ([requestCatchUp]), which brings the message back as it is now. Saving the update as the
+  /// message instead could bring back one from before the last sync, notifying for it.
   Future<void> _parkPendingUpdate(IncomingPayload payload) async {
     final guid = payload.message.guid;
     if (guid == null) return;
@@ -821,18 +948,10 @@ class IncomingMessageHandler {
       final oldest = _pendingUpdates.remove(oldestGuid)!;
       oldest.expiryTimer?.cancel();
       Logger.warn(
-        'Pending-update buffer full ($_maxPendingUpdates) — evicting oldest entry $oldestGuid, '
-        'retrying once and dropping if no DB record exists',
+        'Pending-update buffer full ($_maxPendingUpdates): evicting oldest entry $oldestGuid for a catch-up sync',
         tag: _tag,
       );
-      unawaited(handle(oldest.payload.copyWith(isPendingUpdateRetry: true), front: true).catchError((e, st) {
-        Logger.error(
-          'Failed to process evicted buffered update for $oldestGuid — update is lost',
-          error: e,
-          trace: st,
-          tag: _tag,
-        );
-      }));
+      requestCatchUp();
     }
 
     final pending = _PendingUpdate(payload: payload);
@@ -841,17 +960,10 @@ class IncomingMessageHandler {
       if (expired != null) {
         Logger.warn(
           'Buffered update for $guid expired after ${_pendingUpdateTimeout.inSeconds}s '
-          'without a matching new-message — retrying once and dropping if no DB record exists',
+          'without a matching new-message, asking for a catch-up sync',
           tag: _tag,
         );
-        unawaited(handle(expired.payload.copyWith(isPendingUpdateRetry: true), front: true).catchError((e, st) {
-          Logger.error(
-            'Failed to process expired buffered update for $guid — update is lost',
-            error: e,
-            trace: st,
-            tag: _tag,
-          );
-        }));
+        requestCatchUp();
       }
     });
     _pendingUpdates[guid] = pending;
@@ -880,6 +992,43 @@ class IncomingMessageHandler {
         tag: _tag,
       );
     }));
+  }
+
+  // ── Catch-up ─────────────────────────────────────────────────────────────
+
+  /// Records which kind of copy of [guid] is stored now: a push copy waits for the socket's, and has a catch-up sync
+  /// fill it in if that doesn't come.
+  void _notePersisted(String guid, MessageSource source) {
+    if (source == MessageSource.methodChannel) {
+      _pushCopies.add(guid);
+      _armCatchUp();
+    } else {
+      _pushCopies.remove(guid);
+    }
+  }
+
+  /// Asks for one incremental sync, for a message lost on the way. Every request and push copy within
+  /// [_socketCopyGrace] shares it, and the sync fetches them in pages from its own isolate, so a burst of pushes
+  /// costs one sync rather than a request each.
+  void requestCatchUp() {
+    _catchUpRequested = true;
+    _armCatchUp();
+  }
+
+  void _armCatchUp() {
+    // The sync runs from the app. A headless isolate's push copies are filled in by the app's next sync instead.
+    if (!GetIt.I.isRegistered<SyncService>() || !GetIt.I.isRegistered<SocketService>()) return;
+    _catchUpTimer ??= Timer(_socketCopyGrace, () {
+      _catchUpTimer = null;
+      if (!_catchUpRequested && _pushCopies.isEmpty) return;
+      final count = _pushCopies.length;
+      _catchUpRequested = false;
+      _pushCopies.clear();
+      // Without a socket the server is likely out of reach, and the sync that runs on reconnecting covers these
+      if (SocketSvc.state.value != SocketState.connected) return;
+      Logger.info('Catch-up sync for $count push copies the socket did not replace', tag: _tag);
+      unawaited(SyncSvc.startIncrementalSync(catchUp: true));
+    });
   }
 
   // ── Deduplication helpers ────────────────────────────────────────────────

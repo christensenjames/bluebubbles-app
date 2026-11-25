@@ -461,7 +461,6 @@ class _BackupRestorePanelState extends State<BackupRestorePanel> with ThemeHelpe
             fileName: "BB-Settings-$name.json",
             initialDirectory: downloadsDir,
             bytes: utf8.encode(jsonString),
-            allowedExtensions: ["json"],
           );
           if (_filePath == null) return;
           filePath = _filePath;
@@ -564,8 +563,10 @@ class _BackupRestorePanelState extends State<BackupRestorePanel> with ThemeHelpe
   }
 
   Future<void> _restoreSettingsFromFile() async {
-    final res = await FilePicker.pickFiles(withData: true, type: FileType.custom, allowedExtensions: ["json"]);
-    if (res == null || res.files.isEmpty || res.files.first.bytes == null || !mounted) return;
+    final res = await FilePicker.pickFile(type: FileType.custom, allowedExtensions: ["json"]);
+    if (res == null) return;
+    final bytes = await res.readAsBytes();
+    if (!context.mounted) return;
     BackupRestoreDialogs.showConfirmation(
       context: context,
       title: "Restore Settings?",
@@ -575,7 +576,7 @@ class _BackupRestorePanelState extends State<BackupRestorePanel> with ThemeHelpe
       onYes: () async {
         Navigator.of(context, rootNavigator: true).pop();
         try {
-          String jsonString = const Utf8Decoder().convert(res.files.first.bytes!);
+          String jsonString = const Utf8Decoder().convert(bytes);
           Map<String, dynamic> json = jsonDecode(jsonString);
           Settings.updateFromMap(Settings.forBackupRestore(json), includeAll: false);
           await BackupRestoreActions.applyRestoredSettings();
@@ -703,7 +704,6 @@ class _BackupRestorePanelState extends State<BackupRestorePanel> with ThemeHelpe
           fileName: themeFilename,
           initialDirectory: downloadsDir,
           bytes: utf8.encode(jsonStr),
-          allowedExtensions: ["json"],
         );
         if (_filePath == null) return;
         filePath = _filePath;
@@ -725,8 +725,10 @@ class _BackupRestorePanelState extends State<BackupRestorePanel> with ThemeHelpe
   }
 
   Future<void> _restoreThemesFromFile() async {
-    final res = await FilePicker.pickFiles(withData: true, type: FileType.custom, allowedExtensions: ["json"]);
-    if (res == null || res.files.isEmpty || res.files.first.bytes == null || !mounted) return;
+    final res = await FilePicker.pickFile(type: FileType.custom, allowedExtensions: ["json"]);
+    if (res == null) return;
+    final bytes = await res.readAsBytes();
+    if (!context.mounted) return;
 
     BackupRestoreDialogs.showConfirmation(
       context: context,
@@ -737,7 +739,7 @@ class _BackupRestorePanelState extends State<BackupRestorePanel> with ThemeHelpe
       onYes: () async {
         Navigator.of(context, rootNavigator: true).pop();
         try {
-          String jsonString = const Utf8Decoder().convert(res.files.first.bytes!);
+          String jsonString = const Utf8Decoder().convert(bytes);
           List<dynamic> json = jsonDecode(jsonString);
           for (var e in json) {
             ThemeStruct object = ThemeStruct.fromMap(e);

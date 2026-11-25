@@ -35,6 +35,10 @@ class ConversationViewController extends StatefulController with GetTickerProvid
   late final String tag;
   bool fromChatCreator = false;
   bool fromSearchResult = false;
+
+  /// The ConversationView that may delete this controller. Moving across the tablet breakpoint builds the new view
+  /// before disposing the old one, and both share this controller.
+  Object? viewOwner;
   bool addedRecentPhotoReply = false;
   bool inSplitPane = false;
   final AutoScrollController scrollController = AutoScrollController();
@@ -71,14 +75,26 @@ class ConversationViewController extends StatefulController with GetTickerProvid
   final GlobalKey focusInfoKey = GlobalKey();
   final GlobalKey typingInfoKey = GlobalKey();
   final RxBool recipientNotifsSilenced = false.obs;
-  final RxBool showSmartReplyRow = false.obs;
-  final RxDouble smartReplyRowHeight = 0.0.obs;
+  final RxBool showPillRow = false.obs;
+  final RxDouble pillRowHeight = 0.0.obs;
+
+  /// Whether the pill row holds any quick action. The row shows two kinds of pill: smart replies (ML suggestions,
+  /// cleared when an outgoing message lands) and quick actions (the app's own "Attach recent photo" and "Jump to
+  /// oldest unread", which are not). A row with a quick action therefore keeps its height through a send, and
+  /// [SendAnimation] reads this to decide whether to leave that height in its landing target.
+  bool pillRowHasQuickActions = false;
   bool showingOverlays = false;
 
-  /// True while a pointer is actively dragging a [MessageImageGallery] fan of
+  /// True while a pointer is actively dragging a [CollectionGroupStack] fan of
   /// cards, so the list-wide timestamp-reveal swipe in [MessagesView] can
-  /// ignore that drag instead of fighting the gallery for the same gesture.
-  bool isGalleryDragging = false;
+  /// ignore that drag instead of fighting the collection stack for the same gesture.
+  bool isCollectionDragging = false;
+
+  /// Media collection grids the user expanded with a `+N` long-press, keyed by
+  /// `CollectionGroupGrid.expansionKey`. Lives here rather than in the grid's
+  /// State so a grid stays expanded after scrolling off screen and back, for as
+  /// long as the conversation is open.
+  final Set<String> expandedCollectionGrids = {};
 
   /// True while any route is pushed on top of the conversation view route (e.g.
   /// ConversationDetails). Used by onAppResume to skip keyboard auto-focus on mobile.
@@ -91,10 +107,33 @@ class ConversationViewController extends StatefulController with GetTickerProvid
 
   // text field items
   final RxBool showAttachmentPicker = false.obs;
-  RxBool showEmojiPicker = false.obs;
+
+  /// OpenPigeon's game picker, shown below the text field in the keyboard's place.
+  final RxBool showGamePicker = false.obs;
+
+  /// Formatting and text effects, shown below the text field in the keyboard's place (mobile).
+  final RxBool showTextFormattingPanel = false.obs;
+
+  /// Whether this chat can send formatted text: formatted text goes out as a multipart message, which needs the
+  /// Private API, an iMessage chat, and a server that sends `textFormatting`.
+  bool get canFormatText =>
+      SettingsSvc.settings.enablePrivateAPI.value && chat.isIMessage && SettingsSvc.serverDetails.supportsTextFormatting;
+
+  /// The keyboard's height when the panel last opened, so swapping one for the other doesn't move the field.
+  double textFormattingPanelHeight = 300;
+  /// The mobile attachment picker's grid is showing the Genmoji library rather than photos.
+  /// Lives here so the conversation view's back handler can step back to photos before it
+  /// closes the picker. The picker resets it to false each time it opens.
+  final RxBool showGenmojiLibrary = false.obs;
+
+  /// The same, for the Mac's sticker library. At most one of the two is set.
+  final RxBool showStickerLibrary = false.obs;
   final GlobalKey textFieldKey = GlobalKey();
   final GlobalKey<SendButtonState> sendButtonKey = GlobalKey<SendButtonState>();
   final RxList<PlatformFile> pickedAttachments = <PlatformFile>[].obs;
+
+  /// An OpenPigeon game picked from the game picker, sent with the next send.
+  final Rxn<Map<String, dynamic>> pendingGame = Rxn<Map<String, dynamic>>();
   final focusNode = FocusNode();
   final subjectFocusNode = FocusNode();
   late final textController = MentionTextEditingController(focusNode: focusNode);
@@ -115,7 +154,7 @@ class ConversationViewController extends StatefulController with GetTickerProvid
     }
   }
 
-  late final mentionables = chat.handles
+  late final mentionables = chat.people
       .map((e) => Mentionable(
             handle: e,
           ))
@@ -180,6 +219,7 @@ class ConversationViewController extends StatefulController with GetTickerProvid
     super.onInit();
 
     textController.mentionables = mentionables;
+    textController.formattingAllowed = () => canFormatText;
     Logger.debug('Created composer for ${chat.guid} ($composerIds)', tag: 'Composer');
     _keyboardSub = KeyboardVisibilityController().onChange.listen((bool visible) async {
       keyboardOpen = visible;
@@ -236,7 +276,7 @@ class ConversationViewController extends StatefulController with GetTickerProvid
     _newMessageSub?.cancel();
     _scrollDownDebounce?.cancel();
     messageListGate.dispose();
-    updateSmartReplyLayout(visible: false, height: 0);
+    updatePillRowLayout(visible: false, height: 0);
     for (PlayerController a in audioPlayers.values) {
       a.pausePlayer();
       a.dispose();
@@ -251,19 +291,18 @@ class ConversationViewController extends StatefulController with GetTickerProvid
     final entries = editing.toList();
     editing.clear();
     _disposeEditEntriesAfterFrame(entries);
-    Logger.debug('Closing composer for ${chat.guid} ($composerIds); disposing after this frame', tag: 'Composer');
-    // Chat switches close this before the old route unmounts, and disposing a FocusNode that a mounted field still
-    // holds corrupts the focus tree, leaving the next composer unable to take input. Wait for the unmount.
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      scrollController.dispose();
-      focusNode.dispose();
-      subjectFocusNode.dispose();
-      textController.dispose();
-      subjectTextController.dispose();
-      _composerDisposed = true;
-      Logger.debug('Disposed composer for ${chat.guid} ($composerIds)', tag: 'Composer');
-    });
     super.onClose();
+  }
+
+  void disposeComposer() {
+    if (_composerDisposed) return;
+    scrollController.dispose();
+    focusNode.dispose();
+    subjectFocusNode.dispose();
+    textController.dispose();
+    subjectTextController.dispose();
+    _composerDisposed = true;
+    Logger.debug('Disposed composer for ${chat.guid} ($composerIds)', tag: 'Composer');
   }
 
   /// Disposes and evicts the cached [VideoController] for [attachmentGuid] -- call before a
@@ -328,7 +367,6 @@ class ConversationViewController extends StatefulController with GetTickerProvid
     _disposeEditEntriesAfterFrame(removed);
   }
 
-  // The edit TextField keeps using the controller until it unmounts on the next frame.
   void _disposeEditEntriesAfterFrame(List<MessageEditEntry> entries) {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       for (final e in entries) {
@@ -338,19 +376,20 @@ class ConversationViewController extends StatefulController with GetTickerProvid
     });
   }
 
-  void updateSmartReplyLayout({required bool visible, required double height}) {
-    if (showSmartReplyRow.value != visible) {
-      showSmartReplyRow.value = visible;
+  void updatePillRowLayout({required bool visible, required double height, bool hasQuickActions = false}) {
+    pillRowHasQuickActions = visible && hasQuickActions;
+    if (showPillRow.value != visible) {
+      showPillRow.value = visible;
     }
 
     final nextHeight = visible ? height : 0.0;
-    if (smartReplyRowHeight.value != nextHeight) {
-      smartReplyRowHeight.value = nextHeight;
+    if (pillRowHeight.value != nextHeight) {
+      pillRowHeight.value = nextHeight;
     }
   }
 
   void close() {
-    updateSmartReplyLayout(visible: false, height: 0);
+    updatePillRowLayout(visible: false, height: 0);
     ChatsSvc.setAllInactiveSync();
     deleteIfCurrent();
   }

@@ -45,8 +45,15 @@ if (flutterVersionName == null) {
 
 android {
     namespace "com.bluebubbles.messaging"
-    compileSdk 36
+    compileSdk 37 // permission_handler_android 14 requires it; targetSdk stays separate
     ndkVersion = "28.2.13676358"
+
+    // Already the default on AGP 8, but AGP 9 flips resValues to false. The product flavors
+    // below declare resValue entries (app_name_en, ic_launcher_background, file_provider),
+    // so stating it explicitly keeps configuration working across that bump.
+    buildFeatures {
+        resValues = true
+    }
 
     lintOptions {
         checkReleaseBuilds false
@@ -72,6 +79,10 @@ android {
         targetCompatibility = JavaVersion.VERSION_21
     }
 
+    buildFeatures {
+        aidl true
+    }
+
     kotlinOptions {
         jvmTarget = '21'
     }
@@ -79,6 +90,13 @@ android {
     // Fix for META-INF/versions/9/OSGI-INF/MANIFEST.MF duplicate file error
     // This is a known issue with the latest version of OkHttp.
     packaging {
+        // Store native libs compressed and extract them at install, which keeps the APK
+        // smaller. This used to be android:extractNativeLibs="true" in the manifest, which
+        // AGP 9 rejects in favor of this setting. prodNoAa overrides it, see
+        // androidComponents below.
+        jniLibs {
+            useLegacyPackaging = true
+        }
         resources {
             excludes += ['META-INF/versions/9/OSGI-INF/MANIFEST.MF']
         }
@@ -173,8 +191,61 @@ android {
     }
 }
 
+// Native lib packaging is chosen per distribution channel:
+// - Sideloaded APKs (prod on GitHub releases, alpha/beta/dev) keep libs compressed. The
+//   APK file is what users download, and uncompressed libs nearly double its size.
+// - prodNoAa is the Play Store bundle. Play compresses downloads in transit, so storing
+//   libs uncompressed costs nothing there. Devices then load them straight from the APK,
+//   which skips extraction at install and the extra on-device copy of every lib.
+// The same variant produces both APKs and bundles, so this is keyed on flavor, not on
+// the output type.
+androidComponents {
+    onVariants(selector().all()) { variant ->
+        if (variant.flavorName == 'prodNoAa') {
+            variant.packaging.jniLibs.useLegacyPackaging.set(false)
+            variant.packaging.jniLibs.useLegacyPackagingFromBundle.set(false)
+        }
+    }
+}
+
 flutter {
     source '../..'
+}
+
+// Keep Flutter's generated plugin list, but register our multi-engine preferences owner
+// instead of the stock plugin. Compile a transformed COPY; never edit Flutter's generated
+// file or dependency sources. This also covers engines created by other plugins.
+def flutterRegistrant = file('src/main/java/io/flutter/plugins/GeneratedPluginRegistrant.java')
+abstract class GenerateEngineSafeRegistrant extends DefaultTask {
+    @InputFile
+    abstract RegularFileProperty getRegistrant()
+
+    @OutputDirectory
+    abstract DirectoryProperty getOutputDirectory()
+
+    @TaskAction
+    void generate() {
+        def preferencesConstructor = 'new io.flutter.plugins.sharedpreferences.SharedPreferencesPlugin()'
+        def source = registrant.get().asFile.getText('UTF-8')
+        if (source.count(preferencesConstructor) != 1) {
+            throw new GradleException('Flutter plugin registrant changed: review the SharedPreferences engine wrapper.')
+        }
+        def output = outputDirectory.file('io/flutter/plugins/GeneratedPluginRegistrant.java').get().asFile
+        output.parentFile.mkdirs()
+        def replacement = 'new com.bluebubbles.messaging.services.backend_ui_interop.SharedPreferencesEnginePlugin()'
+        output.setText(source.replace(preferencesConstructor, replacement), 'UTF-8')
+    }
+}
+def generateEngineSafeRegistrant = tasks.register('generateEngineSafeRegistrant', GenerateEngineSafeRegistrant) {
+    registrant.set(flutterRegistrant)
+    outputDirectory.set(layout.buildDirectory.dir('generated/source/engineSafeRegistrant'))
+}
+android.sourceSets.main.java {
+    // Exclude only the original absolute file, not the generated copy with the same name.
+    exclude { element -> element.file == flutterRegistrant }
+}
+androidComponents.onVariants(androidComponents.selector().all()) { variant ->
+    variant.sources.java.addGeneratedSourceDirectory(generateEngineSafeRegistrant, { it.outputDirectory })
 }
 
 dependencies {

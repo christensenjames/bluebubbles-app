@@ -1,4 +1,3 @@
-import 'package:bluebubbles/app/components/custom_text_editing_controllers.dart';
 import 'package:bluebubbles/app/layouts/conversation_details/dialogs/timeframe_picker.dart';
 import 'package:bluebubbles/app/layouts/conversation_view/widgets/effects/send_effect_picker.dart';
 import 'package:bluebubbles/database/global/platform_file.dart';
@@ -45,7 +44,7 @@ void sendTextFieldEffects(
   String text,
   String subjectText,
   Future<void> Function({String? effect}) sendMessage,
-  List<Mentionable> mentionables,
+  List<Run> textRuns,
 ) {
   if (controller.scheduledDate.value != null) {
     showSnackbar("Error", "Private API features are not supported when scheduling!", type: SnackbarType.error);
@@ -60,6 +59,6 @@ void sendTextFieldEffects(
     controller.replyToMessage?.partIndex,
     controller.chat.guid,
     sendMessage,
-    mentionables,
+    textRuns,
   );
 }
