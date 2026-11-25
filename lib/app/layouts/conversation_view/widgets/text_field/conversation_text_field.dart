@@ -19,7 +19,6 @@ import 'package:bluebubbles/services/services.dart';
 import 'package:bluebubbles/services/ui/chat/send_data.dart';
 import 'package:bluebubbles/utils/logger/logger.dart';
 import 'package:collection/collection.dart';
-import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart' hide Response;
@@ -385,24 +384,11 @@ class ConversationTextFieldState extends CustomState<ConversationTextField, void
         },
       );
       rootNav.push(route);
-      Response? response;
-      try {
-        response = await HttpSvc.message.createScheduled(chat.guid, text, date.toUtc(), {"type": "once"});
-      } catch (e, s) {
-        if (e is Response) {
-          response = e;
-        } else {
-          Logger.error("Scheduled message error", error: e, trace: s);
-        }
-      }
+      final scheduled = await ScheduledMsgsSvc.create(chat.guid, text, date.toUtc(), {"type": "once"});
       NavigationSvc.closeRoute(route);
-      if (response != null && response.statusCode == 200 && response.data != null) {
+      if (scheduled != null) {
         showSnackbar("Notice", "Message scheduled successfully for ${buildFullDate(date)}");
       } else {
-        if (response != null) {
-          Logger.error("Scheduled message error: ${response.statusCode}");
-          Logger.error(response.data);
-        }
         showSnackbar("Error", "Something went wrong!", type: SnackbarType.error);
       }
     } else {

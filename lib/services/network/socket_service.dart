@@ -386,7 +386,7 @@ class SocketService {
       // replaced on every restart, so a listener attached directly to it silently
       // stops firing the first time the connection is cycled.
       s.on("new-findmy-location", (data) => EventDispatcherSvc.emit('new-findmy-location', data)),
-      // Scheduled-message changes made on other clients; the open scheduled-messages panel listens on the dispatcher.
+      // Scheduled-message changes made on other clients; ScheduledMessagesService listens on the dispatcher.
       for (final event in _scheduledMessageEvents) s.on(event, (data) => EventDispatcherSvc.emit(event, data)),
     ]);
 

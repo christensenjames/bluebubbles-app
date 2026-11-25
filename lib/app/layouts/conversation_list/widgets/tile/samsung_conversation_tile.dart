@@ -124,6 +124,18 @@ class _SamsungTrailingState extends CustomState<SamsungTrailing, void, Conversat
       final unread = chatState.hasUnreadMessage.value;
       final muteType = chatState.muteType.value;
       final isPinned = chatState.isPinned.value;
+      final icons = [
+        if (hasScheduledMessage) scheduledIndicator(Icons.schedule, 16, context.theme.colorScheme.primary),
+        if (muteType == "mute")
+          Icon(
+            Icons.notifications_off,
+            color: controller.shouldHighlight.value || unread
+                ? context.theme.colorScheme.onSurface
+                : context.theme.colorScheme.outline,
+            size: 16,
+          ),
+        if (isPinned) Icon(Icons.star, size: 16, color: context.theme.colorScheme.tertiary),
+      ];
       return Padding(
         padding: const EdgeInsets.only(right: 3),
         child: Row(
@@ -151,17 +163,8 @@ class _SamsungTrailingState extends CustomState<SamsungTrailing, void, Conversat
             Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                if (isPinned) const SizedBox(width: 5.0),
-                if (muteType == "mute")
-                  Icon(
-                    Icons.notifications_off,
-                    color: controller.shouldHighlight.value || unread
-                        ? context.theme.colorScheme.onSurface
-                        : context.theme.colorScheme.outline,
-                    size: 16,
-                  ),
-                if (muteType == "mute") const SizedBox(width: 2.0),
-                if (isPinned) Icon(Icons.star, size: 16, color: context.theme.colorScheme.tertiary),
+                if (icons.isNotEmpty) const SizedBox(width: 5.0),
+                ...intersperse(const SizedBox(width: 2.0), icons),
               ],
             ),
           ],

@@ -277,6 +277,10 @@ class StartupTasks {
     await _waitForInterop(notifications: true);
 
     GetIt.I.registerSingleton<EventDispatcher>(EventDispatcher());
+    GetIt.I.registerSingleton<ScheduledMessagesService>(
+      ScheduledMessagesService(),
+      dispose: (svc) => svc.dispose(),
+    );
 
     Logger.info("Registering CustomGroupsService...");
     GetIt.I.registerSingleton<CustomGroupsService>(CustomGroupsService());

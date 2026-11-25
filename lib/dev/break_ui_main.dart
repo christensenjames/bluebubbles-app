@@ -9,6 +9,8 @@
 //   BB_OPEN=spam|<fixture chat id>    navigate after the list loads
 //   BB_SNACKBAR=delete|delete-thirty|save|spam-error
 //   BB_REDACT_AFTER=<seconds>         turn on redacted mode (hide contact info) that long after startup
+//   BB_SCHEDULED=1                    seed pending scheduled messages: one for sam; one plus a weekly one for bookclub
+//   BB_SCHEDULE_DRAFT=1               with BB_OPEN, type a draft and set a schedule time in the composer
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
@@ -99,6 +101,30 @@ Future<void> _afterStartup(Map<String, String> env, List<FixtureChat> chats) asy
     final guid = chats.firstWhere((c) => c.id == open).guid;
     final chat = ChatsSvc.getChatState(guid)!.chat;
     unawaited(NavigationSvc.pushAndRemoveUntil(Get.context!, ConversationView(chat: chat), (route) => route.isFirst));
+  }
+
+  if (env['BB_SCHEDULED'] != null) {
+    final now = DateTime.now();
+    ScheduledMessage item(int id, String chatId, String text, Duration ahead, Schedule schedule) => ScheduledMessage(
+          id: id,
+          type: 'send-message',
+          payload: Payload(chatGuid: chats.firstWhere((c) => c.id == chatId).guid, message: text, method: 'apple-script'),
+          scheduledFor: now.add(ahead),
+          schedule: schedule,
+          status: 'pending',
+          created: now,
+        );
+    ScheduledMsgsSvc.upsert(item(1, 'sam', 'Lunch at noon?', const Duration(days: 1, hours: 2), Schedule(type: 'once')));
+    ScheduledMsgsSvc.upsert(item(2, 'bookclub', 'Trash goes out tonight', const Duration(days: 4),
+        Schedule(type: 'recurring', interval: 1, intervalType: 'weekly')));
+    ScheduledMsgsSvc.upsert(item(3, 'bookclub', "I'll bring snacks", const Duration(hours: 5), Schedule(type: 'once')));
+  }
+
+  if (env['BB_SCHEDULE_DRAFT'] != null && open != null && open != 'spam') {
+    await Future.delayed(const Duration(seconds: 1));
+    final controller = cvc(ChatsSvc.getChatState(chats.firstWhere((c) => c.id == open).guid)!.chat);
+    controller.textController.text = 'See you there';
+    controller.scheduledDate.value = DateTime.now().add(const Duration(days: 1));
   }
 
   final redactAfter = env['BB_REDACT_AFTER'];

@@ -1,12 +1,10 @@
 import 'package:bluebubbles/helpers/helpers.dart';
 import 'package:bluebubbles/database/models.dart';
 import 'package:bluebubbles/services/services.dart';
-import 'package:bluebubbles/utils/logger/logger.dart';
-import 'package:dio/dio.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:get/get.dart' hide Response;
+import 'package:get/get.dart';
 
 mixin CreateScheduledMixin<T extends StatefulWidget> on State<T> {
   ScheduledMessage? get existingMessage;
@@ -106,52 +104,40 @@ mixin CreateScheduledMixin<T extends StatefulWidget> on State<T> {
         ? {"type": "once"}
         : {"type": "recurring", "interval": repeatInterval.value, "intervalType": frequency.value};
 
-    Response? response;
-    try {
-      if (existingMessage != null) {
-        response = await HttpSvc.message.updateScheduled(
-          existingMessage!.id,
-          selectedChat.value,
-          messageController.text,
-          date.value.toUtc(),
-          scheduleMap,
-          existingMessage!.payload.method,
-        );
-      } else {
-        response = await HttpSvc.message.createScheduled(
-          selectedChat.value,
-          messageController.text,
-          date.value.toUtc(),
-          scheduleMap,
-        );
-      }
-    } catch (e, s) {
-      if (e is Response) {
-        response = e;
-      } else {
-        Logger.error("Scheduled message error", error: e, trace: s);
-      }
+    final ScheduledMessage? message;
+    if (existingMessage == null) {
+      message = await ScheduledMsgsSvc.create(
+        selectedChat.value,
+        messageController.text,
+        date.value.toUtc(),
+        scheduleMap,
+      );
+    } else {
+      message = await ScheduledMsgsSvc.update(ScheduledMessage(
+        id: existingMessage!.id,
+        type: existingMessage!.type,
+        payload: Payload(
+          chatGuid: selectedChat.value,
+          message: messageController.text,
+          method: existingMessage!.payload.method,
+        ),
+        scheduledFor: date.value,
+        schedule: Schedule.fromJson(scheduleMap),
+        status: existingMessage!.status,
+        error: existingMessage!.error,
+        sentAt: existingMessage!.sentAt,
+        created: existingMessage!.created,
+      ));
     }
     NavigationSvc.closeRoute(route);
 
-    if (response != null && response.statusCode == 200 && response.data != null) {
-      final data = existingMessage != null ? existingMessage!.toJson() : response.data['data'];
-      if (existingMessage != null) {
-        for (String k in response.data['data'].keys) {
-          data[k] = response.data['data'][k];
-        }
-      }
-      final message = ScheduledMessage.fromJson(data);
+    if (message != null) {
       if (!mounted) {
         showSnackbar("Notice", "Scheduled message saved");
         return;
       }
       nav.pop(message);
     } else {
-      if (response != null) {
-        Logger.error("Scheduled message error: ${response.statusCode}");
-        Logger.error(response.data);
-      }
       showSnackbar("Error", "Something went wrong!", type: SnackbarType.error);
     }
   }

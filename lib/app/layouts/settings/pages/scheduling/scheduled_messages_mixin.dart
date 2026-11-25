@@ -1,17 +1,12 @@
-import 'dart:async';
-
 import 'package:bluebubbles/helpers/helpers.dart';
 import 'package:bluebubbles/database/models.dart';
 import 'package:bluebubbles/services/services.dart';
-import 'package:bluebubbles/utils/logger/logger.dart';
-import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart' hide Response;
 
 mixin ScheduledMessagesMixin<T extends StatefulWidget> on State<T> {
-  final RxList<ScheduledMessage> scheduled = <ScheduledMessage>[].obs;
-  final Rx<bool?> fetching = Rx<bool?>(true);
-  StreamSubscription? _eventSub;
+  RxList<ScheduledMessage> get scheduled => ScheduledMsgsSvc.scheduled;
+  Rx<bool?> get fetching => ScheduledMsgsSvc.fetching;
 
   List<ScheduledMessage> get oneTime =>
       scheduled.where((e) => e.schedule.type == "once" && e.status == "pending").toList();
@@ -28,51 +23,12 @@ mixin ScheduledMessagesMixin<T extends StatefulWidget> on State<T> {
     return pending.first.scheduledFor;
   }
 
-  void initScheduled() {
-    getExistingMessages();
-    _eventSub = EventDispatcherSvc.stream.listen((event) {
-      if (!mounted || !event.type.startsWith('scheduled-message-')) return;
-      if (event.type == 'scheduled-message-deleted' || event.data is! Map) {
-        getExistingMessages();
-      } else {
-        upsertScheduled(ScheduledMessage.fromJson(Map<String, dynamic>.from(event.data)));
-      }
-    });
-  }
+  void upsertScheduled(ScheduledMessage item) => ScheduledMsgsSvc.upsert(item);
 
-  @override
-  void dispose() {
-    _eventSub?.cancel();
-    super.dispose();
-  }
-
-  void upsertScheduled(ScheduledMessage item) {
-    final idx = scheduled.indexWhere((e) => e.id == item.id);
-    if (idx == -1) {
-      scheduled.add(item);
-    } else {
-      scheduled[idx] = item;
-    }
-  }
-
-  void getExistingMessages() async {
-    final response = await HttpSvc.message.getScheduled().catchError((_) {
-      if (mounted) fetching.value = null;
-      return Response(requestOptions: RequestOptions(path: ''));
-    });
-    if (response.statusCode == 200 && response.data['data'] != null) {
-      scheduled.value =
-          (response.data['data'] as List).map((e) => ScheduledMessage.fromJson(e)).toList().cast<ScheduledMessage>();
-      fetching.value = false;
-    }
-  }
+  void getExistingMessages() => ScheduledMsgsSvc.refresh();
 
   void deleteMessage(ScheduledMessage item) async {
-    final response = await HttpSvc.message.deleteScheduled(item.id);
-    if (response.statusCode == 200) {
-      scheduled.removeWhere((e) => e.id == item.id);
-    } else {
-      Logger.error(response.data);
+    if (!await ScheduledMsgsSvc.delete(item)) {
       showSnackbar("Error", "Something went wrong!", type: SnackbarType.error);
     }
   }
