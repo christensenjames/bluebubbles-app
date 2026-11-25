@@ -173,6 +173,20 @@ class Message {
   @Transient()
   bool get isReply => threadOriginatorGuid != null;
 
+  static bool hasReplyFromMeSince(String threadGuid, DateTime? since) {
+    var condition = Message_.threadOriginatorGuid
+        .equals(threadGuid)
+        .and(Message_.isFromMe.equals(true))
+        .and(Message_.dateDeleted.isNull());
+    if (since != null) {
+      condition = condition.and(Message_.dateCreated.greaterThan(since.millisecondsSinceEpoch));
+    }
+    final query = Database.messages.query(condition).build();
+    final result = query.count() > 0;
+    query.close();
+    return result;
+  }
+
   Message({
     this.id,
     this.originalROWID,

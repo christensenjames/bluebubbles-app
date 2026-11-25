@@ -216,6 +216,8 @@ class Message {
     );
   }
 
+  static bool hasReplyFromMeSince(String threadGuid, DateTime? since) => false;
+
   Message save({Chat? chat, bool updateIsBookmarked = false}) {
     // Save the participant & set the handle ID to the new participant
     if (handle == null && handleId != null) {

@@ -7,11 +7,13 @@ import 'package:bluebubbles/services/isolates/isolate_event.dart';
 import 'package:bluebubbles/services/backend/settings/settings_service.dart';
 
 class PrefsInterface {
-  static Future<void> saveReplyToMessageState(String chatGuid, String? messageGuid, int? messagePart) async {
+  static Future<void> saveReplyToMessageState(String chatGuid, String? messageGuid, int? messagePart,
+      {int? pickedAt}) async {
     final data = {
       'chatGuid': chatGuid,
       'messageGuid': messageGuid,
       'messagePart': messagePart,
+      'pickedAt': pickedAt,
     };
 
     if (isIsolate) {

@@ -407,6 +407,7 @@ class ConversationViewController extends StatefulController with GetTickerProvid
       chat.guid,
       replyToMessage?.message.guid,
       replyToMessage?.partIndex,
+      pickedAt: replyToMessage?.pickedAt.millisecondsSinceEpoch,
     );
   }
 
@@ -416,9 +417,20 @@ class ConversationViewController extends StatefulController with GetTickerProvid
       final messageGuid = data['messageGuid'] as String;
       final messagePart = data['messagePart'] as int;
       final message = Message.findOne(guid: messageGuid);
-      if (message != null) {
-        replyToMessage = MessageReplyContext(message, messagePart);
+      final pickedAt = data['pickedAt'] as int?;
+      // A reply sent from another device never clears the one saved here
+      if (message != null &&
+          !Message.hasReplyFromMeSince(
+            message.threadOriginatorGuid ?? message.guid!,
+            pickedAt == null ? null : DateTime.fromMillisecondsSinceEpoch(pickedAt),
+          )) {
+        replyToMessage = MessageReplyContext(
+          message,
+          messagePart,
+          pickedAt: DateTime.fromMillisecondsSinceEpoch(pickedAt ?? 0),
+        );
       }
     }
   }
+
 }
