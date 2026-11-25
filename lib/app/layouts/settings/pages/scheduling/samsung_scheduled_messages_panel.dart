@@ -16,12 +16,6 @@ class SamsungScheduledMessagesPanel extends StatefulWidget {
 
 class _SamsungScheduledMessagesPanelState extends State<SamsungScheduledMessagesPanel>
     with ThemeHelpers, ScheduledMessagesMixin {
-  @override
-  void initState() {
-    super.initState();
-    initScheduled();
-  }
-
   Widget _buildSamsungHeader(BuildContext context, String text) {
     return Padding(
       padding: const EdgeInsets.fromLTRB(20, 16, 16, 6),

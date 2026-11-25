@@ -12,6 +12,7 @@ A message renders as a composition of specialized sub-widgets.
 | `reply/` | Quoted reply bubble and reply line | → CLAUDE.md inside |
 | `timestamp/` | Delivery status, read receipts, date separators | → CLAUDE.md inside |
 | `typing/` | Typing indicator | |
+| `scheduled/` | Pending scheduled messages pinned below the newest message: dashed bubble, send-time caption, inline Edit time / Cancel | |
 | `popup/` | Long-press context menu / action sheet | → CLAUDE.md inside |
 | `interactive/` | Apple Pay, Game Pigeon, URL previews, maps, embedded media | → CLAUDE.md inside |
 | `chat_event/` | System messages (member added, subject changed) | |

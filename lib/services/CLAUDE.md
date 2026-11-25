@@ -13,6 +13,7 @@
 | `ui/chat/chats_service.dart` | Chat list state |
 | `ui/chat/conversation_view_controller.dart` | Active chat controller |
 | `ui/message/messages_service.dart` | Message state/cache |
+| `ui/scheduled_messages_service.dart` | Server scheduled-message state and socket updates |
 | `ui/handle_service.dart` | Handle state (`HandleState` map) |
 | `ui/typing_indicator_service.dart` | Typing indicator state |
 | `ui/contact_service_v2.dart` | Contacts (v2) |

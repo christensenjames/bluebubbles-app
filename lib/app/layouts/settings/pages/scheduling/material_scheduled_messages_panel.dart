@@ -16,12 +16,6 @@ class MaterialScheduledMessagesPanel extends StatefulWidget {
 
 class _MaterialScheduledMessagesPanelState extends State<MaterialScheduledMessagesPanel>
     with ThemeHelpers, ScheduledMessagesMixin {
-  @override
-  void initState() {
-    super.initState();
-    initScheduled();
-  }
-
   Widget _buildStatsHeader(BuildContext context) {
     final pendingCount = oneTime.length;
     final recurringCount = recurring.length;

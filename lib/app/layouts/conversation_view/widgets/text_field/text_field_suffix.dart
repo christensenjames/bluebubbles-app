@@ -126,6 +126,7 @@ class _TextFieldSuffixState extends State<TextFieldSuffix> with ThemeHelpers {
               key: widget.controller!.sendButtonKey,
               sendMessage: widget.sendMessage,
               visible: canSend && !showRecording,
+              scheduled: widget.controller!.scheduledDate.value != null,
               onLongPress: () => sendTextFieldEffects(
                 context,
                 widget.controller!,
@@ -179,6 +180,7 @@ class TextFieldMaterialSendButton extends StatelessWidget {
           onLongPress: () => scheduleMessage(context, controller),
           enabled: canSend,
           materialComposer: true,
+          scheduled: controller.scheduledDate.value != null,
         );
       }),
     );

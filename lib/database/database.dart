@@ -1,6 +1,8 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:io';
 
+import 'package:bluebubbles/app/layouts/conversation_view/widgets/text_field/buttons/text_field_button.dart';
 import 'package:bluebubbles/env.dart';
 import 'package:bluebubbles/helpers/backend/startup_tasks.dart';
 import 'package:bluebubbles/helpers/helpers.dart';
@@ -19,7 +21,7 @@ import 'package:io/io.dart';
 import 'package:path/path.dart';
 
 class Database {
-  static int version = 10;
+  static int version = 11;
 
   /// Bump this whenever preset theme definitions change (colors, font sizes,
   /// etc.) to force existing installs to re-seed preset themes on next launch.
@@ -273,6 +275,14 @@ class Database {
         for (final hash in hashes) {
           final path = FilesystemSvc.urlPreviewImagePath(hash);
           if (File(path).existsSync()) ImageActions.flattenAnimatedPng(path);
+        }
+        break;
+
+      case 11:
+        final buttons = SettingsSvc.settings.textFieldButtons;
+        if (!buttons.contains(TextFieldButton.Schedule)) {
+          buttons.add(TextFieldButton.Schedule);
+          await PrefsSvc.admin.setString('textFieldButtons', jsonEncode(buttons.map((button) => button.name).toList()));
         }
         break;
     }

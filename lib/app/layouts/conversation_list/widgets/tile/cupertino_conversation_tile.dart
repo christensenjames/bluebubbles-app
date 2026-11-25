@@ -158,6 +158,8 @@ class _CupertinoTrailingState extends CustomState<CupertinoTrailing, void, Conve
         final message = chatState.latestMessage.value;
         final indicator = computeIndicatorText(chatState.latestMessageStatus.value, controller.chat.isGroup);
         final hasError = (message?.error ?? 0) > 0;
+        final scheduled = hasScheduledMessage;
+        final muted = chatState.muteType.value == "mute";
         return Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           mainAxisAlignment: MainAxisAlignment.end,
@@ -193,17 +195,31 @@ class _CupertinoTrailingState extends CustomState<CupertinoTrailing, void, Conve
                     size: 16,
                   ),
                 ),
-                if (chatState.muteType.value == "mute")
+                if (scheduled || muted)
                   Positioned(
                     top: 22,
                     left: 0,
                     right: 0,
-                    child: Icon(
-                      CupertinoIcons.bell_slash_fill,
-                      color: controller.shouldHighlight.value
-                          ? context.theme.colorScheme.onBubble(context, controller.chat.isIMessage)
-                          : context.theme.colorScheme.outline.withValues(alpha: 0.85),
-                      size: 12,
+                    child: Column(
+                      spacing: 4,
+                      children: [
+                        if (scheduled)
+                          scheduledIndicator(
+                            CupertinoIcons.clock,
+                            12,
+                            controller.shouldHighlight.value
+                                ? context.theme.colorScheme.onBubble(context, controller.chat.isIMessage)
+                                : context.theme.colorScheme.primary,
+                          ),
+                        if (muted)
+                          Icon(
+                            CupertinoIcons.bell_slash_fill,
+                            color: controller.shouldHighlight.value
+                                ? context.theme.colorScheme.onBubble(context, controller.chat.isIMessage)
+                                : context.theme.colorScheme.outline.withValues(alpha: 0.85),
+                            size: 12,
+                          ),
+                      ],
                     ),
                   ),
               ],

@@ -192,11 +192,11 @@ class _MaterialTrailingState extends CustomState<MaterialTrailing, void, Convers
                 crossAxisAlignment: CrossAxisAlignment.center,
                 mainAxisAlignment: MainAxisAlignment.end,
                 mainAxisSize: MainAxisSize.min,
-                children: [
+                children: intersperse(const SizedBox(width: 5), [
                   if (chatState.isPinned.value)
                     Icon(Icons.push_pin_outlined, size: 18, color: context.theme.colorScheme.outline),
-                  if (muteType != "mute" && unread) ...[
-                    if (chatState.isPinned.value) const SizedBox(width: 5),
+                  if (hasScheduledMessage) scheduledIndicator(Icons.schedule, 18, context.theme.colorScheme.primary),
+                  if (muteType != "mute" && unread)
                     Container(
                       width: 13,
                       height: 13,
@@ -205,8 +205,6 @@ class _MaterialTrailingState extends CustomState<MaterialTrailing, void, Convers
                         color: context.theme.colorScheme.primary,
                       ),
                     ),
-                  ],
-                  if (muteType == "mute") const SizedBox(width: 5),
                   if (muteType == "mute")
                     Icon(
                       Icons.notifications_off_outlined,
@@ -215,7 +213,7 @@ class _MaterialTrailingState extends CustomState<MaterialTrailing, void, Convers
                           : context.theme.colorScheme.outline,
                       size: 18,
                     ),
-                ],
+                ]).toList(),
               ),
             ],
           ),

@@ -1,5 +1,20 @@
 # Changelog
 
+## 2026-11-25 — Scheduled messages show in the chat and the chat list
+
+- **Scheduling:** existing installs now have the Schedule composer button appended to their saved
+  button order, making scheduling accessible on desktop. This one-time update also turns Schedule
+  back on for anyone who removed it from the composer since Nov 4.
+- **Scheduling:** scheduled messages are kept in shared state and refreshed after reconnecting. A
+  background refresh no longer swaps an open Scheduled Messages list to its loading or error screen.
+- **Composer:** while a schedule time is set, the send button shows the schedule-send icon instead
+  of the send arrow.
+- **Chat list:** a chat with a pending scheduled message shows a clock next to its pin and mute
+  icons (all three skins).
+- **Conversation:** pending scheduled messages now show below the newest message as dashed-outline
+  bubbles with their send time ("Sends Thu 4:04 PM", "Every Sun 2:06 PM"). Tap or right-click one
+  to edit its time or cancel it; cancelling asks for confirmation inline.
+
 ## 2026-11-20 — Start chat button hover
 
 - **Chat list (Material):** hovering or keyboard-focusing the "Start chat" button now tints it with

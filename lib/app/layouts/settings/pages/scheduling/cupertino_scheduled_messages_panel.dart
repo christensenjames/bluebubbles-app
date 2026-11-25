@@ -17,12 +17,6 @@ class CupertinoScheduledMessagesPanel extends StatefulWidget {
 
 class _CupertinoScheduledMessagesPanelState extends State<CupertinoScheduledMessagesPanel>
     with ThemeHelpers, ScheduledMessagesMixin {
-  @override
-  void initState() {
-    super.initState();
-    initScheduled();
-  }
-
   Widget _buildStatsHeader(BuildContext context) {
     final pendingCount = oneTime.length;
     final recurringCount = recurring.length;

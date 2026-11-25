@@ -2,6 +2,7 @@ import 'package:bluebubbles/app/layouts/conversation_list/widgets/tile/conversat
 import 'package:bluebubbles/app/wrappers/stateful_boilerplate.dart';
 import 'package:bluebubbles/helpers/helpers.dart';
 import 'package:bluebubbles/services/services.dart';
+import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 
 /// Shared initialization and helper logic for all three conversation-list
@@ -38,4 +39,14 @@ mixin TrailingStateMixin<W extends CustomStateful<ConversationTileController>>
     if (isGroup || status == MessageStatusIndicator.NONE) return "";
     return status.name.toLowerCase().capitalizeFirst!;
   }
+
+  /// Must be called inside an `Obx()`.
+  bool get hasScheduledMessage => ScheduledMsgsSvc.pendingFor(controller.chat.guid).isNotEmpty;
+
+  // Manual trigger keeps desktop hover and the semantics label without stealing the tile's long press.
+  Widget scheduledIndicator(IconData icon, double size, Color color) => Tooltip(
+        message: "Message scheduled",
+        triggerMode: TooltipTriggerMode.manual,
+        child: Icon(icon, size: size, color: color),
+      );
 }

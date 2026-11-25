@@ -14,7 +14,7 @@ Individual chat row rendered in the conversation list. Each tile displays the ch
 | `pinned_tile_text_bubble.dart` | Text preview bubble rendered inside the pinned section |
 | `list_item.dart` | Generic row wrapper; adds `Dismissible` swipe actions (Material only) |
 | `draggable_conversation_tile.dart` | Drag source wrapper for desktop drag-and-drop (e.g. pin reordering) |
-| `trailing_state_mixin.dart` | Mixin sharing trailing-widget (timestamp/badge) reactive state across tile skins |
+| `trailing_state_mixin.dart` | Mixin sharing trailing-widget (timestamp/badge) reactive state across tile skins, including the scheduled-message indicator |
 
 ## Controller: `ConversationTileController`
 

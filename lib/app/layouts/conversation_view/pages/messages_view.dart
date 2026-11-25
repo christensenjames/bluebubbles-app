@@ -4,6 +4,7 @@ import 'dart:math';
 import 'package:audio_waveforms/audio_waveforms.dart';
 import 'package:bluebubbles/app/layouts/conversation_view/mixins/messages_service_mixin.dart';
 import 'package:bluebubbles/app/layouts/conversation_view/widgets/message/message_holder.dart';
+import 'package:bluebubbles/app/layouts/conversation_view/widgets/message/scheduled/scheduled_message_bubble.dart';
 import 'package:bluebubbles/app/layouts/conversation_view/widgets/messages_view_components.dart';
 import 'package:bluebubbles/app/wrappers/scrollbar_wrapper.dart';
 import 'package:bluebubbles/app/wrappers/theme_switcher.dart';
@@ -713,6 +714,9 @@ class MessagesViewState extends State<MessagesView> with MessagesServiceMixin, T
                             child: TypingIndicatorRow(
                               controller: controller,
                             ),
+                          ),
+                          SliverToBoxAdapter(
+                            child: ScheduledMessages(chatGuid: chat.guid),
                           ),
                           if (_messages.isEmpty)
                             const SliverToBoxAdapter(

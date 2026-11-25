@@ -1,3 +1,4 @@
+import 'package:bluebubbles/app/components/m3e/m3e_motion.dart';
 import 'package:bluebubbles/helpers/helpers.dart';
 import 'package:bluebubbles/services/services.dart';
 import 'package:flutter/cupertino.dart';
@@ -13,6 +14,7 @@ class SendButton extends StatefulWidget {
     this.visible = true,
     this.enabled = true,
     this.materialComposer = false,
+    this.scheduled = false,
   });
 
   final Function() onLongPress;
@@ -20,6 +22,7 @@ class SendButton extends StatefulWidget {
   final bool visible;
   final bool enabled;
   final bool materialComposer;
+  final bool scheduled;
 
   @override
   SendButtonState createState() => SendButtonState();
@@ -116,6 +119,7 @@ class SendButtonState extends State<SendButton> with SingleTickerProviderStateMi
               enabled: widget.enabled,
               side: side,
               materialComposer: widget.materialComposer,
+              scheduled: widget.scheduled,
             );
           },
         ),
@@ -148,6 +152,7 @@ class _SendButtonIcon extends StatelessWidget {
     required this.enabled,
     required this.side,
     required this.materialComposer,
+    required this.scheduled,
   });
 
   final double animationValue;
@@ -159,6 +164,17 @@ class _SendButtonIcon extends StatelessWidget {
   final bool enabled;
   final double side;
   final bool materialComposer;
+  final bool scheduled;
+
+  static Widget _swapTransition(Widget child, Animation<double> animation) {
+    final scaled = ScaleTransition(scale: Tween(begin: 0.5, end: 1.0).animate(animation), child: child);
+    return FadeTransition(
+      opacity: animation,
+      child: child.key == const ValueKey(true)
+          ? RotationTransition(turns: Tween(begin: -1 / 12, end: 0.0).animate(animation), child: scaled)
+          : scaled,
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -167,6 +183,16 @@ class _SendButtonIcon extends StatelessWidget {
       final isMaterial = SettingsSvc.settings.skin.value == Skins.Material;
       final isAnimating = animationValue != 0;
       final filled = isMaterial && !isAnimating;
+      final color = isAnimating
+          ? onError
+          : isIOS
+              ? iosOnPrimary
+              : enabled == filled
+                  ? context.theme.colorScheme.onPrimary
+                  : materialComposer
+                      ? context.theme.colorScheme.onSurface.withValues(alpha: 0.38)
+                      : materialSecondary;
+      final size = materialComposer ? 24.0 : isIOS || isAnimating || filled ? 20.0 : 28.0;
 
       return Container(
         constraints: BoxConstraints.tight(Size.square(side)),
@@ -186,22 +212,24 @@ class _SendButtonIcon extends StatelessWidget {
               : null,
         ),
         alignment: Alignment.center,
-        child: Icon(
-          animationValue == 0
-              ? (isIOS ? CupertinoIcons.arrow_up : Icons.send_outlined)
-              : (isIOS ? CupertinoIcons.xmark : Icons.close),
-          semanticLabel: animationValue == 0 ? "Send" : "Cancel send",
-          color: animationValue != 0
-              ? onError
-              : isIOS
-                  ? iosOnPrimary
-                  : enabled == filled
-                      ? context.theme.colorScheme.onPrimary
-                      : materialComposer
-                          ? context.theme.colorScheme.onSurface.withValues(alpha: 0.38)
-                          : materialSecondary,
-          size: materialComposer ? 24 : isIOS || isAnimating || filled ? 20 : 28,
-        ),
+        child: isAnimating
+            ? Icon(isIOS ? CupertinoIcons.xmark : Icons.close, semanticLabel: "Cancel send", color: color, size: size)
+            : AnimatedSwitcher(
+                duration: M3EMotion.spatialFast.durationOf(context),
+                switchInCurve: M3EMotion.spatialFast.curve,
+                switchOutCurve: M3EMotion.spatialFast.curve.flipped,
+                transitionBuilder: _swapTransition,
+                child: scheduled
+                    // The glyph's ink box spans font units 64–469 × 43–427 of 512, low and right of center.
+                    ? FractionalTranslation(
+                        key: const ValueKey(true),
+                        translation: const Offset(-10.5 / 512, -21 / 512),
+                        child:
+                            Icon(Icons.schedule_send_outlined, semanticLabel: "Schedule send", color: color, size: size),
+                      )
+                    : Icon(isIOS ? CupertinoIcons.arrow_up : Icons.send_outlined,
+                        key: const ValueKey(false), semanticLabel: "Send", color: color, size: size),
+              ),
       );
     });
   }
