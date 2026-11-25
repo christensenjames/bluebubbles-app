@@ -41,10 +41,7 @@ class _ScheduledMessagesState extends State<ScheduledMessages> {
     if (leaving) {
       _leaving[item.id] = item;
     } else {
-      setState(() {
-        _leaving.remove(item.id);
-        if (_openId == item.id) _openId = null;
-      });
+      setState(() => _leaving.remove(item.id));
     }
   }
 
