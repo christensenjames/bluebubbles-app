@@ -64,7 +64,6 @@ class IncomingPayload {
   /// The local temp GUID that was assigned when *we* sent this message.
   /// Present only when the server is echoing back one of our own sends.
   final String? tempGuid;
-  final bool isPendingUpdateRetry;
 
   const IncomingPayload({
     required this.type,
@@ -73,7 +72,6 @@ class IncomingPayload {
     required this.message,
     this.attachments = const [],
     this.tempGuid,
-    this.isPendingUpdateRetry = false,
   });
 
   IncomingPayload copyWith({
@@ -83,7 +81,6 @@ class IncomingPayload {
     Message? message,
     List<Attachment>? attachments,
     String? tempGuid,
-    bool? isPendingUpdateRetry,
   }) {
     return IncomingPayload(
       type: type ?? this.type,
@@ -92,7 +89,6 @@ class IncomingPayload {
       message: message ?? this.message,
       attachments: attachments ?? this.attachments,
       tempGuid: tempGuid ?? this.tempGuid,
-      isPendingUpdateRetry: isPendingUpdateRetry ?? this.isPendingUpdateRetry,
     );
   }
 }
@@ -565,10 +561,6 @@ class IncomingMessageHandler {
     //    wait.  _flushPendingUpdate will re-invoke this method once the
     //    new-message is processed.
     if (existing == null) {
-      if (payload.isPendingUpdateRetry) {
-        Logger.warn('Dropping buffered update for ${m.guid} after retry found no DB record', tag: _tag);
-        return;
-      }
       Logger.info(
         'updated-message for ${m.guid} has no DB record yet — buffering',
         tag: _tag,
