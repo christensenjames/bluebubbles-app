@@ -20,10 +20,12 @@ class ScheduledMessagesService {
   ScheduledMessagesService() {
     _events = EventDispatcherSvc.stream.listen((event) {
       if (!event.type.startsWith('scheduled-message-')) return;
-      if (event.type == 'scheduled-message-deleted' || event.data is! Map) {
-        unawaited(refresh());
-      } else {
+      if (event.type == 'scheduled-message-deleted' || event.data is! Map) return unawaited(refresh());
+      try {
         upsert(ScheduledMessage.fromJson(Map<String, dynamic>.from(event.data)));
+      } on TypeError {
+        // Some server events omit fields such as status or created; the list endpoint always has them.
+        unawaited(refresh());
       }
     });
     _socketWorker = ever(SocketSvc.state, (SocketState state) {

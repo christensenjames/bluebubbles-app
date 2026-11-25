@@ -7,6 +7,8 @@
   back on for anyone who removed it from the composer since Nov 4.
 - **Scheduling:** scheduled messages are kept in shared state and refreshed after reconnecting. A
   background refresh no longer swaps an open Scheduled Messages list to its loading or error screen.
+  A socket update missing fields (the server sometimes omits `status` or `created`) now triggers a
+  refresh; before, it threw and the change was dropped until the panel reopened.
 - **Composer:** while a schedule time is set, the send button shows the schedule-send icon instead
   of the send arrow.
 - **Chat list:** a chat with a pending scheduled message shows a clock next to its pin and mute
