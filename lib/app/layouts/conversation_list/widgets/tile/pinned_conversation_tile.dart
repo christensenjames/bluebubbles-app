@@ -133,6 +133,7 @@ class _PinnedConversationTileState extends CustomState<PinnedConversationTile, v
                                   ),
                                   MuteIcon(width: widget.avatarSize, parentController: controller),
                                   PinnedIndicators(width: widget.avatarSize, controller: controller),
+                                  ScheduledIcon(width: widget.avatarSize, controller: controller),
                                   // SenderIcon is inside the avatar Stack so its Positioned
                                   // coordinates are unambiguously relative to the avatar bounds.
                                   SenderIcon(width: widget.avatarSize, parentController: controller),
@@ -427,6 +428,42 @@ class PinnedIndicators extends StatelessWidget {
       }
 
       return const SizedBox.shrink();
+    });
+  }
+}
+
+class ScheduledIcon extends StatelessWidget {
+  const ScheduledIcon({super.key, required this.width, required this.controller});
+
+  final double width;
+  final ConversationTileController controller;
+
+  @override
+  Widget build(BuildContext context) {
+    return Obx(() {
+      if (ScheduledMsgsSvc.pendingFor(controller.chat.guid).isEmpty) return const SizedBox.shrink();
+      return Positioned(
+        right: sqrt(width) - width * 0.05 * sqrt(2),
+        top: width - width * 0.13 * 2,
+        child: Tooltip(
+          message: "Message scheduled",
+          triggerMode: TooltipTriggerMode.manual,
+          child: Container(
+            width: width * 0.27,
+            height: width * 0.27,
+            decoration: BoxDecoration(
+              border: Border.all(color: context.theme.colorScheme.surface, width: 1),
+              shape: BoxShape.circle,
+              color: context.theme.colorScheme.primaryContainer,
+            ),
+            child: Icon(
+              CupertinoIcons.clock_fill,
+              color: context.theme.colorScheme.onPrimaryContainer,
+              size: width * 0.23,
+            ),
+          ),
+        ),
+      );
     });
   }
 }

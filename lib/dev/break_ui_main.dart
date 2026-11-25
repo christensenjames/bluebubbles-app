@@ -11,6 +11,8 @@
 //   BB_REDACT_AFTER=<seconds>         turn on redacted mode (hide contact info) that long after startup
 //   BB_SCHEDULED=1                    seed pending scheduled messages: one for sam; one plus a weekly one for bookclub
 //   BB_SCHEDULE_DRAFT=1               with BB_OPEN, type a draft and set a schedule time in the composer
+//   BB_SKIN=ios|material|samsung      default material
+//   BB_PIN=<id>,<id>                  pin these fixture chats after the list loads (pinned tiles show in the iOS skin)
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
@@ -71,7 +73,11 @@ void _writePrefs(Directory dir, Map<String, String> env) {
     'dbVersion': Database.version,
     // Discard port: nothing answers even if the harness is started without a network namespace.
     'serverAddress': 'http://127.0.0.1:9',
-    'skin': Skins.Material.index,
+    'skin': switch (env['BB_SKIN']) {
+      'ios' => Skins.iOS.index,
+      'samsung' => Skins.Samsung.index,
+      _ => Skins.Material.index,
+    },
     'adaptive_theme_preferences': jsonEncode({
       'theme_mode': (env['BB_THEME'] == 'light' ? AdaptiveThemeMode.light : AdaptiveThemeMode.dark).index,
       'default_theme_mode': AdaptiveThemeMode.system.index,
@@ -93,6 +99,11 @@ Future<void> _afterStartup(Map<String, String> env, List<FixtureChat> chats) asy
     await Future.delayed(const Duration(milliseconds: 250));
   }
   await Future.delayed(const Duration(seconds: 2));
+
+  for (final id in env['BB_PIN']?.split(',') ?? const <String>[]) {
+    final guid = chats.firstWhere((c) => c.id == id).guid;
+    await ChatsSvc.setChatPinned(ChatsSvc.getChatState(guid)!.chat, true);
+  }
 
   final open = env['BB_OPEN'];
   if (open == 'spam') {

@@ -12,7 +12,8 @@
 - **Composer:** while a schedule time is set, the send button shows the schedule-send icon instead
   of the send arrow.
 - **Chat list:** a chat with a pending scheduled message shows a clock next to its pin and mute
-  icons (all three skins).
+  icons (all three skins). Pinned chats in the iOS skin show the clock as a badge at the avatar's
+  bottom-right corner.
 - **Conversation:** pending scheduled messages now show below the newest message as dashed-outline
   bubbles with their send time ("Sends Thu 4:04 PM", "Every Sun 2:06 PM"). Tap or right-click one
   to edit its time or cancel it; cancelling asks for confirmation inline.
