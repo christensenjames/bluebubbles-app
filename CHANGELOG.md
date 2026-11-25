@@ -17,6 +17,19 @@
 - **Conversation:** pending scheduled messages now show below the newest message as dashed-outline
   bubbles with their send time ("Sends Thu 4:04 PM", "Every Sun 2:06 PM"). Tap or right-click one
   to edit its time or cancel it; cancelling asks for confirmation inline.
+- **Upstream:** merged BlueBubbles v2.1.6 (desktop 96). Fork patches that upstream now covers were
+  removed: the extra hide-message-content save, the fork's pinned-chat backup export, its copy of
+  the device-only settings list, a leftover active-chat reset in the long-press chat preview, the
+  unused `firstPartNumber` getter and the never-set `isPendingUpdateRetry` flag. The fork's
+  incoming-message handling and its RCS label fix stay.
+- **Composer:** a reply you started is saved per chat when you leave it and restored when you
+  return. Nothing cleared it when the reply was then sent from another device, so the old reply box
+  came back on every open. (Not reproduced on James's Pixel; Android closing the app before the chat
+  saves its cleared state would leave the same stale reply.)
+  The saved reply now records when it was started (new prefs key `replyToMessagePickedAt_<chat>`)
+  and is dropped on open when a reply from you in that thread was created after that time. Replies
+  saved before this change have no start time and are dropped when you have replied in the thread
+  at all. Covered by `test/database/message_reply_since_test.dart`; checked on the Pixel.
 
 ## 2026-11-20 — Start chat button hover
 
