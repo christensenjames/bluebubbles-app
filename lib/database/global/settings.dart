@@ -533,20 +533,9 @@ class Settings {
     return map;
   }
 
-  static const Set<String> _deviceLocalBackupKeys = {
-    'serverCertificateFingerprint',
-    'lastIncrementalSync',
-    'lastIncrementalSyncRowId',
-    'contactSyncAccountName',
-    'contactSyncAccountType',
-    'enableUnifiedPush',
-    'endpointUnifiedPush',
-    'enableFcm',
-  };
-
   /// Backup map minus state that only means something on the device that produced it.
   static Map<String, dynamic> forBackupRestore(Map<String, dynamic> backup) {
-    final map = Map<String, dynamic>.from(backup)..removeWhere((k, _) => _deviceLocalBackupKeys.contains(k));
+    final map = Map<String, dynamic>.from(backup);
     if (map['savedChatFilters'] != null) {
       // customGroupIds are ObjectBox row ids of the exporting device.
       map['savedChatFilters'] = Map<String, String>.from(_processSavedChatFilters(map['savedChatFilters']))

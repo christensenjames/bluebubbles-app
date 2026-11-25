@@ -17,14 +17,12 @@ class PinnedChatsRestoreResult {
 /// servers/reinstalls.
 class PinnedChatsBackup {
   static List<Map<String, dynamic>> exportList() {
-    final pinned = ChatsSvc.getSortedChats().where((c) => c.isPinned ?? false).toList();
-    return [
-      for (var i = 0; i < pinned.length; i++)
-        {
-          ...ChatBackupIdentifier.export(pinned[i]),
-          "pinIndex": i,
-        },
-    ];
+    return ChatsSvc.pinnedChats.map((chat) {
+      return {
+        ...ChatBackupIdentifier.export(chat),
+        "pinIndex": chat.pinIndex,
+      };
+    }).toList();
   }
 
   static Future<PinnedChatsRestoreResult> restore(List<dynamic> entries) async {
@@ -50,8 +48,6 @@ class PinnedChatsBackup {
         skipped.add("$label (${result.skipReason})");
       }
     }
-
-    ChatsSvc.refreshSortOrder();
 
     return PinnedChatsRestoreResult(restored: restored, skipped: skipped);
   }
