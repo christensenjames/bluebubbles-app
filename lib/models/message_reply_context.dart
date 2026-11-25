@@ -11,5 +11,8 @@ class MessageReplyContext {
   /// When set, scopes the reply to a specific attachment within [partIndex].
   final String? attachmentGuid;
 
-  const MessageReplyContext(this.message, this.partIndex, {this.attachmentGuid});
+  final DateTime pickedAt;
+
+  MessageReplyContext(this.message, this.partIndex, {this.attachmentGuid, DateTime? pickedAt})
+      : pickedAt = pickedAt ?? DateTime.now();
 }

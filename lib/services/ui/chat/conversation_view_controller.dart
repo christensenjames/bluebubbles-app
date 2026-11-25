@@ -4,7 +4,6 @@ import 'package:audio_waveforms/audio_waveforms.dart';
 import 'package:bluebubbles/app/components/custom_text_editing_controllers.dart';
 import 'package:bluebubbles/app/layouts/conversation_view/widgets/text_field/send_button.dart';
 import 'package:bluebubbles/app/wrappers/stateful_boilerplate.dart';
-import 'package:bluebubbles/database/database.dart';
 import 'package:bluebubbles/database/models.dart';
 import 'package:bluebubbles/services/backend/interfaces/prefs_interface.dart';
 import 'package:bluebubbles/services/services.dart';
@@ -408,6 +407,7 @@ class ConversationViewController extends StatefulController with GetTickerProvid
       chat.guid,
       replyToMessage?.message.guid,
       replyToMessage?.partIndex,
+      pickedAt: replyToMessage?.pickedAt.millisecondsSinceEpoch,
     );
   }
 
@@ -417,23 +417,20 @@ class ConversationViewController extends StatefulController with GetTickerProvid
       final messageGuid = data['messageGuid'] as String;
       final messagePart = data['messagePart'] as int;
       final message = Message.findOne(guid: messageGuid);
-      if (message != null && !_isAnsweredEmptyReply(message)) {
-        replyToMessage = MessageReplyContext(message, messagePart);
+      final pickedAt = data['pickedAt'] as int?;
+      // A reply sent from another device never clears the one saved here
+      if (message != null &&
+          !Message.hasReplyFromMeSince(
+            message.threadOriginatorGuid ?? message.guid!,
+            pickedAt == null ? null : DateTime.fromMillisecondsSinceEpoch(pickedAt),
+          )) {
+        replyToMessage = MessageReplyContext(
+          message,
+          messagePart,
+          pickedAt: DateTime.fromMillisecondsSinceEpoch(pickedAt ?? 0),
+        );
       }
     }
   }
 
-  // A reply sent from another device never clears the reply saved here. Typed text means a new reply is in progress.
-  bool _isAnsweredEmptyReply(Message target) {
-    final draft = ChatsSvc.getChatState(chat.guid)?.textFieldText.value ?? chat.textFieldText;
-    if (draft?.trim().isNotEmpty ?? false) return false;
-    final query = Database.messages
-        .query(Message_.threadOriginatorGuid
-            .equals(target.threadOriginatorGuid ?? target.guid!)
-            .and(Message_.isFromMe.equals(true)))
-        .build();
-    final answered = query.count() > 0;
-    query.close();
-    return answered;
-  }
 }

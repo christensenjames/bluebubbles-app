@@ -14,6 +14,7 @@ class PrefsActions {
       chatGuid: chatGuid,
       messageGuid: messageGuid,
       messagePart: messagePart,
+      pickedAt: data['pickedAt'] as int?,
     );
   }
 
@@ -28,6 +29,7 @@ class PrefsActions {
       return {
         'messageGuid': state.messageGuid,
         'messagePart': state.messagePart,
+        'pickedAt': state.pickedAt,
       };
     }
 

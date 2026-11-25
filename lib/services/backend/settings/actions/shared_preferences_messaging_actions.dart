@@ -6,8 +6,9 @@ import 'package:bluebubbles/utils/logger/logger.dart';
 class ReplyToMessageState {
   final String messageGuid;
   final int messagePart;
+  final int? pickedAt;
 
-  const ReplyToMessageState({required this.messageGuid, required this.messagePart});
+  const ReplyToMessageState({required this.messageGuid, required this.messagePart, this.pickedAt});
 }
 
 class RecentReplyState {
@@ -22,6 +23,7 @@ class SharedPreferencesMessagingActions {
   static const String _recentReplyKey = 'recent-reply';
   static const String _replyToMessagePrefix = 'replyToMessage';
   static const String _replyToMessagePartPrefix = 'replyToMessagePart';
+  static const String _replyToMessagePickedAtPrefix = 'replyToMessagePickedAt';
   static const String _tapbackEmojiUsageKey = 'tapback-emoji-usage';
   static const int _tapbackEmojiLimit = 28;
   // Enough for a chat's own favourites; kept short since there's one list per chat
@@ -94,8 +96,11 @@ class SharedPreferencesMessagingActions {
   }
 
   /// Every chat's saved reply. Run in the GlobalIsolate, whose prefs cache holds them (see PrefsInterface).
-  Future<void> clearAllReplyToMessageStates() =>
-      _removeKeysStartingWith(['${_replyToMessagePrefix}_', '${_replyToMessagePartPrefix}_']);
+  Future<void> clearAllReplyToMessageStates() => _removeKeysStartingWith([
+        '${_replyToMessagePrefix}_',
+        '${_replyToMessagePartPrefix}_',
+        '${_replyToMessagePickedAtPrefix}_',
+      ]);
 
   Future<void> _removeKeysStartingWith(List<String> prefixes) async {
     final keys = service.i.keys.where((key) => prefixes.any(key.startsWith)).toList();
@@ -148,6 +153,8 @@ class SharedPreferencesMessagingActions {
 
   String _replyMessagePartKey(String chatGuid) => '${_replyToMessagePartPrefix}_$chatGuid';
 
+  String _replyMessagePickedAtKey(String chatGuid) => '${_replyToMessagePickedAtPrefix}_$chatGuid';
+
   /// Hash of the last photo [address] shared that the user updated their contact with or dismissed.
   String? getSeenSharedPhoto(String address) => service.i.getString('${_seenSharedPhotoPrefix}_$address');
 
@@ -173,12 +180,17 @@ class SharedPreferencesMessagingActions {
     required String chatGuid,
     String? messageGuid,
     int? messagePart,
+    int? pickedAt,
   }) async {
-    // Both calls update the cache synchronously; awaiting between them let a load read a mixed pair.
+    // Update the cache synchronously before awaiting, so loads cannot read mixed values.
     if (messageGuid != null && messagePart != null) {
       await Future.wait([
         service.i.setString(_replyMessageKey(chatGuid), messageGuid),
         service.i.setInt(_replyMessagePartKey(chatGuid), messagePart),
+        if (pickedAt != null)
+          service.i.setInt(_replyMessagePickedAtKey(chatGuid), pickedAt)
+        else
+          service.i.remove(_replyMessagePickedAtKey(chatGuid)),
       ]);
       return;
     }
@@ -186,6 +198,7 @@ class SharedPreferencesMessagingActions {
     await Future.wait([
       service.i.remove(_replyMessageKey(chatGuid)),
       service.i.remove(_replyMessagePartKey(chatGuid)),
+      service.i.remove(_replyMessagePickedAtKey(chatGuid)),
     ]);
   }
 
@@ -194,7 +207,11 @@ class SharedPreferencesMessagingActions {
     final messagePart = service.i.getInt(_replyMessagePartKey(chatGuid));
 
     if (messageGuid == null || messagePart == null) return null;
-    return ReplyToMessageState(messageGuid: messageGuid, messagePart: messagePart);
+    return ReplyToMessageState(
+      messageGuid: messageGuid,
+      messagePart: messagePart,
+      pickedAt: service.i.getInt(_replyMessagePickedAtKey(chatGuid)),
+    );
   }
 
   RecentReplyState? getRecentReply() {
