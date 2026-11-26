@@ -281,16 +281,16 @@ uses `context.iOS` for `centerTitle` but `context.theme.colorScheme` for colorin
   `iOSSkin`/`materialSkin`/`samsungSkin` (Samsung falls back to `materialSkin` if omitted) and
   switches on `SettingsSvc.settings.skin.value` inside an `Obx`. Also exposes static helpers
   that branch the same way outside of a widget tree:
-  - `ThemeSwitcher.buildPageRoute<T>({required builder, bool instantPush = false})` — iOS gets
-    `CustomCupertinoPageTransition` in a `PageRouteBuilder`; Material/Samsung get plain
-    `MaterialPageRoute`. With `instantPush: true` the push is instant (zero duration) and the pop
+  - `ThemeSwitcher.buildPageRoute<T>({required builder, settings, bool animateIn = true})` — iOS
+    gets `CustomCupertinoPageTransition` in a `PageRouteBuilder`; Material/Samsung get plain
+    `MaterialPageRoute`. With `animateIn: false` the push is instant (zero duration) and the pop
     uses the skin's normal page transition: iOS gets the same `PageRouteBuilder` with
     `transitionDuration: Duration.zero`, and Material/Samsung get a private
     `_InstantPushMaterialPageRoute` (a `MaterialPageRoute` whose first push is instant; later
-    forward animations, such as cancelling a back swipe, use the normal duration). The three
-    chat-creator call sites (`chat_creator.dart` x2, `chat_creator_controller.dart` x1) pass
-    `instantPush: true` as `customRoute`, because the creator already shows the chat inline and a
-    visible push would replay a transition the user has already seen.
+    forward animations, such as cancelling a back swipe, use the normal duration).
+    `NavigationSvc.pushAndRemoveUntil(..., animate: false)` uses it for the three chat-creator call
+    sites (`chat_creator.dart` x2, `chat_creator_controller.dart` x1), because the creator already
+    shows the chat inline and a visible push would replay a transition the user has already seen.
   - `ThemeSwitcher.getScrollPhysics()` (also exposed as `ThemeSvc.scrollPhysics`) — iOS gets
     `CustomBouncingScrollPhysics`; Material/Samsung get `ClampingScrollPhysics`.
 - Quick boolean checks — two equivalent definitions, pick whichever fits the call site:

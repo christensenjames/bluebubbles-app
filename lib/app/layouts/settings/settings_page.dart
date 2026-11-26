@@ -93,7 +93,7 @@ class _SettingsPageState extends State<SettingsPage> with ThemeHelpers {
                   minRatio: kIsDesktop || kIsWeb ? 0.2 : 0.33,
                   maxRatio: 0.5,
                   allowResize: true,
-                  rightOpen: NavigationSvc.settingsPaneOpen,
+                  rightPane: _paneObserver,
                   left: SettingsScaffold(
                     title: "Settings",
                     initialHeader: kIsWeb && !material ? "Server & Message Management" : null,
@@ -257,7 +257,7 @@ class _SettingsPageState extends State<SettingsPage> with ThemeHelpers {
                           route.didPop(false);
                           return false;
                         },
-                        pages: const [MaterialPage(name: "initial", child: SettingsPlaceholder())],
+                        pages: const [PaneBasePage(child: SettingsPlaceholder())],
                       ),
                     );
                   }),
