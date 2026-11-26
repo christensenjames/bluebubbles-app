@@ -12,6 +12,9 @@
   stop drawing.
 - **Navigation:** a chat opened from the new-chat screen leaves with the normal back motion again.
   The 2.1.6 merge had replaced its route with one that has no transition, so back made it vanish.
+- Checked on James's Pixel (release build, 2026-11-25): back swipe, back press, a chat opened from
+  the new-chat screen, and back from Settings. Covered by `test/services/navigator_observers_test.dart`
+  only for when the list starts drawing, not for how it moves.
 
 ## 2026-11-25 — Scheduled messages show in the chat and the chat list
 
