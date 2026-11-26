@@ -191,10 +191,6 @@ class NavigatorService {
     }
   }
 
-  /// Pushed with no transition in, like the chat creator turning into the chat it sends to
-  static PageRoute _appearingRoute(Widget widget) =>
-      PageRouteBuilder(pageBuilder: (_, _, _) => widget, transitionDuration: Duration.zero);
-
   /// Closes Settings and Find My first, so what it opens is in view. The split view always swaps the chat pane
   /// instantly; elsewhere [animate] false skips the transition in.
   Future<void> pushAndRemoveUntil(BuildContext context, Widget widget, bool Function(Route) predicate,
@@ -203,8 +199,7 @@ class NavigatorService {
     if (right == null) {
       final page = TitleBarWrapper(child: widget);
       await Navigator.of(context).pushAndRemoveUntil(
-          animate ? ThemeSwitcher.buildPageRoute(builder: (BuildContext context) => page) : _appearingRoute(page),
-          predicate);
+          ThemeSwitcher.buildPageRoute(animateIn: animate, builder: (BuildContext context) => page), predicate);
       return;
     }
     closeSections();
@@ -216,8 +211,7 @@ class NavigatorService {
       await right.pushAndRemoveUntil(_instantRoute(widget), predicate);
     } else {
       await right.pushAndRemoveUntil(
-          animate ? ThemeSwitcher.buildPageRoute(builder: (BuildContext context) => widget) : _appearingRoute(widget),
-          predicate);
+          ThemeSwitcher.buildPageRoute(animateIn: animate, builder: (BuildContext context) => widget), predicate);
     }
   }
 
@@ -287,26 +281,76 @@ class _OpaqueRouteObserver extends RouteObserver<ModalRoute> {
   }
 }
 
+/// The first page of a split's right pane. It draws no transition: in the phone layout the left pane stands in for it
+/// (see [PaneObserver.base]), and in the split view it's a placeholder that can stay still.
+class PaneBasePage extends Page<void> {
+  const PaneBasePage({required this.child}) : super(name: 'initial');
+
+  final Widget child;
+
+  @override
+  Route<void> createRoute(BuildContext context) => _PaneBaseRoute(this);
+}
+
+class _PaneBaseRoute extends PageRoute<void> with MaterialRouteTransitionMixin<void> {
+  _PaneBaseRoute(PaneBasePage page) : super(settings: page);
+
+  @override
+  Widget buildContent(BuildContext context) => (settings as PaneBasePage).child;
+
+  @override
+  bool get maintainState => true;
+
+  @override
+  Widget buildTransitions(
+          BuildContext context, Animation<double> animation, Animation<double> secondaryAnimation, Widget child) =>
+      child;
+}
+
 class PaneObserver extends NavigatorObserver {
   PaneObserver(this.open);
 
   final RxBool open;
 
+  /// The pane's [PaneBasePage] route; the phone layout draws the left pane with its transitions
+  final Rxn<PageRoute> base = Rxn<PageRoute>();
+
+  /// The pages fully hide [base]. False again the moment the bottom page starts leaving or a back swipe moves it.
+  final RxBool covered = false.obs;
+
   final List<Route> routes = [];
+
+  Animation<double>? _bottom;
 
   /// For a navigator that went away without popping its pages, like a chat list Reset replaced
   void reset() {
     routes.clear();
-    if (open.value) WidgetsBinding.instance.addPostFrameCallback((_) => open.value = routes.isNotEmpty);
+    _update();
   }
 
   bool _tracked(Route? route) => route != null && route.settings is! Page;
 
   // Navigator callbacks run mid-transition, often during a build
-  void _update() => WidgetsBinding.instance.addPostFrameCallback((_) => open.value = routes.isNotEmpty);
+  void _update() => WidgetsBinding.instance.addPostFrameCallback((_) {
+        open.value = routes.isNotEmpty;
+        _watchBottom();
+      });
+
+  void _watchBottom() {
+    final bottom = routes.whereType<TransitionRoute>().where((route) => route.opaque).firstOrNull?.animation;
+    if (bottom == _bottom) return;
+    _bottom?.removeStatusListener(_onBottomStatus);
+    _bottom = bottom?..addStatusListener(_onBottomStatus);
+    _onBottomStatus(bottom?.status ?? AnimationStatus.dismissed);
+  }
+
+  void _onBottomStatus(AnimationStatus status) => covered.value = status.isCompleted;
 
   @override
   void didPush(Route route, Route? previousRoute) {
+    if (route is PageRoute && route.settings is PaneBasePage) {
+      WidgetsBinding.instance.addPostFrameCallback((_) => base.value = route);
+    }
     if (_tracked(route)) routes.add(route);
     _update();
   }

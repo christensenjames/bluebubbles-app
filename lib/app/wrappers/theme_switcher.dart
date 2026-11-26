@@ -12,25 +12,29 @@ class ThemeSwitcher extends StatefulWidget {
   final Widget materialSkin;
   final Widget? samsungSkin;
 
+  /// [animateIn] false shows the page at once; it still leaves with the skin's back motion
   static PageRoute<T> buildPageRoute<T>(
-      {required Widget Function(BuildContext context) builder, RouteSettings? settings}) {
+      {required Widget Function(BuildContext context) builder, RouteSettings? settings, bool animateIn = true}) {
+    final pushDuration = animateIn ? const Duration(milliseconds: 300) : Duration.zero;
     // A page moving over another would show it through the see-through window
     if (kIsDesktop && SettingsSvc.settings.windowEffect.value != WindowEffect.disabled) {
-      return _CoveringRoute<T>(builder: builder, settings: settings);
+      return _CoveringRoute<T>(builder: builder, settings: settings, transitionDuration: pushDuration);
     }
     switch (SettingsSvc.settings.skin.value) {
       case Skins.iOS:
         return PageRouteBuilder<T>(
             settings: settings,
+            transitionDuration: pushDuration,
             pageBuilder: (context, animation, secondaryAnimation) => builder.call(context),
             transitionsBuilder: (context, animation, secondaryAnimation, child) {
               return CustomCupertinoPageTransition(
                   primaryRouteAnimation: animation, linearTransition: false, child: child);
             });
       case Skins.Material:
-        return MaterialPageRoute<T>(builder: builder, settings: settings);
       case Skins.Samsung:
-        return MaterialPageRoute<T>(builder: builder, settings: settings);
+        return animateIn
+            ? MaterialPageRoute<T>(builder: builder, settings: settings)
+            : _InstantPushMaterialPageRoute<T>(builder: builder, settings: settings);
     }
   }
 
@@ -99,7 +103,7 @@ class _ShownAnimation extends Animation<double> with AnimationWithParentMixin<do
 
 /// The skin's transition, with the page below hidden while it's covered
 class _CoveringRoute<T> extends PageRouteBuilder<T> {
-  _CoveringRoute({required WidgetBuilder builder, super.settings})
+  _CoveringRoute({required WidgetBuilder builder, super.settings, super.transitionDuration})
       : super(pageBuilder: (context, _, _) => builder(context));
 
   @override
@@ -122,4 +126,22 @@ class _CoveringRoute<T> extends PageRouteBuilder<T> {
   static Widget? _delegated(BuildContext _, Animation<double> _, Animation<double> secondaryAnimation, bool _,
           Widget? child) =>
       _hideWhenCovered(secondaryAnimation, child);
+}
+
+class _InstantPushMaterialPageRoute<T> extends MaterialPageRoute<T> {
+  _InstantPushMaterialPageRoute({required super.builder, super.settings});
+
+  bool _pushed = false;
+
+  @override
+  Duration get transitionDuration => _pushed ? super.transitionDuration : Duration.zero;
+
+  // A zero-duration push completes synchronously; later forwards, like cancelling a back swipe, need the real duration.
+  @override
+  TickerFuture didPush() {
+    final TickerFuture push = super.didPush();
+    _pushed = true;
+    controller!.duration = transitionDuration;
+    return push;
+  }
 }

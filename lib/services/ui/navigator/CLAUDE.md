@@ -15,6 +15,9 @@ in feature code.
 - **Settings split**: nested navigator 3 (right pane of Settings).
 - The phone layout keeps the same navigators and stacks the right pane over the left while it has a page
   (`chatPaneOpen` / `settingsPaneOpen`, driven by `PaneObserver`). Folding or resizing keeps what's open.
+- Each right pane's first page is a `PaneBasePage`, which draws no transition. In the phone layout `TabletModeWrapper`
+  draws the left pane with that page's transitions, so pushes and back (including the predictive back swipe) move the
+  list as the page underneath; it stops drawing the list once `PaneObserver.covered` says a page fully hides it.
 
 ## Key Methods
 ```dart

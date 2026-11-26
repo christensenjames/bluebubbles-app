@@ -88,6 +88,38 @@ void main() {
       expect(observer.routes, isEmpty);
       expect(open.value, isFalse);
     });
+
+    testWidgets('uncovers the base the moment its page starts leaving', (tester) async {
+      final observer = PaneObserver(false.obs);
+      final navigator = GlobalKey<NavigatorState>();
+      await tester.pumpWidget(MaterialApp(
+        home: Navigator(
+          key: navigator,
+          observers: [observer],
+          onDidRemovePage: (_) {},
+          pages: const [PaneBasePage(child: SizedBox())],
+        ),
+      ));
+      expect(observer.base.value, isNotNull);
+
+      final page = MaterialPageRoute<void>(builder: (_) => const SizedBox());
+      navigator.currentState!.push(page);
+      await tester.pump();
+      expect(observer.covered.value, isFalse, reason: 'the push is still moving in');
+      await tester.pumpAndSettle();
+      expect(observer.covered.value, isTrue);
+
+      page.handleStartBackGesture(progress: 0.9);
+      expect(observer.covered.value, isFalse, reason: 'a back swipe shows what is under the page');
+      page.handleCancelBackGesture();
+      await tester.pumpAndSettle();
+      expect(observer.covered.value, isTrue);
+
+      navigator.currentState!.pop();
+      expect(observer.covered.value, isFalse, reason: 'a pop shows it before the next frame');
+      await tester.pumpAndSettle();
+      expect(observer.covered.value, isFalse);
+    });
   });
 
   group('SectionObserver', () {

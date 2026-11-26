@@ -1,5 +1,18 @@
 # Changelog
 
+## 2026-11-25 — Back shows the chat list again on phones
+
+- **Navigation (phone layout):** upstream v2.1.6 moved chats and Settings pages into the split
+  view's right pane, which the phone layout stacks over the hidden list. Back then had nothing to
+  reveal: a back swipe shrank the chat into a card over a dimmed blank page, and a back press or
+  release slid the chat away over the same blank page, with the list popping in once it was gone.
+  The list (and the Settings list) is now drawn as the page under the pane's pages: it stays visible
+  while a page moves in or out, and grows back under the card during a swipe as it did before
+  2.1.6. The pane's first page is a `PaneBasePage`; `PaneObserver.covered` says when the list can
+  stop drawing.
+- **Navigation:** a chat opened from the new-chat screen leaves with the normal back motion again.
+  The 2.1.6 merge had replaced its route with one that has no transition, so back made it vanish.
+
 ## 2026-11-25 — Scheduled messages show in the chat and the chat list
 
 - **Scheduling:** existing installs now have the Schedule composer button appended to their saved

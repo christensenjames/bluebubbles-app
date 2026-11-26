@@ -380,7 +380,7 @@ class _ConversationListState extends CustomState<ConversationList, void, Convers
         minRatio: kIsDesktop || kIsWeb ? 0.1 : 0.33,
         maxRatio: 0.5,
         allowResize: true,
-        rightOpen: NavigationSvc.chatPaneOpen,
+        rightPane: NavigationSvc.chatPaneObserver,
         left: LayoutBuilder(builder: (context, constraints) {
           NavigationSvc.maxWidthLeft = constraints.maxWidth;
           return PopScope(
@@ -418,12 +418,7 @@ class _ConversationListState extends CustomState<ConversationList, void, Convers
               onPopPage: (route, _) {
                 return false;
               },
-              pages: [
-                const MaterialPage(
-                  name: "initial",
-                  child: InitialWidgetRight(),
-                ),
-              ],
+              pages: const [PaneBasePage(child: InitialWidgetRight())],
             );
           },
         ),

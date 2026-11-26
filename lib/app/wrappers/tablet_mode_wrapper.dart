@@ -18,9 +18,9 @@ class TabletModeWrapper extends StatefulWidget {
   final double? minWidthLeft;
   final double? maxWidthLeft;
 
-  /// When set, the phone layout keeps [right] mounted over [left] and shows it while true, so pages survive a
-  /// layout switch
-  final RxBool? rightOpen;
+  /// When set, the phone layout keeps [right] mounted over [left] and shows it while it has pages, so pages survive a
+  /// layout switch. [left] moves as the pane's [PaneBasePage] would, so back reveals it like the page underneath.
+  final PaneObserver? rightPane;
 
   const TabletModeWrapper(
       {super.key,
@@ -33,7 +33,7 @@ class TabletModeWrapper extends StatefulWidget {
       this.maxRatio = 0,
       this.minWidthLeft,
       this.maxWidthLeft,
-      this.rightOpen})
+      this.rightPane})
       : assert(initialRatio >= 0),
         assert(initialRatio <= 1);
 
@@ -84,20 +84,27 @@ class _TabletModeWrapperState extends State<TabletModeWrapper> with ThemeHelpers
   @override
   Widget build(BuildContext context) {
     if (!showAltLayout) {
-      final rightOpen = widget.rightOpen;
-      if (rightOpen == null) return TitleBarWrapper(child: widget.left);
+      final pane = widget.rightPane;
+      if (pane == null) return TitleBarWrapper(child: widget.left);
       return TitleBarWrapper(
         child: Stack(
           children: [
             // Offstage alone keeps the hidden pane's animations running and its focusables reachable
-            Obx(() => Offstage(
-                  offstage: rightOpen.value,
-                  child: TickerMode(
-                    enabled: !rightOpen.value,
-                    child: ExcludeFocus(excluding: rightOpen.value, child: widget.left),
+            Obx(() {
+              final base = pane.base.value;
+              return Offstage(
+                offstage: pane.covered.value,
+                child: TickerMode(
+                  enabled: !pane.covered.value,
+                  child: ExcludeFocus(
+                    excluding: pane.open.value,
+                    // Built once the base exists, so adding its transition never reparents the left pane
+                    child: base == null ? const SizedBox.shrink() : _BaseTransition(route: base, child: widget.left),
                   ),
-                )),
-            Obx(() => IgnorePointer(ignoring: !rightOpen.value, child: widget.right)),
+                ),
+              );
+            }),
+            Obx(() => IgnorePointer(ignoring: !pane.open.value, child: widget.right)),
           ],
         ),
       );
@@ -173,6 +180,25 @@ class _TabletModeWrapperState extends State<TabletModeWrapper> with ThemeHelpers
           ),
         );
       },
+    );
+  }
+}
+
+class _BaseTransition extends StatelessWidget {
+  const _BaseTransition({required this.route, required this.child});
+
+  final PageRoute route;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    final animation = route.animation!, secondaryAnimation = route.secondaryAnimation!;
+    return ListenableBuilder(
+      listenable: Listenable.merge([animation, secondaryAnimation]),
+      builder: (context, child) => Theme.of(context)
+          .pageTransitionsTheme
+          .buildTransitions(route, context, animation, secondaryAnimation, child!),
+      child: child,
     );
   }
 }
