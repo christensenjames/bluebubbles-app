@@ -5,9 +5,11 @@ project(runner LANGUAGES CXX)
 # The name of the executable created for the application. Change this to change
 # the on-disk name of your application.
 set(BINARY_NAME "bluebubbles")
-# The unique GTK application identifier for this application. See:
-# https://wiki.gnome.org/HowDoI/ChooseApplicationID
-set(APPLICATION_ID "app.bluebubbles.BlueBubbles")
+# GTK application ID, also the installed desktop file basename (no .desktop) that compositors
+# match windows to, so the launcher must be <APPLICATION_ID>.desktop. Must be a valid
+# GApplication ID (dot-separated, e.g. -DAPPLICATION_ID=app.bluebubbles.BlueBubblesDev).
+# It also names the data dir ~/.local/share/<APPLICATION_ID>, unless ~/.local/share/<binary name> exists.
+set(APPLICATION_ID "app.bluebubbles.BlueBubbles" CACHE STRING "GTK application ID and desktop file basename")
 
 # Explicitly opt in to modern CMake behaviors to avoid warnings with recent
 # versions of CMake.

@@ -37,6 +37,15 @@
   its own content color at the Material 3 state-layer opacities (8% hover, 10% focus). Before, it
   used the theme's 4% default hover, which was nearly invisible on the colored button.
 
+## 2026-11-20 — Linux desktop icon
+
+- **Linux:** the Wayland window now uses the GTK application ID instead of the executable name.
+  Desktop environments can use that ID to find the matching launcher and BlueBubbles icon.
+- **Linux:** a build with a custom `APPLICATION_ID` keeps its data in `~/.local/share/<APPLICATION_ID>`.
+  Older installs whose binary was named `bluebubbles` used `~/.local/share/bluebubbles`. When a reinstall
+  changes both the ID and the binary name, the app opens to setup with an empty database. The fedora
+  dev build hit this on 2026-11-20, fixed by a symlink from `app.bluebubbles.BlueBubblesDev` to `bluebubbles`.
+
 ## 2026-11-18 — Backup restore and link-preview safety
 
 - **Settings:** an unknown enum value in a backup no longer stops the restore. The app keeps the
