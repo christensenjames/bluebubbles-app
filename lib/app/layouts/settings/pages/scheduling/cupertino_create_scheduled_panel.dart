@@ -247,13 +247,15 @@ class _CupertinoCreateScheduledMessageState extends State<CupertinoCreateSchedul
                       valueListenable: messageController,
                       builder: (context, _, _) {
                         if (error != null) return Text(error, style: const TextStyle(color: Colors.red));
-                        final chat = ChatsSvc.findChatByGuid(selectedChat.value);
-                        return Text(
-                          "Scheduling \"${messageController.text}\" to ${chat?.getTitle() ?? selectedChat.value}.\n"
-                          "Sending ${schedule.value == "recurring" ? "every ${repeatInterval.value} ${frequencyToText[frequency.value]}(s) starting" : "once"} on "
-                          "${buildSeparatorDateSamsung(date.value)} at ${buildTime(date.value)}.",
-                          style: context.theme.textTheme.bodyMedium,
-                        );
+                        return Obx(() {
+                          final chat = ChatsSvc.findChatByGuid(selectedChat.value);
+                          return Text(
+                            "Scheduling \"${messageController.text}\" to ${chat?.getTitle() ?? selectedChat.value}.\n"
+                            "Sending ${schedule.value == "recurring" ? "every ${repeatInterval.value} ${frequencyToText[frequency.value]}(s) starting" : "once"} on "
+                            "${buildSeparatorDateSamsung(date.value)} at ${buildTime(date.value)}.",
+                            style: context.theme.textTheme.bodyMedium,
+                          );
+                        });
                       },
                     ),
                   ),
