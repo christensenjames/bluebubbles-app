@@ -1,5 +1,3 @@
-import 'dart:async';
-
 import 'package:bluebubbles/app/components/m3e/m3e_motion.dart';
 import 'package:bluebubbles/app/layouts/conversation_list/pages/conversation_list.dart';
 import 'package:bluebubbles/app/wrappers/stateful_boilerplate.dart';
@@ -23,7 +21,7 @@ class _ConversationListFABState extends CustomState<ConversationListFAB, void, C
   // Cache these values to prevent rebuild on every scroll event
   double _lastScrollOffset = 0;
   ScrollDirection _lastScrollDirection = ScrollDirection.idle;
-  StreamSubscription? _navigationSub;
+  late final Worker _paneWorker;
 
   @override
   void initState() {
@@ -32,9 +30,10 @@ class _ConversationListFABState extends CustomState<ConversationListFAB, void, C
     // Optimize scroll listener to reduce setState calls
     controller.materialScrollController.addListener(_handleScroll);
 
-    _navigationSub = NavigationSvc.listener.stream.listen((event) {
+    _paneWorker = ever<bool>(NavigationSvc.leftPaneNarrow, (narrow) {
       if (!mounted) return;
-      if (NavigationSvc.isAvatarOnly(context) && controller.showMaterialFABText) {
+      // The drag sets this before layout updates the pane width that isAvatarOnly reads
+      if (narrow && (kIsDesktop || kIsWeb) && NavigationSvc.isTabletMode(context) && controller.showMaterialFABText) {
         setState(() {
           controller.showMaterialFABText = false;
         });
@@ -72,7 +71,7 @@ class _ConversationListFABState extends CustomState<ConversationListFAB, void, C
   @override
   void dispose() {
     controller.materialScrollController.removeListener(_handleScroll);
-    _navigationSub?.cancel();
+    _paneWorker.dispose();
     super.dispose();
   }
 

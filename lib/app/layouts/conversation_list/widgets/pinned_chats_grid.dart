@@ -139,7 +139,6 @@ class _PinnedChatsGridState extends State<PinnedChatsGrid> {
           ChatsSvc.loadedFirstChatBatch.value;
           // Observe chatListVersion so pinned section rebuilds when a chat is pinned/unpinned
           ChatsSvc.chatListVersion.value;
-          NavigationSvc.leftPaneNarrow.value;
           final pinned = ChatsSvc.getFilteredChats(
             showArchived: controller.showSpam ? null : controller.showArchivedChats,
             showUnknown: controller.showSpam ? null : controller.showUnknownSenders,

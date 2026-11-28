@@ -170,6 +170,7 @@ class _TabletModeWrapperState extends State<TabletModeWrapper> with ThemeHelpers
                                       min(widget.maxRatio * _maxWidth!, widget.maxWidthLeft ?? double.infinity)),
                                   max(widget.minRatio * _maxWidth!, widget.minWidthLeft ?? double.negativeInfinity));
                               _ratio.value = width / _maxWidth!;
+                              NavigationSvc.leftPaneNarrow.value = width < NavigatorService.avatarOnlyWidth;
                               NavigationSvc.listener.refresh();
                             },
                           ),

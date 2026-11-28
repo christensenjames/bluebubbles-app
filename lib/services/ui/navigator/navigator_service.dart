@@ -30,8 +30,8 @@ class NavigatorService {
   /// Refreshed on every divider drag event, for readers that follow the left pane's width itself
   final Rxn listener = Rxn();
 
-  /// Whether the left pane is narrower than [_avatarOnlyWidth]. Readers of [isAvatarOnly] watch this instead of
-  /// [listener], so they rebuild only when the pane crosses the threshold.
+  /// Readers of [isAvatarOnly] watch this instead of [listener], so they rebuild only when the pane crosses
+  /// [avatarOnlyWidth].
   final RxBool leftPaneNarrow = false.obs;
 
   /// In the phone layout the right pane covers the left only while this is true
@@ -67,10 +67,10 @@ class NavigatorService {
 
   set maxWidthLeft(double w) {
     _widthChatListLeft = w;
-    if ((w < _avatarOnlyWidth) != leftPaneNarrow.value) {
+    if ((w < avatarOnlyWidth) != leftPaneNarrow.value) {
       // Set from a LayoutBuilder, where dirtying other widgets is not allowed
       WidgetsBinding.instance
-          .addPostFrameCallback((_) => leftPaneNarrow.value = _widthChatListLeft! < _avatarOnlyWidth);
+          .addPostFrameCallback((_) => leftPaneNarrow.value = _widthChatListLeft! < avatarOnlyWidth);
     }
   }
 
@@ -119,10 +119,10 @@ class NavigatorService {
 
   double ratio(BuildContext context) => (_widthChatListLeft ?? context.width) / context.width;
 
-  static const double _avatarOnlyWidth = 300;
+  static const double avatarOnlyWidth = 300;
 
   bool isAvatarOnly(BuildContext context) =>
-      (kIsDesktop || kIsWeb) && isTabletMode(context) && (_widthChatListLeft ?? context.width) < _avatarOnlyWidth;
+      (kIsDesktop || kIsWeb) && isTabletMode(context) && (_widthChatListLeft ?? context.width) < avatarOnlyWidth;
 
   static PageRoute _instantRoute(Widget widget) => PageRouteBuilder(
         pageBuilder: (_, _, _) => widget,
