@@ -107,6 +107,8 @@ class _MaterialConversationListState extends State<MaterialConversationList> {
                   onNotification: (notif) {
                     if (notif is ScrollStartNotification) {
                       controller.materialScrollStartPosition = controller.materialScrollController.offset;
+                    } else if (notif is ScrollMetricsNotification) {
+                      controller.updateMaterialFAB();
                     }
                     return true;
                   },

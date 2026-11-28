@@ -24,7 +24,6 @@ class _ConversationListFABState extends CustomState<ConversationListFAB, void, C
   double _lastScrollOffset = 0;
   ScrollDirection _lastScrollDirection = ScrollDirection.idle;
   late bool _nearTop;
-  late final Worker _paneWorker;
 
   @override
   void initState() {
@@ -34,20 +33,6 @@ class _ConversationListFABState extends CustomState<ConversationListFAB, void, C
     _nearTop = !scroll.hasClients || scroll.offset <= _nearTopOffset;
     // Optimize scroll listener to reduce setState calls
     scroll.addListener(_handleScroll);
-
-    _paneWorker = ever<bool>(NavigationSvc.leftPaneNarrow, (narrow) {
-      if (!mounted || !(kIsDesktop || kIsWeb)) return;
-      // The drag sets this before layout updates the pane width that isAvatarOnly reads
-      if (narrow && NavigationSvc.isTabletMode(context) && controller.showMaterialFABText) {
-        setState(() {
-          controller.showMaterialFABText = false;
-        });
-      } else if (!narrow && !controller.showMaterialFABText && _nearTop) {
-        setState(() {
-          controller.showMaterialFABText = true;
-        });
-      }
-    });
   }
 
   void _handleScroll() {
@@ -89,12 +74,14 @@ class _ConversationListFABState extends CustomState<ConversationListFAB, void, C
   @override
   void dispose() {
     controller.materialScrollController.removeListener(_handleScroll);
-    _paneWorker.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
+    final scroll = controller.materialScrollController;
+    _nearTop = !scroll.hasClients || scroll.offset <= _nearTopOffset;
+
     // Extract iOS/Samsung widget to prevent rebuild on Material changes
     final iosAndSamsungWidget = _IOSAndSamsungFAB(
       controller: controller,
@@ -103,17 +90,22 @@ class _ConversationListFABState extends CustomState<ConversationListFAB, void, C
 
     return ThemeSwitcher(
       iOSSkin: iosAndSamsungWidget,
-      materialSkin: _MaterialFAB(
-        controller: controller,
-        nearTop: _nearTop,
-        onScrollToTop: () async {
-          await controller.scrollToTop(controller.materialScrollController);
-          if (!mounted) return;
-          setState(() {
-            controller.showMaterialFABText = !NavigationSvc.isAvatarOnly(context);
-          });
-        },
-      ),
+      materialSkin: Obx(() {
+        NavigationSvc.leftPaneNarrow.value;
+        final avatarOnly = NavigationSvc.isAvatarOnly(context);
+        return _MaterialFAB(
+          controller: controller,
+          nearTop: _nearTop,
+          showText: !avatarOnly && (controller.showMaterialFABText || _nearTop),
+          onScrollToTop: () async {
+            await controller.scrollToTop(controller.materialScrollController);
+            if (!mounted) return;
+            setState(() {
+              controller.showMaterialFABText = true;
+            });
+          },
+        );
+      }),
       samsungSkin: iosAndSamsungWidget,
     );
   }
@@ -226,11 +218,13 @@ class _MaterialFAB extends StatelessWidget {
   const _MaterialFAB({
     required this.controller,
     required this.nearTop,
+    required this.showText,
     required this.onScrollToTop,
   });
 
   final ConversationListController controller;
   final bool nearTop;
+  final bool showText;
   final VoidCallback onScrollToTop;
 
   @override
@@ -253,13 +247,13 @@ class _MaterialFAB extends StatelessWidget {
             // Scroll to top FAB
             // Within reach of the top the arrow would do nothing; an avatar-only list never shows the label
             _ScrollToTopFAB(
-              hidden: controller.showMaterialFABText || nearTop,
+              hidden: showText || nearTop,
               onPressed: onScrollToTop,
             ),
             // Main compose FAB
             Positioned(
               right: SettingsSvc.settings.skin.value == Skins.Material ? 15 : 0,
-              child: _MaterialComposeFAB(controller: controller),
+              child: _MaterialComposeFAB(controller: controller, showText: showText),
             ),
           ],
         ),
@@ -308,9 +302,11 @@ class _ScrollToTopFAB extends StatelessWidget {
 class _MaterialComposeFAB extends StatelessWidget {
   const _MaterialComposeFAB({
     required this.controller,
+    required this.showText,
   });
 
   final ConversationListController controller;
+  final bool showText;
 
   @override
   Widget build(BuildContext context) {
@@ -350,7 +346,7 @@ class _MaterialComposeFAB extends StatelessWidget {
                         duration: MediaQuery.disableAnimationsOf(context) ? Duration.zero : const Duration(milliseconds: 250),
                         curve: Curves.easeInOut,
                         alignment: Alignment.centerLeft,
-                        widthFactor: controller.showMaterialFABText ? 1.0 : 0.0,
+                        widthFactor: showText ? 1.0 : 0.0,
                         child: Padding(
                           padding: const EdgeInsets.only(left: 10),
                           child: Text(
