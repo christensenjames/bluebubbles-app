@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-11-27 - Scheduled message frequency label
+
+- **Scheduling:** frequency labels now update their singular or plural form when the repeat interval changes.
+
 ## 2026-11-25 — Back shows the chat list again on phones
 
 - **Navigation (phone layout):** upstream v2.1.6 moved chats and Settings pages into the split
