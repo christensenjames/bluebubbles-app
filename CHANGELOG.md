@@ -34,6 +34,9 @@
   button shows only its icon, also after scrolling to the top. The scroll-to-top arrow now hides
   whenever the list is near the top, where it did nothing. Before, the label hid in an avatar-only list
   only after a divider drag, and scrolling up brought it back.
+## 2026-11-28 — Sync test coverage
+
+- **Dev:** added tests for sync snapshot deduplication, ROWID bounds, and message merge behavior.
 
 ## 2026-11-25 — Back shows the chat list again on phones
 
