@@ -68,7 +68,7 @@ SettingsSvc.settings.someFlag.value
 
 // Write (triggers reactive update)
 SettingsSvc.settings.someFlag.value = newValue;
-await SettingsSvc.saveSettings();
+await SettingsSvc.settings.saveOneAsync('someFlag');
 ```
 
 New settings fields are defined in `lib/database/global/settings.dart` (see `database.md`).

@@ -133,4 +133,4 @@ branch on skin manually when one of these already exists.
 
 ## Settings Tiles
 
-Use widgets from `lib/app/layouts/settings/widgets/tiles/` as building blocks — don't build custom setting rows from scratch.
+Use widgets from `lib/app/layouts/settings/widgets/content/` (`SettingsTile`, `SettingsSwitch`) and `lib/app/layouts/settings/widgets/layout/` as building blocks — don't build custom setting rows from scratch.

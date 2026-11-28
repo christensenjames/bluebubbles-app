@@ -14,7 +14,7 @@
 - `saveToDownloads(File, {mimeType})` → saves a file to the platform Downloads folder
 - `saveUrlPreviewImage(Uint8List)` → writes a URL preview image, returns its path
 - `chatAvatarPath(chatGuid)` → per-chat avatar file path
-- `deleteCacheDirectories({keepUserAvatar})` → clears attachment, avatar, background, message and URL preview caches
+- `deleteCacheDirectories({keepUserAvatar})` → clears attachment, avatar, contact avatar, background, message and URL preview caches
 
 ## Related
 - Attachment actions: `lib/services/backend/actions/attachment_actions.dart`

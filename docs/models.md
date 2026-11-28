@@ -229,7 +229,7 @@ Plain Dart classes -- no ObjectBox annotations. Safe on all platforms. All imple
 Read: `SettingsSvc.settings.someFlag.value`
 Write: set value then `await SettingsSvc.settings.saveOneAsync('someFlag')`
 
-Adding a new setting: add an `Rx*` field to `settings.dart`, persist in `toMap()`/`fromMap()`, then add a UI tile in `lib/app/layouts/settings/`.
+Adding a new setting: add an `Rx*` field to `settings.dart`, persist it in `toMap()` and `_applyMap()` (which `fromMap()` calls), then add a UI tile in `lib/app/layouts/settings/`.
 
 ### Message Content
 

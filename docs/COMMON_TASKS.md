@@ -85,7 +85,7 @@ Step-by-step recipes for the most frequent changes in this codebase. Each recipe
 
 **Files to touch (in order):**
 
-1. **`lib/services/network/socket_service.dart`** — In `startSocket()`, add `s.on("my-new-event", (data) => MessageHandlerSvc.handleEvent("my-new-event", data, 'DartSocket'))` to the `_eventUnsubscribers.addAll([...])` list.
+1. **`lib/services/network/socket_service.dart`** — In `startSocket()`, add `s.on("my-new-event", (data) => MessageHandlerSvc.handleEvent("my-new-event", data, 'DartSocket'))` to the last `_eventUnsubscribers.addAll([...])` list, the one that runs on all platforms (it starts with `ft-call-status-changed`). The list before it is web/desktop-only (Android gets those events through FCM).
 
 2. **`lib/services/backend/action_handler.dart`** — Add a `case "my-new-event":` to `ActionHandler.handleEvent()`, either inline or delegating to a service method. If it triggers a DB write, load the chat, change it, and save through `saveAsync()`:
    ```dart
@@ -118,7 +118,7 @@ Step-by-step recipes for the most frequent changes in this codebase. Each recipe
 
 **Files to touch (in order):**
 
-1. **`lib/database/io/chat.dart`** (or `message.dart`) — Add the field to the entity class. For a `Chat` field, also add an `updateMyField` flag to `Chat.saveAsync()` and a matching branch in `ChatActions.saveChat()`. Run `dart run build_runner build` after.
+1. **`lib/database/io/chat.dart`** (or `message.dart`) — Add the field to the entity class. For a `Chat` field, also add it to `Chat.toMap()` and `Chat.fromMap()` (`ChatActions.saveChat()` rebuilds the chat with `Chat.fromMap(chatData)`, so a field missing there saves as its default), add an `updateMyField` flag to `Chat.saveAsync()`, and add a matching branch in `ChatActions.saveChat()`. Run `dart run build_runner build` after.
 
 2. **`lib/app/state/chat_state.dart`** (or `message_state.dart`) — Add the `Rx*` field, initialize it in the constructor, and add an `updateXxxInternal()` method.
 

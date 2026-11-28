@@ -17,12 +17,12 @@
 | `desktop/` | Desktop-specific options |
 
 ## Reusable Widgets (`widgets/`)
-- `tiles/` — preference tile components (primary building block):
+- `tiles/` — feature-specific preference tiles (the primary building blocks are `content/` and `layout/` below):
   - `redacted_mode_tile.dart` — Redacted Mode toggle + explainer
   - `private_api_tile.dart` — Private API status/toggle
   - `connection_server_tile.dart` — server connection status row
   - `contact_upload_progress.dart` — contact sync upload progress row
-- `layout/` — page layout containers
+- `layout/` — page layout containers (`SettingsSection`)
 - `content/` — **core building blocks** (`SettingsTile`, `SettingsSwitch`, `SettingsOptions`, `SettingsSlider`) → CLAUDE.md inside
 - `search/` — settings search UI → CLAUDE.md inside
 
