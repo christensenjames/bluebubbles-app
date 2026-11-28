@@ -1,5 +1,11 @@
 # Changelog
 
+## 2026-11-27 — Draft mentions survive participant changes
+
+- Restored drafts keep mentions attached to their saved participant addresses; a participant who left
+  becomes plain text, while any other formatting remains.
+- Older drafts with position-based mention markers still restore by participant position.
+
 ## 2026-11-25 — Back shows the chat list again on phones
 
 - **Navigation (phone layout):** upstream v2.1.6 moved chats and Settings pages into the split
