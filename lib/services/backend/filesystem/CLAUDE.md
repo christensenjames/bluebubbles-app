@@ -1,7 +1,7 @@
 # services/backend/filesystem/ — File System Service
 
 ## File
-`filesystem_service.dart` — `FilesystemService` (registered with GetIt via `FileSystemSvc` shorthand)
+`filesystem_service.dart` — `FilesystemService` (registered with GetIt via `FilesystemSvc` shorthand)
 
 ## Responsibilities
 - Resolves platform-specific paths for attachments, cache, and temp files
@@ -10,15 +10,11 @@
 - Copies, moves, and deletes files as part of the attachment pipeline
 
 ## Key Methods
-- `getAttachmentPath(Attachment)` → resolved local file path
-- `saveAttachment(Attachment, Uint8List)` → writes bytes to the correct path
-- `deleteAttachment(Attachment)` → removes the local file
-- `getTempPath()` → temp directory for in-progress downloads / conversions
-
-## Platform Paths
-- **Android/iOS**: `getApplicationDocumentsDirectory()` / `getExternalStorageDirectory()`
-- **Desktop**: user-configured download path from `Settings.attachmentsPath`
-- Guard with `if (kIsWeb) return;` — no filesystem on web
+- `downloadsDirectory` → platform downloads directory (async getter)
+- `saveToDownloads(File, {mimeType})` → saves a file to the platform Downloads folder
+- `saveUrlPreviewImage(Uint8List)` → writes a URL preview image, returns its path
+- `chatAvatarPath(chatGuid)` → per-chat avatar file path
+- `deleteCacheDirectories({keepUserAvatar})` → clears attachment, avatar, contact avatar, background, message and URL preview caches
 
 ## Related
 - Attachment actions: `lib/services/backend/actions/attachment_actions.dart`

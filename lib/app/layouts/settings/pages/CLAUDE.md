@@ -7,13 +7,15 @@ One subdirectory per settings category. Each contains one or more `*_panel.dart`
 | Directory | Contents | Panel Count |
 |-----------|----------|-------------|
 | `advanced/` | Firebase, Private API, Redacted Mode, Notification Providers, Tasker, UnifiedPush | 6 |
+| `contacts/` | Contacts management (tri-platform) | 6 + 1 subdir |
 | `conversation_list/` | Chat list appearance | 1 |
+| `custom_groups/` | Custom chat groups (tri-platform) | 7 |
 | `desktop/` | Desktop-specific settings | 1 |
 | `message_view/` | Attachment, conversation, and message options order panels (text field buttons are arranged on the composer itself) | 3 |
-| `misc/` | About, logging (live + export), misc tweaks, soft-deleted chats, troubleshoot | 6 |
+| `misc/` | About, logging (live + export), misc tweaks, soft-deleted chats, troubleshoot, cache tuning, handle audit | 7 |
 | `profile/` | Profile / account info panel | 1 |
 | `scheduling/` | Scheduled messages & reminders (tri-platform) | 11 |
-| `server/` | Server connection, backup/restore, OAuth, iMessage stats | 6 + 2 subdirs |
+| `server/` | Server connection, backup/restore, OAuth, iMessage stats | 9 + 2 subdirs |
 | `storage/` | Storage Analyzer — attachment storage usage & cleanup | 4 + 1 subdir |
 | `system/` | System notification settings | 1 |
 | `theming/` | Theming panel + advanced, avatar, background, theme studio | 5 + 4 subdirs |

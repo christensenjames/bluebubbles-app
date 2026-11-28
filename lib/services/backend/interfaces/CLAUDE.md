@@ -9,6 +9,7 @@ Interfaces are the **only** public API for triggering backend operations. They r
 | `attachment_interface.dart` | Save / find / delete attachments |
 | `chat_interface.dart` | Save / delete / mark-read chats |
 | `contact_v2_interface.dart` | Contact sync, handle matching (v2) |
+| `custom_group_interface.dart` | Create / rename / reorder / delete custom groups, set their chats |
 | `handle_interface.dart` | Save / find phone number handles |
 | `image_interface.dart` | PNG conversion, EXIF, GIF dimensions |
 | `log_interface.dart` | Log write/export calls |
@@ -16,6 +17,7 @@ Interfaces are the **only** public API for triggering backend operations. They r
 | `prefs_interface.dart` | Settings sync, reply state persistence |
 | `send_message_interface.dart` | Outgoing message send pipeline entry point |
 | `server_interface.dart` | Server version check, server details |
+| `storage_interface.dart` | Storage analysis, attachment deletion |
 | `sync_interface.dart` | Incremental sync trigger |
 
 ## Routing Pattern (every interface method follows this)

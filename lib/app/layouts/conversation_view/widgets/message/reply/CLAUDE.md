@@ -22,7 +22,7 @@ Displays reply threading: the quoted preview above a message and the thread conn
 
 ## Thread Popup
 
-`ReplyThreadPopup` is a bottom sheet / modal that shows all messages with the same `threadOriginatorGuid`. Opened from `MessageProperties` when the user taps the reply-count badge.
+`showReplyThread()` opens a bottom sheet / modal that shows all messages with the same `threadOriginatorGuid`. Opened from `MessageProperties` when the user taps the reply-count badge.
 
 ## Placement in MessageHolder
 

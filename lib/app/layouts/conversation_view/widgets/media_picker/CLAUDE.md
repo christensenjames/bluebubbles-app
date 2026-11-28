@@ -23,7 +23,7 @@ Gated on `ServerDetails.supportsGenmoji` (v2 server). On mobile the picker's "Ge
 
 ## Integration
 Opened from the compose bar via the attachment (paperclip / `+`) button in `widgets/text_field/` — the sheet on mobile, `DesktopAttachmentMenu` on desktop.
-Selected attachments are stored in `ConversationViewController.pickedImages`.
+Selected attachments are stored in `ConversationViewController.pickedAttachments`.
 
 ## Related
 - Compose bar: `../text_field/CLAUDE.md`

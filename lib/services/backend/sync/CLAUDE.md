@@ -4,10 +4,11 @@
 
 | File | Role |
 |------|------|
-| `sync_service.dart` | Entry point — decides full vs incremental; tracks `lastIncrementalSync` timestamp |
+| `sync_service.dart` | Entry point — `startFullSync()` / `startIncrementalSync()`; tracks `lastIncrementalSync` timestamp |
 | `full_sync_manager.dart` | Bulk fetch all chats + messages (initial setup or full resync); batches 25–100 msgs/chat |
 | `incremental_sync_manager.dart` | Delta sync since last run; paginated by timestamp/rowId; saves resume markers |
 | `handle_sync_manager.dart` | Syncs phone/email handles; requires server v1.5.2+; supports rollback |
+| `message_sync_deduplicator.dart` | Skips message snapshots already written by an overlapping sync page; a changed snapshot is still applied |
 | `sync_manager_impl.dart` | Abstract base: `SyncStatus` enum, progress `double`, log output `RxList` |
 
 V2 incremental sync fetches new messages by ROWID (or creation date without a ROWID marker), then
@@ -43,7 +44,7 @@ IDLE → IN_PROGRESS → COMPLETED_SUCCESS
 ## What Every Manager Exposes
 - `status` — `Rx<SyncStatus>`
 - `progress` — `double` (0.0 → 1.0)
-- `logOutput` — `RxList<Tuple2<LogLevel, String>>`
+- `output` — `RxList<SyncLogEntry>`
 
 ## Platform Notes
 - Desktop (Windows): `full_sync_manager.dart` updates the taskbar progress bar during sync
@@ -51,4 +52,4 @@ IDLE → IN_PROGRESS → COMPLETED_SUCCESS
 
 ## Triggering a Sync
 Call through `SyncService`, not individual managers directly.
-`SyncService.startSync()` chooses the right manager based on last sync state.
+`SyncService.startFullSync()` or `startIncrementalSync()` — the caller picks which.

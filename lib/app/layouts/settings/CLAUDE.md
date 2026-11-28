@@ -12,15 +12,17 @@
 | `scheduling/` | Scheduled messages and reminders |
 | `advanced/` | Private API, Firebase, Tasker, Redacted mode, UnifiedPush |
 | `misc/` | Logging, troubleshoot, about |
+| `contacts/` | Contacts management |
+| `custom_groups/` | Custom chat groups |
 | `desktop/` | Desktop-specific options |
 
 ## Reusable Widgets (`widgets/`)
-- `tiles/` — preference tile components (primary building block):
+- `tiles/` — feature-specific preference tiles (the primary building blocks are `content/` and `layout/` below):
   - `redacted_mode_tile.dart` — Redacted Mode toggle + explainer
   - `private_api_tile.dart` — Private API status/toggle
   - `connection_server_tile.dart` — server connection status row
   - `contact_upload_progress.dart` — contact sync upload progress row
-- `layout/` — page layout containers
+- `layout/` — page layout containers (`SettingsSection`)
 - `content/` — **core building blocks** (`SettingsTile`, `SettingsSwitch`, `SettingsOptions`, `SettingsSlider`) → CLAUDE.md inside
 - `search/` — settings search UI → CLAUDE.md inside
 
@@ -31,4 +33,4 @@
 
 ## Adding a New Setting
 1. Add field to `lib/database/global/settings.dart`
-2. Add tile in the appropriate `pages/*/` file using widgets from `widgets/tiles/`
+2. Add tile in the appropriate `pages/*/` file using widgets from `widgets/content/` (`SettingsTile`, `SettingsSwitch`) and `widgets/layout/` (`SettingsSection`)

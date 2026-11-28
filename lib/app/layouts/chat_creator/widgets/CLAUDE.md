@@ -17,5 +17,5 @@ Sub-widgets for the new conversation creation UI.
 
 ## Related
 - Parent view: `../CLAUDE.md` (chat_creator)
-- Contact search: `lib/services/ul/contact_service_v2.dart`
+- Contact search: `lib/services/ui/contact_service_v2.dart`
 - Handle lookup: `lib/services/backend/interfaces/handle_interface.dart`

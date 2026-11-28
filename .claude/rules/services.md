@@ -68,7 +68,7 @@ SettingsSvc.settings.someFlag.value
 
 // Write (triggers reactive update)
 SettingsSvc.settings.someFlag.value = newValue;
-await SettingsSvc.saveSettings();
+await SettingsSvc.settings.saveOneAsync('someFlag');
 ```
 
 New settings fields are defined in `lib/database/global/settings.dart` (see `database.md`).
@@ -85,6 +85,5 @@ Use `NavigationSvc` — don't call `Navigator.of(context)` directly in feature c
 
 ## Contacts
 
-- V1 (legacy): `ContactsSvc` — returns `Contact` objects
-- V2 (current): `ContactsSvcV2` — returns `ContactV2` objects
-- Prefer V2 for any new feature work. Check `ContactsSvcV2.isHandleUpdated(handle.id)` in `ever()` listeners for reactive contact updates.
+- `ContactsSvcV2` — returns `ContactV2` objects
+- After changing handle data, call `ContactsSvcV2.notifyHandlesUpdated(handleIds)`: it pushes fresh handles into `HandleState` so reactive widgets rebuild.

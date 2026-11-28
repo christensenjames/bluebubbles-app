@@ -5,11 +5,12 @@
 ## Notification Channels
 | Channel | Purpose |
 |---------|---------|
-| `NEW_MESSAGE` | Incoming message notification |
-| `ERROR` | App error alerts |
-| `REMINDER` | Scheduled message reminders |
-| `FACETIME` | Incoming FaceTime call alert |
-| `FOREGROUND_SERVICE` | Android persistent foreground service notification |
+| `NEW_MESSAGE_CHANNEL` | Incoming message notification |
+| `LIKELY_SPAM_CHANNEL` | Incoming message from a chat flagged `isLikelySpam` |
+| `ERROR_CHANNEL` | App error alerts |
+| `REMINDER_CHANNEL` | Scheduled message reminders |
+| `FACETIME_CHANNEL` | Incoming FaceTime call alert |
+| `FOREGROUND_SERVICE_CHANNEL` | Android persistent foreground service notification |
 
 ## Platform Implementations
 | Platform | Library |

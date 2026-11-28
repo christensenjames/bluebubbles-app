@@ -26,6 +26,7 @@ UI (send button tap)
       → item enters its chat's queue in `_queues`; OutgoingMessageHandler._processChat()
         drains it one item at a time (chats send in parallel)
           → _dispatchItem() → sendMessage() / sendMultipart() / sendAttachment()
+            / sendMultiAttachment() / sendAppMessage()
           → _sendWithRace(): registers a send-progress tracker, then fires the
             HTTP call through SendMessageInterface → GlobalIsolate →
             SendMessageActions → HttpSvc.message.* (batch uploads first use
@@ -58,7 +59,7 @@ The Send button calls the `sendMessage` callback passed down from `ConversationT
 
 ### Step 2 — Build Message Objects (`send_animation.dart`)
 
-`SendAnimation.send()` batches attachments on non-web platforms when `enablePrivateAPI` and `privateAPIAttachmentSend` are both enabled, the send is not an audio message, and either at least two files were picked or at least one file accompanies non-empty text or subject. Web keeps separate sends because its uploads carry file bytes, which the batch path does not fill in.
+`SendAnimation.send()` batches attachments when `SettingsSvc.canSendAttachmentsTogether` is true (server support plus both Private API flags), the send is not an audio message, no file has a `balloonBundleId`, and either at least two files were picked or at least one file accompanies non-empty text or subject.
 
 A batch is one `Message` and one `OutgoingMultipartMessage`, whose `attachments` list contains every picked file. The message keeps the reply GUID/part, effect, and subject. Its attributed body starts with one U+FFFC attachment run per file (`messagePart` 0 through n−1), followed by the text and mention runs at `messagePart` n. Text ranges are shifted by n, preserving mention addresses and text. The message receives a `temp-XXXXXXXX` GUID; attachment i receives `<message tempGuid>-i`, so equal filenames still have independent local directories.
 
@@ -100,9 +101,9 @@ Immediately before an animated text-bearing item is queued, `send()` closes `Con
 
 ### Step 4 — OutgoingMessageHandler: Send (`outgoing_message_handler.dart`)
 
-`OutgoingMessageHandler._processChat()` dequeues each chat's items one at a time, allowing different chats to send in parallel, and calls `_dispatchItem()`, which routes to `sendMessage()`, `sendMultipart()`, or `sendAttachment()`. Before a standalone attachment is sent, its staged file is checked; if missing, the message is finalized as failed instead of silently returning and leaving the send pending.
+`OutgoingMessageHandler._processChat()` dequeues each chat's items one at a time, allowing different chats to send in parallel, and calls `_dispatchItem()`, which routes to `sendMessage()`, `sendMultipart()`, `sendAttachment()`, `sendMultiAttachment()`, or `sendAppMessage()`. Before a standalone attachment is sent, its staged file is checked; if missing, the message is finalized as failed instead of silently returning and leaving the send pending.
 
-Each send method wraps its work in `_handleSend()`, which starts a 5-second timer that nudges `chat.sendProgress` to `0.9` if the send is still in flight (a "this is taking a while" UI signal), then drives it to `1 → 0` on completion — unless an earlier socket-triggered `completeSendProgressIfExists()` call already did so.
+`_processChat()` wraps each `_dispatchItem()` call in `_handleSend()`, which starts a 5-second timer that nudges `chat.sendProgress` to `0.9` if the send is still in flight (a "this is taking a while" UI signal), then drives it to `1 → 0` on completion — unless an earlier socket-triggered `completeSendProgressIfExists()` call already did so.
 
 Each send method then calls `_sendWithRace()`, which does two things:
 

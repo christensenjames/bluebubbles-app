@@ -16,7 +16,7 @@ Server WebSocket event: "new-message" / "updated-message"
       per-GUID serialization via _inflightByGuid, front:true for priority)
   → IncomingMessageHandler._processNewMessage() or _processUpdatedMessage()
       (out-of-order updates for a not-yet-saved message are parked; a matching new-message
-      flushes them, while an expired or evicted update is retried once and dropped if still unsaved)
+      flushes them, while an expired or evicted update is dropped and `requestCatchUp()` is called)
   → chat.addMessage() → ChatInterface.addMessageToChat() → GlobalIsolate → ChatActions (ObjectBox write)
   → hydrate ID → Message object
   → ChatsSvc.updateChat() / addChat()  → ChatState.*Internal()     → Obx() rebuild
@@ -35,7 +35,7 @@ socket?.on("new-message",     (data) => MessageHandlerSvc.handleEvent("new-messa
 socket?.on("updated-message", (data) => MessageHandlerSvc.handleEvent("updated-message", data, 'DartSocket'));
 ```
 
-No parsing or routing logic lives here — raw JSON is passed directly to `MessageHandlerSvc`. Firebase push and the Android method channel use the same `handleEvent()` entry point with a different `source` string.
+No parsing or routing logic lives here — raw JSON is passed directly to `MessageHandlerSvc`. Firebase/UnifiedPush pushes on Android skip `handleEvent()`: `method_channel_handlers.dart` calls `IncomingMsgHandler.handle()` directly with `MessageSource.methodChannel`. `handleEvent()` always tags its payloads `MessageSource.socket`; its `source` argument is only a log label.
 
 **Key file:** `lib/services/network/socket_service.dart`
 
@@ -59,7 +59,7 @@ For `"new-message"` events where `message.isFromMe == true` and the payload has 
 
 Each handler instance maintains a `Queue<_QueueEntry>` and processes entries up to `maxConcurrency` (default `5`) at a time. Within that instance, `_inflightByGuid` serializes events for the same GUID. This map is not shared with the Android notification worker's Flutter engine.
 
-Calling `handle(payload, {front})` enqueues the payload. Passing `front: true` jumps ahead of waiting items — used when `useQueue` was `false` in Step 2, and internally when flushing/retrying buffered updates.
+Calling `handle(payload, {front})` enqueues the payload. Passing `front: true` jumps ahead of waiting items — used when `useQueue` was `false` in Step 2, and internally when flushing buffered updates.
 
 Routing by `MessageEventType`:
 - `MessageEventType.newMessage` → `_processNewMessage(payload)`
@@ -91,7 +91,7 @@ Routing by `MessageEventType`:
 
 6. **Complete send-progress tracker** — if `tempGuid` is set (and `OutgoingMessageHandler` is registered), calls `OutgoingMsgHandler.completeSendProgressIfExists(tempGuid, Origin.incomingMessageHandler)`.
 
-7. **Audible receive feedback** — plays a receive sound unless the saved message is from this device.
+7. **Audible receive feedback** — plays a receive sound unless the saved message is from this device or `chat.isLikelySpam`.
 
 8. **Drive UI reactivity — gated on `!isIsolate`** (skipped entirely when running in a background isolate):
    - Fires `_dispatchNewMessage()` (see below) without awaiting.
@@ -146,7 +146,7 @@ Routing by `MessageEventType`:
 
 **`ChatActions.addMessageToChat()`** (`lib/services/backend/actions/chat_actions.dart`) runs inside the isolate:
 - Upserts the `Message` record into ObjectBox
-- Updates `Chat.latestMessage` pointer if the new message is newer
+- Computes `isNewer` by comparing the new message's date with the chat's current latest message; it does not write the `latestMessage` pointer (`Chat.addMessage()` does, below)
 - Returns a plain map — never ObjectBox entities
 
 Back in `Chat.addMessage()` on the calling side (still a "pure DB" step, not gated on isolate):
@@ -193,7 +193,7 @@ When a `ChatState` does exist:
 
 **`MessagesSvc(chatGuid).updateMessage(Message updated, {String? oldGuid})`:**
 
-1. Finds the existing `Message` in the in-memory `MessageStruct` by `oldGuid` (if swapping) or by `updated.guid`
+1. Finds the existing `Message` in the in-memory `ChatMessages` by `oldGuid` (if swapping) or by `updated.guid`
 2. Merges the updated message with the existing one (`updated.mergeWith(existing)`)
 3. Finds or creates the `MessageState` for this message
 4. Calls `messageState.updateFromMessage(updated)` — pushes new values into all `Rx*` fields

@@ -12,22 +12,22 @@ Step-by-step recipes for the most frequent changes in this codebase. Each recipe
    ```dart
    final RxBool myNewSetting = false.obs;
    ```
-   Also add it to `fromMap()` (deserialize) and `toMap()` (serialize).
+   Also add it to `_applyMap()` (deserialize; `fromMap()` calls it) and `toMap()` (serialize).
 
-2. **`lib/app/layouts/settings/pages/<category>/`** — Add a tile in the appropriate page using widgets from `lib/app/layouts/settings/widgets/tiles/`. For a boolean toggle:
+2. **`lib/app/layouts/settings/pages/<category>/`** — Add a tile in the appropriate page using widgets from `lib/app/layouts/settings/widgets/content/` (`SettingsTile`, `SettingsSwitch`) and `widgets/layout/` (`SettingsSection`). For a boolean toggle:
    ```dart
    SettingsTile(
      title: "My New Setting",
      subtitle: "Description of what it does",
-     onTap: () {
+     onTap: () async {
        SettingsSvc.settings.myNewSetting.toggle();
-       saveSettings();
+       await SettingsSvc.settings.saveOneAsync('myNewSetting');
      },
      trailing: Obx(() => Switch(
        value: SettingsSvc.settings.myNewSetting.value,
-       onChanged: (val) {
+       onChanged: (val) async {
          SettingsSvc.settings.myNewSetting.value = val;
-         saveSettings();
+         await SettingsSvc.settings.saveOneAsync('myNewSetting');
        },
      )),
    )
@@ -85,14 +85,18 @@ Step-by-step recipes for the most frequent changes in this codebase. Each recipe
 
 **Files to touch (in order):**
 
-1. **`lib/services/network/socket_service.dart`** — Find the `_handleSocketEvent` method (or equivalent dispatch). Add a case for the new event type string.
+1. **`lib/services/network/socket_service.dart`** — In `startSocket()`, add `s.on("my-new-event", (data) => MessageHandlerSvc.handleEvent("my-new-event", data, 'DartSocket'))` to the last `_eventUnsubscribers.addAll([...])` list, the one that runs on all platforms (it starts with `ft-call-status-changed`). The list before it is web/desktop-only (Android gets those events through FCM).
 
-2. **Handler logic** — Either inline in the socket handler or delegate to a service method. If it triggers a DB write, call via an interface:
+2. **`lib/services/backend/action_handler.dart`** — Add a `case "my-new-event":` to `ActionHandler.handleEvent()`, either inline or delegating to a service method. If it triggers a DB write, load the chat, change it, and save through `saveAsync()`:
    ```dart
    case 'my-new-event':
-     final chat = await ChatInterface.saveChat(guid: data['chatGuid'], ...);
-     if (chat != null) ChatsSvc.updateChat(chat);
-     break;
+     final chat = Chat.findOne(guid: data['chatGuid']);
+     if (chat != null) {
+       chat.myField = data['value'];
+       await chat.saveAsync(updateMyField: true);
+       ChatsSvc.updateChat(chat);
+     }
+     return;
    ```
 
 3. **If the event requires UI notification** — Emit via `EventDispatcherSvc`:
@@ -114,15 +118,16 @@ Step-by-step recipes for the most frequent changes in this codebase. Each recipe
 
 **Files to touch (in order):**
 
-1. **`lib/database/io/chat.dart`** (or `message.dart`) — Add the field to the entity class. Run `dart run build_runner build` after.
+1. **`lib/database/io/chat.dart`** (or `message.dart`) — Add the field to the entity class. For a `Chat` field, also add it to `Chat.toMap()` and `Chat.fromMap()` (`ChatActions.saveChat()` rebuilds the chat with `Chat.fromMap(chatData)`, so a field missing there saves as its default), add an `updateMyField` flag to `Chat.saveAsync()`, and add a matching branch in `ChatActions.saveChat()`. Run `dart run build_runner build` after.
 
 2. **`lib/app/state/chat_state.dart`** (or `message_state.dart`) — Add the `Rx*` field, initialize it in the constructor, and add an `updateXxxInternal()` method.
 
 3. **`lib/services/ui/chat/chats_service.dart`** (or `messages_service.dart`) — Add the service method that performs the DB write and then calls `updateXxxInternal()`:
    ```dart
-   Future<void> setMyField(String chatGuid, bool value) async {
-     await ChatInterface.saveChat(guid: chatGuid, myField: value, ...);
-     getChatState(chatGuid)?.updateMyFieldInternal(value);
+   Future<void> setMyField(Chat chat, bool value) async {
+     chat.myField = value;
+     await chat.saveAsync(updateMyField: true);
+     getChatState(chat.guid)?.updateMyFieldInternal(value);
    }
    ```
 
