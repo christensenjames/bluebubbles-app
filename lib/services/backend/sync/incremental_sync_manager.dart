@@ -553,7 +553,7 @@ class IncrementalSyncManager extends SyncManager {
     }
   }
 
-  List<Map<String, dynamic>> buildRowIdWhereArgs(int startRowId, int? endRowId) {
+  static List<Map<String, dynamic>> buildRowIdWhereArgs(int startRowId, int? endRowId) {
     List<Map<String, dynamic>> whereArgs = [
       {
         'statement': 'message.ROWID > :startRowId',

@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-11-28 — Sync test coverage
+
+- **Dev:** added tests for sync snapshot deduplication, ROWID bounds, and message merge behavior.
+
 ## 2026-11-25 — Back shows the chat list again on phones
 
 - **Navigation (phone layout):** upstream v2.1.6 moved chats and Settings pages into the split
