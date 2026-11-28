@@ -204,17 +204,21 @@ class _MaterialCreateScheduledMessageState extends State<MaterialCreateScheduled
                         ),
                         Padding(
                           padding: const EdgeInsets.only(bottom: 8),
-                          child: SettingsOptions<String>(
-                            title: "With frequency:",
-                            options: const ["hourly", "daily", "weekly", "monthly", "yearly"],
-                            initial: frequency.value,
-                            textProcessing: (val) =>
-                                "${frequencyToText[val]!.capitalizeFirst!}${repeatInterval.value == 1 ? "" : "s"}",
-                            onChanged: (val) {
-                              if (val != null) frequency.value = val;
-                            },
-                            secondaryColor: headerColor,
-                          ),
+                          child: Obx(() {
+                            // Read here, not in textProcessing, so this Obx rebuilds when the interval changes.
+                            final plural = repeatInterval.value != 1;
+                            return SettingsOptions<String>(
+                              title: "With frequency:",
+                              options: const ["hourly", "daily", "weekly", "monthly", "yearly"],
+                              initial: frequency.value,
+                              textProcessing: (val) =>
+                                  "${frequencyToText[val]!.capitalizeFirst!}${plural ? "s" : ""}",
+                              onChanged: (val) {
+                                if (val != null) frequency.value = val;
+                              },
+                              secondaryColor: headerColor,
+                            );
+                          }),
                         ),
                       ],
                     ),

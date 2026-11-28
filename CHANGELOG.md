@@ -17,6 +17,10 @@
 ## 2026-11-27 — Scheduled message summary on desktop
 
 - **Scheduling (iOS skin, desktop and web):** typing a new repeat interval now updates the Summary right away.
+## 2026-11-27 — Scheduled message frequency label
+
+- **Scheduling:** the frequency labels were stale only when typing a repeat interval on desktop and
+  web; they now update their singular or plural form as the interval changes.
 
 ## 2026-11-25 — Back shows the chat list again on phones
 
