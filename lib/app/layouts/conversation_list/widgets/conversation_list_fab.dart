@@ -37,6 +37,10 @@ class _ConversationListFABState extends CustomState<ConversationListFAB, void, C
         setState(() {
           controller.showMaterialFABText = false;
         });
+      } else if (!narrow && !controller.showMaterialFABText) {
+        setState(() {
+          controller.showMaterialFABText = true;
+        });
       }
     });
   }
