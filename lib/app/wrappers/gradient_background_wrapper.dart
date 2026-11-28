@@ -99,60 +99,62 @@ class _GradientBackgroundState extends CustomState<GradientBackground, void, Con
     return Stack(
       children: [
         Positioned.fill(
-          child: Obx(() {
-            if (_chatState?.wallpaperType.value == ChatWallpaperType.dynamic) {
-              return DynamicWallpaperView(
-                wallpaperId: _chatState?.dynamicWallpaperId.value,
-                config: _chatState?.dynamicWallpaperConfig.value,
-              );
-            }
+          child: RepaintBoundary(
+            child: Obx(() {
+              if (_chatState?.wallpaperType.value == ChatWallpaperType.dynamic) {
+                return DynamicWallpaperView(
+                  wallpaperId: _chatState?.dynamicWallpaperId.value,
+                  config: _chatState?.dynamicWallpaperConfig.value,
+                );
+              }
 
-            final String? bgPath = _chatState?.customBackgroundPath.value;
+              final String? bgPath = _chatState?.customBackgroundPath.value;
 
-            if (bgPath != null) {
-              final (Size size, double dpr) = _geometryToDecodeFor(context);
-              return Container(
-                decoration: BoxDecoration(
-                  image: DecorationImage(
-                    // Decoded at window size, not file size: see static_wallpaper_image.dart.
-                    image: chatBackgroundImageProviderForWindow(bgPath, size, dpr),
-                    fit: BoxFit.cover,
-                    filterQuality: FilterQuality.high,
-                    onError: (_, _) {},
-                  ),
-                ),
-              );
-            }
-
-            if (!adjustBackground.value) {
-              return const SizedBox.shrink();
-            }
-
-            Widget gradient(Movie anim) => Container(
+              if (bgPath != null) {
+                final (Size size, double dpr) = _geometryToDecodeFor(context);
+                return Container(
                   decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      begin: Alignment.topRight,
-                      end: Alignment.bottomLeft,
-                      stops: [anim.get("color1"), anim.get("color2")],
-                      colors: [
-                        context.theme.colorScheme.bubble(context, controller.chat.isIMessage).withValues(alpha: 0.5),
-                        Colors.transparent,
-                      ],
+                    image: DecorationImage(
+                      // Decoded at window size, not file size: see static_wallpaper_image.dart.
+                      image: chatBackgroundImageProviderForWindow(bgPath, size, dpr),
+                      fit: BoxFit.cover,
+                      filterQuality: FilterQuality.high,
+                      onError: (_, _) {},
                     ),
                   ),
                 );
+              }
 
-            if (reduceMotion) return gradient(ThemeSvc.gradientTween.value.transform(0.5));
+              if (!adjustBackground.value) {
+                return const SizedBox.shrink();
+              }
 
-            return MirrorAnimationBuilder<Movie>(
-              tween: ThemeSvc.gradientTween.value,
-              curve: Curves.fastOutSlowIn,
-              duration: const Duration(seconds: 3),
-              builder: (context, anim, _) => gradient(anim),
-            );
-          }),
+              Widget gradient(Movie anim) => Container(
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topRight,
+                    end: Alignment.bottomLeft,
+                    stops: [anim.get("color1"), anim.get("color2")],
+                    colors: [
+                      context.theme.colorScheme.bubble(context, controller.chat.isIMessage).withValues(alpha: 0.5),
+                      Colors.transparent,
+                    ],
+                  ),
+                ),
+              );
+
+              if (reduceMotion) return gradient(ThemeSvc.gradientTween.value.transform(0.5));
+
+              return MirrorAnimationBuilder<Movie>(
+                tween: ThemeSvc.gradientTween.value,
+                curve: Curves.fastOutSlowIn,
+                duration: const Duration(seconds: 3),
+                builder: (context, anim, _) => gradient(anim),
+              );
+            }),
+          ),
         ),
-        widget.child,
+        RepaintBoundary(child: widget.child),
       ],
     );
   }

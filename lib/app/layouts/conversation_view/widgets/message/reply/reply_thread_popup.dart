@@ -48,7 +48,6 @@ void showBookmarksThread(ConversationViewController cvController, BuildContext c
 
 void _buildThreadView(
     List<Message> _messages, int? originatorPart, ConversationViewController cvController, BuildContext context) {
-  final controller = ScrollController();
   // Capture the conversation's theme before pushing the route — if adaptive
   // theming is active, context.theme is already the per-chat theme.
   final capturedTheme = context.theme;
@@ -108,8 +107,7 @@ void _buildThreadView(
                               child: Padding(
                                 padding: const EdgeInsets.symmetric(vertical: 8.0),
                                 child: Center(
-                                  child: SingleChildScrollView(
-                                    controller: controller,
+                                  child: _ThreadScrollView(
                                     child: Column(
                                       children: _messages
                                           .mapIndexed((index, e) => GestureDetector(
@@ -159,4 +157,26 @@ void _buildThreadView(
       cvController.focusNode.requestFocus();
     }
   });
+}
+
+class _ThreadScrollView extends StatefulWidget {
+  const _ThreadScrollView({required this.child});
+
+  final Widget child;
+
+  @override
+  State<_ThreadScrollView> createState() => _ThreadScrollViewState();
+}
+
+class _ThreadScrollViewState extends State<_ThreadScrollView> {
+  final ScrollController _controller = ScrollController();
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => SingleChildScrollView(controller: _controller, child: widget.child);
 }
