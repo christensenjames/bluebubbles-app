@@ -14,6 +14,9 @@
   and contact banner over it, settled stickers skip their highlight layer, scroll-faded headers
   rebuild only when their opacity changes, the chat-list delivery check uses a tinted icon instead
   of an opacity layer, and the reply-thread popup frees its scroll controller on close.
+## 2026-11-27 — Scheduled message summary on desktop
+
+- **Scheduling (iOS skin, desktop and web):** typing a new repeat interval now updates the Summary right away.
 
 ## 2026-11-25 — Back shows the chat list again on phones
 
