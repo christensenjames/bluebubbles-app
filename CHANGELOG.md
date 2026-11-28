@@ -1,5 +1,11 @@
 # Changelog
 
+## 2026-11-27 — Dragging the split divider rebuilds less
+
+- **Chat list (desktop/tablet):** dragging the divider rebuilt every conversation tile, the pinned
+  grid and the headers on each pointer event. They now rebuild only when the left pane crosses the
+  300 px avatar-only width; nothing looks different at any width.
+
 ## 2026-11-25 — Back shows the chat list again on phones
 
 - **Navigation (phone layout):** upstream v2.1.6 moved chats and Settings pages into the split

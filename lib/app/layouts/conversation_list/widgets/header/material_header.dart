@@ -71,7 +71,7 @@ class _MaterialHeaderState extends CustomState<MaterialHeader, void, Conversatio
           child: controller.selectedChats.isEmpty
               ? SafeArea(
                   child: Obx(() {
-                    NavigationSvc.listener.value;
+                    NavigationSvc.leftPaneNarrow.value;
                     return Container(
                       decoration: BoxDecoration(
                         color: !NavigationSvc.isAvatarOnly(context) && !showArchived && !showUnknown && !showSpam

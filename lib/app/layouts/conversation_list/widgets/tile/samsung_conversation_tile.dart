@@ -71,7 +71,7 @@ class _SamsungConversationTileState extends CustomState<SamsungConversationTile,
     return ChatStateScope(
       chatState: controller.chatState,
       child: Obx(() {
-        NavigationSvc.listener.value;
+        NavigationSvc.leftPaneNarrow.value;
         return AnimatedContainer(
           clipBehavior: Clip.antiAlias,
           decoration: BoxDecoration(
