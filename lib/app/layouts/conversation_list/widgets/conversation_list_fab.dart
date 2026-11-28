@@ -37,7 +37,9 @@ class _ConversationListFABState extends CustomState<ConversationListFAB, void, C
         setState(() {
           controller.showMaterialFABText = false;
         });
-      } else if (!narrow && !controller.showMaterialFABText) {
+      } else if (!narrow &&
+          !controller.showMaterialFABText &&
+          (!controller.materialScrollController.hasClients || controller.materialScrollController.offset <= 75)) {
         setState(() {
           controller.showMaterialFABText = true;
         });
@@ -265,7 +267,7 @@ class _ScrollToTopFAB extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final hidden = controller.showMaterialFABText;
+    final hidden = controller.showMaterialFABText || NavigationSvc.isAvatarOnly(context);
     return AnimatedOpacity(
       opacity: hidden ? 0 : 1,
       duration: M3EMotion.effectsFast.durationOf(context),
