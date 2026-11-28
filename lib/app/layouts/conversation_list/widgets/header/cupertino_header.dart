@@ -37,7 +37,7 @@ class CupertinoHeader extends StatelessWidget {
             bottom: 5,
           ),
           child: Obx(() {
-            NavigationSvc.listener.value;
+            NavigationSvc.leftPaneNarrow.value;
             return Row(
               mainAxisAlignment:
                   NavigationSvc.isAvatarOnly(context) ? MainAxisAlignment.center : MainAxisAlignment.spaceBetween,

@@ -145,7 +145,6 @@ class _PinnedConversationTileState extends CustomState<PinnedConversationTile, v
     return Container(
       margin: const EdgeInsets.only(left: 4, right: 4, top: 1),
       child: Obx(() {
-        NavigationSvc.listener.value;
         final selected = _selectable && controller.isSelected;
         return AnimatedContainer(
           duration: const Duration(milliseconds: 100),

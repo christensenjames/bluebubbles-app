@@ -93,7 +93,7 @@ class _MaterialConversationTileState extends CustomState<MaterialConversationTil
     return ChatStateScope(
       chatState: controller.chatState,
       child: Obx(() {
-        NavigationSvc.listener.value;
+        NavigationSvc.leftPaneNarrow.value;
         return AnimatedContainer(
           padding: const EdgeInsets.only(left: 10),
           clipBehavior: Clip.antiAlias,

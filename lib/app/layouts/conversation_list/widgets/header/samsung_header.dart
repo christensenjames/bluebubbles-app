@@ -26,7 +26,7 @@ class _SamsungHeaderState extends CustomState<SamsungHeader, void, ConversationL
   @override
   Widget build(BuildContext context) {
     return Obx(() {
-      NavigationSvc.listener.value;
+      NavigationSvc.leftPaneNarrow.value;
       if (NavigationSvc.isAvatarOnly(context)) {
         return SliverToBoxAdapter(
           child: Padding(

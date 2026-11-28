@@ -98,7 +98,7 @@ class _CupertinoConversationTileState extends CustomState<CupertinoConversationT
     return ChatStateScope(
       chatState: controller.chatState,
       child: Obx(() {
-        NavigationSvc.listener.value;
+        NavigationSvc.leftPaneNarrow.value;
         return AnimatedContainer(
           duration: const Duration(milliseconds: 100),
           decoration: BoxDecoration(
@@ -125,12 +125,15 @@ class _CupertinoConversationTileState extends CustomState<CupertinoConversationT
                   },
                   child: ChatTileSemantics(
                     controller: controller,
-                    child: Padding(
-                      padding:
-                          EdgeInsets.symmetric(vertical: 10.0, horizontal: (NavigationSvc.width(context) - 100) / 2)
-                              .add(const EdgeInsets.only(right: 15)),
-                      child: leading,
-                    ),
+                    child: Obx(() {
+                      NavigationSvc.listener.value;
+                      return Padding(
+                        padding: EdgeInsets.symmetric(
+                                vertical: 10.0, horizontal: (NavigationSvc.width(context) - 100) / 2)
+                            .add(const EdgeInsets.only(right: 15)),
+                        child: leading,
+                      );
+                    }),
                   ),
                 )
               : child,
