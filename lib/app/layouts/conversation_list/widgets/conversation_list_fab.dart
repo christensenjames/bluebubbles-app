@@ -21,6 +21,7 @@ class _ConversationListFABState extends CustomState<ConversationListFAB, void, C
   // Cache these values to prevent rebuild on every scroll event
   double _lastScrollOffset = 0;
   ScrollDirection _lastScrollDirection = ScrollDirection.idle;
+  bool _nearTop = true;
   late final Worker _paneWorker;
 
   @override
@@ -51,6 +52,12 @@ class _ConversationListFABState extends CustomState<ConversationListFAB, void, C
     if (!material) return;
 
     final offset = controller.materialScrollController.offset;
+    final nearTop = offset <= 75;
+    if (nearTop != _nearTop) {
+      setState(() {
+        _nearTop = nearTop;
+      });
+    }
     final direction = controller.materialScrollController.position.userScrollDirection;
 
     // Only process if direction actually changed (reduces unnecessary checks)
@@ -96,6 +103,7 @@ class _ConversationListFABState extends CustomState<ConversationListFAB, void, C
       iOSSkin: iosAndSamsungWidget,
       materialSkin: _MaterialFAB(
         controller: controller,
+        nearTop: _nearTop,
         onScrollToTop: () async {
           await controller.scrollToTop(controller.materialScrollController);
           if (!mounted) return;
@@ -215,10 +223,12 @@ class _ComposeFAB extends StatelessWidget {
 class _MaterialFAB extends StatelessWidget {
   const _MaterialFAB({
     required this.controller,
+    required this.nearTop,
     required this.onScrollToTop,
   });
 
   final ConversationListController controller;
+  final bool nearTop;
   final VoidCallback onScrollToTop;
 
   @override
@@ -241,6 +251,7 @@ class _MaterialFAB extends StatelessWidget {
             // Scroll to top FAB
             _ScrollToTopFAB(
               controller: controller,
+              nearTop: nearTop,
               onPressed: onScrollToTop,
             ),
             // Main compose FAB
@@ -259,15 +270,18 @@ class _MaterialFAB extends StatelessWidget {
 class _ScrollToTopFAB extends StatelessWidget {
   const _ScrollToTopFAB({
     required this.controller,
+    required this.nearTop,
     required this.onPressed,
   });
 
   final ConversationListController controller;
+  final bool nearTop;
   final VoidCallback onPressed;
 
   @override
   Widget build(BuildContext context) {
-    final hidden = controller.showMaterialFABText || NavigationSvc.isAvatarOnly(context);
+    // In an avatar-only list the label never shows, so it cannot tell whether the list is scrolled.
+    final hidden = controller.showMaterialFABText || (NavigationSvc.isAvatarOnly(context) && nearTop);
     return AnimatedOpacity(
       opacity: hidden ? 0 : 1,
       duration: M3EMotion.effectsFast.durationOf(context),

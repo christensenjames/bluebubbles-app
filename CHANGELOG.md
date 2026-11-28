@@ -10,8 +10,9 @@
 - **New chat button (Material):** its text label hides whenever the chat list shows avatars only,
   including at startup and after resizing the window, and shows again when the list widens near its top.
   Scrolling no longer brings the label back in an avatar-only list, so there the button shows only
-  its icon, also after scrolling to the top; the scroll-to-top arrow stays hidden there. Before, the
-  label hid in an avatar-only list only after a divider drag, and scrolling up brought it back.
+  its icon, also after scrolling to the top; there the scroll-to-top arrow shows only once the list is
+  scrolled down. Before, the label hid in an avatar-only list only after a divider drag, and scrolling
+  up brought it back.
 
 ## 2026-11-25 — Back shows the chat list again on phones
 
