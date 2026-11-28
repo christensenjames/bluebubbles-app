@@ -355,6 +355,9 @@ class ContactV2Actions {
             // Update existing contact
             contact = existingContact;
             final oldComputedName = contact.computedDisplayName;
+            final oldDisplayName = contact.displayName;
+            final oldFirstName = contact.firstName;
+            final oldIsNative = contact.isNative;
             final oldInitials = contact.initials;
             final oldAvatarPath = contact.avatarPath;
             contact.displayName = displayName;
@@ -374,11 +377,15 @@ class ContactV2Actions {
             contact.company = company;
             contact.phoneNumbers = contactPhones;
             contact.emailAddresses = contactEmails;
+            contact.isNative = rawContact is fc.Contact;
 
             // Track existing handles to detect changes
             existingHandleIds = contact.handles.map((h) => h.id).whereType<int>().toSet();
 
             if (oldComputedName != contact.computedDisplayName ||
+                oldDisplayName != contact.displayName ||
+                oldFirstName != contact.firstName ||
+                oldIsNative != contact.isNative ||
                 oldInitials != contact.initials ||
                 oldAvatarPath != contact.avatarPath) {
               affectedHandleIds.addAll(existingHandleIds);
@@ -397,13 +404,11 @@ class ContactV2Actions {
               nameSuffix: nameSuffix,
               nickname: nickname,
               company: company,
+              isNative: rawContact is fc.Contact,
             );
             contact.phoneNumbers = contactPhones;
             contact.emailAddresses = contactEmails;
           }
-
-          // Mark contact as native only when it originates from flutter_contacts
-          contact.isNative = rawContact is fc.Contact;
 
           // Step 3: Match contact to handles using lookup maps (O(addresses) instead of O(addresses × handles))
           final matchedHandles = <Handle>{};
