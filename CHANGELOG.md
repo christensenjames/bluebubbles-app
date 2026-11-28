@@ -1,26 +1,35 @@
 # Changelog
 
+## 2026-11-28 — Sync test coverage
+
+- **Dev:** added tests for sync snapshot deduplication, ROWID bounds, and message merge behavior.
+
 ## 2026-11-27 — Contact names
 
 - **Contacts:** native contact names and initials now take priority over server contacts even when the native display name is empty.
+
 ## 2026-11-27 — Draft mentions survive participant changes
 
 - Restored drafts keep mentions attached to their saved participant addresses; a participant who left
   becomes plain text, while any other formatting remains.
 - Older drafts with position-based mention markers still restore by participant position.
+
 ## 2026-11-27 — Fewer wasted repaints in chat and list animations
 
 - **Performance:** the chat's looping gradient background no longer repaints the messages, composer
   and contact banner over it, settled stickers skip their highlight layer, scroll-faded headers
   rebuild only when their opacity changes, the chat-list delivery check uses a tinted icon instead
   of an opacity layer, and the reply-thread popup frees its scroll controller on close.
+
 ## 2026-11-27 — Scheduled message summary on desktop
 
 - **Scheduling (iOS skin, desktop and web):** typing a new repeat interval now updates the Summary right away.
+
 ## 2026-11-27 — Scheduled message frequency label
 
 - **Scheduling:** the frequency labels were stale only when typing a repeat interval on desktop and
   web; they now update their singular or plural form as the interval changes.
+
 ## 2026-11-27 — Dragging the split divider rebuilds less
 
 - **Chat list (desktop/tablet):** dragging the divider rebuilt every conversation tile, the pinned
@@ -34,9 +43,6 @@
   button shows only its icon, also after scrolling to the top. The scroll-to-top arrow now hides
   whenever the list is near the top, where it did nothing. Before, the label hid in an avatar-only list
   only after a divider drag, and scrolling up brought it back.
-## 2026-11-28 — Sync test coverage
-
-- **Dev:** added tests for sync snapshot deduplication, ROWID bounds, and message merge behavior.
 
 ## 2026-11-25 — Back shows the chat list again on phones
 
