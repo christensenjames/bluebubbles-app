@@ -61,7 +61,6 @@ void _buildThreadView(
     PageRouteBuilder(
       transitionDuration: const Duration(milliseconds: 150),
       pageBuilder: (routeCtx, animation, secondaryAnimation) {
-        // Future.delayed(Duration.zero, () => controller.jumpTo(controller.position.maxScrollExtent));
         return FadeTransition(
             opacity: animation,
             child: ChatStateScope(
@@ -107,7 +106,8 @@ void _buildThreadView(
                               child: Padding(
                                 padding: const EdgeInsets.symmetric(vertical: 8.0),
                                 child: Center(
-                                  child: _ThreadScrollView(
+                                  child: SingleChildScrollView(
+                                    primary: false,
                                     child: Column(
                                       children: _messages
                                           .mapIndexed((index, e) => GestureDetector(
@@ -157,26 +157,4 @@ void _buildThreadView(
       cvController.focusNode.requestFocus();
     }
   });
-}
-
-class _ThreadScrollView extends StatefulWidget {
-  const _ThreadScrollView({required this.child});
-
-  final Widget child;
-
-  @override
-  State<_ThreadScrollView> createState() => _ThreadScrollViewState();
-}
-
-class _ThreadScrollViewState extends State<_ThreadScrollView> {
-  final ScrollController _controller = ScrollController();
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) => SingleChildScrollView(controller: _controller, child: widget.child);
 }

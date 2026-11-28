@@ -408,7 +408,6 @@ class _StickInState extends State<_StickIn> with SingleTickerProviderStateMixin 
 
   @override
   Widget build(BuildContext context) {
-    // A settled sticker draws as its image alone: no scale, no mask layer
     if (!_plays) return widget.child;
     // Always the same widgets, so the image under it is never rebuilt from scratch
     return AnimatedBuilder(

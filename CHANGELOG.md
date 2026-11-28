@@ -2,8 +2,8 @@
 
 ## 2026-11-27 — Fewer wasted repaints in chat and list animations
 
-- **Performance:** the chat's looping gradient background no longer repaints the conversation over
-  it (the blurred headers), settled stickers skip their highlight layer, scroll-faded headers
+- **Performance:** the chat's looping gradient background no longer repaints the messages, composer
+  and contact banner over it, settled stickers skip their highlight layer, scroll-faded headers
   rebuild only when their opacity changes, the chat-list delivery check uses a tinted icon instead
   of an opacity layer, and the reply-thread popup frees its scroll controller on close.
 
