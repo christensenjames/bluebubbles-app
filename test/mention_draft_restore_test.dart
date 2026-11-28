@@ -64,18 +64,26 @@ void main() {
       expect(shared.map((m) => m.address), [alice.address]);
     });
 
-    test('refreshes membership when restoring the same text and keeps the selection', () {
+    test('same text keeps live runs and removes departed mentions', () {
       controller.restoreDraft('Hi Alice and Bob!', persistedRuns(), [alice, bob]);
+      controller.setTextAndRuns('Hi Alice and Bob!', [persistedRuns().last]);
       controller.selection = const TextSelection.collapsed(offset: 4);
-      controller.restoreDraft('Hi Alice and Bob!', persistedRuns(), [bob]);
+      controller.restoreDraft('Hi Alice and Bob!', persistedRuns(), [alice]);
 
       expect(controller.selection, const TextSelection.collapsed(offset: 4));
-      expect(controller.mentionRuns.map((run) => run.attributes!.mention), [bob.address]);
-      expect(shared.map((m) => m.address), [bob.address]);
-      var notifications = 0;
-      controller.addListener(() => notifications++);
-      controller.restoreDraft('Hi Alice and Bob!', persistedRuns(), [alice]);
-      expect(notifications, greaterThan(0));
+      expect(controller.mentionRuns, isEmpty);
+      expect(controller.runs.single.attributes!.isBold, isTrue);
+      expect(shared.map((m) => m.address), [alice.address]);
+    });
+
+    test('same literal text containing a legacy marker is not decoded', () {
+      controller.text = 'Hi ￼0￼!';
+      controller.selection = const TextSelection.collapsed(offset: 4);
+      controller.restoreDraft('Hi ￼0￼!', null, [bob]);
+
+      expect(controller.text, 'Hi ￼0￼!');
+      expect(controller.selection, const TextSelection.collapsed(offset: 4));
+      expect(controller.mentionRuns, isEmpty);
     });
 
     test('restores old positional markers and makes invalid indices plain text', () {

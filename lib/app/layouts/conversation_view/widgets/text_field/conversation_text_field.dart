@@ -104,7 +104,9 @@ class ConversationTextFieldState extends CustomState<ConversationTextField, void
     final state = ChatsSvc.getChatState(chatGuid);
     final incomingText = text ?? state?.textFieldText.value ?? chat.textFieldText;
     if (incomingText != null && incomingText.isNotEmpty) {
-      final storedRuns = text != null ? null : (state != null ? state.textFieldRuns.value : chat.textFieldRuns);
+      final storedRuns = text != null || incomingText == controller.textController.text
+          ? null
+          : (state != null ? state.textFieldRuns.value : chat.textFieldRuns);
       controller.textController.restoreDraft(
         incomingText,
         storedRuns == null ? null : (jsonDecode(storedRuns) as List).map((r) => Run.fromMap((r as Map).cast())).toList(),

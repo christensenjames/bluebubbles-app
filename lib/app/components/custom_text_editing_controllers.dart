@@ -487,9 +487,14 @@ class MentionTextEditingController extends SpellCheckTextEditingController {
   }
 
   void restoreDraft(String draft, List<Run>? storedRuns, Iterable<Handle> participants) {
+    final sameText = text == draft;
     final fresh = participants.map((handle) => Mentionable(handle: handle)).toList();
     mentionables.replaceRange(0, mentionables.length, fresh);
-    final (draftText, draftRuns) = storedRuns == null ? parseLegacyDraft(draft, fresh) : (draft, storedRuns);
+    final (draftText, draftRuns) = sameText
+        ? (text, runs)
+        : storedRuns == null
+            ? parseLegacyDraft(draft, fresh)
+            : (draft, storedRuns);
     final addresses = fresh.map((m) => m.address).toSet();
     final restoredRuns = <Run>[];
     for (final run in draftRuns) {
@@ -503,11 +508,12 @@ class MentionTextEditingController extends SpellCheckTextEditingController {
         }
       }
     }
-    final oldSelection = selection;
-    final sameText = text == draftText;
-    setTextAndRuns(draftText, restoredRuns);
-    if (sameText && oldSelection.isValid && oldSelection.end <= text.length) selection = oldSelection;
-    if (sameText) notifyListeners();
+    if (sameText) {
+      runs = restoredRuns;
+      notifyListeners();
+    } else {
+      setTextAndRuns(draftText, restoredRuns);
+    }
   }
 
   void copyFrom(MentionTextEditingController other) => setTextAndRuns(other.text, other.runs);
