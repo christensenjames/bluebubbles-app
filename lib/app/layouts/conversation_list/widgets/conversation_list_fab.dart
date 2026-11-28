@@ -61,7 +61,10 @@ class _ConversationListFABState extends CustomState<ConversationListFAB, void, C
       setState(() {
         controller.showMaterialFABText = false;
       });
-    } else if (scrollDelta > 75 && direction == ScrollDirection.forward && !controller.showMaterialFABText) {
+    } else if (scrollDelta > 75 &&
+        direction == ScrollDirection.forward &&
+        !controller.showMaterialFABText &&
+        !NavigationSvc.isAvatarOnly(context)) {
       setState(() {
         controller.showMaterialFABText = true;
       });
@@ -91,7 +94,7 @@ class _ConversationListFABState extends CustomState<ConversationListFAB, void, C
           await controller.scrollToTop(controller.materialScrollController);
           if (!mounted) return;
           setState(() {
-            controller.showMaterialFABText = true;
+            controller.showMaterialFABText = !NavigationSvc.isAvatarOnly(context);
           });
         },
       ),

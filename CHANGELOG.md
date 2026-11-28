@@ -4,7 +4,11 @@
 
 - **Chat list (desktop/tablet):** dragging the divider rebuilt every conversation tile, the pinned
   grid and the headers on each pointer event. They now rebuild only when the left pane crosses the
-  300 px avatar-only width; nothing looks different at any width.
+  300 px avatar-only width. Tiles and headers also switch to or from avatar-only after the search
+  split change and a theme split refresh, which before left them as they were until the next drag.
+- **New chat button (Material):** its text label hides whenever the chat list shows avatars only,
+  including at startup and after resizing the window, and scrolling no longer brings it back there.
+  Before, it hid only during a divider drag.
 
 ## 2026-11-25 — Back shows the chat list again on phones
 
