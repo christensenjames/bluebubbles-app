@@ -497,10 +497,6 @@ class Chat {
     throw Exception("Use socket to get chats on Web!");
   }
 
-  static Future<List<Chat>> syncLatestMessages(List<Chat> chats, bool toggleUnread) async {
-    return chats;
-  }
-
   static Future<List<Chat>> bulkSyncChats(List<Chat> chats) async {
     return chats;
   }
