@@ -5,14 +5,14 @@
 - **Chat list (desktop/tablet):** dragging the divider rebuilt every conversation tile, the pinned
   grid and the headers on each pointer event. The tiles and headers no longer rebuild in full on
   every pointer event; they switch to or from avatars only when the left pane crosses 300 px. Opening
-  or closing search, which narrows the list, now switches them too, where before they kept their old
-  form until the next drag.
+  search from the menu, which narrows the list, now switches them too, where before they kept their
+  old form until the next drag.
 - **New chat button (Material):** its text label hides whenever the chat list shows avatars only,
-  including at startup and after resizing the window, and shows again when the list widens near its top.
-  Scrolling no longer brings the label back in an avatar-only list, so there the button shows only
-  its icon, also after scrolling to the top; there the scroll-to-top arrow shows only once the list is
-  scrolled down. Before, the label hid in an avatar-only list only after a divider drag, and scrolling
-  up brought it back.
+  including at startup and after resizing the window on desktop and web, and shows again when the list
+  widens near its top. Scrolling no longer brings the label back in an avatar-only list, so there the
+  button shows only its icon, also after scrolling to the top. The scroll-to-top arrow now hides
+  whenever the list is near the top, where it did nothing. Before, the label hid in an avatar-only list
+  only after a divider drag, and scrolling up brought it back.
 
 ## 2026-11-25 — Back shows the chat list again on phones
 

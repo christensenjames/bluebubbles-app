@@ -18,29 +18,31 @@ class ConversationListFAB extends CustomStateful<ConversationListController> {
 }
 
 class _ConversationListFABState extends CustomState<ConversationListFAB, void, ConversationListController> {
+  static const _nearTopOffset = 75.0;
+
   // Cache these values to prevent rebuild on every scroll event
   double _lastScrollOffset = 0;
   ScrollDirection _lastScrollDirection = ScrollDirection.idle;
-  bool _nearTop = true;
+  late bool _nearTop;
   late final Worker _paneWorker;
 
   @override
   void initState() {
     super.initState();
 
+    final scroll = controller.materialScrollController;
+    _nearTop = !scroll.hasClients || scroll.offset <= _nearTopOffset;
     // Optimize scroll listener to reduce setState calls
-    controller.materialScrollController.addListener(_handleScroll);
+    scroll.addListener(_handleScroll);
 
     _paneWorker = ever<bool>(NavigationSvc.leftPaneNarrow, (narrow) {
-      if (!mounted) return;
+      if (!mounted || !(kIsDesktop || kIsWeb)) return;
       // The drag sets this before layout updates the pane width that isAvatarOnly reads
-      if (narrow && (kIsDesktop || kIsWeb) && NavigationSvc.isTabletMode(context) && controller.showMaterialFABText) {
+      if (narrow && NavigationSvc.isTabletMode(context) && controller.showMaterialFABText) {
         setState(() {
           controller.showMaterialFABText = false;
         });
-      } else if (!narrow &&
-          !controller.showMaterialFABText &&
-          (!controller.materialScrollController.hasClients || controller.materialScrollController.offset <= 75)) {
+      } else if (!narrow && !controller.showMaterialFABText && _nearTop) {
         setState(() {
           controller.showMaterialFABText = true;
         });
@@ -49,15 +51,15 @@ class _ConversationListFABState extends CustomState<ConversationListFAB, void, C
   }
 
   void _handleScroll() {
-    if (!material) return;
-
     final offset = controller.materialScrollController.offset;
-    final nearTop = offset <= 75;
+    final nearTop = offset <= _nearTopOffset;
     if (nearTop != _nearTop) {
       setState(() {
         _nearTop = nearTop;
       });
     }
+    if (!material) return;
+
     final direction = controller.materialScrollController.position.userScrollDirection;
 
     // Only process if direction actually changed (reduces unnecessary checks)
@@ -249,9 +251,9 @@ class _MaterialFAB extends StatelessWidget {
           clipBehavior: Clip.none,
           children: [
             // Scroll to top FAB
+            // Within reach of the top the arrow would do nothing; an avatar-only list never shows the label
             _ScrollToTopFAB(
-              controller: controller,
-              nearTop: nearTop,
+              hidden: controller.showMaterialFABText || nearTop,
               onPressed: onScrollToTop,
             ),
             // Main compose FAB
@@ -269,19 +271,15 @@ class _MaterialFAB extends StatelessWidget {
 /// Extracted scroll to top FAB to isolate animation
 class _ScrollToTopFAB extends StatelessWidget {
   const _ScrollToTopFAB({
-    required this.controller,
-    required this.nearTop,
+    required this.hidden,
     required this.onPressed,
   });
 
-  final ConversationListController controller;
-  final bool nearTop;
+  final bool hidden;
   final VoidCallback onPressed;
 
   @override
   Widget build(BuildContext context) {
-    // In an avatar-only list the label never shows, so it cannot tell whether the list is scrolled.
-    final hidden = controller.showMaterialFABText || (NavigationSvc.isAvatarOnly(context) && nearTop);
     return AnimatedOpacity(
       opacity: hidden ? 0 : 1,
       duration: M3EMotion.effectsFast.durationOf(context),
