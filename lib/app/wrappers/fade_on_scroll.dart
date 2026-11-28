@@ -38,31 +38,35 @@ class _FadeOnScrollState extends State<FadeOnScroll> {
   }
 
   void _setOffset() {
-    setState(() {
-      _offset = widget.scrollController.offset;
-    });
+    final offset = widget.scrollController.offset;
+    final opacityChanged = _calculateOpacity(offset) != _calculateOpacity(_offset);
+    if (opacityChanged) {
+      setState(() => _offset = offset);
+    } else {
+      _offset = offset;
+    }
   }
 
-  double _calculateOpacity() {
+  double _calculateOpacity(double offset) {
     if (widget.fullOpacityOffset == widget.zeroOpacityOffset) {
       return 1;
     } else if (widget.fullOpacityOffset > widget.zeroOpacityOffset) {
       // fading in
-      if (_offset <= widget.zeroOpacityOffset) {
+      if (offset <= widget.zeroOpacityOffset) {
         return 0;
-      } else if (_offset >= widget.fullOpacityOffset) {
+      } else if (offset >= widget.fullOpacityOffset) {
         return 1;
       } else {
-        return (_offset - widget.zeroOpacityOffset) / (widget.fullOpacityOffset - widget.zeroOpacityOffset);
+        return (offset - widget.zeroOpacityOffset) / (widget.fullOpacityOffset - widget.zeroOpacityOffset);
       }
     } else {
       // fading out
-      if (_offset <= widget.fullOpacityOffset) {
+      if (offset <= widget.fullOpacityOffset) {
         return 1;
-      } else if (_offset >= widget.zeroOpacityOffset) {
+      } else if (offset >= widget.zeroOpacityOffset) {
         return 0;
       } else {
-        return (_offset - widget.zeroOpacityOffset) / (widget.fullOpacityOffset - widget.zeroOpacityOffset);
+        return (offset - widget.zeroOpacityOffset) / (widget.fullOpacityOffset - widget.zeroOpacityOffset);
       }
     }
   }
@@ -70,7 +74,7 @@ class _FadeOnScrollState extends State<FadeOnScroll> {
   @override
   Widget build(BuildContext context) {
     return Opacity(
-      opacity: _calculateOpacity(),
+      opacity: _calculateOpacity(_offset),
       child: widget.child,
     );
   }

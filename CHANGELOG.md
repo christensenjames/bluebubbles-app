@@ -8,6 +8,12 @@
 - Restored drafts keep mentions attached to their saved participant addresses; a participant who left
   becomes plain text, while any other formatting remains.
 - Older drafts with position-based mention markers still restore by participant position.
+## 2026-11-27 — Fewer wasted repaints in chat and list animations
+
+- **Performance:** the chat's looping gradient background no longer repaints the messages, composer
+  and contact banner over it, settled stickers skip their highlight layer, scroll-faded headers
+  rebuild only when their opacity changes, the chat-list delivery check uses a tinted icon instead
+  of an opacity layer, and the reply-thread popup frees its scroll controller on close.
 
 ## 2026-11-25 — Back shows the chat list again on phones
 

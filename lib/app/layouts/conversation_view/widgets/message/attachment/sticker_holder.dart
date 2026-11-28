@@ -391,21 +391,24 @@ class _StickInState extends State<_StickIn> with SingleTickerProviderStateMixin 
     curve: const Interval(0.3, 1, curve: Curves.easeInOut),
   );
 
+  // Fixed for the state's lifetime, so the child never changes parent and remounts
+  late final bool _plays = widget.play;
+
   @override
   void initState() {
     super.initState();
-    // Settled already unless it's the one just dropped
-    widget.play ? _controller.forward() : _controller.value = 1;
+    if (_plays) _controller.forward();
   }
 
   @override
   void dispose() {
-    _controller.dispose();
+    if (_plays) _controller.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
+    if (!_plays) return widget.child;
     // Always the same widgets, so the image under it is never rebuilt from scratch
     return AnimatedBuilder(
       animation: _controller,

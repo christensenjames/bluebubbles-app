@@ -48,7 +48,6 @@ void showBookmarksThread(ConversationViewController cvController, BuildContext c
 
 void _buildThreadView(
     List<Message> _messages, int? originatorPart, ConversationViewController cvController, BuildContext context) {
-  final controller = ScrollController();
   // Capture the conversation's theme before pushing the route — if adaptive
   // theming is active, context.theme is already the per-chat theme.
   final capturedTheme = context.theme;
@@ -62,7 +61,6 @@ void _buildThreadView(
     PageRouteBuilder(
       transitionDuration: const Duration(milliseconds: 150),
       pageBuilder: (routeCtx, animation, secondaryAnimation) {
-        // Future.delayed(Duration.zero, () => controller.jumpTo(controller.position.maxScrollExtent));
         return FadeTransition(
             opacity: animation,
             child: ChatStateScope(
@@ -109,7 +107,7 @@ void _buildThreadView(
                                 padding: const EdgeInsets.symmetric(vertical: 8.0),
                                 child: Center(
                                   child: SingleChildScrollView(
-                                    controller: controller,
+                                    primary: false,
                                     child: Column(
                                       children: _messages
                                           .mapIndexed((index, e) => GestureDetector(

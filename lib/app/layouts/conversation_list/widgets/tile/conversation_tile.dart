@@ -378,13 +378,10 @@ class _ChatSubtitleState extends CustomState<ChatSubtitle, void, ConversationTil
                           top: (textScaler.scale(widget.style.fontSize ?? 14) * (widget.style.height ?? 1.5) -
                                   textScaler.scale(14)) /
                               2),
-                      child: Opacity(
-                        opacity: isDelivered ? 1.0 : 0.35,
-                        child: Icon(
-                          Icons.check_circle_outline,
-                          size: textScaler.scale(14),
-                          color: iconColor,
-                        ),
+                      child: Icon(
+                        Icons.check_circle_outline,
+                        size: textScaler.scale(14),
+                        color: isDelivered ? iconColor : iconColor.withValues(alpha: iconColor.a * 0.35),
                       ),
                     ),
                     Expanded(child: richText),
