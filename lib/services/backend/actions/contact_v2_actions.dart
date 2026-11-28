@@ -355,6 +355,7 @@ class ContactV2Actions {
             // Update existing contact
             contact = existingContact;
             final oldComputedName = contact.computedDisplayName;
+            final oldInitials = contact.initials;
             final oldAvatarPath = contact.avatarPath;
             contact.displayName = displayName;
             contact.addresses = normalizedAddresses.toList();
@@ -377,8 +378,9 @@ class ContactV2Actions {
             // Track existing handles to detect changes
             existingHandleIds = contact.handles.map((h) => h.id).whereType<int>().toSet();
 
-            if (oldComputedName != contact.computedDisplayName || oldAvatarPath != contact.avatarPath) {
-              // Mark all existing handles for this contact as affected (computed name or avatar changed)
+            if (oldComputedName != contact.computedDisplayName ||
+                oldInitials != contact.initials ||
+                oldAvatarPath != contact.avatarPath) {
               affectedHandleIds.addAll(existingHandleIds);
             }
           } else {

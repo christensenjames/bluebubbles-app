@@ -72,6 +72,9 @@ class Handle {
       final nativeDisplayName = firstNativeContact?.displayName;
       if (!isNullOrEmpty(nativeDisplayName)) return nativeDisplayName!;
 
+      final nativeComputedDisplayName = firstNativeContact?.computedDisplayName;
+      if (!isNullOrEmpty(nativeComputedDisplayName)) return nativeComputedDisplayName!;
+
       final computedDisplayName = contactsV2.first.computedDisplayName;
       if (!isNullOrEmpty(computedDisplayName)) return computedDisplayName;
     }
@@ -122,9 +125,9 @@ class Handle {
   String? get initials {
     if (address.startsWith("urn:biz")) return null;
 
-    // Check ContactV2 first for initials
     if (!kIsWeb && contactsV2.isNotEmpty) {
-      final contactV2Initials = contactsV2.first.initials;
+      final firstNativeContact = contactsV2.where((c) => c.isNative).firstOrNull;
+      final contactV2Initials = firstNativeContact?.initials ?? contactsV2.first.initials;
       if (contactV2Initials != null) return contactV2Initials;
     }
 

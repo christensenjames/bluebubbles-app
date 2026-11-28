@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-11-27 — Contact names
+
+- **Contacts:** native contact names and initials now take priority over server contacts even when the native display name is empty.
+
 ## 2026-11-25 — Back shows the chat list again on phones
 
 - **Navigation (phone layout):** upstream v2.1.6 moved chats and Settings pages into the split
