@@ -2,21 +2,40 @@ import 'package:bluebubbles/services/backend/sync/message_sync_deduplicator.dart
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
-  test('deduplicates snapshots per chat and detects changed snapshots', () {
-    final cases = <(String, Map<String, dynamic>, bool)>[
-      ('chat-a', {'guid': 'message', 'dateRead': null, 'text': 'hello', 'dateDeleted': null}, true),
-      ('chat-a', {'guid': 'message', 'dateRead': null, 'text': 'hello', 'dateDeleted': null}, false),
-      ('chat-b', {'guid': 'message', 'dateRead': null, 'text': 'hello', 'dateDeleted': null}, true),
-      ('chat-a', {'guid': 'message', 'dateRead': 1, 'text': 'hello', 'dateDeleted': null}, true),
-      ('chat-a', {'guid': 'message', 'dateRead': 1, 'text': 'edited', 'dateDeleted': null}, true),
-      ('chat-a', {'guid': 'message', 'dateRead': 1, 'text': 'edited', 'dateDeleted': 2}, true),
-      ('chat-a', {'guid': null}, true),
-      ('chat-a', {'guid': null}, true),
-    ];
+  test('an identical snapshot in the same chat is skipped', () {
     final deduplicator = MessageSyncDeduplicator();
-    for (final (chat, snapshot, expected) in cases) {
-      expect(deduplicator.shouldSync(chat, snapshot), expected, reason: '$chat $snapshot');
-    }
+    final snapshot = {'guid': 'message', 'text': 'hello'};
+    expect(deduplicator.shouldSync('chat-a', snapshot), isTrue);
+    expect(deduplicator.shouldSync('chat-a', snapshot), isFalse);
+  });
+
+  test('the same snapshot in another chat is synced', () {
+    final deduplicator = MessageSyncDeduplicator();
+    final snapshot = {'guid': 'message', 'text': 'hello'};
+    expect(deduplicator.shouldSync('chat-a', snapshot), isTrue);
+    expect(deduplicator.shouldSync('chat-b', snapshot), isTrue);
+  });
+
+  for (final (field, value) in <(String, dynamic)>[
+    ('dateRead', 1),
+    ('text', 'edited'),
+    ('dateDeleted', 2),
+  ]) {
+    test('a changed $field is synced', () {
+      final deduplicator = MessageSyncDeduplicator();
+      final snapshot = <String, dynamic>{
+        'guid': 'message', 'dateRead': null, 'text': 'hello', 'dateDeleted': null,
+      };
+      expect(deduplicator.shouldSync('chat-a', snapshot), isTrue);
+      expect(deduplicator.shouldSync('chat-a', {...snapshot, field: value}), isTrue);
+    });
+  }
+
+  test('a null GUID is always synced', () {
+    final deduplicator = MessageSyncDeduplicator();
+    final snapshot = <String, dynamic>{'guid': null};
+    expect(deduplicator.shouldSync('chat-a', snapshot), isTrue);
+    expect(deduplicator.shouldSync('chat-a', snapshot), isTrue);
   });
 
   test('keeps a copy of nested input when the caller mutates it', () {
