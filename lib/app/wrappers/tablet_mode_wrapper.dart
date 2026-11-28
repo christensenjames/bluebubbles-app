@@ -170,7 +170,10 @@ class _TabletModeWrapperState extends State<TabletModeWrapper> with ThemeHelpers
                                       min(widget.maxRatio * _maxWidth!, widget.maxWidthLeft ?? double.infinity)),
                                   max(widget.minRatio * _maxWidth!, widget.minWidthLeft ?? double.negativeInfinity));
                               _ratio.value = width / _maxWidth!;
-                              NavigationSvc.leftPaneNarrow.value = width < NavigatorService.avatarOnlyWidth;
+                              // Only the chat list's split decides avatar-only tiles; Settings and Find My reuse this wrapper
+                              if (widget.rightPane == NavigationSvc.chatPaneObserver) {
+                                NavigationSvc.leftPaneNarrow.value = width < NavigatorService.avatarOnlyWidth;
+                              }
                               NavigationSvc.listener.refresh();
                             },
                           ),
