@@ -462,7 +462,11 @@ class SpellCheckTextEditingController extends TextEditingController {
 }
 
 class MentionTextEditingController extends SpellCheckTextEditingController {
-  MentionTextEditingController({super.text, super.focusNode, this.mentionables = const <Mentionable>[]});
+  MentionTextEditingController({
+    super.text,
+    super.focusNode,
+    List<Mentionable>? mentionables,
+  }) : mentionables = mentionables ?? <Mentionable>[];
 
   List<Mentionable> mentionables;
 
@@ -480,6 +484,36 @@ class MentionTextEditingController extends SpellCheckTextEditingController {
       text: newText,
       selection: TextSelection.collapsed(offset: newText.length),
     );
+  }
+
+  void restoreDraft(String draft, List<Run>? storedRuns, Iterable<Handle> participants) {
+    final sameText = text == draft;
+    final fresh = participants.map((handle) => Mentionable(handle: handle)).toList();
+    mentionables.replaceRange(0, mentionables.length, fresh);
+    final (draftText, draftRuns) = sameText
+        ? (text, runs)
+        : storedRuns == null
+            ? parseLegacyDraft(draft, fresh)
+            : (draft, storedRuns);
+    final addresses = fresh.map((m) => m.address).toSet();
+    final restoredRuns = <Run>[];
+    for (final run in draftRuns) {
+      final mention = run.attributes?.mention;
+      if (mention == null || addresses.contains(mention)) {
+        restoredRuns.add(run);
+      } else {
+        final attributes = Map<String, dynamic>.of(run.attributes!.rawAttributes)..remove(_mentionAttribute);
+        if (attributes.isNotEmpty) {
+          restoredRuns.add(Run(range: run.range, attributes: Attributes(rawAttributes: attributes)));
+        }
+      }
+    }
+    if (sameText) {
+      runs = restoredRuns;
+      notifyListeners();
+    } else {
+      setTextAndRuns(draftText, restoredRuns);
+    }
   }
 
   void copyFrom(MentionTextEditingController other) => setTextAndRuns(other.text, other.runs);
@@ -941,7 +975,8 @@ class MentionTextEditingController extends SpellCheckTextEditingController {
     var last = 0;
     for (final match in RegExp('￼(\\d+)￼').allMatches(draft)) {
       out.write(draft.substring(last, match.start));
-      final mention = mentionables.elementAtOrNull(int.parse(match.group(1)!));
+      final index = int.tryParse(match.group(1)!);
+      final mention = index == null ? null : mentionables.elementAtOrNull(index);
       if (mention != null) {
         runs.add(
           Run(

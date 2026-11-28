@@ -3,7 +3,6 @@ import 'dart:convert';
 import 'package:bluebubbles/helpers/ui/recent_emojis.dart';
 
 import 'package:audio_waveforms/audio_waveforms.dart';
-import 'package:bluebubbles/app/components/custom_text_editing_controllers.dart';
 import 'package:bluebubbles/app/layouts/conversation_view/widgets/message/interactive/open_pigeon_view.dart';
 import 'package:bluebubbles/app/layouts/conversation_view/widgets/media_picker/text_field_attachment_picker.dart';
 import 'package:bluebubbles/app/layouts/conversation_view/widgets/message/send_animation.dart';
@@ -104,13 +103,15 @@ class ConversationTextFieldState extends CustomState<ConversationTextField, void
     // even before the async DB write from a previous session has completed.
     final state = ChatsSvc.getChatState(chatGuid);
     final incomingText = text ?? state?.textFieldText.value ?? chat.textFieldText;
-    if (incomingText != null && incomingText.isNotEmpty && incomingText != controller.textController.text) {
-      final storedRuns = text != null ? null : (state != null ? state.textFieldRuns.value : chat.textFieldRuns);
-      // Drafts saved before runs existed hold mentions as escape sequences in the text itself
-      final (draft, runs) = storedRuns == null
-          ? MentionTextEditingController.parseLegacyDraft(incomingText, controller.textController.mentionables)
-          : (incomingText, (jsonDecode(storedRuns) as List).map((r) => Run.fromMap((r as Map).cast())).toList());
-      controller.textController.setTextAndRuns(draft, runs);
+    if (incomingText != null && incomingText.isNotEmpty) {
+      final storedRuns = text != null || incomingText == controller.textController.text
+          ? null
+          : (state != null ? state.textFieldRuns.value : chat.textFieldRuns);
+      controller.textController.restoreDraft(
+        incomingText,
+        storedRuns == null ? null : (jsonDecode(storedRuns) as List).map((r) => Run.fromMap((r as Map).cast())).toList(),
+        state?.participants.map((hs) => hs.handle) ?? chat.people,
+      );
     }
   }
 

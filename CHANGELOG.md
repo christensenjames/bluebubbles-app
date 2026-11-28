@@ -3,6 +3,11 @@
 ## 2026-11-27 — Contact names
 
 - **Contacts:** native contact names and initials now take priority over server contacts even when the native display name is empty.
+## 2026-11-27 — Draft mentions survive participant changes
+
+- Restored drafts keep mentions attached to their saved participant addresses; a participant who left
+  becomes plain text, while any other formatting remains.
+- Older drafts with position-based mention markers still restore by participant position.
 
 ## 2026-11-25 — Back shows the chat list again on phones
 
