@@ -43,7 +43,7 @@ All heavy operations (database reads/writes, sync, bulk processing) run in a ded
 
 ### GlobalIsolate
 
-Defined in `lib/services/isolates/global_isolate.dart`. Spawned once at app startup via `startup_tasks.dart` and kept alive for the app's lifetime (auto-killed after 5 minutes of idle, restarted on next use).
+Defined in `lib/services/isolates/global_isolate.dart`. Registered with GetIt at app startup via `startup_tasks.dart`, but the isolate itself is spawned lazily on the first `send()`. It is auto-killed after 5 minutes of idle and restarted on next use.
 
 The isolate runs `sharedIsolateEntryPoint()`, which:
 1. Accepts a `SendPort` from the main thread
@@ -52,11 +52,11 @@ The isolate runs `sharedIsolateEntryPoint()`, which:
 4. Routes each request to the matching `IsolateRequestType` → action function
 5. Returns an `IsolateResponse` with a result or error
 
-Communication is request/response over `SendPort`/`ReceivePort` with UUID-keyed pending request tracking. Requests time out automatically.
+Communication is request/response over `SendPort`/`ReceivePort` with UUID-keyed pending request tracking. Requests have no timeout by default (`taskTimeout` is `Duration.zero`); a caller can pass `customTimeout` to `send()`.
 
 ### IncrementalSyncIsolate
 
-A lighter-weight variant that extends `GlobalIsolate`. It registers only the services needed for sync (no `MethodChannelService`). `idleTimeout` is `Duration.zero`, so it self-terminates immediately after its work is done. Used exclusively for incremental sync operations.
+A lighter-weight variant that extends `GlobalIsolate`. It registers a smaller service set (core services, the interop services including `MethodChannelService`, database, contacts, handles, chats, HTTP). `idleTimeout` is `Duration.zero`, so it self-terminates immediately after its work is done. Used exclusively for incremental sync operations.
 
 ### The `isIsolate` Flag
 
@@ -92,7 +92,7 @@ Two dependency injection systems are used deliberately for different purposes:
 | **GetIt** | Singleton services — registered once, accessed anywhere by type |
 | **GetX** | Reactive observable variables — `Rx*` types that drive `Obx()` widget rebuilds |
 
-Services are registered with GetIt (`GetIt.I.registerSingleton<T>()`). Shorthand getters for the most-used services are defined in `lib/services/services.dart` (e.g., `ChatsSvc`, `SettingsSvc`). GetX is never used for service location in this project.
+Services are registered with GetIt (`GetIt.I.registerSingleton<T>()`). Shorthand getters for the most-used services live beside each service and are re-exported by `lib/services/services.dart` (e.g., `ChatsSvc`, `SettingsSvc`). The exceptions are `MessagesSvc(chatGuid)` (one `MessagesService` per chat, registered with a GetX tag) and `NavigationSvc` (GetX).
 
 Inside components and state classes, `Rx*` observables (`RxBool`, `RxString`, `RxList<T>`, etc.) trigger fine-grained `Obx()` widget rebuilds.
 
@@ -121,8 +121,10 @@ IncomingMessageHandler (internal FIFO queue, configurable concurrency)
 **User action (e.g., mark as read):**
 ```
 UI widget → ChatsService.setChatHasUnread()
-  → ChatInterface.markChatReadUnread() (routes to isolate or direct)
-  → ChatActions (DB write)
+  → ChatsService._toggleChatHasUnread()
+  → Chat.toggleHasUnreadAsync()
+  → Chat.saveAsync() → ChatInterface.saveChat() (DB write, routes to isolate or direct)
+  → ChatInterface.markChatReadUnread() (server only, no DB write)
   → ChatState.updateHasUnreadInternal()
   → Obx() widget rebuilds badge
 ```
@@ -178,7 +180,7 @@ Conditional imports resolve the correct module at compile time. Service and UI c
 
 1. `FilesystemService` → `SharedPreferencesService` → `SettingsService` → `BaseLogger` (sequential, each awaited before the next starts)
 2. `LifecycleService`, `NotificationsService`, `MethodChannelService` — pre-registered (async, not yet awaited)
-3. Instance-lock check (Linux only), then `Database.init()` — once the DB is ready, the interop services above are allowed to finish their own init
+3. `Database.init()` — once the DB is ready, the interop services above are allowed to finish their own init
 4. `GlobalIsolate` + `IncrementalSyncIsolate` registered with GetIt; FCM data loaded from the DB into settings
 5. `HttpService`, then wait for `LifecycleService`
 6. `IncomingMessageHandler` registered, then wait for `MethodChannelService`
@@ -199,7 +201,7 @@ If adding a new service, place it at the correct position in `startup_tasks.dart
 
 ## Sync System
 
-`lib/services/backend/sync/` (`sync/CLAUDE.md`) coordinates bringing the local DB up to date with the server: `SyncService` is the single entry point and picks between a `FullSyncManager` (bulk fetch on first setup or full resync) and `IncrementalSyncManager` (resumable delta sync since the last run), plus a dedicated `HandleSyncManager` for narrower handle syncs. All managers share a `SyncStatus` lifecycle (`IDLE → IN_PROGRESS → COMPLETED_SUCCESS`/`COMPLETED_ERROR`, with a `STOPPING` state for user cancellation) exposed as `Rx` fields for UI progress display. Incremental sync normally runs inside `IncrementalSyncIsolate` (see Background Isolate System above) rather than blocking the main thread.
+`lib/services/backend/sync/` (`sync/CLAUDE.md`) coordinates bringing the local DB up to date with the server: `SyncService` is the single entry point, with `startFullSync()` (a `FullSyncManager` bulk fetch on first setup or full resync) and `startIncrementalSync()` (an `IncrementalSyncManager` resumable delta sync since the last run); the caller picks which, plus a dedicated `HandleSyncManager` for narrower handle syncs. All managers share a `SyncStatus` lifecycle (`IDLE → IN_PROGRESS → COMPLETED_SUCCESS`/`COMPLETED_ERROR`, with a `STOPPING` state for user cancellation) exposed as `Rx` fields for UI progress display. Incremental sync normally runs inside `IncrementalSyncIsolate` (see Background Isolate System above) rather than blocking the main thread.
 
 ---
 

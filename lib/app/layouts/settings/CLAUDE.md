@@ -12,6 +12,8 @@
 | `scheduling/` | Scheduled messages and reminders |
 | `advanced/` | Private API, Firebase, Tasker, Redacted mode, UnifiedPush |
 | `misc/` | Logging, troubleshoot, about |
+| `contacts/` | Contacts management |
+| `custom_groups/` | Custom chat groups |
 | `desktop/` | Desktop-specific options |
 
 ## Reusable Widgets (`widgets/`)
@@ -31,4 +33,4 @@
 
 ## Adding a New Setting
 1. Add field to `lib/database/global/settings.dart`
-2. Add tile in the appropriate `pages/*/` file using widgets from `widgets/tiles/`
+2. Add tile in the appropriate `pages/*/` file using widgets from `widgets/content/` (`SettingsTile`, `SettingsSwitch`) and `widgets/layout/` (`SettingsSection`)

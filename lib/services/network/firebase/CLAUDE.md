@@ -16,11 +16,11 @@ Guard with `if (kIsWeb || kIsDesktop) return;` before any FCM calls.
 
 ## Token Flow
 1. `cloud_messaging_service.dart` obtains the FCM token on init
-2. Token is sent to the server via `HttpService.setFCMClient()`
+2. Token is sent to the server via `HttpSvc.fcm.addDevice()`
 3. Server pushes messages via FCM when the socket is disconnected
 
 ## Related
-- HTTP endpoint for token registration: `lib/services/network/http_service.dart` → `setFCMClient()`
+- HTTP endpoint for token registration: `lib/services/network/api/fcm_api.dart` → `addDevice()`
 - FCM data entity: `lib/database/io/fcm_data.dart`
 - Android background handler: `lib/services/backend/java_dart_interop/background_isolate.dart`
 - Push provider abstraction: `lib/services/ui/unifiedpush.dart`

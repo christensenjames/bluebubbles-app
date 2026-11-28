@@ -1,7 +1,7 @@
 # services/backend/lifecycle/ — App Lifecycle Service
 
 ## File
-`lifecycle_service.dart` — `AppLifecycleService` (registered with GetIt)
+`lifecycle_service.dart` — `LifecycleService` (registered with GetIt; `LifecycleSvc` getter)
 
 ## Responsibilities
 - Listens to Flutter `AppLifecycleState` changes (resumed, paused, detached, inactive)
@@ -12,7 +12,7 @@
 - Drives the `isActive` flag on `ChatState` for the currently open conversation
 
 ## Usage
-Initialized at startup via `StartupTasks`. Do not instantiate; access via `GetIt.I<AppLifecycleService>()` if needed.
+Initialized at startup via `StartupTasks`. Do not instantiate; access via `LifecycleSvc`.
 
 ## Related
 - Socket reconnect: `lib/services/network/socket_service.dart`

@@ -67,7 +67,7 @@ ThemeSwitcher(
 )
 ```
 
-Check platform booleans (`kIsDesktop`, `kIsWeb`, `kIsIOS`) for layout branches, not user-agent strings.
+Check platform booleans (`kIsDesktop`, `kIsWeb`) for layout branches, not user-agent strings.
 
 ## Theme & Color Access
 

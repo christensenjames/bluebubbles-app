@@ -5,6 +5,9 @@
 |------|---------|
 | `chats_service.dart` | Global chat list state and lifecycle of per-chat reactive state |
 | `conversation_view_controller.dart` | Per-chat controller for the active conversation screen |
+| `custom_groups_service.dart` | `CustomGroupsSvc` — reactive read-only cache of custom groups for the Chat Filters sheet |
+| `send_data.dart` | `SendData` — everything one send operation needs, passed from the text field to `SendAnimation` |
+| `chat_stats/` | Chat statistics: computer, models and queries |
 | `message_list_gate.dart` | FIFO gate that defers message list mutations while a send animation is in flight |
 
 ---
@@ -25,7 +28,7 @@ GetIt singleton. Accessed via `ChatsSvc`.
 - `setAllInactive()` — marks all chats as not active (called when navigating away)
 - `activeChat` → `ChatState?` — the currently open chat
 
-**Loading:** Chats are loaded in batches of 100 (`loadChats()`). After the initial load, incremental updates come through `updateChat()`.
+**Loading:** Chats are loaded in batches of 100 (`init()`). After the initial load, incremental updates come through `updateChat()`.
 
 **Rules:**
 - Never write to a `ChatState` directly from UI — always call a `ChatsService` method

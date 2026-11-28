@@ -227,7 +227,7 @@ Plain Dart classes -- no ObjectBox annotations. Safe on all platforms. All imple
 50+ `Rx*` fields representing every user-configurable preference. Single source of truth for all app settings.
 
 Read: `SettingsSvc.settings.someFlag.value`
-Write: set value then `await SettingsSvc.saveSettings()`
+Write: set value then `await SettingsSvc.settings.saveOneAsync('someFlag')`
 
 Adding a new setting: add an `Rx*` field to `settings.dart`, persist in `toMap()`/`fromMap()`, then add a UI tile in `lib/app/layouts/settings/`.
 

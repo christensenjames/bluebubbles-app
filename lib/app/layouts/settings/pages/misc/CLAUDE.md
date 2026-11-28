@@ -9,6 +9,7 @@
 | `misc_panel.dart` | Miscellaneous tweaks: haptics, URL handling, Smart Reply, send-on-enter |
 | `soft_deleted_chats_panel.dart` | View/restore chats that were soft-deleted locally |
 | `troubleshoot_panel.dart` | Diagnostics: reset DB, clear cache, resync, force notification reregister |
+| `handle_audit_panel.dart` | Developer tools: scans local handles for a missing `originalROWID` and tries to repair them by re-fetching from the server |
 | `cache_tuning_panel.dart` | `CacheService` tuning: automatic purge levels, per-cache opt-out, purge now, live memory + last purge report |
 
 ## Related

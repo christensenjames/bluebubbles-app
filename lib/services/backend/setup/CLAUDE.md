@@ -1,7 +1,7 @@
 # services/backend/setup/ — App Setup Service
 
 ## File
-`setup_service.dart` — `SetupService` (GetX singleton via `SetupSvc` shorthand)
+`setup_service.dart` — `SetupService` (GetX singleton via the top-level `setup` getter)
 
 ## Responsibilities
 - Orchestrates the first-run server connection flow

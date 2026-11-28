@@ -30,7 +30,7 @@ Handles the action sheet / context menu shown when the user long-presses (or rig
 
 ## How It Works
 
-1. `MessagePopupHolder` triggers `showMessagePopup(...)` from a message bubble.
+1. `MessagePopupHolder.openPopup()` opens the popup from a message bubble.
 2. `MessagePopup` computes action availability and ordering in `_allActions`.
 3. Each menu action callback builds a `MessagePopupActionContext` and dispatches into `actions/*.dart`.
 4. Action functions own behavior; `message_popup.dart` owns visibility conditions and layout.

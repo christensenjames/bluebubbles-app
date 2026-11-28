@@ -104,6 +104,9 @@ Attachment download state machine:
 - EXIF extraction and format conversion post-download
 - Resized image downloads carry `_lowRes` in attachment metadata; they upgrade silently on Wi-Fi/Ethernet.
 
+## Method Channel Actions (`method_channel_actions.dart`)
+Typed wrappers over `MethodChannelService.invokeMethod` (open browser, contact forms, clipboard HTML, save to Downloads, etc.). Reached as `MethodChannelSvc.actions`.
+
 ## Firebase (`firebase/`) → `firebase/CLAUDE.md`
 - `cloud_messaging_service.dart` — FCM device token registration (Android + Desktop)
 - `firebase_database_service.dart` — Firebase Dart client setup for Desktop/Web; config fetching with fallback URLs

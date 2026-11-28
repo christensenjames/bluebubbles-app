@@ -16,7 +16,7 @@ One instance per chat GUID. Accessed via `MessagesSvc(chatGuid)`.
 **What it owns:**
 - `messageStates` — `Map<String, MessageState>` keyed by message GUID
 - `messageUpdateTrigger` — `RxMap<String, int>` timestamps; widgets watch a message's entry here to know when to rebuild
-- `struct` — in-memory `MessageStruct` for ordered access and range queries
+- `struct` — in-memory `ChatMessages` for ordered access and range queries
 
 **Key methods:**
 - `updateMessage(Message, {String? oldGuid})` — the main write path; merges changes into `MessageState` and handles tempGuid → realGuid remapping

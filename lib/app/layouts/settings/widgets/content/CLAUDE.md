@@ -33,7 +33,7 @@ Obx(() => SettingsSwitch(
   initialVal: SettingsSvc.settings.sendReadReceipts.value,
   onChanged: (val) {
     SettingsSvc.settings.sendReadReceipts.value = val;
-    SettingsSvc.saveSettings();
+    SettingsSvc.settings.saveOneAsync('sendReadReceipts');
   },
 ))
 
@@ -50,7 +50,7 @@ SettingsOptions<Skins>(
 ## Rules
 
 - `SettingsTile` is purely presentational (no reactive observables) — wrap in `Obx()` at the call site if the value is reactive.
-- `SettingsSwitch.initialVal` is the current value shown; `onChanged` is the write handler. Always call `SettingsSvc.saveSettings()` inside `onChanged`.
+- `SettingsSwitch.initialVal` is the current value shown; `onChanged` is the write handler. Always call `SettingsSvc.settings.saveOneAsync(key)` inside `onChanged`.
 - `SettingsOptions` is generic — `T` can be any enum or value type. Provide `textProcessing` to format the display label; without it the label is `toString()` (fine for `String` options, wrong for enums, which print as `Enum.value`).
 - Use `SettingsLeadingIcon` for the `leading` parameter to keep visual consistency across all settings pages.
 

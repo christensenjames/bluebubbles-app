@@ -33,7 +33,7 @@ of the iOS widgets below based on `SettingsSvc.settings.skin.value`.
 
 **Shared Media**
 - `attachment_section_header.dart` — section label + "Show more" action
-- `media_gallery_card.dart` — tappable media card → opens `FullscreenMedia`
+- `media_gallery_card.dart` — tappable media card → opens `ConversationFullscreenHolder`
 - `attachments_loader.dart` — attachment pagination and caching
 - `filters/media_filters_sheet.dart` — shared filters bottom sheet
 

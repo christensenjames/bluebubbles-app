@@ -11,6 +11,7 @@ After any `@Entity` annotation change: **`dart run build_runner build`**
 | `message.dart` | guid (unique+indexed, nullable), text, dateCreated (indexed), isFromMe, error, hasDdResults | → chat (ToOne), → handleRelation (ToOne, replacing legacy embedded `handle` field), → dbAttachments (ToMany backlink), → associatedMessages (plain list) |
 | `attachment.dart` | guid (unique), uti, mimeType, transferName, totalBytes | → message (ToOne; owning side of `Message.dbAttachments` backlink) |
 | `handle.dart` | uniqueAddressAndService (unique -- synthesized `"$address/$service"`), address, service (iMessage/SMS), country | ↔ contact_v2 (ToMany, `@Backlink('handles')`) |
+| `custom_group.dart` | name (unique), sortOrder, showUnreadBadge | → chats (ToMany, N:M; `Chat.customGroups` backlink) |
 | `contact_v2.dart` | displayName, nativeContactId (unique), avatarPath | ↔ handles (ToMany N:M) |
 
 | `theme.dart` (`ThemeStruct`) | name (unique), serialized FlutterThemeData, googleFont, gradientBg | — |

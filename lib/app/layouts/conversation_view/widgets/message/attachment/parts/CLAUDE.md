@@ -1,6 +1,6 @@
 # widgets/message/attachment/parts/ — Attachment Render States
 
-Per-transfer-state renderers for a single attachment slot. `AttachmentContent` (parent) picks the right widget based on `AttachmentState.transferState`.
+Per-transfer-state renderers for a single attachment slot. `AttachmentHolder` (parent) picks the right widget based on `AttachmentState.transferState`.
 
 ## Files
 

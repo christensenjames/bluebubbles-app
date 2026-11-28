@@ -6,7 +6,7 @@
 | `chat_event.dart` | Renders system-generated chat event rows (member added/removed, name changed, group photo changed, video/audio call started, etc.) |
 
 ## Usage
-Rendered instead of a normal message bubble when `message.isGroupAction == true` or `message.itemType != 0`.
+Rendered instead of a normal message bubble when `message.isGroupEvent || part.isUnsent`.
 
 ## Styling
 Centered, muted text without a bubble tail. Uses `context.theme.textTheme.bodySmall` with reduced opacity.
