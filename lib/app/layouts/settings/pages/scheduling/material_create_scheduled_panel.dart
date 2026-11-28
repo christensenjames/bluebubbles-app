@@ -205,6 +205,7 @@ class _MaterialCreateScheduledMessageState extends State<MaterialCreateScheduled
                         Padding(
                           padding: const EdgeInsets.only(bottom: 8),
                           child: Obx(() {
+                            // Read here, not in textProcessing, so this Obx rebuilds when the interval changes.
                             final plural = repeatInterval.value != 1;
                             return SettingsOptions<String>(
                               title: "With frequency:",

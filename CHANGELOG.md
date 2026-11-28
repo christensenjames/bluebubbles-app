@@ -1,8 +1,9 @@
 # Changelog
 
-## 2026-11-27 - Scheduled message frequency label
+## 2026-11-27 — Scheduled message frequency label
 
-- **Scheduling:** frequency labels now update their singular or plural form when the repeat interval changes.
+- **Scheduling:** the frequency labels were stale only when typing a repeat interval on desktop and
+  web; they now update their singular or plural form as the interval changes.
 
 ## 2026-11-25 — Back shows the chat list again on phones
 
