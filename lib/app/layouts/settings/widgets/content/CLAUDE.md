@@ -29,11 +29,11 @@ SettingsTile(
 
 // Toggle with reactive value
 Obx(() => SettingsSwitch(
-  title: 'Send Read Receipts',
-  initialVal: SettingsSvc.settings.sendReadReceipts.value,
+  title: 'Auto-open Keyboard',
+  initialVal: SettingsSvc.settings.autoOpenKeyboard.value,
   onChanged: (val) {
-    SettingsSvc.settings.sendReadReceipts.value = val;
-    SettingsSvc.settings.saveOneAsync('sendReadReceipts');
+    SettingsSvc.settings.autoOpenKeyboard.value = val;
+    SettingsSvc.settings.saveOneAsync('autoOpenKeyboard');
   },
 ))
 

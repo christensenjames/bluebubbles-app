@@ -90,7 +90,8 @@ Step-by-step recipes for the most frequent changes in this codebase. Each recipe
 2. **`lib/services/backend/action_handler.dart`** — Add a `case "my-new-event":` to `ActionHandler.handleEvent()`, either inline or delegating to a service method. If it triggers a DB write, load the chat, change it, and save through `saveAsync()`:
    ```dart
    case 'my-new-event':
-     final chat = Chat.findOne(guid: data['chatGuid']);
+     final guid = data['chatGuid'];
+     final chat = kIsWeb ? await Chat.findOneWeb(guid: guid) : Chat.findOne(guid: guid);
      if (chat != null) {
        chat.myField = data['value'];
        await chat.saveAsync(updateMyField: true);
